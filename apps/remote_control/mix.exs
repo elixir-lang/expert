@@ -49,7 +49,9 @@ defmodule Lexical.RemoteControl.MixProject do
       {:patch, "~> 0.15", only: [:dev, :test], optional: true, runtime: false},
       {:path_glob, "~> 0.2", optional: true},
       {:phoenix_live_view, "~> 1.0", only: [:test], optional: true, runtime: false},
-      {:sourceror, "~> 1.7"}
+      {:sourceror, "~> 1.7"},
+      {:stream_data, "~> 1.1", only: [:test], runtime: false},
+      {:refactorex, "~> 0.1.48"}
     ]
   end
 
