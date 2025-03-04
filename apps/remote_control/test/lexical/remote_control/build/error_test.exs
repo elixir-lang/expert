@@ -356,7 +356,7 @@ defmodule Lexical.RemoteControl.Build.ErrorTest do
       assert decorate(document_text, diagnostic.position) =~ "IO.«ins\n»"
     end
 
-    @feature_condition with_diagnostics?: false
+    @feature_condition with_diagnostics?: true
     @tag execute_if(@feature_condition)
     test "handles ArgumentError" do
       diagnostics =
