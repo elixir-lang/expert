@@ -1,4 +1,5 @@
 Application.ensure_all_started(:snowflake)
+Application.ensure_all_started(:refactorex)
 {"", 0} = System.cmd("epmd", ~w(-daemon))
 random_number = :rand.uniform(500)
 

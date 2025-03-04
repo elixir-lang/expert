@@ -30,7 +30,8 @@ defmodule Lexical.RemoteControl.CodeAction do
     Handlers.ReplaceWithUnderscore,
     Handlers.OrganizeAliases,
     Handlers.AddAlias,
-    Handlers.RemoveUnusedAlias
+    Handlers.RemoveUnusedAlias,
+    Handlers.Refactorex
   ]
 
   @spec new(Lexical.uri(), String.t(), code_action_kind(), Changes.t()) :: t()
@@ -40,23 +41,13 @@ defmodule Lexical.RemoteControl.CodeAction do
 
   @spec for_range(Document.t(), Range.t(), [Diagnostic.t()], [code_action_kind] | :all) :: [t()]
   def for_range(%Document{} = doc, %Range{} = range, diagnostics, kinds) do
-    results =
-      Enum.flat_map(@handlers, fn handler ->
-        if applies?(kinds, handler) do
-          handler.actions(doc, range, diagnostics)
-        else
-          []
-        end
-      end)
-
-    results
+    Enum.flat_map(@handlers, fn handler ->
+      if applies?(kinds, handler),
+        do: handler.actions(doc, range, diagnostics),
+        else: []
+    end)
   end
 
-  defp applies?(:all, _handler_module) do
-    true
-  end
-
-  defp applies?(kinds, handler_module) do
-    kinds -- handler_module.kinds() != kinds
-  end
+  defp applies?(:all, _handler), do: true
+  defp applies?(kinds, handler), do: kinds -- handler.kinds() != kinds
 end
