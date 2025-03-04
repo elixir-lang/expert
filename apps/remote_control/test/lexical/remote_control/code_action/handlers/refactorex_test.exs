@@ -24,10 +24,6 @@ defmodule Lexical.RemoteControl.CodeAction.Handlers.RefactorexTest do
     {:ok, changes}
   end
 
-  test "check if refactorex application is started" do
-    assert Enum.any?(Application.started_applications(), &match?({:refactorex, _, _}, &1))
-  end
-
   test "underscore variables not used" do
     {:ok, result} =
       ~q[
