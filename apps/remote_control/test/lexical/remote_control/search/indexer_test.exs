@@ -1,5 +1,6 @@
 defmodule Lexical.RemoteControl.Search.IndexerTest do
   alias Lexical.Project
+  alias Lexical.RemoteControl.Dispatch
   alias Lexical.RemoteControl.Search.Indexer
   alias Lexical.RemoteControl.Search.Indexer.Entry
 
@@ -24,7 +25,7 @@ defmodule Lexical.RemoteControl.Search.IndexerTest do
 
   setup do
     project = project()
-    start_supervised(Lexical.RemoteControl.Dispatch)
+    start_supervised(Dispatch)
     {:ok, project: project}
   end
 
@@ -46,12 +47,8 @@ defmodule Lexical.RemoteControl.Search.IndexerTest do
 
   @ephemeral_file_name "ephemeral.ex"
 
-  def with_an_ephemeral_file(%{project: project}) do
+  def with_an_ephemeral_file(%{project: project}, file_contents) do
     file_path = Path.join([Project.root_path(project), "lib", @ephemeral_file_name])
-    file_contents = ~s[
-      defmodule Ephemeral do
-      end
-    ]
     File.write!(file_path, file_contents)
 
     on_exit(fn ->
@@ -59,6 +56,14 @@ defmodule Lexical.RemoteControl.Search.IndexerTest do
     end)
 
     {:ok, file_path: file_path}
+  end
+
+  def with_a_file_with_a_module(context) do
+    file_contents = ~s[
+        defmodule Ephemeral do
+        end
+      ]
+    with_an_ephemeral_file(context, file_contents)
   end
 
   def with_an_existing_index(%{project: project}) do
@@ -69,7 +74,7 @@ defmodule Lexical.RemoteControl.Search.IndexerTest do
   end
 
   describe "update_index/2 encounters a new file" do
-    setup [:with_an_existing_index, :with_an_ephemeral_file]
+    setup [:with_an_existing_index, :with_a_file_with_a_module]
 
     test "the ephemeral file is not previously present in the index", %{entries: entries} do
       refute Enum.any?(entries, fn entry -> Path.basename(entry.path) == @ephemeral_file_name end)
@@ -83,8 +88,31 @@ defmodule Lexical.RemoteControl.Search.IndexerTest do
     end
   end
 
+  def with_an_ephemeral_empty_file(context) do
+    with_an_ephemeral_file(context, "")
+  end
+
+  describe "update_index/2 encounters a zero-length file" do
+    setup [:with_an_existing_index, :with_an_ephemeral_empty_file]
+
+    test "and does nothing", %{project: project} do
+      {:ok, entry_stream, []} = Indexer.update_index(project, FakeBackend)
+      assert [] = Enum.to_list(entry_stream)
+    end
+
+    test "there is no progress", %{project: project} do
+      # this ensures we don't emit progress with a total byte size of 0, which will
+      # cause an ArithmeticError
+
+      Dispatch.register_listener(self(), :all)
+      {:ok, entry_stream, []} = Indexer.update_index(project, FakeBackend)
+      assert [] = Enum.to_list(entry_stream)
+      refute_receive _
+    end
+  end
+
   describe "update_index/2" do
-    setup [:with_an_ephemeral_file, :with_an_existing_index]
+    setup [:with_a_file_with_a_module, :with_an_existing_index]
 
     test "sees the ephemeral file", %{entries: entries} do
       assert Enum.any?(entries, fn entry -> Path.basename(entry.path) == @ephemeral_file_name end)

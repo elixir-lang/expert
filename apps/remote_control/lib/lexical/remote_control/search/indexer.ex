@@ -101,57 +101,62 @@ defmodule Lexical.RemoteControl.Search.Indexer do
 
     total_bytes = paths_to_sizes |> Enum.map(&elem(&1, 1)) |> Enum.sum()
 
-    {on_update_progess, on_complete} = Progress.begin_percent("Indexing source code", total_bytes)
+    if total_bytes > 0 do
+      {on_update_progess, on_complete} =
+        Progress.begin_percent("Indexing source code", total_bytes)
 
-    initial_state = {0, []}
+      initial_state = {0, []}
 
-    chunk_fn = fn {path, file_size}, {block_size, paths} ->
-      new_block_size = file_size + block_size
-      new_paths = [path | paths]
+      chunk_fn = fn {path, file_size}, {block_size, paths} ->
+        new_block_size = file_size + block_size
+        new_paths = [path | paths]
 
-      if new_block_size >= @bytes_per_block do
-        {:cont, new_paths, initial_state}
-      else
-        {:cont, {new_block_size, new_paths}}
+        if new_block_size >= @bytes_per_block do
+          {:cont, new_paths, initial_state}
+        else
+          {:cont, {new_block_size, new_paths}}
+        end
       end
-    end
 
-    after_fn = fn
-      {_, []} ->
-        {:cont, []}
+      after_fn = fn
+        {_, []} ->
+          {:cont, []}
 
-      {_, paths} ->
-        {:cont, paths, []}
-    end
-
-    paths_to_sizes
-    |> Stream.chunk_while(initial_state, chunk_fn, after_fn)
-    |> Task.async_stream(
-      fn chunk ->
-        block_bytes = chunk |> Enum.map(&Map.get(path_to_size_map, &1)) |> Enum.sum()
-        result = Enum.map(chunk, processor)
-        on_update_progess.(block_bytes, "Indexing")
-        result
-      end,
-      timeout: timeout
-    )
-    |> Stream.flat_map(fn
-      {:ok, entry_chunks} -> entry_chunks
-      _ -> []
-    end)
-    # The next bit is the only way i could figure out how to
-    # call complete once the stream was realized
-    |> Stream.transform(
-      fn -> nil end,
-      fn chunk_items, acc ->
-        # By the chunk items list directly, each transformation
-        # will flatten the resulting steam
-        {chunk_items, acc}
-      end,
-      fn _acc ->
-        on_complete.()
+        {_, paths} ->
+          {:cont, paths, []}
       end
-    )
+
+      paths_to_sizes
+      |> Stream.chunk_while(initial_state, chunk_fn, after_fn)
+      |> Task.async_stream(
+        fn chunk ->
+          block_bytes = chunk |> Enum.map(&Map.get(path_to_size_map, &1)) |> Enum.sum()
+          result = Enum.map(chunk, processor)
+          on_update_progess.(block_bytes, "Indexing")
+          result
+        end,
+        timeout: timeout
+      )
+      |> Stream.flat_map(fn
+        {:ok, entry_chunks} -> entry_chunks
+        _ -> []
+      end)
+      # The next bit is the only way i could figure out how to
+      # call complete once the stream was realized
+      |> Stream.transform(
+        fn -> nil end,
+        fn chunk_items, acc ->
+          # By the chunk items list directly, each transformation
+          # will flatten the resulting steam
+          {chunk_items, acc}
+        end,
+        fn _acc ->
+          on_complete.()
+        end
+      )
+    else
+      []
+    end
   end
 
   defp path_to_sizes(paths) do
