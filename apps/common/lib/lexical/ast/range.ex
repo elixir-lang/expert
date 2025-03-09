@@ -45,46 +45,4 @@ defmodule Lexical.Ast.Range do
       :error -> nil
     end
   end
-
-  @doc """
-  Extracts the range subtree from the whole document AST while preserving
-  the its positional metadata (differently than Document.fragment/2),
-  which facilitates finding these nodes inside the complete AST.
-
-  It's basically the inverse of Range.fetch/2.
-  """
-  @spec subtree(Document.t(), Range.t()) :: {:ok, Macro.t()} | {:error, term()}
-  def subtree(%Document{lines: lines}, %Range{} = range) do
-    lines
-    |> Stream.map(fn
-      {_, line, _, i, _} when i > range.start.line and i < range.end.line ->
-        line
-
-      {_, line, _, i, _} when i == range.start.line and i == range.end.line ->
-        line
-        |> remove_line_start(range)
-        |> remove_line_end(range)
-
-      {_, line, _, i, _} when i == range.start.line ->
-        remove_line_start(line, range)
-
-      {_, line, _, i, _} when i == range.end.line ->
-        remove_line_end(line, range)
-
-      _ ->
-        ""
-    end)
-    |> Enum.join("\n")
-    |> Sourceror.parse_string()
-  end
-
-  defp remove_line_start(line, %{start: %{character: character}}) do
-    {_, line} = String.split_at(line, character - 1)
-    String.pad_leading(line, character - 1 + String.length(line), " ")
-  end
-
-  defp remove_line_end(line, %{end: %{character: character}}) do
-    {line, _} = String.split_at(line, character - 1)
-    line
-  end
 end
