@@ -1,55 +1,79 @@
 defmodule Lexical.RemoteControl.CodeAction.Handlers.RefactorexTest do
-  alias Lexical.Document
-  alias Lexical.RemoteControl.CodeAction.Diagnostic
-  alias Lexical.RemoteControl.CodeAction.Handlers.Refactorex
-
   use Lexical.Test.CodeMod.Case
 
-  def apply_code_mod(original_text, _ast, options) do
-    {{l1, c1}, {l2, c2}} = options[:range]
+  alias Lexical.Document
+  alias Lexical.RemoteControl.CodeAction.Handlers.Refactorex
 
+  import Lexical.Test.RangeSupport
+  import Lexical.Test.CodeSigil
+
+  def apply_code_mod(original_text, _ast, options) do
     document = Document.new("file:///file.ex", original_text, 0)
-    range = Document.Range.new(
-      Document.Position.new(document, l1, c1),
-      Document.Position.new(document, l2, c2)
-    )
-    diagnostic = Diagnostic.new(range, "", nil)
 
     changes =
       document
-      |> Refactorex.actions(range, [diagnostic])
-      |> Enum.find(& &1.title == options[:title])
+      |> Refactorex.actions(options[:range], [])
+      |> Enum.find(&(&1.title == options[:title]))
       |> then(& &1.changes.edits)
 
     {:ok, changes}
   end
 
-  test "underscore variables not used" do
-    {:ok, result} =
-      ~q[
-        def my_func(unused) do
-        end
-      ]
-      |> modify(range: {{1, 1}, {1, 1}}, title: "Underscore variables not used")
+  defp assert_refactored(title, original, refactored) do
+    {range, original} = pop_range(original)
+    assert {:ok, ^refactored} = modify(original, range: range, title: title)
+  end
 
-    assert result == ~q[
-      def my_func(_unused) do
-      end]
+  test "underscore variables not used" do
+    assert_refactored(
+      "Underscore variables not used",
+      ~q[
+        def my_«»func(unused) do
+        end
+      ],
+      ~q[
+        def my_func(_unused) do
+        end]
+    )
   end
 
   test "extract variable" do
-    {:ok, result} =
+    assert_refactored(
+      "Extract variable",
       ~q[
         def my_func() do
-          42
+          «42»
         end
-      ]
-      |> modify(range: {{2, 3}, {2, 5}}, title: "Extract variable")
+      ],
+      ~q[
+        def my_func() do
+          extracted_variable = 42
+          extracted_variable
+        end]
+    )
+  end
 
-    assert result == ~q[
-      def my_func() do
-        extracted_variable = 42
-        extracted_variable
+  test "extract anonymous function" do
+    assert_refactored(
+      "Extract anonymous function",
+      ~q[
+      defmodule Foo do
+        def my_func() do
+          Enum.map(1..2, «fn i ->
+            i + 20
+          end»)
+        end
+      end],
+      ~q[
+      defmodule Foo do
+        def my_func() do
+          Enum.map(1..2, &extracted_function(&1))
+        end
+
+        defp extracted_function(i) do
+          i + 20
+        end
       end]
+    )
   end
 end
