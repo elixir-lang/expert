@@ -44,13 +44,15 @@ defmodule Lexical.RemoteControl.Api do
         %Document{} = document,
         %Range{} = range,
         diagnostics,
-        kinds
+        kinds,
+        trigger_kind
       ) do
     RemoteControl.call(project, RemoteControl, :code_actions, [
       document,
       range,
       diagnostics,
-      kinds
+      kinds,
+      trigger_kind
     ])
   end
 

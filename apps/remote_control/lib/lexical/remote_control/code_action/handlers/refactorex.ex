@@ -39,6 +39,9 @@ defmodule Lexical.RemoteControl.CodeAction.Handlers.Refactorex do
   @impl CodeAction.Handler
   def kinds, do: [:refactor]
 
+  @impl CodeAction.Handler
+  def trigger_kind, do: :invoked
+
   defp line_or_selection(_, %{start: start, end: start}), do: {:ok, start.line}
 
   defp line_or_selection(doc, %{start: start} = range) do

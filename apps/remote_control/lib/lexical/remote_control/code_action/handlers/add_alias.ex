@@ -34,15 +34,15 @@ defmodule Lexical.RemoteControl.CodeAction.Handlers.AddAlias do
       |> Stream.map(&build_code_action(analysis, range, current_aliases, &1))
       |> Enum.reject(&is_nil/1)
     else
-      _ ->
-        []
+      _ -> []
     end
   end
 
   @impl CodeAction.Handler
-  def kinds do
-    [:quick_fix]
-  end
+  def kinds, do: [:quick_fix]
+
+  @impl CodeAction.Handler
+  def trigger_kind, do: :all
 
   defp build_code_action(%Analysis{} = analysis, range, current_aliases, potential_alias_module) do
     case Ast.Module.safe_split(potential_alias_module, as: :atoms) do

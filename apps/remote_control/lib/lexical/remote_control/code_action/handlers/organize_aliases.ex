@@ -26,15 +26,15 @@ defmodule Lexical.RemoteControl.CodeAction.Handlers.OrganizeAliases do
         [CodeAction.new(doc.uri, "Organize aliases", :source_organize_imports, changes)]
       end
     else
-      _ ->
-        []
+      _ -> []
     end
   end
 
   @impl CodeAction.Handler
-  def kinds do
-    [:source, :source_organize_imports]
-  end
+  def kinds, do: [:source, :source_organize_imports]
+
+  @impl CodeAction.Handler
+  def trigger_kind, do: :all
 
   defp check_aliases(%Document{}, %Analysis{} = analysis, %Range{} = range) do
     case Analysis.module_scope(analysis, range) do

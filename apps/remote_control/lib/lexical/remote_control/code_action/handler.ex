@@ -6,4 +6,5 @@ defmodule Lexical.RemoteControl.CodeAction.Handler do
 
   @callback actions(Document.t(), Range.t(), [Diagnostic.t()]) :: [CodeAction.t()]
   @callback kinds() :: [CodeAction.code_action_kind()]
+  @callback trigger_kind() :: CodeAction.trigger_kind() | :all
 end

@@ -18,6 +18,8 @@ defmodule Lexical.RemoteControl.CodeAction do
           | :source_organize_imports
           | :source_fix_all
 
+  @type trigger_kind :: :invoked | :automatic
+
   @type t :: %__MODULE__{
           title: String.t(),
           kind: code_action_kind,
@@ -39,15 +41,31 @@ defmodule Lexical.RemoteControl.CodeAction do
     %__MODULE__{uri: uri, title: title, changes: changes, kind: kind}
   end
 
-  @spec for_range(Document.t(), Range.t(), [Diagnostic.t()], [code_action_kind] | :all) :: [t()]
-  def for_range(%Document{} = doc, %Range{} = range, diagnostics, kinds) do
+  @spec for_range(
+          Document.t(),
+          Range.t(),
+          [Diagnostic.t()],
+          [code_action_kind] | :all,
+          trigger_kind
+        ) :: [t()]
+  def for_range(%Document{} = doc, %Range{} = range, diagnostics, kinds, trigger_kind) do
     Enum.flat_map(@handlers, fn handler ->
-      if applies?(kinds, handler),
-        do: handler.actions(doc, range, diagnostics),
-        else: []
+      cond do
+        not handle_kinds?(handler, kinds) ->
+          []
+
+        not handle_trigger_kind?(handler, trigger_kind) ->
+          []
+
+        true ->
+          handler.actions(doc, range, diagnostics)
+      end
     end)
   end
 
-  defp applies?(:all, _handler), do: true
-  defp applies?(kinds, handler), do: kinds -- handler.kinds() != kinds
+  defp handle_kinds?(_handler, :all), do: true
+  defp handle_kinds?(handler, kinds), do: kinds -- handler.kinds() != kinds
+
+  defp handle_trigger_kind?(handler, trigger_kind),
+    do: handler.trigger_kind() in [trigger_kind, :all]
 end

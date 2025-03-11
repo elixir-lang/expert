@@ -18,7 +18,8 @@ defmodule Lexical.Server.Provider.Handlers.CodeAction do
         request.document,
         request.range,
         diagnostics,
-        request.context.only || :all
+        request.context.only || :all,
+        request.context.trigger_kind
       )
 
     results = Enum.map(code_actions, &to_result/1)

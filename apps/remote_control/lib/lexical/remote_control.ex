@@ -33,7 +33,9 @@ defmodule Lexical.RemoteControl do
 
   defdelegate list_modules, to: :code, as: :all_available
 
-  defdelegate code_actions(document, range, diagnostics, kinds), to: CodeAction, as: :for_range
+  defdelegate code_actions(document, range, diagnostics, kinds, trigger_kind),
+    to: CodeAction,
+    as: :for_range
 
   defdelegate complete(env), to: RemoteControl.Completion, as: :elixir_sense_expand
 

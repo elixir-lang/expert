@@ -62,9 +62,10 @@ defmodule Lexical.RemoteControl.CodeAction.Handlers.RemoveUnusedAlias do
   end
 
   @impl CodeAction.Handler
-  def kinds do
-    [:source]
-  end
+  def kinds, do: [:source]
+
+  @impl CodeAction.Handler
+  def trigger_kind, do: :all
 
   defp to_edit(%Document{} = document, %Position{} = position, %Diagnostic{} = diagnostic) do
     with {:ok, module_string} <- fetch_unused_alias_module_string(diagnostic),
