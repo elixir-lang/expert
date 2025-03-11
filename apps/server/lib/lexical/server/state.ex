@@ -43,6 +43,12 @@ defmodule Lexical.Server.State do
 
   @supported_code_actions [
     :quick_fix,
+    :refactor,
+    :refactor_extract,
+    :refactor_inline,
+    :refactor_rewrite,
+    :source,
+    :source_fix_all,
     :source_organize_imports
   ]
 
