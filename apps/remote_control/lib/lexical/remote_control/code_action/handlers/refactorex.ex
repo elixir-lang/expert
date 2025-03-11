@@ -2,11 +2,12 @@ defmodule Lexical.RemoteControl.CodeAction.Handlers.Refactorex do
   alias Lexical.Document
   alias Lexical.Document.Changes
   alias Lexical.Document.Range
+
   alias Lexical.RemoteControl
   alias Lexical.RemoteControl.CodeAction
   alias Lexical.RemoteControl.CodeMod
+
   alias Refactorex.Refactor
-  alias String
 
   @behaviour CodeAction.Handler
 
