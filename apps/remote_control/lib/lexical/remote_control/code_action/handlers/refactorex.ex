@@ -10,14 +10,10 @@ defmodule Lexical.RemoteControl.CodeAction.Handlers.Refactorex do
 
   @behaviour CodeAction.Handler
 
-  require Logger
-
   @impl CodeAction.Handler
   def actions(%Document{} = doc, %Range{} = range, _diagnostics) do
     with {:ok, target} <- line_or_selection(doc, range),
          {:ok, ast} <- Sourceror.parse_string(Document.to_string(doc)) do
-      Logger.info("[RefactorEx] target #{inspect(target)}")
-
       ast
       |> Sourceror.Zipper.zip()
       |> Refactor.available_refactorings(target, true)
@@ -30,9 +26,7 @@ defmodule Lexical.RemoteControl.CodeAction.Handlers.Refactorex do
         )
       end)
     else
-      error ->
-        Logger.error("[RefactorEx] error #{inspect(error)}")
-        []
+      _ -> []
     end
   end
 
