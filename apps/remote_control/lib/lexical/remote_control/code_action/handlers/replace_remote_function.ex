@@ -19,13 +19,16 @@ defmodule Lexical.RemoteControl.CodeAction.Handlers.ReplaceRemoteFunction do
            {:ok, suggestions} <- prepare_suggestions(module, function, arity) do
         to_code_actions(doc, line_number, module, function, suggestions)
       else
-        _ -> []
+        _ ->
+          []
       end
     end)
   end
 
   @impl CodeAction.Handler
-  def kinds, do: [:quick_fix]
+  def kinds do
+    [:quick_fix]
+  end
 
   @impl CodeAction.Handler
   def trigger_kind, do: :all

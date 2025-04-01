@@ -26,12 +26,15 @@ defmodule Lexical.RemoteControl.CodeAction.Handlers.OrganizeAliases do
         [CodeAction.new(doc.uri, "Organize aliases", :source_organize_imports, changes)]
       end
     else
-      _ -> []
+      _ ->
+        []
     end
   end
 
   @impl CodeAction.Handler
-  def kinds, do: [:source, :source_organize_imports]
+  def kinds do
+    [:source, :source_organize_imports]
+  end
 
   @impl CodeAction.Handler
   def trigger_kind, do: :all

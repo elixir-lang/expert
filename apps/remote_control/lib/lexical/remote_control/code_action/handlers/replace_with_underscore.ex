@@ -18,13 +18,16 @@ defmodule Lexical.RemoteControl.CodeAction.Handlers.ReplaceWithUnderscore do
 
         [action | acc]
       else
-        _ -> acc
+        _ ->
+          acc
       end
     end)
   end
 
   @impl CodeAction.Handler
-  def kinds, do: [:quick_fix]
+  def kinds do
+    [:quick_fix]
+  end
 
   @impl CodeAction.Handler
   def trigger_kind, do: :all

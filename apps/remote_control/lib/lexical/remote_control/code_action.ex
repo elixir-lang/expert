@@ -50,15 +50,10 @@ defmodule Lexical.RemoteControl.CodeAction do
         ) :: [t()]
   def for_range(%Document{} = doc, %Range{} = range, diagnostics, kinds, trigger_kind) do
     Enum.flat_map(@handlers, fn handler ->
-      cond do
-        not handle_kinds?(handler, kinds) ->
-          []
-
-        not handle_trigger_kind?(handler, trigger_kind) ->
-          []
-
-        true ->
-          handler.actions(doc, range, diagnostics)
+      if handle_kinds?(handler, kinds) and handle_trigger_kind?(handler, trigger_kind) do
+        handler.actions(doc, range, diagnostics)
+      else
+        []
       end
     end)
   end

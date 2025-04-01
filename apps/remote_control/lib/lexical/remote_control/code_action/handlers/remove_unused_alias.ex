@@ -62,7 +62,9 @@ defmodule Lexical.RemoteControl.CodeAction.Handlers.RemoveUnusedAlias do
   end
 
   @impl CodeAction.Handler
-  def kinds, do: [:source]
+  def kinds do
+    [:source]
+  end
 
   @impl CodeAction.Handler
   def trigger_kind, do: :all
