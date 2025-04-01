@@ -24,7 +24,7 @@ defmodule Lexical.RemoteControl.CodeAction.Handlers.RefactorexTest do
     assert {:ok, ^refactored} = modify(original, range: range, title: title)
   end
 
-  test "underscore variables not used" do
+  test "Refactorex works with the cursor position" do
     assert_refactored(
       "Underscore variables not used",
       ~q[
@@ -37,7 +37,7 @@ defmodule Lexical.RemoteControl.CodeAction.Handlers.RefactorexTest do
     )
   end
 
-  test "extract variable" do
+  test "Refactorex works with a selection" do
     assert_refactored(
       "Extract variable",
       ~q[
@@ -53,7 +53,7 @@ defmodule Lexical.RemoteControl.CodeAction.Handlers.RefactorexTest do
     )
   end
 
-  test "extract anonymous function" do
+  test "Refactorex works with a multiline position" do
     assert_refactored(
       "Extract anonymous function",
       ~q[
