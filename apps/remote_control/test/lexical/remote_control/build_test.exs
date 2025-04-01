@@ -239,7 +239,6 @@ defmodule Lexical.BuildTest do
       end
     end
 
-    @tag :skip
     test "handles function clause errors", %{project: project} do
       source = ~S[
         f = fn 1 -> :correct end
