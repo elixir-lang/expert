@@ -51,7 +51,7 @@ defmodule Lexical.RemoteControl.MixProject do
       {:phoenix_live_view, "~> 1.0", only: [:test], optional: true, runtime: false},
       {:sourceror, "~> 1.7"},
       {:stream_data, "~> 1.1", only: [:test], runtime: false},
-      {:refactorex, "~> 0.1.49"}
+      {:refactorex, "~> 0.1.51"}
     ]
   end
 
