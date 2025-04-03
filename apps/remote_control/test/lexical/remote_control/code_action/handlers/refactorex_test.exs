@@ -24,6 +24,13 @@ defmodule Lexical.RemoteControl.CodeAction.Handlers.RefactorexTest do
     assert {:ok, ^refactored} = modify(original, range: range, title: title)
   end
 
+  setup do
+    project = project()
+    Lexical.RemoteControl.set_project(project)
+
+    {:ok, project: project}
+  end
+
   test "Refactorex works with the cursor position" do
     assert_refactored(
       "Underscore variables not used",
