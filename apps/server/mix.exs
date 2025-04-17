@@ -51,7 +51,7 @@ defmodule Lexical.Server.MixProject do
       {:path_glob, "~> 0.2"},
       {:protocol, path: "../protocol", env: Mix.env()},
       {:remote_control, path: "../remote_control", env: Mix.env()},
-      {:sourceror, "~> 1.7"}
+      {:sourceror, "~> 1.9"}
     ]
   end
 end

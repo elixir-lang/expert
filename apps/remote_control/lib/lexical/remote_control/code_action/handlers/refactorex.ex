@@ -40,16 +40,9 @@ defmodule Lexical.RemoteControl.CodeAction.Handlers.Refactorex do
   defp line_or_selection(_, %{start: start, end: start}), do: {:ok, start.line}
 
   defp line_or_selection(doc, %{start: start} = range) do
-    [
-      # new lines before the selection
-      String.duplicate("\n", start.line - 1),
-      # same line whitespace before the selection
-      String.duplicate(" ", start.character - 1),
-      # the selection
-      Document.fragment(doc, range.start, range.end)
-    ]
-    |> IO.iodata_to_binary()
-    |> Sourceror.parse_string()
+    doc
+    |> Document.fragment(range.start, range.end)
+    |> Sourceror.parse_string(line: start.line, column: start.character)
   end
 
   defp map_kind("quickfix"), do: :quick_fix
@@ -58,18 +51,12 @@ defmodule Lexical.RemoteControl.CodeAction.Handlers.Refactorex do
   defp ast_to_changes(doc, ast) do
     {formatter, opts} = CodeMod.Format.formatter_for_file(RemoteControl.get_project(), doc.uri)
 
-    extract_comments_opts = [collapse_comments: true, correct_lines: true] ++ opts
-    {ast, comments} = Sourceror.Comments.extract_comments(ast, extract_comments_opts)
-
     ast
-    |> Code.quoted_to_algebra(
-      local_without_parens: opts[:local_without_parens],
-      comments: comments,
-      escape: false
+    |> Sourceror.to_string(
+      formatter: formatter,
+      locals_without_parens: opts[:locals_without_parens] || []
     )
-    |> Inspect.Algebra.format(:infinity)
-    |> IO.iodata_to_binary()
-    |> formatter.()
-    |> then(&Changes.new(doc, CodeMod.Diff.diff(doc, &1)))
+    |> then(&CodeMod.Diff.diff(doc, &1))
+    |> then(&Changes.new(doc, &1))
   end
 end
