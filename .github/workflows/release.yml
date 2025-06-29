@@ -32,23 +32,13 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-mix-${{ env.cache-name }}-
 
-      - name: Install dependencies
-        run: mix deps.get
-
-      - name: Compile
-        run: mix compile
-
       - name: Build release
-        run: mix package --zip
-
-      - name: Archive release
-        run: |
-          cp expert.zip expert-${{ github.ref_name }}.zip
+        run: make release
 
       - name: Publish release
         uses: ncipollo/release-action@v1
         with:
-          artifacts: expert*.zip
+          artifacts: apps/expert/burrito_out/*
           makeLatest: true
           generateReleaseNotes: false
           allowUpdates: true

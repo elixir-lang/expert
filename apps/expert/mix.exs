@@ -6,18 +6,19 @@ defmodule Expert.MixProject do
     [
       app: :expert,
       version: "0.7.2",
-      elixir: "~> 1.15",
+      elixir: "~> 1.17",
       start_permanent: Mix.env() == :prod,
       deps: deps(),
       dialyzer: Mix.Dialyzer.config(add_apps: [:jason]),
       aliases: aliases(),
-      elixirc_paths: elixirc_paths(Mix.env())
+      elixirc_paths: elixirc_paths(Mix.env()),
+      releases: releases()
     ]
   end
 
   def application do
     [
-      extra_applications: [:logger, :runtime_tools, :kernel, :erts],
+      extra_applications: [:logger, :runtime_tools, :kernel, :erts, :observer],
       mod: {Expert.Application, []}
     ]
   end
@@ -38,11 +39,42 @@ defmodule Expert.MixProject do
     ["lib"]
   end
 
+  defp releases() do
+    [
+      expert: [
+        strip_beams: false,
+        cookie: "expert",
+        steps: release_steps(),
+        burrito: [
+          targets: [
+            darwin_arm64: [os: :darwin, cpu: :aarch64],
+            darwin_amd64: [os: :darwin, cpu: :x86_64],
+            linux_arm64: [os: :linux, cpu: :aarch64],
+            linux_amd64: [os: :linux, cpu: :x86_64],
+            windows_amd64: [os: :windows, cpu: :x86_64]
+          ]
+        ]
+      ]
+    ]
+  end
+
+  defp release_steps() do
+    [
+      :assemble,
+      &Expert.Release.assemble/1,
+      &Burrito.wrap/1
+    ]
+  end
+
   defp deps do
     [
+      {:burrito, "~> 1.3", only: [:dev, :prod]},
       Mix.Credo.dependency(),
       Mix.Dialyzer.dependency(),
-      {:engine, path: "../engine", env: Mix.env()},
+      # In practice Expert does not hardly depend on Engine, only on its compiled
+      # artifacts, but we need it as a test dependency to set up tests that
+      # assume a roundtrip to a project node is made.
+      {:engine, path: "../engine", env: Mix.env(), only: [:test]},
       {:forge, path: "../forge", env: Mix.env()},
       {:gen_lsp, github: "elixir-tools/gen_lsp", branch: "async"},
       {:jason, "~> 1.4"},

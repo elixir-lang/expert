@@ -141,20 +141,35 @@ defmodule Expert.EngineNode do
     end
   end
 
-  @excluded_apps [:patch, :nimble_parsec]
-  @allowed_apps [:engine | Mix.Project.deps_apps()] -- @excluded_apps
+  if Mix.env() == :test do
+    # In test environment, Expert depends on the Engine app, so we look for it
+    # in the expert build path.
+    @excluded_apps [:patch, :nimble_parsec]
+    @allowed_apps [:engine | Mix.Project.deps_apps()] -- @excluded_apps
 
-  defp app_globs do
-    app_globs = Enum.map(@allowed_apps, fn app_name -> "/**/#{app_name}*/ebin" end)
-    ["/**/priv" | app_globs]
-  end
+    defp app_globs do
+      app_globs = Enum.map(@allowed_apps, fn app_name -> "/**/#{app_name}*/ebin" end)
+      ["/**/priv" | app_globs]
+    end
 
-  def glob_paths do
-    for entry <- :code.get_path(),
-        entry_string = List.to_string(entry),
-        entry_string != ".",
-        Enum.any?(app_globs(), &PathGlob.match?(entry_string, &1, match_dot: true)) do
-      entry
+    def glob_paths do
+      for entry <- :code.get_path(),
+          entry_string = List.to_string(entry),
+          entry_string != ".",
+          Enum.any?(app_globs(), &PathGlob.match?(entry_string, &1, match_dot: true)) do
+        entry
+      end
+    end
+  else
+    # In dev and prod environments, a default build of Engine is built
+    # separately and copied to expert's priv directory.
+    # When Engine is built in CI for a version matrix, we'll need to check if
+    # we have the right version downloaded, and if not, we should download it.
+    defp glob_paths do
+      :expert
+      |> :code.priv_dir()
+      |> Path.join("lib/**/ebin")
+      |> Path.wildcard()
     end
   end
 
