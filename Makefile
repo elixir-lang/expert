@@ -41,5 +41,7 @@ dialyzer.plt.poncho:
 dialyzer.poncho: compile.poncho compile.protocols.poncho
 	$(foreach dir, $(poncho_dirs), cd apps/$(dir) && mix dialyzer && cd ../..;)
 
+build.engine:
+	cd apps/engine && mix deps.get && MIX_ENV=dev mix build
 package:
 	cd apps/expert && mix package

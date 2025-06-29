@@ -1,9 +1,9 @@
 defmodule Engine.Search.Store.State do
-  alias Engine.Api.Messages
   alias Engine.Dispatch
   alias Engine.Search.Fuzzy
-  alias Engine.Search.Indexer.Entry
+  alias Forge.EngineApi.Messages
   alias Forge.Project
+  alias Forge.Search.Indexer.Entry
 
   require Logger
   import Messages

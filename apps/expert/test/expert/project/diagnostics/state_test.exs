@@ -5,9 +5,9 @@ defmodule Forge.Project.Diagnostics.StateTest do
   alias Forge.Plugin.V1.Diagnostic
   alias Forge.Project
 
-  import Engine.Test.Fixtures
+  import Forge.Test.Fixtures
 
-  use Engine.Test.CodeMod.Case
+  use Forge.Test.CodeMod.Case
 
   setup do
     {:ok, _} = start_supervised(Forge.Document.Store)

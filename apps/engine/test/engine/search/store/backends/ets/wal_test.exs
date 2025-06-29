@@ -1,7 +1,7 @@
 defmodule Engine.Search.Store.Backends.Ets.WalTest do
   alias Engine.Search.Store.Backends.Ets.Wal
 
-  import Engine.Test.Fixtures
+  import Forge.Test.Fixtures
 
   use ExUnit.Case
   use Patch

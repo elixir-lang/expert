@@ -9,7 +9,8 @@ defmodule Engine.Dispatch do
 
   alias Engine.Dispatch.Handlers
   alias Engine.Dispatch.PubSub
-  import Engine.Api.Messages
+  alias Forge.Project
+  import Forge.EngineApi.Messages
 
   @handlers [PubSub, Handlers.Indexing]
 
@@ -78,7 +79,7 @@ defmodule Engine.Dispatch do
 
   defp progress_pid do
     project = Engine.get_project()
-    manager_node_name = Engine.manager_node_name(project)
+    manager_node_name = Project.manager_node_name(project)
     :rpc.call(manager_node_name, Expert.Project.Progress, :whereis, [project])
   end
 end

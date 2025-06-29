@@ -26,7 +26,7 @@ defmodule Engine.CodeAction.Handlers.OrganizeAliases do
         changes = Changes.new(doc, edits)
 
         [
-          CodeAction.new(
+          Forge.CodeAction.new(
             doc.uri,
             "Organize aliases",
             CodeActionKind.source_organize_imports(),

@@ -5,7 +5,7 @@ defmodule Engine.CodeIntelligence.EntityTest do
   import ExUnit.CaptureIO
   import Forge.Test.CodeSigil
   import Forge.Test.CursorSupport
-  import Engine.Test.Fixtures
+  import Forge.Test.Fixtures
   import Forge.Test.RangeSupport
 
   use ExUnit.Case

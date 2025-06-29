@@ -9,8 +9,8 @@ defmodule Engine.Search.Store.Backends.Ets.Schemas.V1 do
 
   """
 
-  alias Engine.Search.Indexer.Entry
   alias Engine.Search.Store.Backends.Ets.Schema
+  alias Forge.Search.Indexer.Entry
 
   use Schema, version: 1
 

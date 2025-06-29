@@ -2,7 +2,7 @@ defmodule Expert.Project.Progress do
   alias Expert.Project.Progress.State
   alias Forge.Project
 
-  import Engine.Api.Messages
+  import Forge.EngineApi.Messages
 
   use GenServer
 

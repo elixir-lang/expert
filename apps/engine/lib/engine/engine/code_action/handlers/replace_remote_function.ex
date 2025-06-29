@@ -1,8 +1,8 @@
 defmodule Engine.CodeAction.Handlers.ReplaceRemoteFunction do
   alias Engine.CodeAction
-  alias Engine.CodeAction.Diagnostic
   alias Engine.Modules
   alias Forge.Ast
+  alias Forge.CodeAction.Diagnostic
   alias Forge.Document
   alias Forge.Document.Changes
   alias Forge.Document.Edit
@@ -34,7 +34,7 @@ defmodule Engine.CodeAction.Handlers.ReplaceRemoteFunction do
   def trigger_kind, do: :all
 
   @spec to_code_actions(Document.t(), non_neg_integer(), module(), String.t(), [atom()]) ::
-          [CodeAction.t()]
+          [Forge.CodeAction.t()]
   defp to_code_actions(%Document{} = doc, line_number, module, function, suggestions) do
     suggestions
     |> Enum.reduce([], fn suggestion, acc ->
@@ -43,7 +43,7 @@ defmodule Engine.CodeAction.Handlers.ReplaceRemoteFunction do
           changes = Changes.new(doc, edits)
 
           code_action =
-            CodeAction.new(
+            Forge.CodeAction.new(
               doc.uri,
               "Rename to #{suggestion}",
               CodeActionKind.quick_fix(),

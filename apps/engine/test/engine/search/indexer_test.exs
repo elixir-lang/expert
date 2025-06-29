@@ -1,12 +1,12 @@
 defmodule Engine.Search.IndexerTest do
   alias Engine.Dispatch
   alias Engine.Search.Indexer
-  alias Engine.Search.Indexer.Entry
   alias Forge.Project
+  alias Forge.Search.Indexer.Entry
 
   use ExUnit.Case
   use Patch
-  import Engine.Test.Fixtures
+  import Forge.Test.Fixtures
 
   defmodule FakeBackend do
     def set_entries(entries) when is_list(entries) do

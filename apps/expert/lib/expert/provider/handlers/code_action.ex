@@ -1,6 +1,7 @@
 defmodule Expert.Provider.Handlers.CodeAction do
-  alias Engine.CodeAction
   alias Expert.Configuration
+  alias Expert.EngineApi
+  alias Forge.CodeAction
   alias GenLSP.Requests
   alias GenLSP.Structures
 
@@ -12,7 +13,7 @@ defmodule Expert.Provider.Handlers.CodeAction do
     diagnostics = Enum.map(params.context.diagnostics, &to_code_action_diagnostic/1)
 
     code_actions =
-      Engine.Api.code_actions(
+      EngineApi.code_actions(
         config.project,
         document,
         params.range,

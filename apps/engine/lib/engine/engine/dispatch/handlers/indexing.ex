@@ -1,9 +1,9 @@
 defmodule Engine.Dispatch.Handlers.Indexing do
-  alias Engine.Api.Messages
   alias Engine.Commands
   alias Engine.Dispatch
   alias Engine.Search
   alias Forge.Document
+  alias Forge.EngineApi.Messages
 
   require Logger
   import Messages

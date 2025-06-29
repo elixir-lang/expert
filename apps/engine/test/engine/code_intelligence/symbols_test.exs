@@ -2,7 +2,7 @@ defmodule Engine.CodeIntelligence.SymbolsTest do
   alias Engine.CodeIntelligence.Symbols
   alias Engine.Search.Indexer.Extractors
   alias Engine.Search.Indexer.Source
-  alias Forge.Document
+  alias Forge.CodeIntelligence.Symbols.Document
 
   use ExUnit.Case
   use Patch
@@ -11,13 +11,13 @@ defmodule Engine.CodeIntelligence.SymbolsTest do
   import Forge.Test.RangeSupport
 
   def document_symbols(code) do
-    doc = Document.new("file:///file.ex", code, 1)
+    doc = Forge.Document.new("file:///file.ex", code, 1)
     symbols = Symbols.for_document(doc)
     {symbols, doc}
   end
 
   def workspace_symbols(code) do
-    doc = Document.new("file:///file.ex", code, 1)
+    doc = Forge.Document.new("file:///file.ex", code, 1)
 
     {:ok, entries} =
       Source.index_document(doc, [
@@ -45,7 +45,7 @@ defmodule Engine.CodeIntelligence.SymbolsTest do
 
   describe "document symbols" do
     test "a top level module is found" do
-      {[%Symbols.Document{} = module], doc} =
+      {[%Document{} = module], doc} =
         ~q[
         defmodule MyModule do
         end

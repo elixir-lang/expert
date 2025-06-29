@@ -1,7 +1,6 @@
 defmodule Engine.CodeIntelligence.Definition do
   alias ElixirSense.Providers.Location, as: ElixirSenseLocation
   alias Engine.CodeIntelligence.Entity
-  alias Engine.Search.Indexer.Entry
   alias Engine.Search.Store
   alias Forge.Ast
   alias Forge.Ast.Analysis
@@ -9,6 +8,7 @@ defmodule Engine.CodeIntelligence.Definition do
   alias Forge.Document.Location
   alias Forge.Document.Position
   alias Forge.Formats
+  alias Forge.Search.Indexer.Entry
   alias Forge.Text
   alias Future.Code
 

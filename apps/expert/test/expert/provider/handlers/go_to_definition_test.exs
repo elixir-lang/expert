@@ -1,4 +1,5 @@
 defmodule Expert.Provider.Handlers.GoToDefinitionTest do
+  alias Expert.EngineApi
   alias Expert.Provider.Handlers
   alias Forge.Document
   alias Forge.Document.Location
@@ -6,8 +7,8 @@ defmodule Expert.Provider.Handlers.GoToDefinitionTest do
   alias GenLSP.Requests.TextDocumentDefinition
   alias GenLSP.Structures
 
-  import Engine.Api.Messages
-  import Engine.Test.Fixtures
+  import Forge.EngineApi.Messages
+  import Forge.Test.Fixtures
 
   use ExUnit.Case, async: false
 
@@ -18,12 +19,12 @@ defmodule Expert.Provider.Handlers.GoToDefinitionTest do
     start_supervised!({DynamicSupervisor, Expert.Project.Supervisor.options()})
     start_supervised!({Expert.Project.Supervisor, project})
 
-    Engine.Api.register_listener(project, self(), [
+    EngineApi.register_listener(project, self(), [
       project_compiled(),
       project_index_ready()
     ])
 
-    Engine.Api.schedule_compile(project, true)
+    EngineApi.schedule_compile(project, true)
     assert_receive project_compiled(), 5000
     assert_receive project_index_ready(), 5000
 

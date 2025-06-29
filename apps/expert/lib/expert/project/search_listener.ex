@@ -1,11 +1,11 @@
 defmodule Expert.Project.SearchListener do
-  alias Engine.Api
+  alias Expert.EngineApi
   alias Forge.Formats
   alias Forge.Project
   alias Forge.Protocol.Id
   alias GenLSP.Requests
 
-  import Api.Messages
+  import Forge.EngineApi.Messages
 
   use GenServer
   require Logger
@@ -20,7 +20,7 @@ defmodule Expert.Project.SearchListener do
 
   @impl GenServer
   def init([%Project{} = project]) do
-    Api.register_listener(project, self(), [
+    EngineApi.register_listener(project, self(), [
       project_reindex_requested(),
       project_reindexed()
     ])

@@ -1,5 +1,6 @@
 defmodule Expert.Test.Expert.CompletionCase do
   alias Expert.CodeIntelligence.Completion
+  alias Expert.EngineApi
   alias Forge.Ast
   alias Forge.Document
   alias Forge.Project
@@ -11,8 +12,8 @@ defmodule Expert.Test.Expert.CompletionCase do
 
   use ExUnit.CaseTemplate
   import Forge.Test.CursorSupport
-  import Engine.Test.Fixtures
-  import Engine.Api.Messages
+  import Forge.Test.Fixtures
+  import Forge.EngineApi.Messages
 
   setup_all do
     project = project()
@@ -20,12 +21,12 @@ defmodule Expert.Test.Expert.CompletionCase do
     start_supervised!({DynamicSupervisor, Expert.Project.Supervisor.options()})
     start_supervised!({Expert.Project.Supervisor, project})
 
-    Engine.Api.register_listener(project, self(), [
+    EngineApi.register_listener(project, self(), [
       project_compiled(),
       project_index_ready()
     ])
 
-    Engine.Api.schedule_compile(project, true)
+    EngineApi.schedule_compile(project, true)
     assert_receive project_compiled(), 5000
     assert_receive project_index_ready(), 5000
     {:ok, project: project}

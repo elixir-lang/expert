@@ -1,9 +1,9 @@
 defmodule Engine.CodeAction.Handlers.ReplaceRemoteFunctionTest do
-  alias Engine.CodeAction.Diagnostic
   alias Engine.CodeAction.Handlers.ReplaceRemoteFunction
+  alias Forge.CodeAction.Diagnostic
   alias Forge.Document
 
-  use Engine.Test.CodeMod.Case
+  use Forge.Test.CodeMod.Case
 
   setup do
     start_supervised!({Document.Store, derive: [analysis: &Forge.Ast.analyze/1]})

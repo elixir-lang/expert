@@ -1,7 +1,7 @@
 defmodule Engine.CodeAction.Handlers.ReplaceWithUnderscore do
   alias Engine.CodeAction
-  alias Engine.CodeAction.Diagnostic
   alias Forge.Ast
+  alias Forge.CodeAction.Diagnostic
   alias Forge.Document
   alias Forge.Document.Changes
   alias Forge.Document.Range
@@ -16,7 +16,7 @@ defmodule Engine.CodeAction.Handlers.ReplaceWithUnderscore do
       with {:ok, variable_name, line_number} <- extract_variable_and_line(diagnostic),
            {:ok, changes} <- to_changes(doc, line_number, variable_name) do
         action =
-          CodeAction.new(
+          Forge.CodeAction.new(
             doc.uri,
             "Rename to _#{variable_name}",
             CodeActionKind.quick_fix(),

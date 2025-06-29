@@ -1,10 +1,10 @@
 defmodule Engine.Search.Indexer.Extractors.EctoSchema do
   alias Engine.Analyzer
-  alias Engine.Search.Indexer.Entry
   alias Engine.Search.Indexer.Metadata
   alias Engine.Search.Indexer.Source.Reducer
   alias Forge.Ast
   alias Forge.Document.Position
+  alias Forge.Search.Indexer.Entry
 
   def extract(
         {:schema, meta, [{:__block__, _, [_source]} | _]} = schema_block,

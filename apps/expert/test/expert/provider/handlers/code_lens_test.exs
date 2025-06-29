@@ -1,4 +1,5 @@
 defmodule Expert.Provider.Handlers.CodeLensTest do
+  alias Expert.EngineApi
   alias Expert.Provider.Handlers
   alias Forge.Document
   alias Forge.Project
@@ -7,8 +8,8 @@ defmodule Expert.Provider.Handlers.CodeLensTest do
   alias GenLSP.Requests.TextDocumentCodeLens
   alias GenLSP.Structures
 
-  import Engine.Api.Messages
-  import Engine.Test.Fixtures
+  import Forge.EngineApi.Messages
+  import Forge.Test.Fixtures
   import Forge.Test.RangeSupport
 
   use ExUnit.Case, async: false
@@ -21,8 +22,8 @@ defmodule Expert.Provider.Handlers.CodeLensTest do
     start_supervised!({DynamicSupervisor, Expert.Project.Supervisor.options()})
     start_supervised!({Expert.Project.Supervisor, project})
 
-    Engine.Api.register_listener(project, self(), [project_compiled()])
-    Engine.Api.schedule_compile(project, true)
+    EngineApi.register_listener(project, self(), [project_compiled()])
+    EngineApi.schedule_compile(project, true)
 
     assert_receive project_compiled(), 5000
 
@@ -30,7 +31,7 @@ defmodule Expert.Provider.Handlers.CodeLensTest do
   end
 
   defp with_indexing_enabled(_) do
-    patch(Engine.Api, :index_running?, false)
+    patch(EngineApi, :index_running?, false)
     :ok
   end
 

@@ -17,7 +17,7 @@ defmodule Engine.CodeAction.Handlers.Refactorex do
       |> Sourceror.Zipper.zip()
       |> Refactor.available_refactorings(target, true)
       |> Enum.map(fn refactoring ->
-        CodeAction.new(
+        Forge.CodeAction.new(
           doc.uri,
           refactoring.title,
           refactoring.kind,

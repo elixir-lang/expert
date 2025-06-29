@@ -1,16 +1,15 @@
 defmodule Engine.Search.StoreTest do
   alias Engine.Dispatch
   alias Engine.Search.Indexer
-  alias Engine.Search.Indexer.Entry
   alias Engine.Search.Store
   alias Engine.Search.Store.Backends.Ets
-  alias Engine.Test.Entry
-  alias Engine.Test.Fixtures
+  alias Forge.Search.Indexer.Entry
   alias Forge.Test.EventualAssertions
+  alias Forge.Test.Fixtures
 
   use ExUnit.Case, async: false
 
-  import Entry.Builder
+  import Engine.Test.Entry.Builder
   import EventualAssertions
   import Fixtures
   import Forge.Test.CodeSigil
@@ -246,7 +245,7 @@ defmodule Engine.Search.StoreTest do
       end
 
       test "findidng siblings of a non-existent entry" do
-        assert :error = Store.siblings(%Indexer.Entry{})
+        assert :error = Store.siblings(%Entry{})
       end
 
       test "finding a parent in a function" do
@@ -324,7 +323,7 @@ defmodule Engine.Search.StoreTest do
       end
 
       test "finding a non-existent entry" do
-        assert Store.parent(%Indexer.Entry{}) == :error
+        assert Store.parent(%Entry{}) == :error
       end
     end
   end

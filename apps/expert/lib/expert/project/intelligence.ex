@@ -58,11 +58,11 @@ defmodule Expert.Project.Intelligence do
     end
   end
 
-  alias Engine.Api
+  alias Expert.EngineApi
   alias Forge.Project
 
   use GenServer
-  import Api.Messages
+  import Forge.EngineApi.Messages
 
   @generations [
                  :self,
@@ -167,7 +167,7 @@ defmodule Expert.Project.Intelligence do
 
   @impl GenServer
   def init([%Project{} = project]) do
-    Api.register_listener(project, self(), [
+    EngineApi.register_listener(project, self(), [
       project_index_ready(),
       module_updated(),
       struct_discovered()
@@ -213,7 +213,7 @@ defmodule Expert.Project.Intelligence do
 
   @impl GenServer
   def handle_info(project_index_ready(), %State{} = state) do
-    {:ok, struct_definitions} = Api.struct_definitions(state.project)
+    {:ok, struct_definitions} = EngineApi.struct_definitions(state.project)
 
     state =
       Enum.reduce(struct_definitions, State.new(state.project), fn module, state ->

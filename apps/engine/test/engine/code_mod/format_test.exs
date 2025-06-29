@@ -1,14 +1,12 @@
 # credo:disable-for-this-file Credo.Check.Readability.RedundantBlankLines
 defmodule Engine.CodeMod.FormatTest do
-  alias Engine.Api.Messages
   alias Engine.Build
   alias Engine.CodeMod.Format
   alias Forge.Document
   alias Forge.Project
 
-  use Engine.Test.CodeMod.Case, enable_ast_conversion: false
+  use Forge.Test.CodeMod.Case, enable_ast_conversion: false
   use Patch
-  import Messages
 
   def apply_code_mod(text, _ast, opts) do
     project = Keyword.get(opts, :project)
@@ -50,13 +48,6 @@ defmodule Engine.CodeMod.FormatTest do
       end
     end
     ]t
-  end
-
-  def with_real_project(%{project: project}) do
-    {:ok, _} = start_supervised({Engine.ProjectNodeSupervisor, project})
-    {:ok, _, _} = Engine.start_link(project)
-    Engine.Api.register_listener(project, self(), [:all])
-    :ok
   end
 
   def with_patched_build(_) do
@@ -122,22 +113,6 @@ defmodule Engine.CodeMod.FormatTest do
       ] |> modify(project: project)
 
       assert result == formatted()
-    end
-  end
-
-  describe "emitting diagnostics" do
-    setup [:with_real_project]
-
-    test "it should emit diagnostics when a syntax error occurs", %{project: project} do
-      text = ~q[
-        def foo(a, ) do
-        end
-        ]
-      document = document("file:///file.ex", text)
-      Engine.Api.format(project, document)
-
-      assert_receive file_diagnostics(diagnostics: [diagnostic]), 500
-      assert diagnostic.message =~ "syntax error"
     end
   end
 end

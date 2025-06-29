@@ -5,7 +5,7 @@ defmodule Engine.Completion do
   alias Forge.Document.Position
 
   alias Engine.CodeMod.Format
-  alias Engine.Completion.Candidate
+  alias Forge.Completion.Candidate
 
   import Document.Line
   import Forge.Logging

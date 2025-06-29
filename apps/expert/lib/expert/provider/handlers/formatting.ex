@@ -1,5 +1,6 @@
 defmodule Expert.Provider.Handlers.Formatting do
   alias Expert.Configuration
+  alias Expert.EngineApi
   alias Forge.Document.Changes
   alias GenLSP.Requests
   alias GenLSP.Structures
@@ -12,7 +13,7 @@ defmodule Expert.Provider.Handlers.Formatting do
       ) do
     document = Forge.Document.Container.context_document(params, nil)
 
-    case Engine.Api.format(config.project, document) do
+    case EngineApi.format(config.project, document) do
       {:ok, %Changes{} = document_edits} ->
         {:ok, document_edits}
 

@@ -1,8 +1,8 @@
 defmodule Expert.CodeIntelligence.Completion.Translations.Function do
-  alias Engine.Completion.Candidate
   alias Expert.CodeIntelligence.Completion.Translatable
   alias Expert.CodeIntelligence.Completion.Translations
   alias Forge.Ast.Env
+  alias Forge.Completion.Candidate
 
   defimpl Translatable, for: Candidate.Function do
     def translate(function, _builder, %Env{} = env) do

@@ -2,7 +2,7 @@ defmodule Engine.Compilation.Tracer do
   alias Engine.Build
   alias Engine.Module.Loader
 
-  import Engine.Api.Messages
+  import Forge.EngineApi.Messages
 
   def trace({:on_module, module_binary, _filename}, %Macro.Env{} = env) do
     message = extract_module_updated(env.module, module_binary, env.file)

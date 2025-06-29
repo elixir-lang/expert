@@ -42,8 +42,6 @@ defmodule Expert.MixProject do
     [
       Mix.Credo.dependency(),
       Mix.Dialyzer.dependency(),
-      {:elixir_sense,
-       github: "elixir-lsp/elixir_sense", ref: "73ce7e0d239342fb9527d7ba567203e77dbb9b25"},
       {:engine, path: "../engine", env: Mix.env()},
       {:forge, path: "../forge", env: Mix.env()},
       {:gen_lsp, github: "elixir-tools/gen_lsp", branch: "async"},

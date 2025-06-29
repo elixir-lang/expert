@@ -29,4 +29,6 @@ expert_debug
 priv/plts
 
 apps/forge/src/future_elixir_parser.erl
+
+.DS_Store
 .notes/

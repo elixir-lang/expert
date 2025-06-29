@@ -13,6 +13,7 @@ defmodule Expert.Project.Node do
 
   alias Forge.Project
 
+  alias Expert.EngineApi
   alias Expert.Project.Progress
 
   require Logger
@@ -60,7 +61,7 @@ defmodule Expert.Project.Node do
 
   @impl GenServer
   def handle_continue(:trigger_build, %State{} = state) do
-    Engine.Api.schedule_compile(state.project, true)
+    EngineApi.schedule_compile(state.project, true)
     {:noreply, state}
   end
 
@@ -71,7 +72,7 @@ defmodule Expert.Project.Node do
 
   @impl GenServer
   def handle_cast(:trigger_build, %State{} = state) do
-    Engine.Api.schedule_compile(state.project, true)
+    EngineApi.schedule_compile(state.project, true)
     {:noreply, state}
   end
 
@@ -90,15 +91,15 @@ defmodule Expert.Project.Node do
 
   # private api
 
-  def start_node(%Project{} = project) do
-    with {:ok, node, node_pid} <- Engine.start_link(project) do
+  defp start_node(%Project{} = project) do
+    with {:ok, node, node_pid} <- EngineApi.start_link(project) do
       Node.monitor(node, true)
       {:ok, State.new(project, node, node_pid)}
     end
   end
 
   defp delete_build_artifacts(%Project{} = project) do
-    build_path = Engine.Build.path(project)
+    build_path = Project.versioned_build_path(project)
 
     case File.rm_rf(build_path) do
       {:ok, _deleted} -> :ok

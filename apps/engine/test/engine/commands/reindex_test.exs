@@ -4,7 +4,7 @@ defmodule Engine.Commands.ReindexTest do
   alias Forge.Document
 
   import Forge.Test.EventualAssertions
-  import Engine.Test.Fixtures
+  import Forge.Test.Fixtures
   import Engine.Test.Entry.Builder
 
   use ExUnit.Case

@@ -1,7 +1,7 @@
 defmodule Expert.Provider.Handlers.WorkspaceSymbol do
-  alias Engine.Api
-  alias Engine.CodeIntelligence.Symbols
   alias Expert.Configuration
+  alias Expert.EngineApi
+  alias Forge.CodeIntelligence.Symbols
   alias GenLSP.Enumerations.SymbolKind
   alias GenLSP.Requests
   alias GenLSP.Structures
@@ -15,7 +15,7 @@ defmodule Expert.Provider.Handlers.WorkspaceSymbol do
     symbols =
       if String.length(params.query) > 1 do
         config.project
-        |> Api.workspace_symbols(params.query)
+        |> EngineApi.workspace_symbols(params.query)
         |> tap(fn symbols -> Logger.info("syms #{inspect(Enum.take(symbols, 5))}") end)
         |> Enum.map(&to_response/1)
       else

@@ -7,7 +7,7 @@ defmodule Expert.Project.Progress.State do
   alias GenLSP.Requests
   alias GenLSP.Structures
 
-  import Engine.Api.Messages
+  import Forge.EngineApi.Messages
 
   defstruct project: nil, progress_by_label: %{}
 

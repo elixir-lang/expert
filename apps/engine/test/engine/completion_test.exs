@@ -6,7 +6,7 @@ defmodule Engine.CompletionTest do
 
   import Forge.Test.CodeSigil
   import Forge.Test.CursorSupport
-  import Engine.Test.Fixtures
+  import Forge.Test.Fixtures
   import Forge.Test.Quiet
 
   use ExUnit.Case, async: true

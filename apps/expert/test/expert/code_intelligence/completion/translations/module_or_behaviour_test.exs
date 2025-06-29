@@ -1,4 +1,5 @@
 defmodule Expert.CodeIntelligence.Completion.Translations.ModuleOrBehaviourTest do
+  alias Expert.EngineApi
   alias GenLSP.Enumerations.CompletionItemKind
   alias GenLSP.Enumerations.InsertTextFormat
 
@@ -263,7 +264,7 @@ defmodule Expert.CodeIntelligence.Completion.Translations.ModuleOrBehaviourTest 
          %{
            project: project
          } do
-      patch(Engine.Api, :project_apps, [:project, :ex_unit, :stream_data])
+      patch(EngineApi, :project_apps, [:project, :ex_unit, :stream_data])
 
       source = ~q[
         use En|

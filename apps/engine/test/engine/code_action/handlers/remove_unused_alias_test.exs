@@ -1,14 +1,14 @@
 defmodule Engine.CodeAction.Handlers.RemoveUnusedAliasTest do
-  alias Engine.CodeAction.Diagnostic
   alias Engine.CodeAction.Handlers.RemoveUnusedAlias
   alias Forge.Ast
+  alias Forge.CodeAction.Diagnostic
   alias Forge.Document
   alias Forge.Document.Range
 
   import Forge.Test.CursorSupport
   import Forge.Test.CodeSigil
 
-  use Engine.Test.CodeMod.Case, enable_ast_conversion: false
+  use Forge.Test.CodeMod.Case, enable_ast_conversion: false
 
   def apply_code_mod(original_text, _ast, options) do
     Document.Store.open("file:///file.ex", original_text, 1)

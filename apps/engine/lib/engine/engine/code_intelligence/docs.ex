@@ -1,20 +1,11 @@
 defmodule Engine.CodeIntelligence.Docs do
+  alias Engine.Modules
+  alias Forge.CodeIntelligence.Docs
+  alias Forge.CodeIntelligence.Docs.Entry
+
   @moduledoc """
   Utilities for fetching documentation for a compiled module.
   """
-
-  alias Engine.CodeIntelligence.Docs.Entry
-  alias Engine.Modules
-
-  defstruct [:module, :doc, functions_and_macros: [], callbacks: [], types: []]
-
-  @type t :: %__MODULE__{
-          module: module(),
-          doc: Entry.content(),
-          functions_and_macros: %{optional(atom()) => [Entry.t(:function | :macro)]},
-          callbacks: %{optional(atom()) => [Entry.t(:callback)]},
-          types: %{optional(atom()) => [Entry.t(:type)]}
-        }
 
   @doc """
   Fetches known documentation for the given module.
@@ -26,7 +17,7 @@ defmodule Engine.CodeIntelligence.Docs do
       Defaults to `false`.
 
   """
-  @spec for_module(module(), [opt]) :: {:ok, t} | {:error, any()}
+  @spec for_module(module(), [opt]) :: {:ok, Docs.t()} | {:error, any()}
         when opt: {:exclude_hidden, boolean()}
   def for_module(module, opts) when is_atom(module) do
     exclude_hidden? = Keyword.get(opts, :exclude_hidden, false)
@@ -54,7 +45,7 @@ defmodule Engine.CodeIntelligence.Docs do
         callback_defs = beam |> Modules.fetch_callbacks() |> ok_or([])
         type_defs = beam |> Modules.fetch_types() |> ok_or([])
 
-        result = %__MODULE__{
+        result = %Docs{
           module: module,
           doc: Entry.parse_doc(module_doc),
           functions_and_macros:

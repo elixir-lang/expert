@@ -4,7 +4,6 @@ defmodule Engine.Build do
 
   alias Engine.Build.Document.Compilers.HEEx
   alias Engine.Build.State
-  alias Forge.VM.Versions
 
   require Logger
   use GenServer
@@ -12,15 +11,6 @@ defmodule Engine.Build do
   @timeout_interval_millis 50
 
   # Public interface
-
-  def path(%Project{} = project) do
-    %{elixir: elixir, erlang: erlang} = Versions.current()
-    erlang_major = erlang |> String.split(".") |> List.first()
-    elixir_version = Version.parse!(elixir)
-    elixir_major = "#{elixir_version.major}.#{elixir_version.minor}"
-    build_root = Project.build_path(project)
-    Path.join([build_root, "erl-#{erlang_major}", "elixir-#{elixir_major}"])
-  end
 
   def schedule_compile(%Project{} = _project, force? \\ false) do
     GenServer.cast(__MODULE__, {:compile, force?})

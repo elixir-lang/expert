@@ -12,13 +12,12 @@ defmodule Engine.Plugin.Discovery do
 
   alias Engine.Module.Loader
   alias Engine.Plugin.Runner
-  alias Mix.Tasks.Namespace
 
   require Logger
 
   @namespaced_document_module [:Forge, :Document]
                               |> Module.concat()
-                              |> Namespace.Module.apply()
+                              |> Forge.Namespace.Module.apply()
 
   def run do
     for {app_name, _, _} <- :application.loaded_applications(),
@@ -53,7 +52,7 @@ defmodule Engine.Plugin.Discovery do
     module
     |> :code.which()
     |> List.to_string()
-    |> Namespace.Transform.Beams.apply()
+    |> Forge.Namespace.Transform.Beams.apply()
   end
 
   defp unload_module(module) do

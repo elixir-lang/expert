@@ -1,5 +1,5 @@
-defmodule Engine.Completion.Candidate.ArgumentNamesTest do
-  alias Engine.Completion.Candidate.ArgumentNames
+defmodule Forge.Completion.Candidate.ArgumentNamesTest do
+  alias Forge.Completion.Candidate.ArgumentNames
 
   use ExUnit.Case
   import ArgumentNames

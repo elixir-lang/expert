@@ -1,8 +1,8 @@
 defmodule Expert.CodeIntelligence.Completion.Translations.Callable do
-  alias Engine.Completion.Candidate
   alias Expert.CodeIntelligence.Completion.Builder
   alias Expert.CodeIntelligence.Completion.SortScope
   alias Forge.Ast.Env
+  alias Forge.Completion.Candidate
   alias GenLSP.Enumerations.CompletionItemKind
 
   @callables [Candidate.Function, Candidate.Macro, Candidate.Callback, Candidate.Typespec]

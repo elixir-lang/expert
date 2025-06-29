@@ -5,11 +5,11 @@ defmodule Engine.Search.Store.Backends.Ets.State do
   This backend uses an ETS table to store its data using a schema defined in the schemas submodule.
 
   """
-  alias Engine.Search.Indexer.Entry
   alias Engine.Search.Store.Backends.Ets.Schema
   alias Engine.Search.Store.Backends.Ets.Schemas
   alias Engine.Search.Store.Backends.Ets.Wal
   alias Forge.Project
+  alias Forge.Search.Indexer.Entry
 
   @schema_order [
     Schemas.LegacyV0,

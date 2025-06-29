@@ -5,7 +5,7 @@ defmodule Engine.ModuleMappingsTest do
   use ExUnit.Case
   use Forge.Test.EventualAssertions
 
-  import Engine.Api.Messages
+  import Forge.EngineApi.Messages
 
   setup do
     start_supervised!(Dispatch)

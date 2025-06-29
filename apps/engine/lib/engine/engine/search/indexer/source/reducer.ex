@@ -6,12 +6,12 @@ defmodule Engine.Search.Indexer.Source.Reducer do
   with the AST's overall structure, and can focus on extracting content from it.
   """
 
-  alias Engine.Search.Indexer.Entry
   alias Engine.Search.Indexer.Extractors
   alias Engine.Search.Indexer.Metadata
-  alias Engine.Search.Indexer.Source.Block
   alias Forge.Ast.Analysis
   alias Forge.Document.Position
+  alias Forge.Search.Indexer.Entry
+  alias Forge.Search.Indexer.Source.Block
 
   defstruct [:analysis, :entries, :position, :blocks, :block_hierarchy, extractors: []]
 

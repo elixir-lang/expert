@@ -1,10 +1,11 @@
 defmodule Expert.Provider.Handlers.HoverTest do
-  alias Engine.Api.Messages
-  alias Engine.Test.Fixtures
+  alias Expert.EngineApi
   alias Expert.Provider.Handlers
   alias Forge.Document
   alias Forge.Document.Position
+  alias Forge.EngineApi.Messages
   alias Forge.Protocol.Convert
+  alias Forge.Test.Fixtures
   alias GenLSP.Requests
   alias GenLSP.Structures
 
@@ -23,7 +24,7 @@ defmodule Expert.Provider.Handlers.HoverTest do
     start_supervised!({DynamicSupervisor, Expert.Project.Supervisor.options()})
     start_supervised!({Expert.Project.Supervisor, project})
 
-    :ok = Engine.Api.register_listener(project, self(), [Messages.project_compiled()])
+    :ok = EngineApi.register_listener(project, self(), [Messages.project_compiled()])
     assert_receive Messages.project_compiled(), 5000
 
     {:ok, project: project}
@@ -46,7 +47,7 @@ defmodule Expert.Provider.Handlers.HoverTest do
         end)
 
       {:ok, modules, _} =
-        Engine.call(project, Kernel.ParallelCompiler, :compile_to_path, [
+        EngineApi.call(project, Kernel.ParallelCompiler, :compile_to_path, [
           [tmp_path],
           compile_path
         ])
@@ -55,8 +56,8 @@ defmodule Expert.Provider.Handlers.HoverTest do
         fun.()
       after
         for module <- modules do
-          path = Engine.call(project, :code, :which, [module])
-          Engine.call(project, :code, :delete, [module])
+          path = EngineApi.call(project, :code, :which, [module])
+          EngineApi.call(project, :code, :delete, [module])
           File.rm!(path)
         end
       end

@@ -1,8 +1,8 @@
 defmodule Engine.Search.Indexer.Extractors.StructDefinition do
   alias Engine.Analyzer
-  alias Engine.Search.Indexer.Entry
   alias Engine.Search.Indexer.Source.Reducer
   alias Forge.Ast
+  alias Forge.Search.Indexer.Entry
 
   def extract({:defstruct, _, [_fields]} = definition, %Reducer{} = reducer) do
     document = reducer.analysis.document

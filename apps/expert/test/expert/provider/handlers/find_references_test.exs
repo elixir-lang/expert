@@ -1,4 +1,5 @@
 defmodule Expert.Provider.Handlers.FindReferencesTest do
+  alias Expert.EngineApi
   alias Expert.Provider.Handlers
   alias Forge.Ast.Analysis
   alias Forge.Document
@@ -7,7 +8,7 @@ defmodule Expert.Provider.Handlers.FindReferencesTest do
   alias GenLSP.Requests.TextDocumentReferences
   alias GenLSP.Structures
 
-  import Engine.Test.Fixtures
+  import Forge.Test.Fixtures
 
   use ExUnit.Case, async: false
   use Patch
@@ -50,7 +51,7 @@ defmodule Expert.Provider.Handlers.FindReferencesTest do
 
   describe "find references" do
     test "returns locations that the entity returns", %{project: project, uri: uri} do
-      patch(Engine.Api, :references, fn ^project, %Analysis{document: document}, _position, _ ->
+      patch(EngineApi, :references, fn ^project, %Analysis{document: document}, _position, _ ->
         locations = [
           Location.new(
             Document.Range.new(
@@ -71,7 +72,7 @@ defmodule Expert.Provider.Handlers.FindReferencesTest do
     end
 
     test "returns nothing if the entity can't resolve it", %{project: project, uri: uri} do
-      patch(Engine.Api, :references, nil)
+      patch(EngineApi, :references, nil)
 
       {:ok, request} = build_request(uri, 1, 5)
 

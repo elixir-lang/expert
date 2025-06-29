@@ -4,7 +4,7 @@ defmodule Engine.CodeMod.DiffTest do
   alias Forge.Document.Edit
   alias Forge.Document.Range
 
-  use Engine.Test.CodeMod.Case
+  use Forge.Test.CodeMod.Case
   use Forge.Test.PositionSupport
 
   def edit(start_line, start_code_unit, end_line, end_code_unit, replacement) do

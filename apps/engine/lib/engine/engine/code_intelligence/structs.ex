@@ -1,7 +1,7 @@
 defmodule Engine.CodeIntelligence.Structs do
   alias Engine.Module.Loader
-  alias Engine.Search.Indexer.Entry
   alias Engine.Search.Store
+  alias Forge.Search.Indexer.Entry
 
   def for_project do
     if Mix.Project.get() do

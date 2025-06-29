@@ -1,4 +1,5 @@
 defmodule Expert.Project.DiagnosticsTest do
+  alias Expert.EngineApi
   alias Expert.Test.DispatchFake
   alias Forge.Document
   alias Forge.Plugin.V1.Diagnostic
@@ -10,8 +11,8 @@ defmodule Expert.Project.DiagnosticsTest do
   use Patch
   use DispatchFake
 
-  import Engine.Api.Messages
-  import Engine.Test.Fixtures
+  import Forge.EngineApi.Messages
+  import Forge.Test.Fixtures
 
   setup do
     project = project()
@@ -72,7 +73,7 @@ defmodule Expert.Project.DiagnosticsTest do
       file_diagnostics_message =
         file_diagnostics(diagnostics: [diagnostic(document.uri)], uri: document.uri)
 
-      Engine.Api.broadcast(project, file_diagnostics_message)
+      EngineApi.broadcast(project, file_diagnostics_message)
 
       expected_severity = GenLSP.Enumerations.DiagnosticSeverity.error()
 
@@ -91,8 +92,8 @@ defmodule Expert.Project.DiagnosticsTest do
 
       Document.Store.get_and_update(document.uri, &{:ok, Document.mark_clean(&1)})
 
-      Engine.Api.broadcast(project, project_compile_requested())
-      Engine.Api.broadcast(project, project_diagnostics(diagnostics: []))
+      EngineApi.broadcast(project, project_compile_requested())
+      EngineApi.broadcast(project, project_diagnostics(diagnostics: []))
 
       assert_receive {:transport,
                       %TextDocumentPublishDiagnostics{
@@ -108,13 +109,13 @@ defmodule Expert.Project.DiagnosticsTest do
       file_diagnostics_message =
         file_diagnostics(diagnostics: [diagnostic(document.uri)], uri: document.uri)
 
-      Engine.Api.broadcast(project, file_diagnostics_message)
+      EngineApi.broadcast(project, file_diagnostics_message)
       assert_receive {:transport, %TextDocumentPublishDiagnostics{}}, 500
 
       Document.Store.close(document.uri)
 
-      Engine.Api.broadcast(project, project_compile_requested())
-      Engine.Api.broadcast(project, project_diagnostics(diagnostics: []))
+      EngineApi.broadcast(project, project_compile_requested())
+      EngineApi.broadcast(project, project_diagnostics(diagnostics: []))
 
       assert_receive {:transport,
                       %TextDocumentPublishDiagnostics{
@@ -133,7 +134,7 @@ defmodule Expert.Project.DiagnosticsTest do
 
       file_diagnostics_message = file_diagnostics(diagnostics: [diagnostic], uri: document.uri)
 
-      Engine.Api.broadcast(project, file_diagnostics_message)
+      EngineApi.broadcast(project, file_diagnostics_message)
 
       assert_receive {:transport,
                       %TextDocumentPublishDiagnostics{

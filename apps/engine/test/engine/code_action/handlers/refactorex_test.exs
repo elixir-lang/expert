@@ -1,5 +1,5 @@
 defmodule Engine.CodeAction.Handlers.RefactorexTest do
-  use Engine.Test.CodeMod.Case
+  use Forge.Test.CodeMod.Case
 
   alias Engine.CodeAction.Handlers.Refactorex
   alias Forge.Document

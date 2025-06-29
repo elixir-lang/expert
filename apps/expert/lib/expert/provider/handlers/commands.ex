@@ -1,5 +1,6 @@
 defmodule Expert.Provider.Handlers.Commands do
   alias Expert.Configuration
+  alias Expert.EngineApi
   alias Forge.Project
   alias GenLSP.Enumerations.ErrorCodes
   alias GenLSP.Requests
@@ -41,7 +42,7 @@ defmodule Expert.Provider.Handlers.Commands do
   end
 
   defp reindex(%Project{} = project) do
-    case Engine.Api.reindex(project) do
+    case EngineApi.reindex(project) do
       :ok ->
         {:ok, "ok"}
 

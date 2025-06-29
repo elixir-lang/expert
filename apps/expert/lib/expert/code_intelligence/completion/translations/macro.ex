@@ -1,5 +1,4 @@
 defmodule Expert.CodeIntelligence.Completion.Translations.Macro do
-  alias Engine.Completion.Candidate
   alias Expert.CodeIntelligence.Completion.SortScope
   alias Expert.CodeIntelligence.Completion.Translatable
   alias Expert.CodeIntelligence.Completion.Translations
@@ -7,6 +6,7 @@ defmodule Expert.CodeIntelligence.Completion.Translations.Macro do
   alias Expert.CodeIntelligence.Completion.Translations.Struct
   alias Forge.Ast
   alias Forge.Ast.Env
+  alias Forge.Completion.Candidate
   alias Forge.Document
   alias Forge.Document.Position
   alias GenLSP.Enumerations.CompletionItemKind

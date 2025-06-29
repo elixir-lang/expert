@@ -11,7 +11,7 @@ defmodule Engine.CodeAction.Handlers.AddAliasTest do
   import Forge.Test.CursorSupport
   import Forge.Test.CodeSigil
 
-  use Engine.Test.CodeMod.Case, enable_ast_conversion: false
+  use Forge.Test.CodeMod.Case, enable_ast_conversion: false
   use Patch
 
   setup do

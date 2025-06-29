@@ -4,7 +4,7 @@ defmodule Engine.CodeMod.AliasesTest do
   alias Engine.CodeMod.Aliases
 
   import Forge.Test.CursorSupport
-  use Engine.Test.CodeMod.Case
+  use Forge.Test.CodeMod.Case
   use Patch
 
   setup do

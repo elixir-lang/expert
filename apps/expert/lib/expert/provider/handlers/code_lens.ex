@@ -1,5 +1,6 @@
 defmodule Expert.Provider.Handlers.CodeLens do
   alias Expert.Configuration
+  alias Expert.EngineApi
   alias Expert.Provider.Handlers
   alias Forge.Document
   alias Forge.Document.Position
@@ -55,6 +56,6 @@ defmodule Expert.Provider.Handlers.CodeLens do
     document_path = Path.expand(document.path)
 
     document_path == Project.mix_exs_path(project) and
-      not Engine.Api.index_running?(project)
+      not EngineApi.index_running?(project)
   end
 end

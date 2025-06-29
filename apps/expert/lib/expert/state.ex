@@ -1,7 +1,7 @@
 defmodule Expert.State do
-  alias Engine.Api
   alias Expert.CodeIntelligence
   alias Expert.Configuration
+  alias Expert.EngineApi
   alias Expert.Project
   alias Expert.Provider.Handlers
   alias Forge.Document
@@ -12,7 +12,7 @@ defmodule Expert.State do
 
   require Logger
 
-  import Api.Messages
+  import Forge.EngineApi.Messages
 
   defstruct configuration: nil,
             initialized?: false,
@@ -114,8 +114,8 @@ defmodule Expert.State do
             to_version: updated_source.version
           )
 
-        Api.broadcast(project, updated_message)
-        Api.compile_document(state.configuration.project, updated_source)
+        EngineApi.broadcast(project, updated_message)
+        EngineApi.compile_document(state.configuration.project, updated_source)
         {:ok, state}
 
       error ->
@@ -163,7 +163,7 @@ defmodule Expert.State do
 
     case Document.Store.save(uri) do
       :ok ->
-        Api.schedule_compile(state.configuration.project, false)
+        EngineApi.schedule_compile(state.configuration.project, false)
         {:ok, state}
 
       error ->
@@ -190,7 +190,7 @@ defmodule Expert.State do
 
     Enum.each(params.changes, fn %GenLSP.Structures.FileEvent{} = change ->
       event = filesystem_event(project: Project, uri: change.uri, event_type: change.type)
-      Engine.Api.broadcast(project, event)
+      EngineApi.broadcast(project, event)
     end)
 
     {:ok, state}

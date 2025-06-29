@@ -1,15 +1,14 @@
 defmodule Engine.Dispatch.Handlers.IndexingTest do
   alias Forge.Document
 
-  alias Engine.Api
   alias Engine.Commands
   alias Engine.Dispatch.Handlers.Indexing
   alias Engine.Search
 
-  import Api.Messages
+  import Forge.EngineApi.Messages
   import Forge.Test.CodeSigil
   import Forge.Test.EventualAssertions
-  import Engine.Test.Fixtures
+  import Forge.Test.Fixtures
 
   use ExUnit.Case
   use Patch

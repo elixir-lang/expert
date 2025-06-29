@@ -1,11 +1,12 @@
 defmodule Expert.CodeIntelligence.Completion do
-  alias Engine.Completion.Candidate
   alias Expert.CodeIntelligence.Completion.Builder
   alias Expert.CodeIntelligence.Completion.Translatable
   alias Expert.Configuration
+  alias Expert.EngineApi
   alias Expert.Project.Intelligence
   alias Forge.Ast.Analysis
   alias Forge.Ast.Env
+  alias Forge.Completion.Candidate
   alias Forge.Document.Position
   alias Forge.Project
   alias Future.Code, as: Code
@@ -13,7 +14,6 @@ defmodule Expert.CodeIntelligence.Completion do
   alias GenLSP.Structures.CompletionContext
   alias GenLSP.Structures.CompletionItem
   alias GenLSP.Structures.CompletionList
-  alias Mix.Tasks.Namespace
 
   require Logger
 
@@ -77,12 +77,12 @@ defmodule Expert.CodeIntelligence.Completion do
 
       Env.in_context?(env, :struct_field_key) ->
         project
-        |> Engine.Api.complete_struct_fields(env.analysis, env.position)
+        |> EngineApi.complete_struct_fields(env.analysis, env.position)
         |> Enum.map(&Translatable.translate(&1, Builder, env))
 
       true ->
         project
-        |> Engine.Api.complete(env)
+        |> EngineApi.complete(env)
         |> to_completion_items(project, env, context)
     end
   end
@@ -165,7 +165,7 @@ defmodule Expert.CodeIntelligence.Completion do
          %CompletionContext{} = context
        ) do
     debug_local_completions(local_completions)
-    project_apps = Engine.Api.project_apps(project)
+    project_apps = EngineApi.project_apps(project)
 
     for result <- local_completions,
         displayable?(project, project_apps, result),
@@ -215,7 +215,7 @@ defmodule Expert.CodeIntelligence.Completion do
       end
 
     cond do
-      Namespace.Module.prefixed?(suggested_module) ->
+      Forge.Namespace.Module.prefixed?(suggested_module) ->
         false
 
       # If we're working on the dependency, we should include it!
@@ -320,7 +320,7 @@ defmodule Expert.CodeIntelligence.Completion do
     case completion do
       %{full_name: full_name} ->
         with_prefix =
-          Engine.Api.modules_with_prefix(
+          EngineApi.modules_with_prefix(
             env.project,
             full_name,
             {Kernel, :macro_exported?, [:__using__, 1]}
@@ -340,7 +340,7 @@ defmodule Expert.CodeIntelligence.Completion do
     case completion do
       %{full_name: full_name} ->
         with_prefix =
-          Engine.Api.modules_with_prefix(
+          EngineApi.modules_with_prefix(
             env.project,
             full_name,
             {Kernel, :function_exported?, [:behaviour_info, 1]}
@@ -375,7 +375,7 @@ defmodule Expert.CodeIntelligence.Completion do
   end
 
   defp typespec_or_type_candidate?(%Candidate.Function{} = function, %Env{} = env) do
-    case Engine.Api.expand_alias(env.project, [:__MODULE__], env.analysis, env.position) do
+    case EngineApi.expand_alias(env.project, [:__MODULE__], env.analysis, env.position) do
       {:ok, expanded} ->
         expanded == function.origin
 

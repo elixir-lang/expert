@@ -1,8 +1,8 @@
 defmodule Engine.Search.Store.Backends.Ets do
-  alias Engine.Search.Indexer.Entry
   alias Engine.Search.Store.Backend
   alias Engine.Search.Store.Backends.Ets.State
   alias Forge.Project
+  alias Forge.Search.Indexer.Entry
 
   use GenServer
 

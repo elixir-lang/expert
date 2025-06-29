@@ -67,7 +67,7 @@ defmodule Mix.Tasks.Package do
   """
 
   alias Forge.VM.Versions
-  alias Mix.Tasks.Namespace
+  alias Forge.Namespace
 
   @options [
     strict: [

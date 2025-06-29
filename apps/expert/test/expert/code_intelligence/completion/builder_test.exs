@@ -8,7 +8,7 @@ defmodule Expert.CodeIntelligence.Completion.BuilderTest do
 
   import Expert.CodeIntelligence.Completion.Builder
   import Forge.Test.CursorSupport
-  import Engine.Test.Fixtures
+  import Forge.Test.Fixtures
 
   def new_env(text) do
     project = project()

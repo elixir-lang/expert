@@ -3,7 +3,7 @@ defmodule Engine.Search.Store.Backends.Ets.SchemaTest do
   alias Engine.Search.Store.Backends.Ets.Wal
   alias Forge.Project
 
-  import Engine.Test.Fixtures
+  import Forge.Test.Fixtures
   import Wal, only: :macros
 
   use ExUnit.Case

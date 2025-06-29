@@ -7,7 +7,7 @@ defmodule Engine.Dispatch.Handler do
   Define a handler, specifying the events to be handled and implementing `on_event/2`:
 
       defmodule MyHandler do
-        alias Engine.Api.Messages
+        alias Forge.EngineApi.Messages
         alias Engine.Dispatch.Handler
 
         import Messages

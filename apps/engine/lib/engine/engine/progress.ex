@@ -1,5 +1,5 @@
 defmodule Engine.Progress do
-  import Engine.Api.Messages
+  import Forge.EngineApi.Messages
 
   @type label :: String.t()
   @type message :: String.t()

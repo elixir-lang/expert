@@ -1,9 +1,9 @@
 defmodule Engine.CodeIntelligence.Variable do
   alias Engine.Search.Indexer
-  alias Engine.Search.Indexer.Entry
   alias Forge.Ast.Analysis
   alias Forge.Document.Position
   alias Forge.Document.Range
+  alias Forge.Search.Indexer.Entry
 
   require Logger
 

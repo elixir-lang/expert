@@ -1,8 +1,9 @@
 defmodule Expert.Project.IntelligenceTest do
-  alias Engine.Api.Messages
-  alias Engine.Test.Fixtures
+  alias Expert.EngineApi
   alias Expert.Project.Intelligence
   alias Expert.Test.DispatchFake
+  alias Forge.EngineApi.Messages
+  alias Forge.Test.Fixtures
 
   use ExUnit.Case
   use Patch
@@ -38,7 +39,7 @@ defmodule Expert.Project.IntelligenceTest do
         struct: [name: nil]
       )
     ]
-    |> Enum.each(&Engine.Api.broadcast(project, &1))
+    |> Enum.each(&EngineApi.broadcast(project, &1))
 
     Process.sleep(50)
     :ok

@@ -43,9 +43,9 @@ defmodule Engine.Search.Store.Backends.Ets.Schema do
     end
   end
 
-  alias Engine.Search.Indexer.Entry
   alias Engine.Search.Store.Backends.Ets.Wal
   alias Forge.Project
+  alias Forge.Search.Indexer.Entry
 
   import Wal, only: :macros
 

@@ -1,9 +1,9 @@
 defmodule Engine.Build.State do
   alias Elixir.Features
-  alias Engine.Api.Messages
   alias Engine.Build
   alias Engine.Plugin
   alias Forge.Document
+  alias Forge.EngineApi.Messages
   alias Forge.Project
   alias Forge.VM.Versions
 
@@ -60,7 +60,7 @@ defmodule Engine.Build.State do
     # If the project directory isn't there, for some reason the main build fails, so we create it here
     # to ensure that the build will succeed.
     project = state.project
-    build_path = Engine.Build.path(project)
+    build_path = Project.versioned_build_path(project)
 
     unless Versions.compatible?(build_path) do
       Logger.info("Build path #{build_path} was compiled on a previous erlang version. Deleting")

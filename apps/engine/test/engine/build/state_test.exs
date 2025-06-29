@@ -5,7 +5,7 @@ defmodule Engine.Build.StateTest do
   alias Forge.Document
   alias Forge.Project
 
-  import Engine.Test.Fixtures
+  import Forge.Test.Fixtures
 
   use ExUnit.Case, async: false
   use Patch

@@ -71,13 +71,13 @@ defmodule Engine.Commands.Reindex do
   """
 
   alias Forge.Document
+  alias Forge.EngineApi
   alias Forge.Project
 
-  alias Engine.Api
   alias Engine.Search
 
   use GenServer
-  import Api.Messages
+  import EngineApi.Messages
 
   def start_link(opts) do
     [reindex_fun: fun] = Keyword.validate!(opts, reindex_fun: &do_reindex/1)

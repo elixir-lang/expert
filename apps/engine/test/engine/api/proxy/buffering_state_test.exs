@@ -1,13 +1,12 @@
 defmodule Engine.Api.Proxy.BufferingStateStateTest do
-  alias Forge.Document
-
-  alias Engine.Api.Messages
   alias Engine.Api.Proxy
   alias Engine.Api.Proxy.BufferingState
   alias Engine.Build
   alias Engine.Commands
+  alias Forge.Document
+  alias Forge.EngineApi.Messages
 
-  import Engine.Test.Fixtures
+  import Forge.Test.Fixtures
   import Messages
   import Proxy.Records
 

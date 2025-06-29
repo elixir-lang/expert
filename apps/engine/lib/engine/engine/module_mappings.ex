@@ -39,7 +39,7 @@ defmodule Engine.ModuleMappings do
     end
   end
 
-  alias Engine.Api.Messages
+  alias Forge.EngineApi.Messages
 
   use GenServer
 

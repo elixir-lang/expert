@@ -3,9 +3,9 @@ defmodule Engine.Search.Store.Backend.EtsTest do
   alias Engine.Search.Store
   alias Engine.Search.Store.Backends
   alias Engine.Test.Entry
-  alias Engine.Test.Fixtures
   alias Forge.Project
   alias Forge.Test.EventualAssertions
+  alias Forge.Test.Fixtures
 
   use ExUnit.Case, async: false
 

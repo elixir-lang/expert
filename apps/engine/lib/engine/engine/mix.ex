@@ -19,7 +19,7 @@ defmodule Engine.Mix do
       try do
         Mix.ProjectStack.post_config(prune_code_paths: false)
 
-        build_path = Engine.Build.path(project)
+        build_path = Project.versioned_build_path(project)
         project_root = Project.root_path(project)
 
         project

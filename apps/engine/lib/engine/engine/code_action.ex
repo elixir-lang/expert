@@ -1,24 +1,8 @@
 defmodule Engine.CodeAction do
-  alias Engine.CodeAction.Diagnostic
   alias Engine.CodeAction.Handlers
+  alias Forge.CodeAction.Diagnostic
   alias Forge.Document
-  alias Forge.Document.Changes
   alias Forge.Document.Range
-
-  require Logger
-
-  defstruct [:title, :kind, :changes, :uri]
-
-  @type code_action_kind :: GenLSP.Enumerations.CodeActionKind.t()
-
-  @type trigger_kind :: GenLSP.Enumerations.CodeActionTriggerKind.t()
-
-  @type t :: %__MODULE__{
-          title: String.t(),
-          kind: code_action_kind,
-          changes: Changes.t(),
-          uri: Forge.uri()
-        }
 
   @handlers [
     Handlers.ReplaceRemoteFunction,
@@ -29,18 +13,13 @@ defmodule Engine.CodeAction do
     Handlers.Refactorex
   ]
 
-  @spec new(Forge.uri(), String.t(), code_action_kind(), Changes.t()) :: t()
-  def new(uri, title, kind, changes) do
-    %__MODULE__{uri: uri, title: title, changes: changes, kind: kind}
-  end
-
   @spec for_range(
           Document.t(),
           Range.t(),
           [Diagnostic.t()],
-          [code_action_kind] | :all,
-          trigger_kind
-        ) :: [t()]
+          [Forge.CodeAction.code_action_kind()] | :all,
+          Forge.CodeAction.trigger_kind()
+        ) :: [Forge.CodeAction.t()]
   def for_range(%Document{} = doc, %Range{} = range, diagnostics, kinds, trigger_kind) do
     Enum.flat_map(@handlers, fn handler ->
       if handle_kinds?(handler, kinds) and handle_trigger_kind?(handler, trigger_kind) do

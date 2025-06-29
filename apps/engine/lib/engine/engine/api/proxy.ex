@@ -33,13 +33,13 @@ defmodule Engine.Api.Proxy do
   alias Forge.Document
   alias Forge.Document.Changes
 
-  alias Engine.Api.Messages
   alias Engine.Api.Proxy.BufferingState
   alias Engine.Api.Proxy.DrainingState
   alias Engine.Api.Proxy.ProxyingState
   alias Engine.Api.Proxy.Records
   alias Engine.CodeMod
   alias Engine.Commands
+  alias Forge.EngineApi.Messages
 
   import Messages
   import Record

@@ -41,18 +41,18 @@ defmodule Engine.MixProject do
   defp deps do
     [
       {:benchee, "~> 1.3", only: :test},
-      {:forge, path: "../forge", env: Mix.env()},
       Mix.Credo.dependency(),
       Mix.Dialyzer.dependency(),
       {:elixir_sense,
        github: "elixir-lsp/elixir_sense", ref: "73ce7e0d239342fb9527d7ba567203e77dbb9b25"},
+      {:forge, path: "../forge", env: Mix.env()},
       {:gen_lsp, github: "elixir-tools/gen_lsp", branch: "async"},
       {:patch, "~> 0.15", only: [:dev, :test], optional: true, runtime: false},
       {:path_glob, "~> 0.2", optional: true},
       {:phoenix_live_view, "~> 1.0", only: [:test], optional: true, runtime: false},
       {:sourceror, "~> 1.9"},
       {:stream_data, "~> 1.1", only: [:test], runtime: false},
-      {:refactorex, "~> 0.1.51"}
+      {:refactorex, "~> 0.1.52"}
     ]
   end
 

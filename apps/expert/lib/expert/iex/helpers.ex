@@ -1,6 +1,6 @@
 defmodule Expert.IEx.Helpers do
-  alias Engine.Search
   alias Expert.CodeIntelligence
+  alias Expert.EngineApi
   alias Forge.Ast
   alias Forge.Document
   alias Forge.Document.Position
@@ -13,11 +13,7 @@ defmodule Expert.IEx.Helpers do
       alias Forge.Document
       alias Forge.Document.Position
 
-      alias Engine.Search
       import unquote(__MODULE__)
-
-      Engine.Module.Loader.start_link(nil)
-      Engine.Dispatch.start_link([])
     end
   end
 
@@ -29,7 +25,7 @@ defmodule Expert.IEx.Helpers do
   def observer(project) do
     project
     |> ensure_project()
-    |> Engine.call(:observer, :start)
+    |> EngineApi.call(:observer, :start)
   end
 
   def doc(text) do
@@ -54,27 +50,6 @@ defmodule Expert.IEx.Helpers do
     |> Document.new(text, 0)
   end
 
-  def search_store(project) do
-    project = ensure_project(project)
-    Engine.set_project(project)
-
-    Search.Store.start_link(
-      project,
-      &Search.Indexer.create_index/1,
-      &Search.Indexer.update_index/2,
-      Search.Store.Backends.Ets
-    )
-  end
-
-  def search_entries(project) do
-    {:ok, entries} =
-      project
-      |> ensure_project()
-      |> Search.Indexer.create_index()
-
-    entries
-  end
-
   def pos(doc, line, character) do
     Position.new(doc, line, character)
   end
@@ -82,7 +57,7 @@ defmodule Expert.IEx.Helpers do
   def compile_project(project) do
     project
     |> ensure_project()
-    |> Engine.Api.schedule_compile(true)
+    |> EngineApi.schedule_compile(true)
   end
 
   def compile_file(project, source) when is_binary(source) do
@@ -94,7 +69,7 @@ defmodule Expert.IEx.Helpers do
   def compile_file(project, %Document{} = document) do
     project
     |> ensure_project()
-    |> Engine.Api.compile_document(document)
+    |> EngineApi.compile_document(document)
   end
 
   def complete(project, source, context \\ nil)

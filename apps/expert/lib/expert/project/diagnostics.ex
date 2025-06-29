@@ -1,6 +1,7 @@
 defmodule Expert.Project.Diagnostics do
-  alias Engine.Api.Messages
+  alias Expert.EngineApi
   alias Expert.Project.Diagnostics.State
+  alias Forge.EngineApi.Messages
   alias Forge.Formats
   alias Forge.Project
   alias GenLSP.Notifications.TextDocumentPublishDiagnostics
@@ -25,7 +26,7 @@ defmodule Expert.Project.Diagnostics do
 
   @impl GenServer
   def init([%Project{} = project]) do
-    Engine.Api.register_listener(project, self(), [
+    EngineApi.register_listener(project, self(), [
       file_diagnostics(),
       project_compile_requested(),
       project_compiled(),

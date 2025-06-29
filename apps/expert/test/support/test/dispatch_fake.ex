@@ -12,11 +12,11 @@ defmodule Expert.Test.DispatchFake do
   # does that for us.
   defmacro start do
     quote do
-      patch(Engine.Api, :register_listener, fn _project, listener_pid, message_types ->
+      patch(Expert.EngineApi, :register_listener, fn _project, listener_pid, message_types ->
         Dispatch.register_listener(listener_pid, message_types)
       end)
 
-      patch(Engine.Api, :broadcast, fn _project, message ->
+      patch(Expert.EngineApi, :broadcast, fn _project, message ->
         Dispatch.broadcast(message)
       end)
 

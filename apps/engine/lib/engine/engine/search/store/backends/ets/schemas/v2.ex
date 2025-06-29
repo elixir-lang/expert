@@ -1,6 +1,6 @@
 defmodule Engine.Search.Store.Backends.Ets.Schemas.V2 do
-  alias Engine.Search.Indexer.Entry
   alias Engine.Search.Store.Backends.Ets.Schema
+  alias Forge.Search.Indexer.Entry
 
   require Entry
   use Schema, version: 2

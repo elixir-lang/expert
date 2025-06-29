@@ -3,12 +3,12 @@ defmodule Engine.Search.Store do
   A persistent store for search entries
   """
 
-  alias Forge.Project
-
-  alias Engine.Api
-  alias Engine.Search.Indexer.Entry
   alias Engine.Search.Store
   alias Engine.Search.Store.State
+
+  alias Forge.EngineApi
+  alias Forge.Project
+  alias Forge.Search.Indexer.Entry
 
   @type index_state :: :empty | :stale
   @type existing_entries :: [Entry.t()]
@@ -36,7 +36,7 @@ defmodule Engine.Search.Store do
                        2500
                      )
 
-  import Api.Messages
+  import EngineApi.Messages
   use GenServer
   require Logger
 

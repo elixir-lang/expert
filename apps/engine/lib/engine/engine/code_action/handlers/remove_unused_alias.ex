@@ -23,9 +23,9 @@ defmodule Engine.CodeAction.Handlers.RemoveUnusedAlias do
 
   alias Engine.Analyzer
   alias Engine.CodeAction
-  alias Engine.CodeAction.Diagnostic
   alias Forge.Ast
   alias Forge.Ast.Analysis
+  alias Forge.CodeAction.Diagnostic
   alias Forge.Document
   alias Forge.Document.Changes
   alias Forge.Document.Edit
@@ -54,7 +54,7 @@ defmodule Engine.CodeAction.Handlers.RemoveUnusedAlias do
           changes = Changes.new(document, [edit])
 
           action =
-            CodeAction.new(
+            Forge.CodeAction.new(
               document.uri,
               "Remove alias #{module_name}",
               Enumerations.CodeActionKind.source(),

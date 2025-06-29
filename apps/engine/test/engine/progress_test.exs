@@ -1,7 +1,7 @@
 defmodule Engine.ProgressTest do
   alias Engine.Progress
 
-  import Engine.Api.Messages
+  import Forge.EngineApi.Messages
 
   use ExUnit.Case
   use Patch

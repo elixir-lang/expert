@@ -1,8 +1,4 @@
 defmodule Engine.Api.ProxyTest do
-  alias Forge.Document
-  alias Forge.Document.Changes
-
-  alias Engine.Api
   alias Engine.Api.Proxy
   alias Engine.Api.Proxy.BufferingState
   alias Engine.Api.Proxy.DrainingState
@@ -11,14 +7,17 @@ defmodule Engine.Api.ProxyTest do
   alias Engine.Commands
   alias Engine.Dispatch
 
+  alias Forge.Document
+  alias Forge.Document.Changes
+
   use ExUnit.Case
   use Patch
 
-  import Api.Messages
-  import Engine.Test.Fixtures
+  import Forge.EngineApi.Messages
+  import Forge.Test.Fixtures
 
   setup do
-    start_supervised!(Api.Proxy)
+    start_supervised!(Proxy)
     project = project()
     Engine.set_project(project)
 

@@ -1,5 +1,5 @@
 defmodule Engine.Search.Indexer.Extractors.FunctionDefinitionTest do
-  alias Engine.Search.Indexer.Entry
+  alias Forge.Search.Indexer.Entry
   use Engine.Test.ExtractorCase
 
   def index(source) do

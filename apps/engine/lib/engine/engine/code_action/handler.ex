@@ -1,6 +1,6 @@
 defmodule Engine.CodeAction.Handler do
-  alias Engine.CodeAction
-  alias Engine.CodeAction.Diagnostic
+  alias Forge.CodeAction
+  alias Forge.CodeAction.Diagnostic
   alias Forge.Document
   alias Forge.Document.Range
 
