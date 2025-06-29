@@ -13,7 +13,7 @@ defmodule Expert.Application do
   def start(_type, _args) do
     children = [
       document_store_child_spec(),
-      {DynamicSupervisor, Expert.Project.Supervisor.options()},
+      {DynamicSupervisor, Expert.Project.DynamicSupervisor.options()},
       {DynamicSupervisor, name: Expert.DynamicSupervisor},
       {GenLSP.Assigns, [name: Expert.Assigns]},
       {Task.Supervisor, name: :expert_task_queue},

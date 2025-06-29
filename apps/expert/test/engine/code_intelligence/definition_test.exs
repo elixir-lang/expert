@@ -1,7 +1,8 @@
 defmodule Engine.CodeIntelligence.DefinitionTest do
   alias Engine.Search
   alias Expert.EngineApi
-  alias Expert.ProjectNodeSupervisor
+  alias Expert.EngineNode
+  alias Expert.EngineSupervisor
   alias Forge.Document
 
   import Forge.EngineApi.Messages
@@ -44,8 +45,8 @@ defmodule Engine.CodeIntelligence.DefinitionTest do
   setup_all do
     project = project(:navigations)
     start_supervised!({Document.Store, derive: [analysis: &Forge.Ast.analyze/1]})
-    {:ok, _} = start_supervised({ProjectNodeSupervisor, project})
-    {:ok, _, _} = EngineApi.start_link(project)
+    {:ok, _} = start_supervised({EngineSupervisor, project})
+    {:ok, _, _} = EngineNode.start(project)
 
     EngineApi.register_listener(project, self(), [:all])
     EngineApi.schedule_compile(project, true)

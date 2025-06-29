@@ -1,5 +1,6 @@
 defmodule EngineTest do
   alias Expert.EngineApi
+  alias Expert.EngineNode
   alias Forge.Document
   alias Forge.Project
 
@@ -8,8 +9,8 @@ defmodule EngineTest do
   import Forge.Test.Fixtures
 
   def start_project(%Project{} = project) do
-    start_supervised!({Expert.ProjectNodeSupervisor, project})
-    assert {:ok, _, _} = EngineApi.start_link(project)
+    start_supervised!({Expert.EngineSupervisor, project})
+    assert {:ok, _, _} = EngineNode.start(project)
     :ok
   end
 

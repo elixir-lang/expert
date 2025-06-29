@@ -1,5 +1,6 @@
 defmodule Expert.Provider.Handlers.FormattingTest do
   alias Expert.EngineApi
+  alias Expert.EngineNode
   alias Forge.Document
   alias Forge.EngineApi.Messages
 
@@ -11,8 +12,8 @@ defmodule Expert.Provider.Handlers.FormattingTest do
   end
 
   def with_real_project(%{project: project}) do
-    {:ok, _} = start_supervised({Expert.ProjectNodeSupervisor, project})
-    {:ok, _, _} = EngineApi.start_link(project)
+    {:ok, _} = start_supervised({Expert.EngineSupervisor, project})
+    {:ok, _, _} = EngineNode.start(project)
     EngineApi.register_listener(project, self(), [:all])
     :ok
   end

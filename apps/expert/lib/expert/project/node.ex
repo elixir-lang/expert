@@ -14,6 +14,7 @@ defmodule Expert.Project.Node do
   alias Forge.Project
 
   alias Expert.EngineApi
+  alias Expert.EngineNode
   alias Expert.Project.Progress
 
   require Logger
@@ -92,7 +93,7 @@ defmodule Expert.Project.Node do
   # private api
 
   defp start_node(%Project{} = project) do
-    with {:ok, node, node_pid} <- EngineApi.start_link(project) do
+    with {:ok, node, node_pid} <- EngineNode.start(project) do
       Node.monitor(node, true)
       {:ok, State.new(project, node, node_pid)}
     end

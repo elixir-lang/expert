@@ -1,4 +1,4 @@
-defmodule Expert.ProjectNode do
+defmodule Expert.EngineNode do
   alias Forge.Project
   require Logger
 
@@ -103,18 +103,58 @@ defmodule Expert.ProjectNode do
     end
   end
 
-  alias Expert.ProjectNodeSupervisor
+  alias Expert.EngineSupervisor
   alias Forge.Document
   use GenServer
 
-  def start(project, paths) do
+  def start(project) do
+    :ok = ensure_epmd_started()
+    start_net_kernel(project)
+
     node_name = Project.node_name(project)
     bootstrap_args = [project, Document.Store.entropy(), all_app_configs()]
 
-    with {:ok, node_pid} <- ProjectNodeSupervisor.start_project_node(project),
-         :ok <- start_node(project, paths),
-         :ok <- :rpc.call(node_name, Engine.Bootstrap, :init, bootstrap_args) do
-      {:ok, node_pid}
+    with {:ok, node_pid} <- EngineSupervisor.start_project_node(project),
+         :ok <- start_node(project, glob_paths()),
+         :ok <- :rpc.call(node_name, Engine.Bootstrap, :init, bootstrap_args),
+         :ok <- ensure_apps_started(node_name) do
+      {:ok, node_name, node_pid}
+    end
+  end
+
+  defp start_net_kernel(%Project{} = project) do
+    manager = Project.manager_node_name(project)
+    :net_kernel.start(manager, %{name_domain: :longnames})
+  end
+
+  defp ensure_apps_started(node) do
+    :rpc.call(node, Engine, :ensure_apps_started, [])
+  end
+
+  defp ensure_epmd_started do
+    case System.cmd("epmd", ~w(-daemon)) do
+      {"", 0} ->
+        :ok
+
+      _ ->
+        {:error, :epmd_failed}
+    end
+  end
+
+  @excluded_apps [:patch, :nimble_parsec]
+  @allowed_apps [:engine | Mix.Project.deps_apps()] -- @excluded_apps
+
+  defp app_globs do
+    app_globs = Enum.map(@allowed_apps, fn app_name -> "/**/#{app_name}*/ebin" end)
+    ["/**/priv" | app_globs]
+  end
+
+  def glob_paths do
+    for entry <- :code.get_path(),
+        entry_string = List.to_string(entry),
+        entry_string != ".",
+        Enum.any?(app_globs(), &PathGlob.match?(entry_string, &1, match_dot: true)) do
+      entry
     end
   end
 

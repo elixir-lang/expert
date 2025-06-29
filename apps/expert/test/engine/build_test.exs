@@ -2,7 +2,8 @@ defmodule Engine.BuildTest do
   alias Elixir.Features
   alias Engine.Build
   alias Expert.EngineApi
-  alias Expert.ProjectNodeSupervisor
+  alias Expert.EngineNode
+  alias Expert.EngineSupervisor
   alias Forge.Document
   alias Forge.EngineApi.Messages
   alias Forge.Plugin.V1.Diagnostic
@@ -41,8 +42,8 @@ defmodule Engine.BuildTest do
     |> Project.workspace_path()
     |> File.rm_rf()
 
-    {:ok, _} = start_supervised({ProjectNodeSupervisor, project})
-    {:ok, _, _} = EngineApi.start_link(project)
+    {:ok, _} = start_supervised({EngineSupervisor, project})
+    {:ok, _, _} = EngineNode.start(project)
     EngineApi.register_listener(project, self(), [:all])
 
     {:ok, project}

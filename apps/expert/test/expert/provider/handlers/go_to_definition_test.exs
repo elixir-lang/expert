@@ -16,7 +16,7 @@ defmodule Expert.Provider.Handlers.GoToDefinitionTest do
     project = project(:navigations)
 
     start_supervised!(Expert.Application.document_store_child_spec())
-    start_supervised!({DynamicSupervisor, Expert.Project.Supervisor.options()})
+    start_supervised!({DynamicSupervisor, Expert.Project.DynamicSupervisor.options()})
     start_supervised!({Expert.Project.Supervisor, project})
 
     EngineApi.register_listener(project, self(), [

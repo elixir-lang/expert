@@ -21,7 +21,7 @@ defmodule Expert.Provider.Handlers.HoverTest do
     project = Fixtures.project()
 
     start_supervised!(Expert.Application.document_store_child_spec())
-    start_supervised!({DynamicSupervisor, Expert.Project.Supervisor.options()})
+    start_supervised!({DynamicSupervisor, Expert.Project.DynamicSupervisor.options()})
     start_supervised!({Expert.Project.Supervisor, project})
 
     :ok = EngineApi.register_listener(project, self(), [Messages.project_compiled()])

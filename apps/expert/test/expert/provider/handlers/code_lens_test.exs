@@ -19,7 +19,7 @@ defmodule Expert.Provider.Handlers.CodeLensTest do
     start_supervised(Document.Store)
     project = project(:umbrella)
 
-    start_supervised!({DynamicSupervisor, Expert.Project.Supervisor.options()})
+    start_supervised!({DynamicSupervisor, Expert.Project.DynamicSupervisor.options()})
     start_supervised!({Expert.Project.Supervisor, project})
 
     EngineApi.register_listener(project, self(), [project_compiled()])

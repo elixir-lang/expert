@@ -1,7 +1,7 @@
-defmodule Expert.ProjectNodeSupervisor do
+defmodule Expert.EngineSupervisor do
   use DynamicSupervisor
 
-  alias Expert.ProjectNode
+  alias Expert.EngineNode
   alias Forge.Project
 
   @dialyzer {:no_return, start_link: 1}
@@ -18,7 +18,7 @@ defmodule Expert.ProjectNodeSupervisor do
   end
 
   def start_project_node(%Project{} = project) do
-    DynamicSupervisor.start_child(__MODULE__, ProjectNode.child_spec(project))
+    DynamicSupervisor.start_child(__MODULE__, EngineNode.child_spec(project))
   end
 
   @impl true

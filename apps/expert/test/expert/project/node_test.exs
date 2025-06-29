@@ -1,6 +1,6 @@
 defmodule Expert.Project.NodeTest do
   alias Expert.EngineApi
-  alias Expert.Project.Node, as: ProjectNode
+  alias Expert.Project.Node, as: EngineNode
 
   import Forge.Test.Fixtures
   import Forge.EngineApi.Messages
@@ -11,7 +11,7 @@ defmodule Expert.Project.NodeTest do
   setup do
     project = project()
 
-    {:ok, _} = start_supervised({DynamicSupervisor, Expert.Project.Supervisor.options()})
+    {:ok, _} = start_supervised({DynamicSupervisor, Expert.Project.DynamicSupervisor.options()})
     {:ok, _} = start_supervised({Expert.Project.Supervisor, project})
 
     :ok = EngineApi.register_listener(project, self(), [project_compiled()])
@@ -30,7 +30,7 @@ defmodule Expert.Project.NodeTest do
   end
 
   test "the node is restarted when it goes down", %{project: project} do
-    node_name = ProjectNode.node_name(project)
+    node_name = EngineNode.node_name(project)
     old_pid = node_pid(project)
 
     :ok = EngineApi.stop(project)
@@ -42,7 +42,7 @@ defmodule Expert.Project.NodeTest do
   end
 
   test "the node restarts when the supervisor pid is killed", %{project: project} do
-    node_name = ProjectNode.node_name(project)
+    node_name = EngineNode.node_name(project)
     supervisor_pid = EngineApi.call(project, Process, :whereis, [Engine.Supervisor])
 
     assert is_pid(supervisor_pid)
@@ -52,7 +52,7 @@ defmodule Expert.Project.NodeTest do
 
   defp node_pid(project) do
     project
-    |> Expert.ProjectNode.name()
+    |> Expert.EngineNode.name()
     |> Process.whereis()
   end
 end

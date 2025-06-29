@@ -18,7 +18,7 @@ defmodule Expert.Test.Expert.CompletionCase do
   setup_all do
     project = project()
 
-    start_supervised!({DynamicSupervisor, Expert.Project.Supervisor.options()})
+    start_supervised!({DynamicSupervisor, Expert.Project.DynamicSupervisor.options()})
     start_supervised!({Expert.Project.Supervisor, project})
 
     EngineApi.register_listener(project, self(), [
