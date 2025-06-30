@@ -76,10 +76,15 @@ build.engine:
 release: build.engine
 	cd apps/expert &&\
 		mix deps.get &&\
-		EXPERT_RELEASE_MODE=burrito MIX_ENV=prod mix release --force --overwrite
+		EXPERT_RELEASE_MODE=burrito MIX_ENV=prod mix release expert --overwrite
 
 release.local: build.engine
 	cd apps/expert &&\
 		mix deps.get &&\
-		EXPERT_RELEASE_MODE=burrito BURRITO_TARGET=$(local_target) MIX_ENV=prod mix release --force --overwrite
+		EXPERT_RELEASE_MODE=burrito BURRITO_TARGET=$(local_target) MIX_ENV=prod mix release expert --overwrite
+
+release.plain: build.engine
+	cd apps/expert &&\
+		mix deps.get &&\
+		EXPERT_RELEASE_MODE=plain MIX_ENV=prod mix release plain --overwrite
 

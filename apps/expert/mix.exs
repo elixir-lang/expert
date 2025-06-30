@@ -44,7 +44,7 @@ defmodule Expert.MixProject do
       expert: [
         strip_beams: false,
         cookie: "expert",
-        steps: release_steps(),
+        steps: release_steps() ++ [&Burrito.wrap/1],
         burrito: [
           targets: [
             darwin_arm64: [os: :darwin, cpu: :aarch64],
@@ -54,6 +54,11 @@ defmodule Expert.MixProject do
             windows_amd64: [os: :windows, cpu: :x86_64]
           ]
         ]
+      ],
+      plain: [
+        strip_beams: false,
+        cookie: "expert",
+        steps: release_steps()
       ]
     ]
   end
@@ -61,8 +66,7 @@ defmodule Expert.MixProject do
   defp release_steps() do
     [
       :assemble,
-      &Expert.Release.assemble/1,
-      &Burrito.wrap/1
+      &Expert.Release.assemble/1
     ]
   end
 
