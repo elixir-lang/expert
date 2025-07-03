@@ -6,7 +6,7 @@ defmodule Expert.MixProject do
     [
       app: :expert,
       version: "0.7.2",
-      elixir: "~> 1.17",
+      elixir: "~> 1.15",
       start_permanent: Mix.env() == :prod,
       deps: deps(),
       dialyzer: Mix.Dialyzer.config(add_apps: [:jason]),
