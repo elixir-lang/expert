@@ -136,6 +136,55 @@ jobs:
           make compile.protocols.poncho
           make dialyzer.all
 
+  release-test:
+    runs-on: ${{matrix.os.name}}
+    name: Release test (${{matrix.os.name}})
+    strategy:
+      matrix:
+        os:
+          - name: ubuntu-latest
+            target: linux_amd64
+          - name: macos-14
+            target: darwin_arm64
+          - name: macos-13
+            target: darwin_amd64
+
+        include:
+          - elixir: "1.15.8"
+            otp: "27"
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Elixir
+        uses: erlef/setup-beam@v1
+        with:
+          otp-version: ${{matrix.otp}}
+          elixir-version: ${{matrix.elixir}}
+
+      - uses: mlugg/setup-zig@v2
+        with:
+          version: "0.14.0"
+
+      - name: Cache deps
+        id: cache-deps
+        uses: actions/cache@v4
+        with:
+          path: |
+            apps/**/deps
+            apps/**/_build
+
+          key: ${{ runner.os }}-mix-${{ matrix.elixir }}-${{ matrix.otp }}-${{ hashFiles('apps/**/mix.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-mix-${{ matrix.elixir }}-${{ matrix.otp }}-
+
+      - name: Build and release
+        env:
+          MIX_ENV: prod
+          BURRITO_TARGET: ${{ matrix.os.target }}
+        run: make build.engine && cd apps/expert && mix deps.get && mix release expert
+
   test:
     runs-on: ubuntu-latest
     name: Test on OTP ${{matrix.otp}} / Elixir ${{matrix.elixir}}
