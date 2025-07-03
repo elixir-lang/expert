@@ -119,12 +119,8 @@ jobs:
             expert-plts-2-${{ env.DEFAULT_OTP }}-${{ env.DEFAULT_ELIXIR }}-${{ hashFiles('apps/**/mix.lock') }}-
             expert-plts-2-${{ env.DEFAULT_OTP }}-${{ env.DEFAULT_ELIXIR }}-
 
-      # Step: Download project dependencies. If unchanged, uses
-      # the cached version.
       - name: Install and compile dependencies
-        run: |
-          mix deps.get
-          mix deps.compile --skip-umbrella-children
+        run: mix deps.compile.ponch
 
       - name: Compile
         run: make compile.all
