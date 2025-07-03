@@ -120,7 +120,7 @@ jobs:
             expert-plts-2-${{ env.DEFAULT_OTP }}-${{ env.DEFAULT_ELIXIR }}-
 
       - name: Install and compile dependencies
-        run: mix deps.compile.poncho
+        run: make deps.compile.poncho
 
       - name: Compile
         run: make compile.all
