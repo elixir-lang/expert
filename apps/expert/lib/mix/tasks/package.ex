@@ -66,8 +66,8 @@ defmodule Mix.Tasks.Package do
   to the code search path with the `-pa` argument.
   """
 
-  alias Forge.VM.Versions
   alias Forge.Namespace
+  alias Forge.VM.Versions
 
   @options [
     strict: [
