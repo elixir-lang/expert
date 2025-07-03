@@ -96,7 +96,6 @@ defmodule Expert do
          {:ok, request} <- Convert.to_native(request),
          {:ok, response} <- handler.handle(request, state.configuration),
          {:ok, response} <- Forge.Protocol.Convert.to_lsp(response) do
-      Logger.info("Handling request: #{request.method}")
       {:reply, response, lsp}
     else
       {:error, {:unhandled, _}} ->

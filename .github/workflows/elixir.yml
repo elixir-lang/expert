@@ -44,7 +44,7 @@ jobs:
       # Step: Define how to cache deps. Restores existing cache if present.
       - name: Cache deps
         id: cache-deps
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: |
             apps/**/deps
@@ -96,7 +96,7 @@ jobs:
       # Step: Define how to cache deps. Restores existing cache if present.
       - name: Cache deps
         id: cache-deps
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         env:
           cache-name: cache-elixir-deps-1
         with:
@@ -111,7 +111,7 @@ jobs:
       # Step: Create dialyzer .plt files if they're not present
       - name: Cache dialyzer plt files
         id: cache-plt
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: "priv/plts"
           key: expert-plts-2-${{ env.DEFAULT_OTP }}-${{ env.DEFAULT_ELIXIR }}-${{ hashFiles('apps/**/mix.lock' ) }}-${{ github.run_id }}
@@ -119,12 +119,8 @@ jobs:
             expert-plts-2-${{ env.DEFAULT_OTP }}-${{ env.DEFAULT_ELIXIR }}-${{ hashFiles('apps/**/mix.lock') }}-
             expert-plts-2-${{ env.DEFAULT_OTP }}-${{ env.DEFAULT_ELIXIR }}-
 
-      # Step: Download project dependencies. If unchanged, uses
-      # the cached version.
       - name: Install and compile dependencies
-        run: |
-          mix deps.get
-          mix deps.compile --skip-umbrella-children
+        run: make deps.compile.poncho
 
       - name: Compile
         run: make compile.all
@@ -137,7 +133,7 @@ jobs:
 
       - name: Run dialyzer
         run: |
-          mix compile.protocols
+          make compile.protocols.poncho
           make dialyzer.all
 
   test:
@@ -181,7 +177,7 @@ jobs:
       # Step: Define how to cache deps. Restores existing cache if present.
       - name: Cache deps
         id: cache-deps
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: |
             apps/**/deps
@@ -211,7 +207,7 @@ jobs:
         uses: docker/setup-buildx-action@v3
 
       - name: Build integration runner
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
         with:
           context: .
           file: ./integration/Dockerfile

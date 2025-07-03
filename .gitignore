@@ -34,4 +34,5 @@ apps/forge/src/future_elixir_parser.erl
 
 # Ignore release artifacts
 **/burrito_out
+
 .notes/

@@ -87,4 +87,3 @@ release.plain: build.engine
 	cd apps/expert &&\
 		mix deps.get &&\
 		EXPERT_RELEASE_MODE=plain MIX_ENV=prod mix release plain --overwrite
-
