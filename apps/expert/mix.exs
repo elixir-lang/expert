@@ -44,7 +44,7 @@ defmodule Expert.MixProject do
       Mix.Dialyzer.dependency(),
       {:engine, path: "../engine", env: Mix.env()},
       {:forge, path: "../forge", env: Mix.env()},
-      {:gen_lsp, github: "elixir-tools/gen_lsp", branch: "async"},
+      {:gen_lsp, "~> 0.11"},
       {:jason, "~> 1.4"},
       {:logger_file_backend, "~> 0.0", only: [:dev, :prod]},
       {:patch, "~> 0.15", runtime: false, only: [:dev, :test]},
