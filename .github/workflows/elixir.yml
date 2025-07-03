@@ -133,7 +133,7 @@ jobs:
 
       - name: Run dialyzer
         run: |
-          mix compile.protocols
+          make compile.protocols.poncho
           make dialyzer.all
 
   test:
