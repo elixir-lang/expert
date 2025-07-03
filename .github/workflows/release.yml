@@ -2,69 +2,54 @@ name: Release Expert
 
 on:
   push:
-    branches:
-      - main
-
-permissions:
-  contents: write
-  pull-requests: write
-
+    tags:
+      - v*
 jobs:
   release:
-    name: release
     runs-on: ubuntu-latest
-    outputs:
-      release_created: ${{ steps.release.outputs.release_created }}
-      tag_name: ${{ steps.release.outputs.tag_name }}
+    name: Build and release Expert
+    permissions:
+      contents: write
     steps:
-      - uses: googleapis/release-please-action@v4
-        id: release
-
-  draft:
-    name: draft
-    needs: release
-    env:
-      GH_TOKEN: ${{ github.token }}
-    runs-on: ubuntu-latest
-    if: ${{ needs.release.outputs.release_created }}
-    steps:
-      - run: gh release edit ${{ needs.release.outputs.tag_name }} --draft=true --repo='elixir-lang/expert'
-
-  build:
-    needs: [release, draft]
-    runs-on: macos-14
-    if: ${{ needs.release.outputs.release_created }}
-    env:
-      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-    steps:
-      - uses: actions/checkout@v4
-      - uses: DeterminateSystems/nix-installer-action@main
-      - uses: cachix/cachix-action@v15
+      - name: Set up Elixir
+        uses: erlef/setup-beam@v1
         with:
-          name: elixir-tools
-          authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
-      - run: nix develop --command bash -c 'mix local.hex --force'
-      - run: nix develop --command bash -c 'mix local.rebar --force'
-      - run: chmod +x priv/cmd
-      - run: nix develop --command bash -c 'make release'
-        env:
-          MIX_ENV: prod
-      - name: Create Checksum
-        run: |
-          cd ./apps/expert/burrito_out
-          chmod +x ./*
-          shasum -a 256 ./* > expert_checksums.txt
-          cd ..
-      - name: Upload to release
-        env:
-          GITHUB_TOKEN: ${{ secrets.token }}
-        run: gh release upload ${{ needs.release.outputs.tag_name }} ./apps/expert/burrito_out/*
+          otp-version: "25.0"
+          elixir-version: "1.15.8-otp-25"
+          version-type: strict
 
-  publish:
-    name: publish
-    needs: [release, draft, build]
-    runs-on: ubuntu-latest
-    env:
-      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-    steps:
-      - run: gh release edit ${{ needs.release.outputs.tag_name }} --draft=false --repo='elixir-lang/expert'
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Cache deps
+        id: cache-deps
+        uses: actions/cache@v4
+        env:
+          cache-name: cache-elixir-deps
+        with:
+          path: deps
+          key: ${{ runner.os }}-mix-${{ env.cache-name }}-${{ hashFiles('**/mix.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-mix-${{ env.cache-name }}-
+
+      - name: Install dependencies
+        run: mix deps.get
+
+      - name: Compile
+        run: mix compile
+
+      - name: Build release
+        run: mix package --zip
+
+      - name: Archive release
+        run: |
+          cp expert.zip expert-${{ github.ref_name }}.zip
+
+      - name: Publish release
+        uses: ncipollo/release-action@v1
+        with:
+          artifacts: expert*.zip
+          makeLatest: true
+          generateReleaseNotes: false
+          allowUpdates: true
+          artifactErrorsFailBuild: true
