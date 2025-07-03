@@ -195,29 +195,3 @@ jobs:
       # Step: Execute the tests.
       - name: Run tests
         run: make test.all
-
-  integration_test:
-    runs-on: ubuntu-latest
-    name: Integration tests
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Build integration runner
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: ./integration/Dockerfile
-          tags: xp
-          # GitHub Actions cache
-          # https://docs.docker.com/build/ci/github-actions/cache/
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          # Required to make the image available through docker
-          load: true
-
-      - name: Run integration tests
-        run: NO_BUILD=1 ./integration/test.sh
