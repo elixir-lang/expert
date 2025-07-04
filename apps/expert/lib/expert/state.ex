@@ -54,7 +54,8 @@ defmodule Expert.State do
 
     response = initialize_result()
 
-    Project.Supervisor.start(config.project)
+    Task.start_link(fn -> Project.Supervisor.start(config.project) end)
+
     {:ok, response, new_state}
   end
 

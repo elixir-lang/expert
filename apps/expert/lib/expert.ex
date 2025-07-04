@@ -18,7 +18,6 @@ defmodule Expert do
     GenLSP.Notifications.TextDocumentDidOpen,
     GenLSP.Notifications.TextDocumentDidSave,
     GenLSP.Notifications.Exit,
-    GenLSP.Notifications.Initialized,
     GenLSP.Requests.Shutdown
   ]
 
@@ -47,13 +46,6 @@ defmodule Expert do
 
     case State.initialize(state, request) do
       {:ok, response, state} ->
-        # TODO: this should be gated behind the dynamic registration in the initialization params
-        registrations = registrations()
-
-        if nil != GenLSP.request(lsp, registrations) do
-          Logger.error("Failed to register capability")
-        end
-
         lsp = assign(lsp, state: state)
         {:ok, response} = Forge.Protocol.Convert.to_lsp(response)
 
@@ -117,6 +109,16 @@ defmodule Expert do
            message: message
          }, lsp}
     end
+  end
+
+  def handle_notification(%GenLSP.Notifications.Initialized{}, lsp) do
+    registrations = registrations()
+
+    if nil != GenLSP.request(lsp, registrations) do
+      Logger.error("Failed to register capability")
+    end
+
+    {:noreply, lsp}
   end
 
   def handle_notification(%mod{} = notification, lsp) when mod in @server_specific_messages do
