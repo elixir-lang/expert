@@ -1,8 +1,8 @@
 defmodule Expert do
-  alias Expert.Provider.Handlers
-  alias Expert.State
   alias Expert.Protocol.Convert
   alias Expert.Protocol.Id
+  alias Expert.Provider.Handlers
+  alias Expert.State
   alias GenLSP.Requests
   alias GenLSP.Structures
 

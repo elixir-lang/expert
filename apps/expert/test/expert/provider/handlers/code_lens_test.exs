@@ -1,10 +1,10 @@
 defmodule Expert.Provider.Handlers.CodeLensTest do
   alias Expert.EngineApi
+  alias Expert.Protocol.Convert
+  alias Expert.Protocol.Id
   alias Expert.Provider.Handlers
   alias Forge.Document
   alias Forge.Project
-  alias Expert.Protocol.Convert
-  alias Expert.Protocol.Id
   alias GenLSP.Requests.TextDocumentCodeLens
   alias GenLSP.Structures
 
