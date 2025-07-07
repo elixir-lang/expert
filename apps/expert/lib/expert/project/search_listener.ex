@@ -2,7 +2,7 @@ defmodule Expert.Project.SearchListener do
   alias Expert.EngineApi
   alias Forge.Formats
   alias Forge.Project
-  alias Forge.Protocol.Id
+  alias Expert.Protocol.Id
   alias GenLSP.Requests
 
   import Forge.EngineApi.Messages

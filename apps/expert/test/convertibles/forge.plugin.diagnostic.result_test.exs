@@ -3,7 +3,7 @@ defmodule Forge.Protocol.Convertibles.Forge.Plugin.V1.Diagnostic.ResultTest do
   alias Forge.Plugin.V1.Diagnostic
   alias GenLSP.Enumerations.DiagnosticSeverity
   alias GenLSP.Structures
-  use Forge.Test.Protocol.ConvertibleSupport
+  use Expert.Test.Protocol.ConvertibleSupport
 
   import Forge.Test.CodeSigil
 

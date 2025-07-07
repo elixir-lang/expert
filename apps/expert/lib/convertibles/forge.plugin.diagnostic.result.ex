@@ -1,7 +1,7 @@
 defimpl Forge.Protocol.Convertible, for: Forge.Plugin.V1.Diagnostic.Result do
   alias GenLSP.Structures
   alias GenLSP.Enumerations.DiagnosticSeverity
-  alias Forge.Protocol.Conversions
+  alias Expert.Protocol.Conversions
   alias Forge.Document
   alias Forge.Document.Position
   alias Forge.Document.Range

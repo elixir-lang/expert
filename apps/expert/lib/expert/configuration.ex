@@ -6,7 +6,7 @@ defmodule Expert.Configuration do
   alias Expert.Configuration.Support
   alias Expert.Dialyzer
   alias Forge.Project
-  alias Forge.Protocol.Id
+  alias Expert.Protocol.Id
   alias GenLSP.Notifications.WorkspaceDidChangeConfiguration
   alias GenLSP.Requests
   alias GenLSP.Structures

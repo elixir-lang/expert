@@ -1,6 +1,6 @@
 defmodule Forge.Protocol.Convertibles.PositionTest do
   alias GenLSP.Structures
-  use Forge.Test.Protocol.ConvertibleSupport
+  use Expert.Test.Protocol.ConvertibleSupport
 
   defmodule Inner do
     defstruct [:position]

@@ -4,7 +4,7 @@ defmodule Expert.Provider.Handlers.HoverTest do
   alias Forge.Document
   alias Forge.Document.Position
   alias Forge.EngineApi.Messages
-  alias Forge.Protocol.Convert
+  alias Expert.Protocol.Convert
   alias Forge.Test.Fixtures
   alias GenLSP.Requests
   alias GenLSP.Structures
@@ -755,7 +755,7 @@ defmodule Expert.Provider.Handlers.HoverTest do
 
     with {:ok, _} <- Document.Store.open_temporary(uri) do
       req = %Requests.TextDocumentHover{
-        id: Forge.Protocol.Id.next(),
+        id: Expert.Protocol.Id.next(),
         params: %Structures.HoverParams{
           # convert line and char to zero-based
           position: %Structures.Position{line: line - 1, character: char - 1},
