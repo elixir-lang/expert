@@ -17,7 +17,6 @@ defmodule Expert.CodeIntelligence.Completion do
 
   require Logger
 
-  @build_env Mix.env()
   @expert_deps Enum.map([:expert | Mix.Project.deps_apps()], &Atom.to_string/1)
 
   def trigger_characters do
@@ -239,6 +238,8 @@ defmodule Expert.CodeIntelligence.Completion do
 
     result_app = metadata[:app]
 
+    Logger.info("project_module? #{inspect(binding(), pretty: true)}")
+
     cond do
       module_app in project_apps ->
         true
@@ -259,18 +260,11 @@ defmodule Expert.CodeIntelligence.Completion do
         true
 
       true ->
-        # The following cases happen on test cases, due to the application
-        # controller not always recognizing project fixture modules as part
-        # of any application.
-        test_env?() and is_nil(module_app) and is_nil(project.project_module)
+        # Results not belonging to an application or the project are most
+        # likely to be defined in a test or .exs file.
+        is_nil(module_app) and is_nil(project.project_module)
     end
   end
-
-  # Because the build env is fixed at compile time, dialyzer knows that
-  # in :dev and :prod environments, this function will always return false,
-  # so it produces a warning.
-  @dialyzer {:nowarn_function, test_env?: 0}
-  defp test_env?, do: @build_env == :test
 
   defp module_string_to_atom(""), do: nil
 
