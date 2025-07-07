@@ -12,7 +12,8 @@ defmodule Expert.CodeIntelligence.Completion.Translations.FunctionTest do
                |> fetch_completion("filter_map")
 
       assert completion.label
-      assert [:deprecated] = completion.tags
+      expected_tag = GenLSP.Enumerations.CompletionItemTag.deprecated()
+      assert [^expected_tag] = completion.tags
     end
 
     test "bang functions are sorted after non-bang functions", %{project: project} do

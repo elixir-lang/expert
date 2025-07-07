@@ -44,7 +44,7 @@ defmodule Expert.CodeIntelligence.Completion.Translations.Callable do
 
     tags =
       if Map.get(callable.metadata, :deprecated) do
-        [:deprecated]
+        [GenLSP.Enumerations.CompletionItemTag.deprecated()]
       end
 
     kind =
