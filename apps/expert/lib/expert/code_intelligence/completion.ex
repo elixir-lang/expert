@@ -238,8 +238,6 @@ defmodule Expert.CodeIntelligence.Completion do
 
     result_app = metadata[:app]
 
-    Logger.info("project_module? #{inspect(binding(), pretty: true)}")
-
     cond do
       module_app in project_apps ->
         true
