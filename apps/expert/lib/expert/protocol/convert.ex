@@ -29,4 +29,9 @@ defmodule Expert.Protocol.Convert do
       {:ok, %{original_request | params: updated_request}}
     end
   end
+
+  def to_native(%GenLSP.Requests.Shutdown{} = request) do
+    # Special case for shutdown requests, which don't have a params field
+    {:ok, request}
+  end
 end
