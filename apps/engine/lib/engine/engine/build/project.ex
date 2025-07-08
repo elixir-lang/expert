@@ -73,11 +73,11 @@ defmodule Engine.Build.Project do
   defp prepare_for_project_build(true = _initial?) do
     if connected_to_internet?() do
       with_progress "mix local.hex", fn ->
-        Mix.Task.run("local.hex", ~w(--force --if-missing))
+        Mix.Task.run("local.hex", ~w(--force))
       end
 
       with_progress "mix local.rebar", fn ->
-        Mix.Task.run("local.rebar", ~w(--force --if-missing))
+        Mix.Task.run("local.rebar", ~w(--force))
       end
 
       with_progress "mix deps.get", fn ->
