@@ -2,12 +2,16 @@
   description = "Reimagined language server for Elixir";
 
   inputs.nixpkgs.url = "flake:nixpkgs";
+  inputs.zigpkgs.url = "github:nixos/nixpkgs/12a55407652e04dcf2309436eb06fef0d3713ef3";
+  inputs.xzpkgs.url = "github:nixos/nixpkgs/18dd725c29603f582cf1900e0d25f9f1063dbf11";
   inputs.flake-parts.url = "github:hercules-ci/flake-parts";
   inputs.systems.url = "github:nix-systems/default";
 
   outputs = {
     self,
     systems,
+    zigpkgs,
+    xzpkgs,
     ...
   } @ inputs:
     inputs.flake-parts.lib.mkFlake {inherit inputs;} {
@@ -19,8 +23,14 @@
 
       systems = import systems;
 
-      perSystem = {pkgs, ...}: let
+      perSystem = {
+        pkgs,
+        system,
+        ...
+      }: let
         erlang = pkgs.beam.packages.erlang_25;
+        zpkgs = zigpkgs.legacyPackages.${system};
+        xzpkgs' = xzpkgs.legacyPackages.${system};
         expert = self.lib.mkExpert {inherit erlang;};
       in {
         formatter = pkgs.alejandra;
@@ -51,17 +61,14 @@
         };
 
         devShells.default = pkgs.mkShell {
-          packages = let
-            beamPackages = pkgs.beam.packages;
-          in
-            [
-              beamPackages.erlang_27.erlang
-              beamPackages.erlang_27.elixir_1_17
-            ]
-            ++ pkgs.lib.optionals pkgs.stdenv.isDarwin [
-              pkgs.darwin.apple_sdk.frameworks.CoreFoundation
-              pkgs.darwin.apple_sdk.frameworks.CoreServices
-            ];
+          packages = with pkgs; [
+            beam.packages.erlang_27.erlang
+            beam.packages.erlang_27.elixir_1_17
+            zpkgs.zig_0_14
+            xzpkgs'.xz
+            just
+            _7zz
+          ];
         };
       };
     };
