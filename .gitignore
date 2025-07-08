@@ -32,4 +32,7 @@ apps/forge/src/future_elixir_parser.erl
 
 .DS_Store
 
+# Ignore release artifacts
+**/burrito_out
+
 .notes/
