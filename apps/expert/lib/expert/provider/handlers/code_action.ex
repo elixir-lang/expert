@@ -28,7 +28,7 @@ defmodule Expert.Provider.Handlers.CodeAction do
   end
 
   defp to_code_action_diagnostic(%Structures.Diagnostic{} = diagnostic) do
-    %Structures.Diagnostic{
+    %CodeAction.Diagnostic{
       range: diagnostic.range,
       message: diagnostic.message,
       source: diagnostic.source

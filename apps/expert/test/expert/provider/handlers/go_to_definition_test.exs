@@ -1,9 +1,9 @@
 defmodule Expert.Provider.Handlers.GoToDefinitionTest do
   alias Expert.EngineApi
+  alias Expert.Protocol.Convert
   alias Expert.Provider.Handlers
   alias Forge.Document
   alias Forge.Document.Location
-  alias Forge.Protocol.Convert
   alias GenLSP.Requests.TextDocumentDefinition
   alias GenLSP.Structures
 
@@ -41,7 +41,7 @@ defmodule Expert.Provider.Handlers.GoToDefinitionTest do
 
     with {:ok, _} <- Document.Store.open_temporary(uri) do
       req = %TextDocumentDefinition{
-        id: Forge.Protocol.Id.next(),
+        id: Expert.Protocol.Id.next(),
         params: %Structures.DefinitionParams{
           text_document: %Structures.TextDocumentIdentifier{uri: uri},
           position: %Structures.Position{line: line, character: char}

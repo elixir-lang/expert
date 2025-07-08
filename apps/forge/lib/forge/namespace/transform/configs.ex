@@ -1,7 +1,7 @@
 defmodule Forge.Namespace.Transform.Configs do
   def apply_to_all(base_directory) do
     base_directory
-    |> Path.join("**/releases/**/runtime.exs")
+    |> Path.join("**/runtime.exs")
     |> Path.wildcard()
     |> Enum.map(&Path.absname/1)
     |> tap(fn paths ->

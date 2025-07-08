@@ -1,4 +1,4 @@
-defmodule Forge.Protocol.Conversions do
+defmodule Expert.Protocol.Conversions do
   @moduledoc """
   Functions to convert between language server representations and elixir-native representations.
 

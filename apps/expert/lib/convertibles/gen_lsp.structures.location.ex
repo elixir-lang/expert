@@ -1,7 +1,7 @@
 defimpl Forge.Protocol.Convertible, for: GenLSP.Structures.Location do
   alias Forge.Document
   alias Forge.Document.Container
-  alias Forge.Protocol.Conversions
+  alias Expert.Protocol.Conversions
   alias GenLSP.Structures
 
   def to_lsp(%Structures.Location{} = location) do

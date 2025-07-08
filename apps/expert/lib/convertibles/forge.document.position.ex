@@ -1,5 +1,5 @@
 defimpl Forge.Protocol.Convertible, for: Forge.Document.Position do
-  alias Forge.Protocol.Conversions
+  alias Expert.Protocol.Conversions
   alias Forge.Document
 
   def to_lsp(%Document.Position{} = position) do

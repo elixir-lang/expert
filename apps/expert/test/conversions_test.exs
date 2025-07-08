@@ -1,7 +1,7 @@
 defmodule Expert.Protocol.ConversionsTest do
+  alias Expert.Protocol.Conversions
   alias Forge.Document
   alias Forge.Document.Position, as: ExPosition
-  alias Forge.Protocol.Conversions
   alias GenLSP.Structures.Position, as: LSPosition
 
   use ExUnit.Case

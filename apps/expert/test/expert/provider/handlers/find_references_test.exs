@@ -1,10 +1,10 @@
 defmodule Expert.Provider.Handlers.FindReferencesTest do
   alias Expert.EngineApi
+  alias Expert.Protocol.Convert
   alias Expert.Provider.Handlers
   alias Forge.Ast.Analysis
   alias Forge.Document
   alias Forge.Document.Location
-  alias Forge.Protocol.Convert
   alias GenLSP.Requests.TextDocumentReferences
   alias GenLSP.Structures
 
@@ -30,7 +30,7 @@ defmodule Expert.Provider.Handlers.FindReferencesTest do
 
     with {:ok, _} <- Document.Store.open_temporary(uri) do
       req = %TextDocumentReferences{
-        id: Forge.Protocol.Id.next(),
+        id: Expert.Protocol.Id.next(),
         params: %Structures.ReferenceParams{
           context: %Structures.ReferenceContext{
             include_declaration: true

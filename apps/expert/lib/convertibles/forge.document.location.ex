@@ -1,5 +1,5 @@
 defimpl Forge.Protocol.Convertible, for: Forge.Document.Location do
-  alias Forge.Protocol.Conversions
+  alias Expert.Protocol.Conversions
   alias Forge.Document
   alias GenLSP.Structures
 

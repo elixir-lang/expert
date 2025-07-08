@@ -1,5 +1,5 @@
 defimpl Forge.Protocol.Convertible, for: Forge.Document.Range do
-  alias Forge.Protocol.Conversions
+  alias Expert.Protocol.Conversions
   alias Forge.Document
 
   def to_lsp(%Document.Range{} = range) do
