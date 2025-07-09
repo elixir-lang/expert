@@ -12,7 +12,8 @@ defmodule Expert.MixProject do
       dialyzer: Mix.Dialyzer.config(add_apps: [:jason]),
       aliases: aliases(),
       elixirc_paths: elixirc_paths(Mix.env()),
-      releases: releases()
+      releases: releases(),
+      default_release: :expert
     ]
   end
 
