@@ -16,6 +16,7 @@ defmodule Expert.State do
 
   defstruct configuration: nil,
             initialized?: false,
+            engine_initialized?: false,
             shutdown_received?: false,
             in_flight_requests: %{}
 
@@ -54,7 +55,10 @@ defmodule Expert.State do
 
     response = initialize_result()
 
-    Task.start_link(fn -> Project.Supervisor.start(config.project) end)
+    Task.Supervisor.start_child(:expert_task_queue, fn ->
+      Project.Supervisor.start(config.project)
+      send(Expert, :engine_initialized)
+    end)
 
     {:ok, response, new_state}
   end

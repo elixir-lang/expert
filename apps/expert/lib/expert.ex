@@ -84,30 +84,39 @@ defmodule Expert do
   def handle_request(request, lsp) do
     state = assigns(lsp).state
 
-    with {:ok, handler} <- fetch_handler(request),
-         {:ok, request} <- Convert.to_native(request),
-         {:ok, response} <- handler.handle(request, state.configuration),
-         {:ok, response} <- Expert.Protocol.Convert.to_lsp(response) do
-      {:reply, response, lsp}
+    if state.engine_initialized? do
+      with {:ok, handler} <- fetch_handler(request),
+           {:ok, request} <- Convert.to_native(request),
+           {:ok, response} <- handler.handle(request, state.configuration),
+           {:ok, response} <- Expert.Protocol.Convert.to_lsp(response) do
+        {:reply, response, lsp}
+      else
+        {:error, {:unhandled, _}} ->
+          Logger.info("Unhandled request: #{request.method}")
+
+          {:reply,
+           %GenLSP.ErrorResponse{
+             code: GenLSP.Enumerations.ErrorCodes.method_not_found(),
+             message: "Method not found"
+           }, lsp}
+
+        error ->
+          message = "Failed to handle #{request.method}, #{inspect(error)}"
+          Logger.error(message)
+
+          {:reply,
+           %GenLSP.ErrorResponse{
+             code: GenLSP.Enumerations.ErrorCodes.internal_error(),
+             message: message
+           }, lsp}
+      end
     else
-      {:error, {:unhandled, _}} ->
-        Logger.info("Unhandled request: #{request.method}")
+      GenLSP.warning(
+        lsp,
+        "Received request #{request.method} before engine was initialized. Ignoring."
+      )
 
-        {:reply,
-         %GenLSP.ErrorResponse{
-           code: GenLSP.Enumerations.ErrorCodes.method_not_found(),
-           message: "Method not found"
-         }, lsp}
-
-      error ->
-        message = "Failed to handle #{request.method}, #{inspect(error)}"
-        Logger.error(message)
-
-        {:reply,
-         %GenLSP.ErrorResponse{
-           code: GenLSP.Enumerations.ErrorCodes.internal_error(),
-           message: message
-         }, lsp}
+      {:noreply, lsp}
     end
   end
 
@@ -153,6 +162,18 @@ defmodule Expert do
 
         {:noreply, lsp}
     end
+  end
+
+  def handle_info(:engine_initialized, lsp) do
+    state = assigns(lsp).state
+
+    new_state = %State{state | engine_initialized?: true}
+
+    lsp = assign(lsp, state: new_state)
+
+    Logger.info("Engine initialized")
+
+    {:noreply, lsp}
   end
 
   def handle_info(:default_config, lsp) do

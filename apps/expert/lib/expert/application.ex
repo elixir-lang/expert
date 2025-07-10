@@ -19,6 +19,7 @@ defmodule Expert.Application do
       {Task.Supervisor, name: :expert_task_queue},
       {GenLSP.Buffer, name: Expert.Buffer},
       {Expert,
+       name: Expert,
        buffer: Expert.Buffer,
        task_supervisor: :expert_task_queue,
        dynamic_supervisor: Expert.DynamicSupervisor,
