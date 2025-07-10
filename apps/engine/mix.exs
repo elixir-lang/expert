@@ -44,7 +44,7 @@ defmodule Engine.MixProject do
       Mix.Credo.dependency(),
       Mix.Dialyzer.dependency(),
       {:elixir_sense,
-       github: "elixir-lsp/elixir_sense", ref: "73ce7e0d239342fb9527d7ba567203e77dbb9b25"},
+       github: "elixir-lsp/elixir_sense", ref: "e3ddc403554050221a2fd19a10a896fa7525bc02"},
       {:forge, path: "../forge", env: Mix.env()},
       {:gen_lsp, "~> 0.11"},
       {:patch, "~> 0.15", only: [:dev, :test], optional: true, runtime: false},
