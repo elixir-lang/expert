@@ -5,7 +5,7 @@ defmodule Expert.MixProject do
   def project do
     [
       app: :expert,
-      version: "0.7.2",
+      version: version(),
       elixir: "~> 1.15",
       start_permanent: Mix.env() == :prod,
       deps: deps(),
@@ -15,6 +15,10 @@ defmodule Expert.MixProject do
       releases: releases(),
       default_release: :expert
     ]
+  end
+
+  def version() do
+    "../../VERSION" |> File.read!() |> String.trim()
   end
 
   def application do

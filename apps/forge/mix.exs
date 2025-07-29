@@ -5,7 +5,7 @@ defmodule Forge.MixProject do
   def project do
     [
       app: :forge,
-      version: "0.7.2",
+      version: version(),
       elixir: "~> 1.15",
       elixirc_paths: elixirc_paths(Mix.env()),
       start_permanent: Mix.env() == :prod,
@@ -13,6 +13,10 @@ defmodule Forge.MixProject do
       compilers: [:yecc] ++ Mix.compilers(),
       dialyzer: Mix.Dialyzer.config()
     ]
+  end
+
+  def version() do
+    "../../VERSION" |> File.read!() |> String.trim()
   end
 
   def application do

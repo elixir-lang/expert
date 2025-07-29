@@ -2,7 +2,7 @@ defmodule ExpertCredo.MixProject do
   use Mix.Project
   Code.require_file("../../mix_dialyzer.exs")
   @repo_url "https://github.com/elixir-lang/expert/"
-  @version "0.5.0"
+  @version "0.1.0"
 
   def project do
     [

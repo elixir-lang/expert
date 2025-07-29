@@ -5,7 +5,7 @@ defmodule Engine.MixProject do
   def project do
     [
       app: :engine,
-      version: "0.7.2",
+      version: version(),
       elixir: "~> 1.15",
       start_permanent: Mix.env() == :prod,
       deps: deps(),
@@ -14,6 +14,10 @@ defmodule Engine.MixProject do
       aliases: aliases(),
       preferred_cli_env: [benchmark: :test]
     ]
+  end
+
+  def version() do
+    "../../VERSION" |> File.read!() |> String.trim()
   end
 
   def application do
