@@ -38,6 +38,7 @@ jobs:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       NEXTLS_RELEASE_MODE: "burrito"
     steps:
+      - uses: extractions/setup-just@v3
       - uses: erlef/setup-beam@v1
         with:
           otp-version: "27.0"
@@ -47,7 +48,7 @@ jobs:
         with:
           version: "0.14.0"
       - uses: actions/checkout@v4
-      - run: make release
+      - run: just release-all
         env:
           MIX_ENV: prod
       - name: Create Checksum
