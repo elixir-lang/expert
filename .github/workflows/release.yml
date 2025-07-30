@@ -36,7 +36,6 @@ jobs:
     if: ${{ needs.release.outputs.release_created }}
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      NEXTLS_RELEASE_MODE: "burrito"
     steps:
       - uses: extractions/setup-just@v3
       - uses: erlef/setup-beam@v1
