@@ -16,7 +16,7 @@ defmodule Forge.MixProject do
   end
 
   def version() do
-    "../../VERSION" |> File.read!() |> String.trim()
+    "../../version.txt" |> File.read!() |> String.trim()
   end
 
   def application do
