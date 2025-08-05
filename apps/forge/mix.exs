@@ -42,6 +42,7 @@ defmodule Forge.MixProject do
       {:gen_lsp, "~> 0.11"},
       {:snowflake, "~> 1.0"},
       {:sourceror, "~> 1.9"},
+      {:spitfire, github: "doorgan/spitfire", branch: "doorgan/expert-bugs"},
       {:stream_data, "~> 1.1", only: [:test], runtime: false},
       {:patch, "~> 0.15", only: [:test], optional: true, runtime: false}
     ]

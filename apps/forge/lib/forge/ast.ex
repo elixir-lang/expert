@@ -83,8 +83,7 @@ defmodule Forge.Ast do
   @typedoc "Return value from `Code.Fragment.surround_context/3`"
   @type surround_context :: any()
 
-  @type parse_error ::
-          {location :: keyword(), String.t() | {String.t(), String.t()}, String.t()}
+  @type parse_error :: {location :: keyword(), String.t()}
 
   @type patch :: %{
           optional(:preserve_indentation) => boolean(),
@@ -486,21 +485,83 @@ defmodule Forge.Ast do
   # private
 
   defp do_string_to_quoted(string) when is_binary(string) do
-    Code.string_to_quoted_with_comments(string,
-      literal_encoder: &{:ok, {:__block__, &2, [&1]}},
-      token_metadata: true,
-      columns: true,
-      unescape: false
-    )
+    try do
+      Spitfire.parse_with_comments(string,
+        literal_encoder: &{:ok, {:__block__, &2, [&1]}},
+        token_metadata: true,
+        columns: true,
+        unescape: false
+      )
+    rescue
+      e in FunctionClauseError ->
+        {:error, {[line: 1, column: 1], "parser error: #{Exception.message(e)}"}, []}
+
+      e in MatchError ->
+        {:error, {[line: 1, column: 1], "parser error: #{Exception.message(e)}"}, []}
+
+      e in CaseClauseError ->
+        case e.term do
+          {:error, :no_fuel_remaining} ->
+            {:error, {[line: 1, column: 1], "parser exhausted fuel"}, []}
+
+          _ ->
+            reraise e, __STACKTRACE__
+        end
+    end
+    |> case do
+      {:ok, quoted, comments} ->
+        {:ok, quoted, comments}
+
+      {:error, _quoted, comments, errors} ->
+        first = hd(errors)
+        {:error, first, comments}
+
+      {:error, :no_fuel_remaining} ->
+        {:error, {[line: 1, column: 1], "parser exhausted fuel"}, []}
+
+      {:error, {_location, _message}, _comments} = error ->
+        error
+    end
   end
 
   defp do_container_cursor_to_quoted(fragment) when is_binary(fragment) do
-    Code.Fragment.container_cursor_to_quoted(fragment,
-      literal_encoder: &{:ok, {:__block__, &2, [&1]}},
-      token_metadata: true,
-      columns: true,
-      unescape: false
-    )
+    try do
+      Spitfire.container_cursor_to_quoted(fragment,
+        literal_encoder: &{:ok, {:__block__, &2, [&1]}},
+        token_metadata: true,
+        columns: true,
+        unescape: false
+      )
+    rescue
+      e in FunctionClauseError ->
+        {:error, {[line: 1, column: 1], "parser error: #{Exception.message(e)}"}}
+
+      e in MatchError ->
+        {:error, {[line: 1, column: 1], "parser error: #{Exception.message(e)}"}}
+
+      e in CaseClauseError ->
+        case e.term do
+          {:error, :no_fuel_remaining} ->
+            {:error, {[line: 1, column: 1], "parser exhausted fuel"}}
+
+          _ ->
+            reraise e, __STACKTRACE__
+        end
+    end
+    |> case do
+      {:ok, quoted} ->
+        {:ok, quoted}
+
+      {:error, _quoted, errors} ->
+        first = hd(errors)
+        {:error, first}
+
+      {:error, :no_fuel_remaining} ->
+        {:error, {[line: 1, column: 1], "parser exhausted fuel"}}
+
+      {:error, {_location, _message}} = error ->
+        error
+    end
   end
 
   defp do_cursor_context(fragment) when is_binary(fragment) do
