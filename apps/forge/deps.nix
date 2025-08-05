@@ -275,6 +275,23 @@ let
         in
         drv;
 
+      spitfire =
+        let
+          version = "0.3.0";
+          drv = buildMix {
+            inherit version;
+            name = "spitfire";
+            appConfigPath = ./config;
+
+            src = fetchHex {
+              inherit version;
+              pkg = "spitfire";
+              sha256 = "a04c9ff005be532ae692a5fe16cb98eb856555b64a6e9f3cf574072a87d07975";
+            };
+          };
+        in
+        drv;
+
       telemetry =
         let
           version = "1.3.0";

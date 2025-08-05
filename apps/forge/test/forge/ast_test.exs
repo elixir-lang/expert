@@ -44,13 +44,15 @@ defmodule Forge.AstTest do
       assert path == [{:__cursor__, [closing: [line: 1, column: 12], line: 1, column: 1], []}]
     end
 
-    test "returns [] when can't parse the AST" do
+    test "returns cursor path even for incomplete code" do
       text = ~q[
         foo(bar do baz, [bat|
       ]
 
       path = cursor_path(text)
-      assert path == []
+      # Spitfire's fault-tolerant parsing produces a cursor path
+      assert length(path) > 0
+      assert Enum.any?(path, &match?({:__cursor__, _, _}, &1))
     end
   end
 
@@ -84,13 +86,13 @@ defmodule Forge.AstTest do
       assert {:error, :not_found} = path_at(code)
     end
 
-    test "returns an error if the AST cannot be parsed" do
+    test "returns a path from partial AST when code has syntax errors" do
       code = ~q[
         defmodule |Foo do
       ]
 
-      assert {:error, {metadata, "missing terminator: end" <> _, ""}} = path_at(code)
-      assert end_location(metadata) == {2, 1}
+      # With Spitfire's error recovery, we get a partial AST that can be traversed
+      assert {:ok, [{:__aliases__, _, [:Foo]} | _]} = path_at(code)
     end
 
     test "returns a path to the innermost leaf at position" do
@@ -308,8 +310,10 @@ defmodule Forge.AstTest do
       ]
 
       assert %Analysis{} = analysis = analyze(code)
-      refute analysis.ast
-      assert {:error, _} = analysis.parse_error
+      # With Spitfire's error recovery, we get a partial AST even for invalid code
+      assert {:defmodule, _, _} = analysis.ast
+      assert {:error, {_location, _message}, _comments} = analysis.parse_error
+      refute analysis.valid?
     end
 
     test "creates an analysis from a document with incomplete `as` section" do

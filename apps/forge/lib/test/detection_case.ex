@@ -52,11 +52,11 @@ defmodule Forge.Test.DetectionCase do
       unquote_splicing(refutations)
 
       def assert_detected(code) do
-        assert_detected @context, code
+        assert_detected(@context, code)
       end
 
       def refute_detected(code) do
-        refute_detected @context, code
+        refute_detected(@context, code)
       end
     end
   end
@@ -132,7 +132,7 @@ defmodule Forge.Test.DetectionCase do
 
     quote generated: true do
       test unquote(test_name) do
-        assert_detected unquote(context), unquote(assertion_text)
+        assert_detected(unquote(context), unquote(assertion_text))
       end
     end
   end
@@ -167,16 +167,16 @@ defmodule Forge.Test.DetectionCase do
   end
 
   defp build_refutation_variation(context, type, variation, test) do
-    {_range, refutation_text} =
+    {_ranges, refutation_text} =
       variation
       |> Variations.wrap_with(test)
-      |> pop_range()
+      |> pop_all_ranges()
 
     test_name = type_to_name(type, variation)
 
     quote generated: true do
       test unquote(test_name) do
-        refute_detected unquote(context), unquote(refutation_text)
+        refute_detected(unquote(context), unquote(refutation_text))
       end
     end
   end

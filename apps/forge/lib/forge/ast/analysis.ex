@@ -44,6 +44,20 @@ defmodule Forge.Ast.Analysis do
     }
   end
 
+  def new({:error, ast, parse_error, comments}, %Document{} = document) do
+    scopes = traverse(ast, document)
+    comments_by_line = Map.new(comments, fn comment -> {comment.line, comment} end)
+
+    %__MODULE__{
+      ast: ast,
+      document: document,
+      scopes: scopes,
+      comments_by_line: comments_by_line,
+      parse_error: {:error, parse_error, comments},
+      valid?: false
+    }
+  end
+
   def new(error, document) do
     %__MODULE__{
       document: document,
