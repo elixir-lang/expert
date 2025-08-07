@@ -67,7 +67,7 @@ defmodule Engine.Bootstrap do
     }
 
     :logger.add_handler(handler_name, :logger_std_h, config)
-    LogFilter.hook_into_logger(handler_name)
+    LogFilter.hook_into_logger()
   end
 
   defp maybe_change_directory(%Project{} = project) do
