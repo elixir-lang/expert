@@ -4,6 +4,7 @@ defmodule Expert.Application do
   @moduledoc false
 
   alias Forge.Document
+  alias Forge.LogFilter
 
   use Application
 
@@ -25,6 +26,8 @@ defmodule Expert.Application do
        dynamic_supervisor: Expert.DynamicSupervisor,
        assigns: Expert.Assigns}
     ]
+
+    LogFilter.hook_into_logger()
 
     opts = [strategy: :one_for_one, name: Expert.Supervisor]
     Supervisor.start_link(children, opts)

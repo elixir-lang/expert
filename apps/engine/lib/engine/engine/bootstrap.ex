@@ -6,6 +6,7 @@ defmodule Engine.Bootstrap do
   the project's code paths, which are then added to the code paths from the language server. At this
   point, it's safe to start the project, as we should have all the code present to compile the system.
   """
+  alias Forge.LogFilter
   alias Forge.Project
 
   require Logger
@@ -66,6 +67,7 @@ defmodule Engine.Bootstrap do
     }
 
     :logger.add_handler(handler_name, :logger_std_h, config)
+    LogFilter.hook_into_logger(handler_name)
   end
 
   defp maybe_change_directory(%Project{} = project) do
