@@ -2,19 +2,20 @@
   description = "Reimagined language server for Elixir";
 
   inputs.nixpkgs.url = "flake:nixpkgs";
-  inputs.zigpkgs.url = "github:nixos/nixpkgs/12a55407652e04dcf2309436eb06fef0d3713ef3";
-  inputs.xzpkgs.url = "github:nixos/nixpkgs/18dd725c29603f582cf1900e0d25f9f1063dbf11";
+  inputs.beam-flakes.url = "github:elixir-tools/nix-beam-flakes";
+  inputs.beam-flakes.inputs.flake-parts.follows = "flake-parts";
+
   inputs.flake-parts.url = "github:hercules-ci/flake-parts";
   inputs.systems.url = "github:nix-systems/default";
 
   outputs = {
     self,
     systems,
-    zigpkgs,
-    xzpkgs,
+    beam-flakes,
     ...
   } @ inputs:
     inputs.flake-parts.lib.mkFlake {inherit inputs;} {
+      imports = [beam-flakes.flakeModule];
       flake = {
         lib = {
           mkExpert = {erlang}: erlang.callPackage ./nix/expert.nix {};
@@ -23,14 +24,8 @@
 
       systems = import systems;
 
-      perSystem = {
-        pkgs,
-        system,
-        ...
-      }: let
+      perSystem = {pkgs, ...}: let
         erlang = pkgs.beam.packages.erlang_25;
-        zpkgs = zigpkgs.legacyPackages.${system};
-        xzpkgs' = xzpkgs.legacyPackages.${system};
         expert = self.lib.mkExpert {inherit erlang;};
       in {
         formatter = pkgs.alejandra;
@@ -59,13 +54,17 @@
             outputHash = pkgs.lib.fakeSha256;
           });
         };
-
-        devShells.default = pkgs.mkShell {
-          packages = with pkgs; [
-            beam.packages.erlang_27.erlang
-            beam.packages.erlang_27.elixir_1_17
-            zpkgs.zig_0_14
-            xzpkgs'.xz
+        beamWorkspace = {
+          enable = true;
+          devShell.languageServers.elixir = false;
+          devShell.languageServers.erlang = false;
+          versions = {
+            elixir = "1.17.3";
+            erlang = "27.3.4.1";
+          };
+          devShell.extraPackages = with pkgs; [
+            zig
+            xz
             just
             _7zz
           ];

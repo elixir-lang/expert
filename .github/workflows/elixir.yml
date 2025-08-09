@@ -150,8 +150,8 @@ jobs:
             target: darwin_amd64
 
         include:
-          - elixir: "1.15.8"
-            otp: "27"
+          - elixir: "1.17.3"
+            otp: "27.3.4.1"
 
     steps:
       - name: Checkout code
@@ -165,8 +165,9 @@ jobs:
 
       - uses: mlugg/setup-zig@v2
         with:
-          version: "0.14.0"
+          version: "0.14.1"
 
+      - uses: extractions/setup-just@v3
       - name: Cache deps
         id: cache-deps
         uses: actions/cache@v4
@@ -180,10 +181,7 @@ jobs:
             ${{ runner.os }}-mix-${{ matrix.elixir }}-${{ matrix.otp }}-
 
       - name: Build and release
-        env:
-          MIX_ENV: prod
-          BURRITO_TARGET: ${{ matrix.os.target }}
-        run: make build.engine && cd apps/expert && mix deps.get && mix release expert
+        run: just release-local
 
   test:
     runs-on: ubuntu-latest
