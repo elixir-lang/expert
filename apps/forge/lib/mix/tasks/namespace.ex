@@ -1,14 +1,31 @@
 defmodule Mix.Tasks.Namespace do
   @moduledoc """
-  This task is used after a release is assembled, and investigates the engine
-  app for its dependencies, at which point it applies transformers to various parts of the
-  app.
+  This task will apply namespacing to a set of .beam and .app files in the given directory.
 
-  Transformers take a path, find their relevant files and apply transforms to them. For example,
-  the Beams transformer will find any instances of modules in .beam files, and will apply namepaces
-  to them if the module is one of the modules defined in a dependency.
+  Primarily works on a list of application and a list of "module roots".
 
-  This task takes a single argument, which is the full path to the release.
+  A module root is the first segment of an Elixir module, e.g., "Foo" in "Foo.Bar.Baz".
+
+  The initial list of apps and roots (before additional inclusions and exclusions) are derived from
+  fetching the projects deps via `Mix.Project.deps_apps/0`. From there, each dependency's modules are
+  fetched via `:application.get_key(dep_app, :modules)`.
+
+  ## Options
+
+  * `--directory` - The active working directory (required)
+  * `--[no-]dot-apps` - Whether to namespace application names and .app files at all. Useful to disable if you dont need to start the project like a normal application. Defaults to false.
+  * `--include-app` - Adds the given application to the list of applications to namespace.
+  * `--exclude-app` - Removes the given application from the list of applications to namespace.
+  * `--include-root` - Adds the given module "root" to the list of "roots" to namespace.
+  * `--exclude-root` - Removes the given module "root" from the list of "roots" to namespace.
+
+
+  ## Usage
+
+  ```bash
+  mix namespace --directory _build/prod --include-app engine --include-root Engine --exclude-app namespace --dot-apps
+  mix namespace --directory _build/dev --include-app expert --exclude-root Expert --exclude-app burrito --exclude-app namespace --exclude-root Jason --include-root Engine
+  ```
   """
   alias Forge.Ast
   alias Forge.Namespace.Transform
@@ -30,20 +47,54 @@ defmodule Mix.Tasks.Namespace do
 
   require Logger
 
-  def run([base_directory]) do
+  def run(argv) do
+    {options, _rest} =
+      OptionParser.parse!(argv,
+        strict: [
+          directory: :string,
+          dot_apps: :boolean,
+          include_app: :keep,
+          include_root: :keep,
+          exclude_app: :keep,
+          exclude_root: :keep
+        ]
+      )
+
+    base_directory = Keyword.fetch!(options, :directory)
+
     # Ensure we cache the loaded apps at the time of namespacing
     # Otherwise only the @extra_apps will be cached
     init()
 
-    Transform.Apps.apply_to_all(base_directory)
-    Transform.Beams.apply_to_all(base_directory)
-    Transform.Scripts.apply_to_all(base_directory)
+    include_apps = Keyword.get_values(options, :include_app) |> Enum.map(&String.to_atom/1)
+    include_roots = Keyword.get_values(options, :include_root) |> Enum.map(&normalize_root/1)
+    exclude_apps = Keyword.get_values(options, :exclude_app) |> Enum.map(&String.to_atom/1)
+    exclude_roots = Keyword.get_values(options, :exclude_root) |> Enum.map(&normalize_root/1)
+
+    apps = Enum.uniq(Mix.Project.deps_apps() ++ include_apps) -- exclude_apps
+
+    roots_from_apps =
+      apps |> root_modules_for_apps() |> Map.values() |> List.flatten() |> Enum.uniq()
+
+    roots = (roots_from_apps ++ include_roots) -- exclude_roots
+
+    opts = [apps: apps, roots: roots, do_apps: options[:dot_apps]]
+
+    Transform.Apps.apply_to_all(base_directory, opts)
+    Transform.Beams.apply_to_all(base_directory, opts)
+    Transform.Scripts.apply_to_all(base_directory, opts)
     # The boot file transform just turns script files into boot files
     # so it must come after the script file transform
-    Transform.Boots.apply_to_all(base_directory)
-    Transform.Configs.apply_to_all(base_directory)
-    Transform.AppDirectories.apply_to_all(base_directory)
+    Transform.Boots.apply_to_all(base_directory, opts)
+    Transform.Configs.apply_to_all(base_directory, opts)
+    Transform.AppDirectories.apply_to_all(base_directory, opts)
+
+    if options[:dot_apps] do
+      Transform.AppDirectories.apply_to_all(base_directory, opts)
+    end
   end
+
+  def normalize_root(module), do: Module.concat([module])
 
   def app_names do
     Map.keys(app_to_root_modules())

@@ -12,13 +12,31 @@ defmodule Expert.Application do
 
   @impl true
   def start(_type, _args) do
+    {m, f, a} = Application.get_env(:expert, :arg_parser)
+
+    argv = apply(m, f, a)
+
+    {opts, _, _invalid} =
+      OptionParser.parse(argv,
+        strict: [port: :integer]
+      )
+
+    buffer_opts =
+      case opts[:port] do
+        port when is_integer(port) ->
+          [communication: {GenLSP.Communication.TCP, [port: port]}]
+
+        _ ->
+          []
+      end
+
     children = [
       document_store_child_spec(),
       {DynamicSupervisor, Expert.Project.DynamicSupervisor.options()},
       {DynamicSupervisor, name: Expert.DynamicSupervisor},
       {GenLSP.Assigns, [name: Expert.Assigns]},
       {Task.Supervisor, name: :expert_task_queue},
-      {GenLSP.Buffer, name: Expert.Buffer},
+      {GenLSP.Buffer, [name: Expert.Buffer] ++ buffer_opts},
       {Expert,
        name: Expert,
        buffer: Expert.Buffer,

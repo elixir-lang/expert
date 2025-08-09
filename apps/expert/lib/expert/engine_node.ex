@@ -166,10 +166,18 @@ defmodule Expert.EngineNode do
     # When Engine is built in CI for a version matrix, we'll need to check if
     # we have the right version downloaded, and if not, we should download it.
     defp glob_paths do
-      :expert
-      |> :code.priv_dir()
+      engine_path = System.get_env("EXPERT_ENGINE_PATH", default_engine_path())
+
+      IO.puts("Using Engine path: #{Path.expand(engine_path)}")
+
+      engine_path
+      |> Path.expand()
       |> Path.join("lib/**/ebin")
       |> Path.wildcard()
+    end
+
+    defp default_engine_path do
+      :expert |> :code.priv_dir() |> Path.join("engine")
     end
   end
 
