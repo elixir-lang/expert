@@ -39,6 +39,7 @@ test project="all" *args="":
 [doc('Run a mix command in one or all projects. Use `just test` to run tests.')]
 mix cmd *project:
     #!/usr/bin/env bash
+    set -euxo pipefail
 
     if [ -n "{{ project }}" ]; then
       cd apps/{{ project }}
@@ -63,10 +64,18 @@ lint *project:
   just mix dialyzer {{ project }}
 
 build-engine:
-  #!/usr/bin/env bash
+    #!/usr/bin/env bash
+    set -euxo pipefail
 
-  cd apps/engine
-  mix build
+    cd apps/engine
+    MIX_ENV=dev mix compile
+    namespaced_dir=_build/dev_ns
+    rm -rf $namespaced_dir
+    mkdir -p $namespaced_dir
+
+    cp -r _build/dev "$namespaced_dir"
+
+    MIX_ENV=dev mix namespace "$namespaced_dir"
 
 
 [doc('Build a release for the local system')]
