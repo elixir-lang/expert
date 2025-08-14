@@ -1,4 +1,4 @@
-defmodule Engine.CodeIntelligence.DefinitionTest do
+defmodule Expert.Engine.CodeIntelligence.DefinitionTest do
   alias Engine.Search
   alias Expert.EngineApi
   alias Expert.EngineNode

@@ -270,10 +270,9 @@ defmodule Expert.CodeIntelligence.Completion.Translations.ModuleOrBehaviourTest 
         use En|
       ]
 
-      assert [ex_unit_completion, ex_unit_properties_completion] = complete(project, source)
+      assert [ex_unit_completion] = complete(project, source)
 
       assert apply_completion(ex_unit_completion) =~ "use ExUnit"
-      assert apply_completion(ex_unit_properties_completion) =~ "use ExUnitProperties"
     end
   end
 end

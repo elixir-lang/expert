@@ -27,7 +27,7 @@ defmodule ExpertCredo.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      {:forge, path: "../forge", env: Mix.env()},
+      {:forge, path: "../forge"},
       {:credo, "> 0.0.0", only: [:dev, :test]},
       Mix.Dialyzer.dependency(),
       {:jason, "> 0.0.0", optional: true},

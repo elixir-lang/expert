@@ -6,7 +6,6 @@ defmodule Forge.DocumentTest do
   alias GenLSP.Structures.TextEdit
 
   use ExUnit.Case
-  use ExUnitProperties
 
   import Forge.Document, except: [to_string: 1]
 
