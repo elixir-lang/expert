@@ -73,6 +73,7 @@ jobs:
           - expert_credo
           - forge
     steps:
+      - uses: extractions/setup-just@v3
       - name: Set up Elixir
         uses: erlef/setup-beam@v1
         with:
