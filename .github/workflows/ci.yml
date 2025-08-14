@@ -1,23 +1,11 @@
 name: Elixir CI
 
-# Define workflow that runs when changes are pushed to the
-# `main` branch or pushed to a PR branch that targets the `main`
-# branch. Change the branch name if your project uses a
-# different name for the main branch like "master" or "production".
 on:
-  push:
-    branches: ["main", "releases/**", "feat/**", "fix/**"] # adapt branch for project
   pull_request:
-    branches: ["main"] # adapt branch for project
+  push:
+    branches: main
 
-# Sets the ENV `MIX_ENV` to `test` for running tests
 env:
-  MIX_ENV: test
-  # Default elixir and otp are the ones that we validate
-  # against. Formatting and types can change from version to version,
-  # so keeping credo, dialyzer and formatting checks in the matrix
-  # would create an impossible situation, as different versions would have
-  # different rules
   DEFAULT_ELIXIR: 1.15.8-otp-25
   DEFAULT_OTP: 25.3.2.4
 
@@ -25,13 +13,21 @@ permissions:
   contents: read
 
 jobs:
-  static_analysis:
+  static-analysis:
     runs-on: ubuntu-latest
     name: Static analysis
+
+    strategy:
+      matrix:
+        project:
+          - engine
+          - expert
+          - expert_credo
+          - forge
     steps:
       # Step: Setup Elixir + Erlang image as the base
-      - name: Set up Elixir
-        uses: erlef/setup-beam@v1
+      - uses: extractions/setup-just@v3
+      - uses: erlef/setup-beam@v1
         with:
           otp-version: ${{ env.DEFAULT_OTP }}
           elixir-version: ${{ env.DEFAULT_ELIXIR }}
@@ -47,41 +43,36 @@ jobs:
         uses: actions/cache@v4
         with:
           path: |
-            apps/**/deps
-            apps/**/_build
+            apps/${{ matrix.project }}/deps
+            apps/${{ matrix.project }}/_build
 
-          key: ${{ runner.os }}-mix-${{ env.DEFAULT_ELIXIR }}-${{ env.DEFAULT_OTP }}-${{ hashFiles('apps/**/mix.lock') }}
+          key: ${{ runner.os }}-mix-${{ env.DEFAULT_ELIXIR }}-${{ env.DEFAULT_OTP }}-${{ hashFiles('apps/${{matrix.project}}/mix.lock') }}
           restore-keys: |
             ${{ runner.os }}-mix-${{ env.DEFAULT_ELIXIR }}-${{ env.DEFAULT_OTP }}-
 
-      # Step: Download project dependencies. If unchanged, uses
-      # the cached version.
-      - name: Install and compile dependencies
-        run: |
-          make deps.poncho
-          make deps.compile.poncho
+      - name: Deps
+        run: just deps ${{ matrix.project }}
 
-      - name: Compile and don't let warnings through
-        run: make compile.poncho
+      - name: Compile
+        run: just compile ${{ matrix.project }} --warnings-as-errors
 
-      # Step: Check that the checked in code has already been formatted.
-      # This step fails if something was found unformatted.
-      # Customize this step as desired.
-      - name: Check Formatting
-        run: MIX_ENV=dev mix format --check-formatted
+      - name: Formatter
+        run: just mix ${{ matrix.project }} format --check-formatted
 
-      # Step: Run credo static code analysis
-      - name: Credo static analysis
-        run: make credo.check.poncho
+      - name: Credo
+        run: just mix ${{ matrix.project }} credo
 
   dialyzer:
     runs-on: ubuntu-latest
-    name: Run Dialyzer
-    env:
-      apps_mix_lock: ${{ format('{0}{1}', github.workspace, 'apps/**/mix.lock') }}
-      MIX_ENV: dev
+    name: Dialyzer
+    strategy:
+      matrix:
+        project:
+          - engine
+          - expert
+          - expert_credo
+          - forge
     steps:
-      # Step: Setup Elixir + Erlang image as the base.
       - name: Set up Elixir
         uses: erlef/setup-beam@v1
         with:
@@ -97,14 +88,12 @@ jobs:
       - name: Cache deps
         id: cache-deps
         uses: actions/cache@v4
-        env:
-          cache-name: cache-elixir-deps-1
         with:
           path: |
-            apps/**/deps
-            apps/**/_build
+            apps/${{ matrix.project }}/deps
+            apps/${{ matrix.project }}/_build
 
-          key: ${{ runner.os }}-mix-${{ env.DEFAULT_ELIXIR }}-${{ env.DEFAULT_OTP }}-${{ hashFiles('apps/**/mix.lock') }}
+          key: ${{ runner.os }}-mix-${{ env.DEFAULT_ELIXIR }}-${{ env.DEFAULT_OTP }}-${{ hashFiles('apps/${{ matrix.project }}/mix.lock') }}
           restore-keys: |
             ${{ runner.os }}-mix-${{ env.DEFAULT_ELIXIR }}-${{ env.DEFAULT_OTP }}-
 
@@ -113,28 +102,28 @@ jobs:
         id: cache-plt
         uses: actions/cache@v4
         with:
-          path: "priv/plts"
-          key: expert-plts-2-${{ env.DEFAULT_OTP }}-${{ env.DEFAULT_ELIXIR }}-${{ hashFiles('apps/**/mix.lock' ) }}-${{ github.run_id }}
+          key: expert-plts-${{ env.DEFAULT_OTP }}-${{ env.DEFAULT_ELIXIR }}-${{ hashFiles('apps/${{ matrix.project }}/mix.lock' ) }}
           restore-keys: |
-            expert-plts-2-${{ env.DEFAULT_OTP }}-${{ env.DEFAULT_ELIXIR }}-${{ hashFiles('apps/**/mix.lock') }}-
-            expert-plts-2-${{ env.DEFAULT_OTP }}-${{ env.DEFAULT_ELIXIR }}-
+            expert-plts-${{ env.DEFAULT_OTP }}-${{ env.DEFAULT_ELIXIR }}-${{ hashFiles('apps/${{ matrix.project }}/mix.lock') }}-
+            expert-plts-${{ env.DEFAULT_OTP }}-${{ env.DEFAULT_ELIXIR }}-
+          path: "priv/plts"
 
-      - name: Install and compile dependencies
-        run: make deps.compile.poncho
+      - name: Deps
+        run: just deps ${{ matrix.project }}
 
       - name: Compile
-        run: make compile.all
+        run: just compile ${{ matrix.project }} --warnings-as-errors
 
-      - name: Maybe create plt files
+      - name: Create PLT
         if: steps.cache-plt.outputs.cache-hit != 'true'
         run: |
           mkdir -p priv/plts
-          make dialyzer.plt.all
+          just mix ${{ matrix.project }} dialyzer --plt
 
-      - name: Run dialyzer
+      - name: Dialyzer
         run: |
-          make compile.protocols.poncho
-          make dialyzer.all
+          just mix ${{ matrix.project }} compile.protocols --warnings-as-errors
+          just mix ${{ matrix.project }} dialyzer
 
   release-test:
     runs-on: ${{matrix.os.name}}
@@ -157,6 +146,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - uses: extractions/setup-just@v3
       - name: Set up Elixir
         uses: erlef/setup-beam@v1
         with:
@@ -167,7 +157,6 @@ jobs:
         with:
           version: "0.14.1"
 
-      - uses: extractions/setup-just@v3
       - name: Cache deps
         id: cache-deps
         uses: actions/cache@v4
@@ -209,36 +198,40 @@ jobs:
             otp: "26"
           - elixir: "1.15.8"
             otp: "25"
+
+        project:
+          - engine
+          - expert
+          - expert_credo
+          - forge
     steps:
-      # Step: Check out the code.
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # Step: Setup Elixir + Erlang image as the base.
+      - uses: extractions/setup-just@v3
       - name: Set up Elixir
         uses: erlef/setup-beam@v1
         with:
           otp-version: ${{matrix.otp}}
           elixir-version: ${{matrix.elixir}}
 
-      # Step: Define how to cache deps. Restores existing cache if present.
       - name: Cache deps
         id: cache-deps
         uses: actions/cache@v4
         with:
           path: |
-            apps/**/deps
-            apps/**/_build
+            apps/${{ matrix.project }}/deps
+            apps/${{ matrix.project }}/_build
 
-          key: ${{ runner.os }}-mix-${{ matrix.elixir }}-${{ matrix.otp }}-${{ hashFiles('apps/**/mix.lock') }}
+          key: ${{ runner.os }}-mix-${{ env.DEFAULT_ELIXIR }}-${{ env.DEFAULT_OTP }}-${{ hashFiles('apps/${{matrix.project}}/mix.lock') }}
           restore-keys: |
-            ${{ runner.os }}-mix-${{ matrix.elixir }}-${{ matrix.otp }}-
+            ${{ runner.os }}-mix-${{ env.DEFAULT_ELIXIR }}-${{ env.DEFAULT_OTP }}-
 
-      # Step: Download project dependencies. If unchanged, uses
-      # the cached version.
-      - name: Install and compile the app
-        run: make compile.poncho
+      - name: Deps
+        run: just deps ${{ matrix.project }}
 
-      # Step: Execute the tests.
+      - name: Compile
+        run: just compile ${{ matrix.project }} --warnings-as-errors
+
       - name: Run tests
-        run: make test.all
+        run: just test ${{ matrix.project }} --warnings-as-errors

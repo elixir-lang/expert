@@ -1,5 +1,5 @@
 defmodule Forge.LogFilter do
-  def hook_into_logger() do
+  def hook_into_logger do
     :logger.add_primary_filter(:ignore_module_warnings, {&reject_module_warnings/2, []})
   end
 
@@ -14,9 +14,14 @@ defmodule Forge.LogFilter do
         |> action()
 
       %{msg: {format_string, format_data}} ->
-        format_string
-        |> :io.format(format_data)
+        {:ok, pid} = StringIO.open("log")
+
+        :io.format(pid, format_string, format_data)
+
+        pid
+        |> StringIO.flush()
         |> ensure_binary()
+        |> tap(fn _ -> StringIO.close(pid) end)
         |> action()
 
       _ ->

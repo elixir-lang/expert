@@ -17,51 +17,37 @@ run project +ARGS:
     eval "{{ ARGS }}"
 
 [doc('Compile the given project.')]
-compile project: (deps project)
-  cd apps/{{ project }} && mix compile
+compile project *args="": (deps project)
+  cd apps/{{ project }} && mix compile {{ args }}
 
 [doc('Run tests in the given project')]
 test project="all" *args="":
+  @just mix {{ project }} test {{args}}
+
+[doc('Run a mix command in one or all projects. Use `just test` to run tests.')]
+mix project="all" *args="":
     #!/usr/bin/env bash
-    set -euo pipefail
+    set -euxo pipefail
 
     case {{ project }} in
       all)
         for proj in {{ apps }}; do
-          (cd "apps/$proj" && mix test {{args}})
+          (cd "apps/$proj" && mix {{args}})
         done
       ;;
       *)
-         (cd "apps/{{ project }}" && mix test {{args}})
+         (cd "apps/{{ project }}" && mix {{args}})
       ;;
     esac
 
-[doc('Run a mix command in one or all projects. Use `just test` to run tests.')]
-mix cmd *project:
-    #!/usr/bin/env bash
-    set -euxo pipefail
-
-    if [ -n "{{ project }}" ]; then
-      cd apps/{{ project }}
-      mix {{ cmd }}
-    else
-      for project in {{ apps }}; do
-      (
-        cd apps/"$project"
-
-        mix {{ cmd }}
-      )
-      done
-    fi
-
 [doc('Lint all projects or just a single project')]
-lint *project:
+lint *project="all":
   #!/usr/bin/env bash
   set -euxo pipefail
 
-  just mix "format --check-formatted" {{ project }}
-  just mix credo {{ project }}
-  just mix dialyzer {{ project }}
+  just mix {{ project }} format --check-formatted
+  just mix {{ project }} credo
+  just mix {{ project }} dialyzer
 
 build-engine:
     #!/usr/bin/env bash
