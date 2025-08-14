@@ -84,7 +84,7 @@ defmodule Expert.MixProject do
       # artifacts, but we need it as a test dependency to set up tests that
       # assume a roundtrip to a project node is made.
       {:engine, path: "../engine", only: [:test]},
-      {:forge, path: "../forge" },
+      {:forge, path: "../forge"},
       {:gen_lsp, "~> 0.11"},
       {:jason, "~> 1.4"},
       {:logger_file_backend, "~> 0.0", only: [:dev, :prod]},
