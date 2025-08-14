@@ -83,7 +83,7 @@ namespace-expert directory="_build/prod":
 build-expert:
   #!/usr/bin/env bash
   cd apps/expert
-  mix compile
+  MIX_ENV=prod mix compile
   just namespace-expert
 
 [doc('Start the local development server')]
@@ -111,6 +111,8 @@ start *opts="--port 9000": build-engine
 [unix]
 release-local: (deps "expert") (compile "engine") build-engine build-expert
   #!/usr/bin/env bash
+  set -euxo pipefail
+
   cd apps/expert
 
   if [ "{{ local_target }}" == "unsupported" ]; then
