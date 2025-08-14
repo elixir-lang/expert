@@ -46,9 +46,9 @@ jobs:
             apps/${{ matrix.project }}/deps
             apps/${{ matrix.project }}/_build
 
-          key: ${{ runner.os }}-mix-${{ env.DEFAULT_ELIXIR }}-${{ env.DEFAULT_OTP }}-${{ hashFiles('apps/${{matrix.project}}/mix.lock') }}
+          key: ${{ runner.os }}-mix-${{ matrix.project }}-${{ env.DEFAULT_ELIXIR }}-${{ env.DEFAULT_OTP }}-${{ hashFiles('apps/${{matrix.project}}/mix.lock') }}
           restore-keys: |
-            ${{ runner.os }}-mix-${{ env.DEFAULT_ELIXIR }}-${{ env.DEFAULT_OTP }}-
+            ${{ runner.os }}-mix-${{ matrix.project }}-${{ env.DEFAULT_ELIXIR }}-${{ env.DEFAULT_OTP }}-
 
       - name: Deps
         run: just deps ${{ matrix.project }}
@@ -94,9 +94,9 @@ jobs:
             apps/${{ matrix.project }}/deps
             apps/${{ matrix.project }}/_build
 
-          key: ${{ runner.os }}-mix-${{ env.DEFAULT_ELIXIR }}-${{ env.DEFAULT_OTP }}-${{ hashFiles('apps/${{ matrix.project }}/mix.lock') }}
+          key: ${{ runner.os }}-mix-${{ matrix.project }}-${{ env.DEFAULT_ELIXIR }}-${{ env.DEFAULT_OTP }}-${{ hashFiles('apps/${{ matrix.project }}/mix.lock') }}
           restore-keys: |
-            ${{ runner.os }}-mix-${{ env.DEFAULT_ELIXIR }}-${{ env.DEFAULT_OTP }}-
+            ${{ runner.os }}-mix-${{ matrix.project }}-${{ env.DEFAULT_ELIXIR }}-${{ env.DEFAULT_OTP }}-
 
       # Step: Create dialyzer .plt files if they're not present
       - name: Cache dialyzer plt files
@@ -224,9 +224,9 @@ jobs:
             apps/${{ matrix.project }}/deps
             apps/${{ matrix.project }}/_build
 
-          key: ${{ runner.os }}-mix-${{ env.DEFAULT_ELIXIR }}-${{ env.DEFAULT_OTP }}-${{ hashFiles('apps/${{matrix.project}}/mix.lock') }}
+          key: ${{ runner.os }}-mix-${{ matrix.project }}-${{ env.DEFAULT_ELIXIR }}-${{ env.DEFAULT_OTP }}-${{ hashFiles('apps/${{matrix.project}}/mix.lock') }}
           restore-keys: |
-            ${{ runner.os }}-mix-${{ env.DEFAULT_ELIXIR }}-${{ env.DEFAULT_OTP }}-
+            ${{ runner.os }}-mix-${{ matrix.project }}-${{ env.DEFAULT_ELIXIR }}-${{ env.DEFAULT_OTP }}-
 
       - name: Deps
         run: just deps ${{ matrix.project }}
