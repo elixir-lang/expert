@@ -231,8 +231,5 @@ jobs:
       - name: Deps
         run: just deps ${{ matrix.project }}
 
-      - name: Compile
-        run: just compile ${{ matrix.project }} --warnings-as-errors
-
       - name: Run tests
         run: just test ${{ matrix.project }} --warnings-as-errors
