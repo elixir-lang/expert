@@ -1,0 +1,184 @@
+{
+  "include": [
+    {
+      "otp": "27",
+      "elixir": "1.18.1",
+      "project": "engine"
+    },
+    {
+      "otp": "26",
+      "elixir": "1.18.1",
+      "project": "engine"
+    },
+    {
+      "otp": "27",
+      "elixir": "1.17",
+      "project": "engine"
+    },
+    {
+      "otp": "26",
+      "elixir": "1.17",
+      "project": "engine"
+    },
+    {
+      "otp": "25",
+      "elixir": "1.17",
+      "project": "engine"
+    },
+    {
+      "otp": "26",
+      "elixir": "1.16",
+      "project": "engine"
+    },
+    {
+      "otp": "25",
+      "elixir": "1.16",
+      "project": "engine"
+    },
+    {
+      "otp": "26",
+      "elixir": "1.15.8",
+      "project": "engine"
+    },
+    {
+      "otp": "25",
+      "elixir": "1.15.8",
+      "project": "engine"
+    },
+    {
+      "otp": "27",
+      "elixir": "1.18.1",
+      "project": "expert"
+    },
+    {
+      "otp": "26",
+      "elixir": "1.18.1",
+      "project": "expert"
+    },
+    {
+      "otp": "27",
+      "elixir": "1.17",
+      "project": "expert"
+    },
+    {
+      "otp": "26",
+      "elixir": "1.17",
+      "project": "expert"
+    },
+    {
+      "otp": "25",
+      "elixir": "1.17",
+      "project": "expert"
+    },
+    {
+      "otp": "26",
+      "elixir": "1.16",
+      "project": "expert"
+    },
+    {
+      "otp": "25",
+      "elixir": "1.16",
+      "project": "expert"
+    },
+    {
+      "otp": "26",
+      "elixir": "1.15.8",
+      "project": "expert"
+    },
+    {
+      "otp": "25",
+      "elixir": "1.15.8",
+      "project": "expert"
+    },
+    {
+      "otp": "27",
+      "elixir": "1.18.1",
+      "project": "expert_credo"
+    },
+    {
+      "otp": "26",
+      "elixir": "1.18.1",
+      "project": "expert_credo"
+    },
+    {
+      "otp": "27",
+      "elixir": "1.17",
+      "project": "expert_credo"
+    },
+    {
+      "otp": "26",
+      "elixir": "1.17",
+      "project": "expert_credo"
+    },
+    {
+      "otp": "25",
+      "elixir": "1.17",
+      "project": "expert_credo"
+    },
+    {
+      "otp": "26",
+      "elixir": "1.16",
+      "project": "expert_credo"
+    },
+    {
+      "otp": "25",
+      "elixir": "1.16",
+      "project": "expert_credo"
+    },
+    {
+      "otp": "26",
+      "elixir": "1.15.8",
+      "project": "expert_credo"
+    },
+    {
+      "otp": "25",
+      "elixir": "1.15.8",
+      "project": "expert_credo"
+    },
+    {
+      "otp": "27",
+      "elixir": "1.18.1",
+      "project": "forge"
+    },
+    {
+      "otp": "26",
+      "elixir": "1.18.1",
+      "project": "forge"
+    },
+    {
+      "otp": "27",
+      "elixir": "1.17",
+      "project": "forge"
+    },
+    {
+      "otp": "26",
+      "elixir": "1.17",
+      "project": "forge"
+    },
+    {
+      "otp": "25",
+      "elixir": "1.17",
+      "project": "forge"
+    },
+    {
+      "otp": "26",
+      "elixir": "1.16",
+      "project": "forge"
+    },
+    {
+      "otp": "25",
+      "elixir": "1.16",
+      "project": "forge"
+    },
+    {
+      "otp": "26",
+      "elixir": "1.15.8",
+      "project": "forge"
+    },
+    {
+      "otp": "25",
+      "elixir": "1.15.8",
+      "project": "forge"
+    }
+  ]
+}
