@@ -15,7 +15,7 @@ permissions:
 jobs:
   static-analysis:
     runs-on: ubuntu-latest
-    name: Static analysis
+    name: Static analysis - ${{ matrix.project }}
 
     strategy:
       matrix:
@@ -64,7 +64,7 @@ jobs:
 
   dialyzer:
     runs-on: ubuntu-latest
-    name: Dialyzer
+    name: Dialyzer - ${{ matrix.project }}
     strategy:
       matrix:
         project:
@@ -175,7 +175,7 @@ jobs:
 
   test:
     runs-on: ubuntu-latest
-    name: Test on OTP ${{matrix.otp}} / Elixir ${{matrix.elixir}}
+    name: Test ${{ matrix.project }} on OTP ${{matrix.otp}} / Elixir ${{matrix.elixir}}
     strategy:
       # Specify the OTP and Elixir versions to use when building
       # and running the workflow steps.
