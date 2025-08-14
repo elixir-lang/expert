@@ -168,7 +168,7 @@ defmodule Expert.EngineNode do
     defp glob_paths do
       engine_path = System.get_env("EXPERT_ENGINE_PATH", default_engine_path())
 
-      IO.puts("Using Engine path: #{Path.expand(engine_path)}")
+      Logger.info("Using Engine path: #{Path.expand(engine_path)}")
 
       engine_path
       |> Path.expand()
