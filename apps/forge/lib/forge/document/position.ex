@@ -71,6 +71,10 @@ defmodule Forge.Document.Position do
     end
   end
 
+  def new(_, _, _) do
+    :error
+  end
+
   @doc """
   Compares two positions.
 

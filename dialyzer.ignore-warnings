@@ -1,2 +1,4 @@
 src/
 lib/elixir/lib/future/
+lib/test/detection_case.ex
+lib/test/range_support.ex

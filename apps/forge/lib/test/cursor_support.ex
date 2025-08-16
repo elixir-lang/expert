@@ -62,8 +62,12 @@ defmodule Forge.Test.CursorSupport do
       }
 
   """
-  @spec pop_cursor(text :: String.t(), [opt]) :: {Position.t(), String.t() | Document.t()}
-        when opt: {:cursor, String.t()} | {:as, :text | :document} | {:document, String.t()}
+  @spec pop_cursor(text :: String.t(), [opt]) ::
+          {Position.t() | nil | :error, String.t() | Document.t()}
+        when opt:
+               {:cursor, String.t()}
+               | {:as, :text | :document}
+               | {:document, String.t()}
   def pop_cursor(text, opts \\ []) do
     as_document? = opts[:as] == :document or is_binary(opts[:document])
 
@@ -71,7 +75,11 @@ defmodule Forge.Test.CursorSupport do
     stripped_text = strip_cursor(text, Keyword.take(opts, [:cursor]))
 
     if as_document? do
-      uri = opts |> Keyword.get(:document, "file:///file.ex") |> Document.Path.ensure_uri()
+      uri =
+        opts
+        |> Keyword.get(:document, "file:///file.ex")
+        |> Document.Path.ensure_uri()
+
       document = Document.new(uri, stripped_text, 0)
       position = position(document, position)
       {position, document}
@@ -84,7 +92,7 @@ defmodule Forge.Test.CursorSupport do
   @doc """
   Strips all instances of `cursor` from `text`.
   """
-  @spec strip_cursor(text :: String.t(), cursor :: String.t()) :: String.t()
+  @spec strip_cursor(text :: String.t(), opts :: Keyword.t()) :: String.t()
   def strip_cursor(text, opts \\ []) do
     cursor = Keyword.get(opts, :cursor, @default_cursor)
 
@@ -155,15 +163,16 @@ defmodule Forge.Test.CursorSupport do
     end
   end
 
-  defp position(%Document{} = document, {line, column}) do
+  defp position(%Document{} = document, {line, column})
+       when is_number(line) and is_number(column) do
     Position.new(document, line, column)
   end
 
   defp position(%Document{}, nil), do: nil
 
-  defp position({line, column}) do
+  defp position({line, column}) when is_number(line) and is_number(column) do
     PositionSupport.position(line, column)
   end
 
-  defp position(nil), do: nil
+  defp position(_), do: nil
 end

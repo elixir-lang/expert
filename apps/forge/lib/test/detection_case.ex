@@ -143,8 +143,7 @@ defmodule Forge.Test.DetectionCase do
       |> position_stream()
       |> Enum.group_by(fn position -> Enum.find(ranges, &includes?(&1, position)) end)
 
-    for {range, positions} <- positions_by_range,
-        position <- positions do
+    for {range, positions} <- positions_by_range, position <- positions do
       try do
         if range do
           assert context.detected?(analysis, position)

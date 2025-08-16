@@ -43,7 +43,7 @@ defmodule Forge.Document do
   Creates a new document from a uri or path, the source code
   as a binary and the vewrsion.
   """
-  @spec new(Forge.path() | Forge.uri(), String.t(), version()) :: t
+  @spec new(Forge.path() | Forge.uri(), String.t(), version()) :: t()
   def new(maybe_uri, text, version, language_id \\ nil) do
     uri = DocumentPath.ensure_uri(maybe_uri)
     path = DocumentPath.from_uri(uri)

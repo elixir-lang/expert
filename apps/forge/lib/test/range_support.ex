@@ -22,8 +22,19 @@ defmodule Forge.Test.RangeSupport do
     {Range.new(start_position, end_position), text}
   end
 
-  def pop_all_ranges(text) do
-    do_pop_all_ranges(text, [])
+  @spec pop_all_ranges(String.t(), list()) :: {list(), String.t()}
+  def pop_all_ranges(text, ranges \\ []) do
+    {start_position, text} =
+      CursorSupport.pop_cursor(text, cursor: @range_start_marker, default_to_end: false)
+
+    {end_position, text} =
+      CursorSupport.pop_cursor(text, cursor: @range_end_marker, default_to_end: false)
+
+    if start_position == nil or end_position == nil do
+      {Enum.reverse(ranges), text}
+    else
+      pop_all_ranges(text, [Range.new(start_position, end_position) | ranges])
+    end
   end
 
   def decorate(%Document{} = document, %Range{} = range) do
@@ -113,19 +124,5 @@ defmodule Forge.Test.RangeSupport do
   defp insert_marker(text, marker, character) do
     {leading, trailing} = String.split_at(text, character - 1)
     leading <> marker <> trailing
-  end
-
-  defp do_pop_all_ranges(text, ranges) do
-    {start_position, text} =
-      CursorSupport.pop_cursor(text, cursor: @range_start_marker, default_to_end: false)
-
-    {end_position, text} =
-      CursorSupport.pop_cursor(text, cursor: @range_end_marker, default_to_end: false)
-
-    if start_position == nil or end_position == nil do
-      {Enum.reverse(ranges), text}
-    else
-      do_pop_all_ranges(text, [Range.new(start_position, end_position) | ranges])
-    end
   end
 end
