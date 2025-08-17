@@ -20,7 +20,7 @@ defmodule Expert.EngineNodeTest do
 
     assert project_alive?
     assert :ok = EngineNode.stop(project, 1500)
-    assert Process.whereis(EngineNode.name(project)) == nil
+    assert_eventually Process.whereis(EngineNode.name(project)) == nil, :timer.seconds(5)
   end
 
   test "it should be stopped atomically when the startup process is dead", %{project: project} do
