@@ -93,5 +93,9 @@ release-plain: (compile "engine")
     cd apps/expert
     MIX_ENV=prod mix release plain --overwrite
 
+[doc('Compiles .github/matrix.json')]
+compile-ci-matrix:
+  elixir matrix.exs
+
 default: release-local
 

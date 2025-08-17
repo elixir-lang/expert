@@ -7,7 +7,7 @@ projects = [
   "forge"
 ]
 
-# renable these once we make the repo public
+# TODO(#44): renable these once we make the repo public
 versions = [
   # %{elixir: "1.18.1", otp: "27"},
   # %{elixir: "1.18.1", otp: "26"},
