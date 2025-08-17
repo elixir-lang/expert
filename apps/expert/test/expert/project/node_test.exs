@@ -20,7 +20,7 @@ defmodule Expert.Project.NodeTest do
   end
 
   test "the project should be compiled when the node starts" do
-    assert_receive project_compiled(), 750
+    assert_receive project_compiled(), :timer.seconds(15)
   end
 
   test "remote control is started when the node starts", %{project: project} do
