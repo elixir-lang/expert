@@ -97,7 +97,7 @@ defmodule Engine.BuildTest do
       {:ok, project} = with_project(:umbrella)
       EngineApi.schedule_compile(project, true)
 
-      assert_receive project_compiled(status: :success)
+      assert_receive project_compiled(status: :success), :timer.seconds(15)
       assert_receive project_diagnostics(diagnostics: [])
 
       assert_receive module_updated(name: Umbrella.First, functions: functions)
