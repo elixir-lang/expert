@@ -7,15 +7,16 @@ projects = [
   "forge"
 ]
 
+# renable these once we make the repo public
 versions = [
-  %{elixir: "1.18.1", otp: "27"},
-  %{elixir: "1.18.1", otp: "26"},
-  %{elixir: "1.17", otp: "27"},
-  %{elixir: "1.17", otp: "26"},
-  %{elixir: "1.17", otp: "25"},
-  %{elixir: "1.16", otp: "26"},
-  %{elixir: "1.16", otp: "25"},
-  %{elixir: "1.15.8", otp: "26"},
+  # %{elixir: "1.18.1", otp: "27"},
+  # %{elixir: "1.18.1", otp: "26"},
+  # %{elixir: "1.17", otp: "27"},
+  # %{elixir: "1.17", otp: "26"},
+  # %{elixir: "1.17", otp: "25"},
+  # %{elixir: "1.16", otp: "26"},
+  # %{elixir: "1.16", otp: "25"},
+  # %{elixir: "1.15.8", otp: "26"},
   %{elixir: "1.15.8", otp: "25"}
 ]
 
