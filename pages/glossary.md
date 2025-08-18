@@ -1,14 +1,14 @@
 # Glossary
-This project uses a considerable amount of jargon, some adopted from the Language Server Protocol and some specific to Lexical.
+This project uses a considerable amount of jargon, some adopted from the Language Server Protocol and some specific to Expert.
 
 This glossary attempts to define jargon used in this codebase.
 Though it is not exhaustive, we hope it helps contributors more easily navigate and understand existing code and the goal, and that it provides some guidance for naming new things.
 
-**You can help!** If you run across a new term while working on Lexical and you think it should be defined here, please [open an issue](https://github.com/lexical-lsp/lexical/issues) suggesting it!
+**You can help!** If you run across a new term while working on Expert and you think it should be defined here, please [open an issue](https://github.com/elixir-lang/expert/issues) suggesting it!
 
 ## Language Server Protocol (LSP)
 
-This section covers features, names, and abstractions used by Lexical that have a correspondence to the Language Server Protocol. For a definitive reference, see the [LSP Specification](https://microsoft.github.io/language-server-protocol/specifications/specification-current).
+This section covers features, names, and abstractions used by Expert that have a correspondence to the Language Server Protocol. For a definitive reference, see the [LSP Specification](https://microsoft.github.io/language-server-protocol/specifications/specification-current).
 
 ### Messages, Requests, Responses, and Notifications
 
@@ -27,13 +27,14 @@ From these 3 top-level types, LSP defines more specific more concrete, actionabl
 
 ... and many more. These can serve as good reference for the specific features you're working on.
 
-Lexical maps these in the modules [`Lexical.Protocol.Requests`](https://github.com/lexical-lsp/lexical/blob/main/apps/protocol/lib/lexical/protocol/requests.ex), [`Lexical.Protocol.Responses`](https://github.com/lexical-lsp/lexical/blob/main/apps/protocol/lib/lexical/protocol/responses.ex), and[ `Lexical.Protocol.Notifications`](https://github.com/lexical-lsp/lexical/blob/main/apps/protocol/lib/lexical/protocol/notifications.ex).
+Expert uses [GenLSP](https://github.com/elixir-tools/gen_lsp) to implement the LSP protocol, which defines all the 
+necessary messages.
 
 Finally, it's worth noting all messages are JSON, specifically [JSON-RPC version 2.0](https://www.jsonrpc.org/specification).
 
 ### Document(s)
 
-A single file identified by a URI and contains textual content. Formally referred to as [Text Documents](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocuments) in LSP and modeled as [`Lexical.Document`](https://github.com/lexical-lsp/lexical/blob/main/projects/lexical_shared/lib/lexical/document.ex) structs in Lexical.
+A single file identified by a URI and contains textual content. Formally referred to as [Text Documents](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocuments) in LSP and modeled as `Expert.Document` structs in Expert.
 
 ### Diagnostics
 
@@ -49,23 +50,29 @@ A code action represents a change that can be performed in code. In VSCode they 
 
 LSP defines a protocol for language servers to tell clients what actions they're capable of performing, and for clients to request those actions be taken. See for example LSP's [CodeActionClientCapabilities interface](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#codeActionClientCapabilities).
 
-## Concepts exclusive to Lexical
+## Concepts exclusive to Expert
 
-This section briefly summarizes abstractions introduced by Lexical. Detailed information can be found in the respective moduledocs.
+This section briefly summarizes abstractions introduced by Expert. Detailed information can be found in the respective moduledocs.
 
 ### The Project struct
 
-An Elixir struct that represents the current state of an elixir project. See `Lexical.Project`.
+An Elixir struct that represents the current state of an elixir project. See `Expert.Project`.
+
+### The Project node
+
+When you open an elixir project in Expert, it starts a new Elixir node that runs the `engine` application. This node is called the _Project node_ and it is isolated from the Expert node. The Project node is responsible for compiling the project's code, to gather code intelligence information with ElixirSense, and providing an API for the language server to interact with the project.
+
+The logs for these nodes are stored in the `.expert/project.log` file in the root of the project.
 
 ### The Convertible protocol
 
 Some LSP data structures cannot be trivially converted to Elixir terms.
 
-The `Lexical.Convertible` protocol helps centralize the necessary conversion logic where this is the case.
+The `Expert.Convertible` protocol helps centralize the necessary conversion logic where this is the case.
 
 ### The Translatable protocol and Translation modules
 
-The `Lexical.Completion.Translatable` protocol specifies how Elixir language constructs (such as behaviour callbacks) are converted into LSP constructs (such as [completion items](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#completionItem)).
+The `Expert.Completion.Translatable` protocol specifies how Elixir language constructs (such as behaviour callbacks) are converted into LSP constructs (such as [completion items](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#completionItem)).
 
 See `Expert.CodeIntelligence.Completion.Translations` for various implementations.
 
