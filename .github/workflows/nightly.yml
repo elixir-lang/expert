@@ -1,0 +1,38 @@
+name: Nightly Release
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: 0 0 * * *
+
+jobs:
+  nightly:
+    name: Nightly build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: extractions/setup-just@v3
+      - uses: erlef/setup-beam@v1
+        with:
+          otp-version: "27.3.4.1"
+          elixir-version: "1.17.3"
+          version-type: strict
+      - uses: mlugg/setup-zig@v2
+        with:
+          version: "0.14.1"
+      - run: just release-all
+        env:
+          MIX_ENV: prod
+      - name: Create Checksum
+        run: |
+          cd ./apps/expert/burrito_out
+          chmod +x ./*
+          shasum -a 256 ./* > expert_checksums.txt
+          cd ../../../
+      - name: Delete previous nightly release
+        run: |
+          gh release delete nightly --yes || true
+          git push origin :nightly || true
+      - name: Create nightly release
+        env:
+          GITHUB_TOKEN: ${{ secrets.token }}
+        run: gh release create nightly --prerelease ./apps/expert/burrito_out/*
