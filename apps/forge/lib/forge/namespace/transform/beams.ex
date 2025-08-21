@@ -17,9 +17,12 @@ defmodule Forge.Namespace.Transform.Beams do
     me = self()
 
     all_beams
-    |> Task.async_stream(fn beam ->
-      apply_and_update_progress(beam, me, opts)
-    end)
+    |> Task.async_stream(
+      fn beam ->
+        apply_and_update_progress(beam, me, opts)
+      end,
+      timeout: 10_000
+    )
     |> Stream.run()
 
     block_until_done(0, total_files)
