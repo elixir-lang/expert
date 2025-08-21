@@ -19,6 +19,32 @@ tail -f .expert/*.log
 Note: These log files roll over when they reach 1 megabyte, so after a
 time, it will be necessary to re-run the above command.
 
+## Development server
+
+To start a development server with an interactive shell, you can run the
+following command:
+
+```sh
+just start
+```
+
+This will launch an IEx session, and it will start Expert listening
+in the TCP port `9000`.
+
+You will need to configure your editor to connect to the Expert LSP
+via TCP at that port. After that, opening you project in your editor
+will connect it to the running dev server, and it will terminate it
+when you close the editor.
+
+In this dev server you can run `:observer.start()`, and call any
+function from Expert to inspect the state of the server, or run
+arbitrary code.
+
+Since Expert needs namespacing to work, modules from the `forge`
+application will be namespaced as `XPForge`; the same applies for
+any module that is shared between the `expert` and `engine`
+applications.
+
 ## Debugging
 
 Expert supports a debug shell, which will connect a remote shell to a
