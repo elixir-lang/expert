@@ -1,6 +1,6 @@
 # Expert
 
-Expert is a next-generation language server for the Elixir programming language.
+Expert is the official language server implementation for the Elixir programming language.
 
 ## Installation
 
