@@ -2,16 +2,16 @@ defmodule Forge.Namespace.Transform.Boots do
   @moduledoc """
   A transformer that re-builds .boot files by converting a .script file
   """
-  def apply_to_all(base_directory) do
+  def apply_to_all(base_directory, opts \\ []) do
     base_directory
     |> find_boot_files()
     |> tap(fn boot_files ->
       Mix.Shell.IO.info("Rebuilding #{length(boot_files)} boot files")
     end)
-    |> Enum.each(&apply/1)
+    |> Enum.each(&run(&1, opts))
   end
 
-  def apply(file_path) do
+  def run(file_path, _opts \\ []) do
     file_path
     |> Path.rootname()
     |> String.to_charlist()

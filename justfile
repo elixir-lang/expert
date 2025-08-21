@@ -2,6 +2,8 @@ os := if os() == "macos" { "darwin" } else { os() }
 arch := if arch() =~ "(arm|aarch64)" { "arm64" } else { if arch() =~ "(x86|x86_64)" { "amd64" } else { "unsupported" } }
 local_target := if os =~ "(darwin|linux|windows)" { os + "_" + arch } else { "unsupported" }
 apps := "expert engine forge expert_credo"
+mix_env := env('MIX_ENV', 'dev')
+namespaced_dir := "_build" / mix_env + "_ns"
 
 [doc('Run mix deps.get for the given project')]
 deps project:
@@ -117,3 +119,29 @@ clean-engine:
   elixir -e ':filename.basedir(:user_data, "Expert") |> File.rm_rf!() |> IO.inspect()'
 
 default: release-local
+
+[doc('Start the local development server')]
+start *opts="--port 9000":
+  #!/usr/bin/env bash
+  set -euxo pipefail
+
+  cd apps/expert
+  MIX_ENV=dev mix compile
+  namespaced_dir={{ namespaced_dir }}
+  rm -rf $namespaced_dir
+  mkdir -p $namespaced_dir/lib
+
+  cp -r _build/{{ mix_env }}/lib $namespaced_dir
+
+  mix namespace --directory $namespaced_dir\
+    --include-app expert --exclude-root Expert\
+    --exclude-app burrito --exclude-app req --exclude-app finch\
+    --exclude-app nimble_options --exclude-app nimble_pool\
+    --exclude-root Jason\
+    --include-root Engine --include-app engine
+
+  MIX_BUILD_PATH="$namespaced_dir" EXPERT_ENGINE_PATH="{{ "../engine" }}" iex -S mix run \
+    --no-compile \
+    --no-halt \
+    -e "Application.ensure_all_started(:expert)" \
+    -- {{ opts }}
