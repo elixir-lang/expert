@@ -120,7 +120,7 @@ release-local: (deps "expert") (compile "engine") build-engine build-expert
     exit 1
   fi
 
-  MIX_ENV={{ env('MIX_ENV', 'prod')}}EXPERT_RELEASE_MODE=burrito BURRITO_TARGET="{{ local_target }}" mix release --no-compile --overwrite
+  MIX_ENV={{ env('MIX_ENV', 'prod')}} EXPERT_RELEASE_MODE=burrito BURRITO_TARGET="{{ local_target }}" mix release --no-compile --overwrite
 
 [windows]
 release-local: (deps "expert") (compile "engine") build-engine build-expert
