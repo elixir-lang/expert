@@ -17,10 +17,11 @@ defmodule Forge.Namespace.Abstract do
   end
 
   def run(abstract_format, opts) when is_list(abstract_format) do
-    Task.async(fn ->
+    fn ->
       Process.put(:abstract_code_opts, opts)
       Enum.map(abstract_format, fn af -> rewrite(af) end)
-    end)
+    end
+    |> Task.async()
     |> Task.await()
   end
 

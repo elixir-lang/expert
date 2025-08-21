@@ -54,7 +54,7 @@ defmodule Engine.Plugin.Discovery do
     module
     |> :code.which()
     |> List.to_string()
-    |> Forge.Namespace.Transform.Beams.run(apps: [app])
+    |> Forge.Namespace.Transform.Beams.apply_to_all(apps: [app])
   end
 
   defp unload_module(module) do

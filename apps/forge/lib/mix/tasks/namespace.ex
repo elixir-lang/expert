@@ -66,10 +66,10 @@ defmodule Mix.Tasks.Namespace do
     # Otherwise only the @extra_apps will be cached
     init()
 
-    include_apps = Keyword.get_values(options, :include_app) |> Enum.map(&String.to_atom/1)
-    include_roots = Keyword.get_values(options, :include_root) |> Enum.map(&normalize_root/1)
-    exclude_apps = Keyword.get_values(options, :exclude_app) |> Enum.map(&String.to_atom/1)
-    exclude_roots = Keyword.get_values(options, :exclude_root) |> Enum.map(&normalize_root/1)
+    include_apps = options |> Keyword.get_values(:include_app) |> Enum.map(&String.to_atom/1)
+    include_roots = options |> Keyword.get_values(:include_root) |> Enum.map(&normalize_root/1)
+    exclude_apps = options |> Keyword.get_values(:exclude_app) |> Enum.map(&String.to_atom/1)
+    exclude_roots = options |> Keyword.get_values(:exclude_root) |> Enum.map(&normalize_root/1)
 
     apps = Enum.uniq(Mix.Project.deps_apps() ++ include_apps) -- exclude_apps
 
