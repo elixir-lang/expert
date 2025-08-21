@@ -83,7 +83,7 @@ namespace-expert directory="_build/prod":
 build-expert:
   #!/usr/bin/env bash
   cd apps/expert
-  MIX_ENV={{ env('MIX_ENV', 'prod')}} mix compile
+  MIX_ENV=prod mix compile
   just namespace-expert
 
 [doc('Start the local development server')]
