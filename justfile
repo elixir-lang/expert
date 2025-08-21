@@ -74,28 +74,27 @@ release-local: (deps "expert") (compile "engine") build-engine
     echo "unsupported OS/Arch combination: {{ local_target }}"
     exit 1
   fi
-  MIX_ENV=prod EXPERT_RELEASE_MODE=burrito BURRITO_TARGET="{{ local_target }}" mix release --overwrite
+  MIX_ENV={{ env('MIX_ENV', 'prod')}} EXPERT_RELEASE_MODE=burrito BURRITO_TARGET="{{ local_target }}" mix release --overwrite
 
 [windows]
 release-local: (deps "expert") (compile "engine") build-engine
     # idk actually how to set env vars like this on windows, might crash
-    EXPERT_RELEASE_MODE=burrito BURRITO_TARGET="windows_amd64" MIX_ENV=prod mix release --no-compile
+    EXPERT_RELEASE_MODE=burrito BURRITO_TARGET="windows_amd64" MIX_ENV={{ env('MIX_ENV', 'prod')}} mix release --no-compile
 
 [doc('Build releases for all target platforms')]
 release-all: (deps "expert") (compile "engine") build-engine
     #!/usr/bin/env bash
     cd apps/expert
-    EXPERT_RELEASE_MODE=burrito MIX_ENV=prod mix release
+    EXPERT_RELEASE_MODE=burrito MIX_ENV={{ env('MIX_ENV', 'prod')}} mix release --no-compile
 
 [doc('Build a plain release without burrito')]
 release-plain: (compile "engine")
     #!/usr/bin/env bash
     cd apps/expert
-    MIX_ENV=prod mix release plain --overwrite
+    MIX_ENV={{ env('MIX_ENV', 'prod')}} mix release plain --overwrite
 
 [doc('Compiles .github/matrix.json')]
 compile-ci-matrix:
   elixir matrix.exs
 
 default: release-local
-
