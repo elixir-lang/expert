@@ -22,7 +22,8 @@ defmodule Forge.Namespace.Transform.Beams do
         fn beam ->
           apply_and_update_progress(beam, me, opts)
         end,
-        timeout: 10_000
+        ordered: false,
+        timeout: :infinity
       )
       |> Stream.run()
     end)
