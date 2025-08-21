@@ -17,7 +17,7 @@ defmodule Engine.Plugin.Discovery do
 
   @namespaced_document_module [:Forge, :Document]
                               |> Module.concat()
-                              |> Forge.Namespace.Module.run(apps: [:forge], roots: [Forge])
+                              |> Forge.Namespace.Module.apply()
 
   def run do
     for {app_name, _, _} <- :application.loaded_applications(),
@@ -49,12 +49,10 @@ defmodule Engine.Plugin.Discovery do
   end
 
   defp namespace_module(module) when is_atom(module) do
-    app = Application.get_application(module)
-
     module
     |> :code.which()
     |> List.to_string()
-    |> Forge.Namespace.Transform.Beams.apply_to_all(apps: [app])
+    |> Forge.Namespace.Transform.Beams.apply()
   end
 
   defp unload_module(module) do

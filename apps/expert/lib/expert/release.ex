@@ -1,5 +1,7 @@
 defmodule Expert.Release do
   def assemble(release) do
+    Mix.Task.run(:namespace, [release.path])
+
     engine_path = Path.expand("../../../engine", __DIR__)
 
     source = Path.join([engine_path, "_build/dev_ns"])
@@ -8,12 +10,9 @@ defmodule Expert.Release do
       Path.join([
         release.path,
         "lib",
-        "#{release.name}-#{release.version}",
-        "priv",
-        "engine"
+        "xp_expert-#{release.version}",
+        "priv"
       ])
-
-    File.mkdir_p!(dest)
 
     File.cp_r!(source, dest)
 

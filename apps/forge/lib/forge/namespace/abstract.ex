@@ -6,25 +6,6 @@ defmodule Forge.Namespace.Abstract do
   https://www.erlang.org/doc/apps/erts/absform.html
   """
 
-  def code_from(path) do
-    with {:ok, {_orig_module, code_parts}} <- :beam_lib.chunks(path, [:abstract_code]),
-         {:ok, {:raw_abstract_v1, forms}} <- Keyword.fetch(code_parts, :abstract_code) do
-      {:ok, forms}
-    else
-      _ ->
-        {:error, :not_found}
-    end
-  end
-
-  def run(abstract_format, opts) when is_list(abstract_format) do
-    fn ->
-      Process.put(:abstract_code_opts, opts)
-      Enum.map(abstract_format, fn af -> rewrite(af) end)
-    end
-    |> Task.async()
-    |> Task.await()
-  end
-
   def rewrite(abstract_format) when is_list(abstract_format) do
     Enum.map(abstract_format, &rewrite/1)
   end
@@ -313,7 +294,6 @@ defmodule Forge.Namespace.Abstract do
   end
 
   defp rewrite_module(module) do
-    opts = Process.get(:abstract_code_opts)
-    Forge.Namespace.Module.run(module, opts)
+    Forge.Namespace.Module.apply(module)
   end
 end

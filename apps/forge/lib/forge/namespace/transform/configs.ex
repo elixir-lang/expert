@@ -1,5 +1,5 @@
 defmodule Forge.Namespace.Transform.Configs do
-  def apply_to_all(base_directory, opts) do
+  def apply_to_all(base_directory) do
     base_directory
     |> Path.join("**/runtime.exs")
     |> Path.wildcard()
@@ -7,10 +7,10 @@ defmodule Forge.Namespace.Transform.Configs do
     |> tap(fn paths ->
       Mix.Shell.IO.info("Rewriting #{length(paths)} config scripts.")
     end)
-    |> Enum.each(&run(&1, opts))
+    |> Enum.each(&apply/1)
   end
 
-  def run(path, opts) do
+  def apply(path) do
     namespaced =
       path
       |> File.read!()
@@ -20,14 +20,14 @@ defmodule Forge.Namespace.Transform.Configs do
           namespaced_alias =
             alias
             |> Module.concat()
-            |> Forge.Namespace.Module.run(opts)
+            |> Forge.Namespace.Module.apply()
             |> Module.split()
             |> Enum.map(&String.to_atom/1)
 
           {:__aliases__, meta, namespaced_alias}
 
         atom when is_atom(atom) ->
-          Forge.Namespace.Module.run(atom, opts)
+          Forge.Namespace.Module.apply(atom)
 
         ast ->
           ast

@@ -1,35 +1,33 @@
 defmodule Forge.Namespace.Path do
-  alias Forge.Namespace
-
-  def run(path, opts) when is_list(path) do
+  def apply(path) when is_list(path) do
     path
     |> List.to_string()
-    |> run(opts)
+    |> apply()
     |> String.to_charlist()
   end
 
-  def run(path, opts) when is_binary(path) do
-    apps = Keyword.fetch!(opts, :apps)
-
+  def apply(path) when is_binary(path) do
     path
     |> Path.split()
-    |> Enum.map(fn path_component ->
-      Enum.reduce(apps, path_component, fn app_name, path ->
-        [path | vsn] = String.split(path, "-")
-
-        if path == Atom.to_string(app_name) do
-          new_path =
-            app_name
-            |> Namespace.Module.run(opts)
-            |> Atom.to_string()
-
-          rebuild_path(new_path, vsn)
-        else
-          rebuild_path(path, vsn)
-        end
-      end)
-    end)
+    |> Enum.map(&replace_namespaced_apps/1)
     |> Path.join()
+  end
+
+  defp replace_namespaced_apps(path_component) do
+    Enum.reduce(Mix.Tasks.Namespace.app_names(), path_component, fn app_name, path ->
+      [path | vsn] = String.split(path, "-")
+
+      if path == Atom.to_string(app_name) do
+        new_path =
+          app_name
+          |> Forge.Namespace.Module.apply()
+          |> Atom.to_string()
+
+        rebuild_path(new_path, vsn)
+      else
+        rebuild_path(path, vsn)
+      end
+    end)
   end
 
   defp rebuild_path(path, []), do: path
