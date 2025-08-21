@@ -70,6 +70,8 @@ release-local: (deps "expert") (compile "engine") build-engine
   #!/usr/bin/env bash
   cd apps/expert
 
+  set -euxo pipefail
+
   if [ "{{ local_target }}" == "unsupported" ]; then
     echo "unsupported OS/Arch combination: {{ local_target }}"
     exit 1
