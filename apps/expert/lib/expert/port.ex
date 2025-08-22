@@ -148,8 +148,6 @@ defmodule Expert.Port do
   end
 
   def path({:unix, _}) do
-    require Logger
-
     with :non_existing <- :code.where_is_file(~c"port_wrapper.sh") do
       :expert
       |> :code.priv_dir()

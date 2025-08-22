@@ -49,24 +49,9 @@ lint *project="all":
   just mix {{ project }} credo
   just mix {{ project }} dialyzer
 
-build-engine:
-    #!/usr/bin/env bash
-    set -euxo pipefail
-
-    cd apps/engine
-    MIX_ENV=dev mix compile
-    namespaced_dir=_build/dev_ns/
-    rm -rf $namespaced_dir
-    mkdir -p $namespaced_dir
-
-    cp -a _build/dev/. "$namespaced_dir"
-
-    MIX_ENV=dev mix namespace "$namespaced_dir"
-
-
 [doc('Build a release for the local system')]
 [unix]
-release-local: (deps "expert") (compile "engine") build-engine
+release-local: (deps "engine") (deps "expert")
   #!/usr/bin/env bash
   cd apps/expert
 
@@ -79,12 +64,12 @@ release-local: (deps "expert") (compile "engine") build-engine
   MIX_ENV={{ env('MIX_ENV', 'prod')}} EXPERT_RELEASE_MODE=burrito BURRITO_TARGET="{{ local_target }}" mix release --overwrite
 
 [windows]
-release-local: (deps "expert") (compile "engine") build-engine
+release-local: (deps "engine") (deps "expert")
     # idk actually how to set env vars like this on windows, might crash
-    EXPERT_RELEASE_MODE=burrito BURRITO_TARGET="windows_amd64" MIX_ENV={{ env('MIX_ENV', 'prod')}} mix release --no-compile
+    EXPERT_RELEASE_MODE=burrito BURRITO_TARGET="windows_amd64" MIX_ENV={{ env('MIX_ENV', 'prod')}} mix release --overwrite
 
 [doc('Build releases for all target platforms')]
-release-all: (deps "expert") (compile "engine") build-engine
+release-all: (deps "engine") (deps "expert")
     #!/usr/bin/env bash
     cd apps/expert
 
@@ -93,7 +78,7 @@ release-all: (deps "expert") (compile "engine") build-engine
     EXPERT_RELEASE_MODE=burrito MIX_ENV={{ env('MIX_ENV', 'prod')}} mix release --overwrite
 
 [doc('Build a plain release without burrito')]
-release-plain: (compile "engine")
+release-plain: (deps "engine") (deps "expert")
     #!/usr/bin/env bash
     cd apps/expert
     MIX_ENV={{ env('MIX_ENV', 'prod')}} mix release plain --overwrite

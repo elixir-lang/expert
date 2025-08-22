@@ -115,7 +115,8 @@ defmodule Expert.EngineNode do
     bootstrap_args = [project, Document.Store.entropy(), all_app_configs()]
 
     with {:ok, node_pid} <- EngineSupervisor.start_project_node(project),
-         :ok <- start_node(project, glob_paths()),
+         {:ok, glob_paths} <- glob_paths(project),
+         :ok <- start_node(project, glob_paths),
          :ok <- :rpc.call(node_name, Engine.Bootstrap, :init, bootstrap_args),
          :ok <- ensure_apps_started(node_name) do
       {:ok, node_name, node_pid}
@@ -152,22 +153,79 @@ defmodule Expert.EngineNode do
       ["/**/priv" | app_globs]
     end
 
-    def glob_paths do
-      for entry <- :code.get_path(),
-          entry_string = List.to_string(entry),
-          entry_string != ".",
-          Enum.any?(app_globs(), &PathGlob.match?(entry_string, &1, match_dot: true)) do
-        entry
-      end
+    def glob_paths(_) do
+      entries =
+        for entry <- :code.get_path(),
+            entry_string = List.to_string(entry),
+            entry_string != ".",
+            Enum.any?(app_globs(), &PathGlob.match?(entry_string, &1, match_dot: true)) do
+          entry
+        end
+
+      {:ok, entries}
     end
   else
-    # In dev and prod environments, a default build of Engine is built
-    # separately and copied to expert's priv directory.
-    # When Engine is built in CI for a version matrix, we'll need to check if
-    # we have the right version downloaded, and if not, we should download it.
-    defp glob_paths do
-      :expert
-      |> :code.priv_dir()
+    # In dev and prod environments, the engine source code is included in the
+    # Expert release, and we build it on the fly for the project elixir+opt
+    # versions if it was not built yet.
+    defp glob_paths(%Project{} = project) do
+      {:ok, elixir, _} = Expert.Port.elixir_executable(project)
+
+      expert_priv = :code.priv_dir(:expert)
+      packaged_engine_source = Path.join([expert_priv, "engine_source", "apps", "engine"])
+
+      engine_source =
+        "EXPERT_ENGINE_PATH"
+        |> System.get_env(packaged_engine_source)
+        |> Path.expand()
+
+      build_engine_script = Path.join(expert_priv, "build_engine.exs")
+
+      opts =
+        [
+          args: [
+            elixir,
+            build_engine_script,
+            "--source-path",
+            engine_source,
+            "--vsn",
+            Expert.vsn()
+          ],
+          cd: engine_source
+        ]
+
+      launcher = Expert.Port.path()
+
+      Logger.info("Finding or building engine for project #{Project.name(project)}")
+
+      port =
+        Port.open(
+          {:spawn_executable, launcher},
+          opts
+        )
+
+      wait_for_engine(port)
+    end
+
+    defp wait_for_engine(port) do
+      receive do
+        {^port, {:data, ~c"engine_path:" ++ engine_path}} ->
+          engine_path = engine_path |> to_string() |> String.trim()
+          Logger.info("Engine build available at: #{engine_path}")
+
+          {:ok, ebin_paths(engine_path)}
+
+        {^port, _data} ->
+          wait_for_engine(port)
+
+        {:EXIT, ^port, reason} ->
+          Logger.error("Engine build script exited with reason: #{inspect(reason)}")
+          {:error, reason}
+      end
+    end
+
+    defp ebin_paths(base_path) do
+      base_path
       |> Path.join("lib/**/ebin")
       |> Path.wildcard()
     end
