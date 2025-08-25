@@ -35,7 +35,7 @@ jobs:
 
       # Step: Check out the code.
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       # Step: Define how to cache deps. Restores existing cache if present.
       - name: Cache deps
@@ -83,7 +83,7 @@ jobs:
 
       # Step: Check out the code.
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       # Step: Define how to cache deps. Restores existing cache if present.
       - name: Cache deps
@@ -145,7 +145,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - uses: extractions/setup-just@v3
       - name: Set up Elixir
@@ -179,7 +179,7 @@ jobs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
     steps:
      - name: Checkout to repository
-       uses: actions/checkout@v4
+       uses: actions/checkout@v5
      - name: Set matrix data
        id: set-matrix
        run: echo "matrix=$(jq -c . < .github/matrix.json)" >> $GITHUB_OUTPUT
@@ -192,7 +192,7 @@ jobs:
       matrix: ${{ fromJson(needs.prep-matrix.outputs.matrix) }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - uses: extractions/setup-just@v3
       - name: Set up Elixir
