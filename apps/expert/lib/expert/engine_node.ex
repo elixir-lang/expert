@@ -183,6 +183,7 @@ defmodule Expert.EngineNode do
 
       opts =
         [
+          :stderr_to_stdout,
           args: [
             elixir,
             build_engine_script,

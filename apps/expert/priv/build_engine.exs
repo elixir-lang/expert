@@ -13,36 +13,27 @@
 expert_vsn = Keyword.fetch!(args, :vsn)
 engine_source_path = Keyword.fetch!(args, :source_path)
 
-major = :otp_release |> :erlang.system_info() |> List.to_string()
-version_file = Path.join([:code.root_dir(), "releases", major, "OTP_VERSION"])
+expert_data_path = :filename.basedir(:user_data, "Expert", %{version: expert_vsn})
 
-erlang_vsn =
-  try do
-    {:ok, contents} = File.read(version_file)
-    String.split(contents, "\n", trim: true)
-  else
-    [full] -> full
-    _ -> major
-  catch
-    :error ->
-      major
-  end
+System.put_env("MIX_INSTALL_DIR", expert_data_path)
 
-elixir_vsn = System.version()
+Mix.Task.run("local.hex", ["--force"])
+Mix.Task.run("local.rebar", ["--force"])
 
-user_data_path = :filename.basedir(:user_data, "Expert", %{version: expert_vsn})
-out_path = Path.join([user_data_path, "engine-#{elixir_vsn}-otp-#{erlang_vsn}"])
-build_path = Path.join(out_path, "dev")
+Mix.install([{:engine, path: engine_source_path, env: :dev}],
+  start_applications: false,
+  config_path: Path.join(engine_source_path, "config/config.exs"),
+  lockfile: Path.join(engine_source_path, "mix.lock")
+)
 
-if not File.exists?(build_path) do
-  System.put_env("MIX_INSTALL_DIR", out_path)
+install_path = Mix.install_project_dir()
 
-  Mix.Task.run("local.hex", ["--force"])
-  Mix.Task.run("local.rebar", ["--force"])
-  Mix.Project.in_project(:engine, engine_source_path, [build_path: out_path], fn _module ->
-    Mix.Task.run("compile", [])
-    Mix.Task.run("namespace", [build_path, "--cwd", out_path])
-  end)
-end
+dev_build_path = Path.join([install_path, "_build", "dev"])
+ns_build_path = Path.join([install_path, "_build", "dev_ns"])
 
-IO.puts("engine_path:" <> build_path)
+File.rm_rf!(ns_build_path)
+File.cp_r!(dev_build_path, ns_build_path)
+
+Mix.Task.run("namespace", [ns_build_path, "--cwd", install_path])
+
+IO.puts("engine_path:" <> ns_build_path)

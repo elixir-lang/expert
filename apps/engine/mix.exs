@@ -51,9 +51,9 @@ defmodule Engine.MixProject do
        github: "elixir-lsp/elixir_sense", ref: "e3ddc403554050221a2fd19a10a896fa7525bc02"},
       {:forge, path: "../forge"},
       {:gen_lsp, "~> 0.11"},
-      {:patch, "~> 0.15", only: [:dev, :test], optional: true, runtime: false},
-      {:path_glob, "~> 0.2", optional: true},
-      {:phoenix_live_view, "~> 1.0", only: [:test], optional: true, runtime: false},
+      {:patch, "~> 0.15", only: [:dev, :test], runtime: false},
+      {:path_glob, "~> 0.2"},
+      {:phoenix_live_view, "~> 1.0", only: [:test], runtime: false},
       {:sourceror, "~> 1.9"},
       {:stream_data, "~> 1.1", only: [:test], runtime: false},
       {:refactorex, "~> 0.1.52"}
