@@ -66,8 +66,6 @@ appropriate binary name.
 2. [Vanilla Emacs with eglot](#vanilla-emacs-with-eglot)
 3. [Visual Studio Code](#visual-studio-code)
 4. [neovim](#neovim)
-5. [LunarVim](#lunarvim)
-6. [Vim + ALE](#vim--ale)
 7. [Vim + Vim-LSP](#vim--vim-lsp)
 8. [Helix](#helix)
 9. [Sublime Text](#sublime-text)
@@ -91,7 +89,6 @@ emacs configuration), insert the following code:
   :ensure t
   :custom
   (lsp-elixir-server-command '("/my/home/projects/expert/apps/expert/burrito_out/expert_linux_amd64")))
-
 ```
 
 Restart emacs, and Lexical should start when you open a file with a
