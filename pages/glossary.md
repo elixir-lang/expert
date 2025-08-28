@@ -84,4 +84,4 @@ Examples of code mods include:
  * Formatting code in a file (`> Format Document`/`shift`+`alt`+`f` in VSCode).
  * Prefixing unused variables with an `_`.
 
-Code mods are defined in the `remote_control` sub-app and are executed in the project's virtual machine.
+Code mods are defined in the `engine` sub-app and are executed in the project's virtual machine.
