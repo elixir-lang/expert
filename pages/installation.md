@@ -26,6 +26,8 @@ Caveats with the following versions of Elixir and Erlang are documented below:
 ## Prerequisites
 First, Install git LFS by [following these instructions](https://docs.github.com/en/repositories/working-with-files/managing-large-files/installing-git-large-file-storage).
 
+Next, [install `just`](https://github.com/casey/just?tab=readme-ov-file#cross-platform)
+
 Then, clone the git repository. Do this with
 
 ```elixir
