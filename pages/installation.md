@@ -91,7 +91,7 @@ emacs configuration), insert the following code:
   (lsp-elixir-server-command '("/my/home/projects/expert/apps/expert/burrito_out/expert_linux_amd64")))
 ```
 
-Restart emacs, and Lexical should start when you open a file with a
+Restart emacs, and Expert should start when you open a file with a
 `.ex` extension.
 
 
@@ -111,7 +111,7 @@ You can add Expert support in the following way:
            '("expert_linux_amd64" "start_lexical.sh")))))
 ```
 
-For versions before 30, you can add Eglot support for Lexical in the
+For versions before 30, you can add Eglot support for Expert in the
 following way:
 
 ```emacs-lisp
@@ -142,9 +142,9 @@ for Eglot:
 
 Click on the extensions button on the sidebar, then search for
 `lexical`, then click `install`.  By default, the extension will automatically
-download the latest version of Lexical.
+download the latest version of Expert.
 
-To change to a local executable, go to `Settings -> Extensions -> Lexical` and
+To change to a local executable, go to `Settings -> Extensions -> Expert` and
 type `/my/home/projects/expert/apps/expert/burrito_out/expert_linux_amd64` into the text box in
 the `Server: Release path override` section.
 
@@ -172,7 +172,7 @@ require('lspconfig').lexical.setup {
 
 ### Vim + Vim-LSP
 
-An example of configuring Lexical as the Elixir language server for
+An example of configuring Expert as the Elixir language server for
 [Vim-LSP](https://github.com/prabirshrestha/vim-lsp). Uses the newer vim9script syntax but
 can be converted to Vim 8 etc (`:h vim9script`).
 
@@ -233,9 +233,9 @@ language-servers = ["expert"]
 
 #### Background
 
-Lexical can be used with Sublime Text via the [LSP-Sublime](https://lsp.sublimetext.io/) package, which integrates Language Servers with Sublime Text. If you don't have the LSP-Sublime package installed already, [install it with Package Control](https://packagecontrol.io/packages/LSP).
+Expert can be used with Sublime Text via the [LSP-Sublime](https://lsp.sublimetext.io/) package, which integrates Language Servers with Sublime Text. If you don't have the LSP-Sublime package installed already, [install it with Package Control](https://packagecontrol.io/packages/LSP).
 
-There is currently no [language server package](https://lsp.sublimetext.io/language_servers/) specifically for Lexical that works with LSP-Sublime so we'll need to create a [custom client configuration](https://lsp.sublimetext.io/client_configuration/).
+There is currently no [language server package](https://lsp.sublimetext.io/language_servers/) specifically for Expert that works with LSP-Sublime so we'll need to create a [custom client configuration](https://lsp.sublimetext.io/client_configuration/).
 
 #### Installation
 First, install LSP-Sublime with Package Control if you haven't already.
