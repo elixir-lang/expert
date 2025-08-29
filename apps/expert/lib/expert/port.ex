@@ -64,13 +64,31 @@ defmodule Expert.Port do
   # We launch expert by asking the version managers to provide an environment,
   # which contains path munging. This initial environment is present in the running
   # VM, and needs to be undone so we can find the correct elixir executable in the project.
-  defp reset_env("asdf", _root_path) do
-    orig_path = System.get_env("PATH_SAVE", System.get_env("PATH"))
+  defp reset_env("asdf", root_path) do
+    {env, _} = System.cmd("asdf", ~w(env elixir), cd: root_path)
+
+    env =
+      env
+      |> String.trim()
+      |> String.split("\n")
+      |> Enum.map(fn key_and_value ->
+        [key, value] =
+          key_and_value
+          |> String.split("=", parts: 2)
+          |> Enum.map(&String.trim/1)
+
+        {key, value}
+      end)
+      |> Enum.reject(&is_nil/1)
+
+    asdf_path =
+      case List.keyfind(env, "ASDF_INSTALL_PATH", 0) do
+        {_, path} -> Path.join(path, "../../../shims")
+        _ -> ""
+      end
 
     Enum.map(System.get_env(), fn
-      {"ASDF_ELIXIR_VERSION", _} -> {"ASDF_ELIXIR_VERSION", nil}
-      {"ASDF_ERLANG_VERSION", _} -> {"ASDF_ERLANG_VERSION", nil}
-      {"PATH", _} -> {"PATH", orig_path}
+      {"PATH", path} -> {"PATH", "#{asdf_path}:#{path}"}
       other -> other
     end)
   end
@@ -169,7 +187,7 @@ defmodule Expert.Port do
     raise ArgumentError, "Operating system #{inspect(os_tuple)} is not currently supported"
   end
 
-  defp ensure_charlists(environment_variables) do
+  def ensure_charlists(environment_variables) do
     Enum.map(environment_variables, fn {key, value} ->
       # using to_string ensures nil values won't blow things up
       erl_key = key |> to_string() |> String.to_charlist()

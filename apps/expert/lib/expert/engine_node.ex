@@ -2,6 +2,8 @@ defmodule Expert.EngineNode do
   alias Forge.Project
   require Logger
 
+  use Expert.Project.Progress.Support
+
   defmodule State do
     defstruct [
       :project,
@@ -169,7 +171,7 @@ defmodule Expert.EngineNode do
     # Expert release, and we build it on the fly for the project elixir+opt
     # versions if it was not built yet.
     defp glob_paths(%Project{} = project) do
-      {:ok, elixir, _} = Expert.Port.elixir_executable(project)
+      {:ok, elixir, env} = Expert.Port.elixir_executable(project)
 
       expert_priv = :code.priv_dir(:expert)
       packaged_engine_source = Path.join([expert_priv, "engine_source", "apps", "engine"])
@@ -192,20 +194,26 @@ defmodule Expert.EngineNode do
             "--vsn",
             Expert.vsn()
           ],
+          env: Expert.Port.ensure_charlists(env),
           cd: engine_source
         ]
 
       launcher = Expert.Port.path()
 
-      Logger.info("Finding or building engine for project #{Project.name(project)}")
+      GenLSP.info(
+        Expert.get_lsp(),
+        "Finding or building engine for project #{Project.name(project)}"
+      )
 
-      port =
-        Port.open(
-          {:spawn_executable, launcher},
-          opts
-        )
+      with_progress(project, "Building engine for #{Project.name(project)}", fn ->
+        port =
+          Port.open(
+            {:spawn_executable, launcher},
+            opts
+          )
 
-      wait_for_engine(port)
+        wait_for_engine(port)
+      end)
     end
 
     defp wait_for_engine(port) do
