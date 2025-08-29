@@ -78,6 +78,7 @@ defmodule Expert.MixProject do
   defp deps do
     [
       {:burrito, "~> 1.4", only: [:dev, :prod]},
+      {:deps_nix, "~> 2.4", only: :dev},
       Mix.Credo.dependency(),
       Mix.Dialyzer.dependency(),
       # In practice Expert does not hardly depend on Engine, only on its compiled

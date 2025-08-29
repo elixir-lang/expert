@@ -45,6 +45,7 @@ defmodule Engine.MixProject do
   defp deps do
     [
       {:benchee, "~> 1.3", only: :test},
+      {:deps_nix, "~> 2.4", only: :dev},
       Mix.Credo.dependency(),
       Mix.Dialyzer.dependency(),
       {:elixir_sense,
