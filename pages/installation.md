@@ -28,7 +28,7 @@ First, Install git LFS by [following these instructions](https://docs.github.com
 
 Next, [install `just`](https://github.com/casey/just?tab=readme-ov-file#cross-platform)
 
-Next, [install `zig`](https://ziglang.org/learn/getting-started/) if not already installed. **Important:** version 0.14.1 is required, and it's _not_ the latest.
+Next, [install `zig`](https://ziglang.org/learn/getting-started/) if not already installed. **Important:** version 0.14.1 is required, which is currently _not_ the latest version.
 
 Then, clone the git repository. Do this with
 
