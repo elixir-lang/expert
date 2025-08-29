@@ -56,9 +56,15 @@ For companies wanting to directly sponsor full time work on Expert, please reach
 
 Individuals can donate using GitHub sponsors. Team members are listed in the sidebar.
 
-### Other resources
+## Other resources
 
 - [Architecture](pages/architecture.md)
 - [Development Guide](pages/development.md)
 - [Glossary](pages/glossary.md)
 - [Installation Instructions](pages/installation.md)
+
+## LICENSE
+
+Expert source code is released under Apache License 2.0.
+
+Check LICENSE file for more information.
