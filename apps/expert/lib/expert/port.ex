@@ -87,6 +87,10 @@ defmodule Expert.Port do
           key_and_value
           |> String.split("=", parts: 2)
           |> Enum.map(&String.trim/1)
+          |> then(fn
+            ["PATH", path] -> ["PATH", String.trim(path, "'")]
+            other -> other
+          end)
 
         {key, value}
 
@@ -108,6 +112,10 @@ defmodule Expert.Port do
           key_and_value
           |> String.split("=", parts: 2)
           |> Enum.map(&String.trim/1)
+          |> then(fn
+            ["PATH", path] -> ["PATH", String.trim(path, "'")]
+            other -> other
+          end)
 
         {key, value}
 
