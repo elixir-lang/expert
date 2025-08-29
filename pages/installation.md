@@ -58,6 +58,9 @@ If things complete successfully, you will then have a release in your
 `apps/expert/burrito_out` directory. If you see errors, please file a
 bug.
 
+In case you want to build and install it locally you can run `just install`,
+which will install the generated binary inside `~/.local/bin`.
+
 For the following examples, assume the absolute path to your Expert
 source code is `/my/home/projects/expert` and that you are running an amd64
 Linux system. For other systems, replace the `expert_linux_amd64` with the
