@@ -142,9 +142,10 @@ for Eglot:
 
 Click on the extensions button on the sidebar, then search for
 `lexical`, then click `install`.  By default, the extension will automatically
-download the latest version of Expert.
+download the latest version of Expert. Expert is derived from the Lexical codebase,
+but the extension will install the new Expert executable.
 
-To change to a local executable, go to `Settings -> Extensions -> Expert` and
+To change to a local executable, go to `Settings -> Extensions -> Lexical` and
 type `/my/home/projects/expert/apps/expert/burrito_out/expert_linux_amd64` into the text box in
 the `Server: Release path override` section.
 
@@ -169,6 +170,19 @@ require('lspconfig').lexical.setup {
   settings = {}
 }
 ```
+
+As of neovim `0.11.3`, you can use the built-in lsp config:
+```lua
+vim.lsp.config('expert', {
+  cmd = { 'expert' },
+  root_markers = { 'mix.exs', '.git' },
+  filetypes = { 'elixir', 'eelixir', 'heex' },
+})
+
+vim.lsp.enable 'expert'
+```
+
+If you are using `nvim-lspconfig` this should be handled automatically.
 
 ### Vim + Vim-LSP
 

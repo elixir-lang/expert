@@ -5,7 +5,7 @@ Expert is the official language server implementation for the Elixir programming
 ## Installation
 
 You can download Expert from the [releases page](https://github.com/elixir-lang/expert/releases) for your
-operating system and architecture.
+operating system and architecture. Put the executable somewhere on your `$PATH`, like `~/.local/bin/expert`
 
 For editor specific installation instructions, please refer to the [Installation Instructions](pages/installation.md)
 
