@@ -275,3 +275,25 @@ You'll need to add a key called `"clients"` in the top-level `LSP.sublime-settin
 _note: you can name elixir-expert whatever you like, it's just for your own identification_
 
 Upon saving the configuration, LSP-Sublime should enable the new `elixir-expert` LSP server. Go into an Elixir file and you should now see `elixir-expert` in the lower left of the status bar. If not, invoke the command palette and select `LSP: Enable Language Server Globally/In Project` and it should run.
+
+### Zed
+
+The Elixir extension is needed in order to enable Elixir support and configure the Expert language server. See [Elixir (Zed Documentation)](https://zed.dev/docs/languages/elixir) for details.
+
+In your Zed settings, add the following. This will enable the Export language server and disable other Elixir language servers.
+
+```json
+{
+  "languages": {
+    "Elixir": {
+      "language_servers": [
+        "expert",
+        "!elixir-ls",
+        "!next-ls",
+        "!lexical",
+        "..."
+      ]
+    }
+  }
+}
+```
