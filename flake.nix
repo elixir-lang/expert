@@ -51,6 +51,12 @@
       program = "${script}/bin/update-hash";
     });
 
+    overlays = {
+      default = final: _prev: {
+        expert-lsp = self.packages.${final.system}.expert;
+      };
+    };
+
     packages = forAllSystems (pkgs: let
       # burrito doesnt have newest OTP26 releases version
       erlang_26 = pkgs.beam.interpreters.erlang.override rec {
