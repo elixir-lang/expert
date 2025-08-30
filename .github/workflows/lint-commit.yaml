@@ -7,16 +7,46 @@ on:
       - synchronize
       - edited
 
+permissions:
+  pull-requests: write
+
 jobs:
   commitlint:
     runs-on: ubuntu-latest
     name: commitlint
-
     steps:
       - uses: actions/checkout@v5
       - uses: amannn/action-semantic-pull-request@v6
+        id: lint-pr-title
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           subjectPattern: ^(?![A-Z]).+$
+      - uses: marocchino/sticky-pull-request-comment@v2
+        if: always() && (steps.lint-pr-title.outputs.error_message != null)
+        with:
+          header: pr-title-lint-error
+          message: |
+            Hey there and thank you for opening this pull request! 👋🏼
+
+            We require pull request titles to follow the [Conventional Commits specification](https://www.conventionalcommits.org/en/v1.0.0/) and it looks like your proposed title needs to be adjusted.
+
+            A valid title has a type (feat, bug, chore, etc) followed by and optional scope in parentheses, a colon, a space, and then a subject which starts with a lowercase letter.
+
+            ```
+            feat(engine): add new completions styles
+            bug: correctly index project symbols
+            ```
+
+            Details:
+
+            ```
+            ${{ steps.lint-pr-title.outputs.error_message }}
+            ```
+
+      - if: ${{ steps.lint-pr-title.outputs.error_message == null }}
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: pr-title-lint-error
+          delete: true
 

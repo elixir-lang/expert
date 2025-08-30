@@ -16,16 +16,16 @@ If you want to try out the latest features, you can download a nightly build.
 Using the GH CLI, you can run the following command to download the latest nightly build:
 
 ```shell
-gh release download nightly --pattern 'expert_linux_amd64'
+gh release download nightly --pattern 'expert_linux_amd64' --repo elixir-lang/expert
 ```
 
 Then point your editor to the downloaded binary.
 
 ### Building from source
 
-To build Expert from source, you need Zig `1.14.1` installed on your system.
+To build Expert from source, you need Zig `0.14.1` installed on your system.
 
-Then you can run the following command:
+Then you can run the following command or follow the instructions in the [Installation Instructions](pages/installation.md):
 
 ```sh
 just release-local

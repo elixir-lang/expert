@@ -87,4 +87,10 @@ release-plain: (deps "engine") (deps "expert")
 compile-ci-matrix:
   elixir matrix.exs
 
+[doc('Build and install binary locally')]
+[unix]
+install: release-local
+  #!/usr/bin/env bash
+  cp ./apps/expert/burrito_out/expert_{{ local_target }} ~/.local/bin/expert
+
 default: release-local
