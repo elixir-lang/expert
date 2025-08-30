@@ -32,28 +32,36 @@ defmodule Expert.Port do
   end
 
   def elixir_executable(%Project{} = project) do
+    find_executable(project, "elixir")
+  end
+
+  def erlang_executable(%Project{} = project) do
+    find_executable(project, "erl")
+  end
+
+  defp find_executable(project, exe) do
     root_path = Project.root_path(project)
 
     {path_result, env} =
-      with nil <- version_manager_path_and_env("asdf", root_path),
-           nil <- version_manager_path_and_env("mise", root_path),
-           nil <- version_manager_path_and_env("rtx", root_path) do
-        {File.cd!(root_path, fn -> System.find_executable("elixir") end), System.get_env()}
+      with nil <- version_manager_path_and_env("asdf", exe, root_path),
+           nil <- version_manager_path_and_env("mise", exe, root_path),
+           nil <- version_manager_path_and_env("rtx", exe, root_path) do
+        {File.cd!(root_path, fn -> System.find_executable(exe) end), System.get_env()}
       end
 
     case path_result do
       nil ->
-        {:error, :no_elixir}
+        {:error, :"#{exe}_not_found"}
 
       executable when is_binary(executable) ->
         {:ok, executable, env}
     end
   end
 
-  defp version_manager_path_and_env(manager, root_path) do
+  defp version_manager_path_and_env(manager, exe, root_path) do
     with true <- is_binary(System.find_executable(manager)),
-         env = reset_env(manager, root_path),
-         {path, 0} <- System.cmd(manager, ~w(which elixir), cd: root_path, env: env) do
+         env = reset_env(manager, exe, root_path),
+         {path, 0} <- System.cmd(manager, ["which", exe], cd: root_path, env: env) do
       {String.trim(path), env}
     else
       _ ->
@@ -64,8 +72,8 @@ defmodule Expert.Port do
   # We launch expert by asking the version managers to provide an environment,
   # which contains path munging. This initial environment is present in the running
   # VM, and needs to be undone so we can find the correct elixir executable in the project.
-  defp reset_env("asdf", root_path) do
-    {env, _} = System.cmd("asdf", ~w(env elixir), cd: root_path)
+  defp reset_env("asdf", exe, root_path) do
+    {env, _} = System.cmd("asdf", ["env", exe], cd: root_path)
 
     env =
       env
@@ -93,7 +101,7 @@ defmodule Expert.Port do
     end)
   end
 
-  defp reset_env("rtx", root_path) do
+  defp reset_env("rtx", _exe, root_path) do
     {env, _} = System.cmd("rtx", ~w(env -s bash), cd: root_path)
 
     env
@@ -118,7 +126,7 @@ defmodule Expert.Port do
     |> Enum.reject(&is_nil/1)
   end
 
-  defp reset_env("mise", root_path) do
+  defp reset_env("mise", _exe, root_path) do
     {env, _} = System.cmd("mise", ~w(env -s bash), cd: root_path)
 
     env

@@ -171,9 +171,11 @@ defmodule Expert.EngineNode do
     # Expert release, and we build it on the fly for the project elixir+opt
     # versions if it was not built yet.
     defp glob_paths(%Project{} = project) do
+      {:ok, erl, _env} = Expert.Port.erlang_executable(project)
       {:ok, elixir, env} = Expert.Port.elixir_executable(project)
 
       expert_priv = :code.priv_dir(:expert)
+      root_path = Project.root_path(project)
       packaged_engine_source = Path.join([expert_priv, "engine_source", "apps", "engine"])
 
       engine_source =
@@ -182,6 +184,8 @@ defmodule Expert.EngineNode do
         |> Path.expand()
 
       build_engine_script = Path.join(expert_priv, "build_engine.exs")
+
+      :ok = patch_versions_file(root_path, engine_source, erl, elixir)
 
       opts =
         [
@@ -237,6 +241,70 @@ defmodule Expert.EngineNode do
       base_path
       |> Path.join("lib/**/ebin")
       |> Path.wildcard()
+    end
+
+    defp patch_versions_file(root_path, engine_source, erl, elixir) do
+      {elixir_version, 0} = System.cmd(elixir, ["--short-version"], cd: root_path)
+
+      {erl_version, 0} =
+        System.cmd(
+          erl,
+          [
+            "-eval",
+            "{ok, Version} = file:read_file(filename:join([code:root_dir(), \"releases\", erlang:system_info(otp_release), \"OTP_VERSION\"])), io:fwrite(Version), halt().",
+            "-noshell"
+          ],
+          cd: root_path
+        )
+
+      versions_path = Path.join([engine_source, ".tool-versions"])
+
+      overrides = %{
+        "elixir" => String.trim(elixir_version),
+        "erlang" => String.trim(erl_version)
+      }
+
+      with true <- File.exists?(versions_path),
+           {:ok, versions} <- read_versions(versions_path) do
+        updated = Map.merge(versions, overrides)
+        content = versions_to_iodata(updated)
+
+        File.write(versions_path, content)
+      else
+        false ->
+          content = versions_to_iodata(overrides)
+
+          File.write(versions_path, content)
+
+        error ->
+          error
+      end
+    end
+
+    defp versions_to_iodata(versions) do
+      Enum.map(versions, fn {lang, version} -> [lang, " ", version, "\n"] end)
+    end
+
+    defp read_versions(path) do
+      case File.read(path) do
+        {:ok, content} ->
+          versions =
+            content
+            |> String.split("\n")
+            |> Enum.map(&String.trim/1)
+            |> Enum.reject(&(&1 == ""))
+            |> Enum.reduce(%{}, fn line, acc ->
+              case String.split(line) do
+                [lang, version] -> Map.put(acc, lang, version)
+                [] -> acc
+              end
+            end)
+
+          {:ok, versions}
+
+        {:error, _reason} = error ->
+          error
+      end
     end
   end
 
