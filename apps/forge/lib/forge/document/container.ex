@@ -36,7 +36,18 @@ defimpl Forge.Document.Container, for: Any do
     context_document(lsp_request, parent_context_document)
   end
 
+  def context_document(%{params: params}, parent_context_document) do
+    context_document(params, parent_context_document)
+  end
+
   def context_document(%{text_document: %{uri: uri}}, parent_context_document) do
+    case Document.Store.fetch(uri) do
+      {:ok, document} -> document
+      _ -> parent_context_document
+    end
+  end
+
+  def context_document(%{uri: uri}, parent_context_document) when is_binary(uri) do
     case Document.Store.fetch(uri) do
       {:ok, document} -> document
       _ -> parent_context_document
