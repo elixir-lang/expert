@@ -6,28 +6,23 @@
   hash ? builtins.readFile ./hash,
   writeScript,
   makeWrapper,
-  git,
-  cacert,
   zig,
   xz,
   _7zz,
   system,
 }:
 mixRelease rec {
+  MIX_ENV = "prod";
+  EXPERT_RELEASE_MODE = "burrito";
+
   pname = "expert";
   version = "development";
-
   src = lib.cleanSource ./..;
 
   mixFodDeps = fetchMixDeps {
     pname = "mix-deps-${pname}";
     inherit src version hash;
     mixEnv = "prod";
-
-    # Fix SSL issues for git dependencies
-    nativeBuildInputs = [git cacert];
-    GIT_SSL_CAINFO = "${cacert}/etc/ssl/certs/ca-bundle.crt";
-    SSL_CERT_FILE = "${cacert}/etc/ssl/certs/ca-bundle.crt";
 
     installPhase = ''
       runHook preInstall
@@ -38,23 +33,8 @@ mixRelease rec {
     '';
   };
 
-  nativeBuildInputs = [
-    makeWrapper
-    git
-    cacert
-    zig
-    xz
-    _7zz
-  ];
+  nativeBuildInputs = [makeWrapper zig xz _7zz];
 
-  MIX_ENV = "prod";
-  EXPERT_RELEASE_MODE = "burrito";
-
-  # SSL certificates for git operations
-  # GIT_SSL_CAINFO = "${cacert}/etc/ssl/certs/ca-bundle.crt";
-  # SSL_CERT_FILE = "${cacert}/etc/ssl/certs/ca-bundle.crt";
-
-  # Simple configurePhase - work from expert app and let Mix handle everything
   configurePhase = ''
     runHook preConfigure
     export MIX_HOME=$TEMPDIR/.mix
@@ -90,7 +70,6 @@ mixRelease rec {
     mkdir -p $out
     cp -r release_build/* $out/
 
-    # Handle burrito output if it exists
     if [ -d "burrito_out" ]; then
       mkdir -p $out/burrito_out
       cp -r burrito_out/* $out/burrito_out/
@@ -143,10 +122,11 @@ mixRelease rec {
     fi
   '';
 
-  # meta = with lib; {
-  #   description = "Expert - Elixir Language Server";
-  #   homepage = "https://github.com/elixir-lang/expert";
-  #   license = licenses.mit;
-  #   platforms = platforms.unix;
-  # };
+  meta = with lib; {
+    description = "Official Elixir Language Server Protocol implementation";
+    repository = "https://github.com/elixir-lang/expert";
+    homepage = "https://expert-lsp.org";
+    license = licenses.mit;
+    platforms = platforms.unix;
+  };
 }
