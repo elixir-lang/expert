@@ -151,7 +151,7 @@ for Eglot:
 Click on the extensions button on the sidebar, then search for
 `lexical`, then click `install`.
 
-This is a stop gap until we create a dedicated Expert extension, so youll need to configure it to
+This is a stop gap until we create a dedicated Expert extension, so you'll need to configure it to
 use the Expert executable instead. 
 
 To change to a local executable, go to `Settings -> Extensions -> Lexical` and
