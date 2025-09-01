@@ -50,7 +50,7 @@ Thank you to our corporate sponsors! If you'd like to start sponsoring the proje
 
 ### Corporate
 
-For companies wanting to directly sponsor full time work on Expert, please reach out to Dan Janowski: EEF Chair of Sponsorship WG at danj@erlef.org.
+For companies wanting to directly sponsor full time work on Expert, please reach out to Dan Janowski: EEF Chair of Sponsorship WG at sponsor+expert (at)  erlef (dot) org.
 
 ### Individual
 
