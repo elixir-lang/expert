@@ -64,7 +64,7 @@ defmodule Engine.Search.Indexer.Extractors.EctoSchemaTest do
       assert extract(doc, struct.block_range) =~ expected
     end
 
-    test "consisting of multiple fileds" do
+    test "consisting of multiple fields" do
       {:ok, [struct], doc} =
         ~q[
          defmodule MySchema do
@@ -138,7 +138,7 @@ defmodule Engine.Search.Indexer.Extractors.EctoSchemaTest do
       assert extract(doc, struct.block_range) =~ expected
     end
 
-    test "consisting of multiple fileds" do
+    test "consisting of multiple fields" do
       {:ok, [struct], doc} =
         ~q[
          defmodule MySchema do
@@ -185,7 +185,7 @@ defmodule Engine.Search.Indexer.Extractors.EctoSchemaTest do
     end
 
     test "when defined inline" do
-      {:ok, [_struct_def, schema_definiton], doc} =
+      {:ok, [_struct_def, schema_definition], doc} =
         ~q[
          defmodule MySchema do
            use Ecto.Schema
@@ -198,17 +198,17 @@ defmodule Engine.Search.Indexer.Extractors.EctoSchemaTest do
         ]
         |> index()
 
-      assert schema_definiton.type == :struct
-      assert schema_definiton.subtype == :definition
-      assert schema_definiton.subject == MySchema.Child
+      assert schema_definition.type == :struct
+      assert schema_definition.subtype == :definition
+      assert schema_definition.subject == MySchema.Child
 
       expected = ~q[
       embeds_one :child, Child do
              field :first_name, :string
            end
       ]t
-      assert decorate(doc, schema_definiton.range) =~ ~q[embeds_one :child, «Child» do]
-      assert extract(doc, schema_definiton.block_range) =~ expected
+      assert decorate(doc, schema_definition.range) =~ ~q[embeds_one :child, «Child» do]
+      assert extract(doc, schema_definition.block_range) =~ expected
     end
   end
 
@@ -229,7 +229,7 @@ defmodule Engine.Search.Indexer.Extractors.EctoSchemaTest do
     end
 
     test "when defined inline" do
-      {:ok, [_struct_def, schema_definiton], doc} =
+      {:ok, [_struct_def, schema_definition], doc} =
         ~q[
          defmodule MySchema do
            use Ecto.Schema
@@ -242,17 +242,17 @@ defmodule Engine.Search.Indexer.Extractors.EctoSchemaTest do
         ]
         |> index()
 
-      assert schema_definiton.type == :struct
-      assert schema_definiton.subtype == :definition
-      assert schema_definiton.subject == MySchema.Child
+      assert schema_definition.type == :struct
+      assert schema_definition.subtype == :definition
+      assert schema_definition.subject == MySchema.Child
 
       expected = ~q[
       embeds_many :child, Child do
              field :first_name, :string
            end
       ]t
-      assert decorate(doc, schema_definiton.range) =~ ~q[embeds_many :child, «Child» do]
-      assert extract(doc, schema_definiton.block_range) =~ expected
+      assert decorate(doc, schema_definition.range) =~ ~q[embeds_many :child, «Child» do]
+      assert extract(doc, schema_definition.block_range) =~ expected
     end
   end
 end

@@ -150,7 +150,7 @@ defmodule Engine.Api.ProxyTest do
       assert {:error, {:already_buffering, _}} = Proxy.start_buffering()
     end
 
-    test "proxies boradcasts of progress messages" do
+    test "proxies broadcasts of progress messages" do
       patch(Dispatch, :broadcast, :ok)
       assert :ok = Proxy.broadcast(percent_progress())
 

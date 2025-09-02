@@ -878,7 +878,7 @@ defmodule Engine.Search.Indexer.Extractors.VariableTest do
       assert decorate(doc, other_ref.range) =~ "foo = param = bar = «other»"
     end
 
-    test "in an anoymous function" do
+    test "in an anonymous function" do
       {:ok, [pin_param, var_param, first_def, pin_pin, var_ref, first_ref], doc} =
         ~q{
           fn pin, var ->

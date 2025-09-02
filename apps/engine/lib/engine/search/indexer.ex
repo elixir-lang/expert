@@ -101,7 +101,7 @@ defmodule Engine.Search.Indexer do
     total_bytes = paths_to_sizes |> Enum.map(&elem(&1, 1)) |> Enum.sum()
 
     if total_bytes > 0 do
-      {on_update_progess, on_complete} =
+      {on_update_progress, on_complete} =
         Progress.begin_percent("Indexing source code", total_bytes)
 
       initial_state = {0, []}
@@ -131,7 +131,7 @@ defmodule Engine.Search.Indexer do
         fn chunk ->
           block_bytes = chunk |> Enum.map(&Map.get(path_to_size_map, &1)) |> Enum.sum()
           result = Enum.map(chunk, processor)
-          on_update_progess.(block_bytes, "Indexing")
+          on_update_progress.(block_bytes, "Indexing")
           result
         end,
         timeout: timeout

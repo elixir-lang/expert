@@ -106,7 +106,7 @@ defmodule Expert.Project.Intelligence do
    a number representing the degree of the  descendent generation (o for self, 1
    for child, etc) or named generations (`:self`, `:child`, `:grandchild`, etc). For example,
    the collectionn range: `from: :child, to: :great_grandchild` will collect all struct
-   modules where the  root module is thier parent up to and including all modules where the
+   modules where the  root module is their parent up to and including all modules where the
    root module is their great grandparent, and is equivalent to the range `1..2`,
    Of course, if you want to return all the struct_modules, you can simply use `to: :infinity`.
 

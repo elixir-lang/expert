@@ -308,8 +308,8 @@ defmodule Forge.Document do
     apply_change(document, Edit.new(text, nil))
   end
 
-  defp apply_change(%__MODULE__{} = document, convertable_edit) do
-    with {:ok, edit} <- Convertible.to_native(convertable_edit, document) do
+  defp apply_change(%__MODULE__{} = document, convertible_edit) do
+    with {:ok, edit} <- Convertible.to_native(convertible_edit, document) do
       apply_change(document, edit)
     end
   end

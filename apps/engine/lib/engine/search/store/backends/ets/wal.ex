@@ -84,8 +84,8 @@ defmodule Engine.Search.Store.Backends.Ets.Wal do
     exists?(wal.project, wal.schema_version)
   end
 
-  def exists?(%Project{} = project, schema_vesion) do
-    case File.ls(wal_directory(project, schema_vesion)) do
+  def exists?(%Project{} = project, schema_version) do
+    case File.ls(wal_directory(project, schema_version)) do
       {:ok, [_]} -> true
       {:ok, [_ | _]} -> true
       _ -> false

@@ -186,7 +186,7 @@ defmodule Forge.Ast do
     # https://github.com/elixir-lang/elixir/issues/12673#issuecomment-1592845875
     # Note: because of the above issue: Using `cursor_context` + `container_cursor_to_quoted`
     # can't deal with some cases like: `alias Foo.Bar, as: AnotherBar`,
-    # so we need to add a new line to make sure we can get the parrent node of the cursor
+    # so we need to add a new line to make sure we can get the parent node of the cursor
     %{line: line} = normalize_position(position, document)
     added_new_line_position = Position.new(document, line + 1, 1)
     fragment = Document.fragment(document, added_new_line_position)

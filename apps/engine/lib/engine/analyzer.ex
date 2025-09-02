@@ -205,7 +205,7 @@ defmodule Engine.Analyzer do
     # Trailing aliases happen when you use the curly syntax to define multiple aliases
     # in one go, like Foo.{First, Second.Third, Fourth}
     # Our alias mapping will have Third mapped to Foo.Second.Third, so we need to look
-    # for Third, wheras the leading alias will look for Second in the mappings.
+    # for Third, whereas the leading alias will look for Second in the mappings.
     with {:ok, resolved} <- Map.fetch(aliases_mapping, List.last(segments)) do
       {:ok, List.wrap(resolved)}
     end

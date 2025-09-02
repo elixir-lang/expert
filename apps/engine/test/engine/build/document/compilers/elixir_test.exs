@@ -26,7 +26,7 @@ defmodule Engine.Build.Document.Compilers.ElixirTest do
       refute recognizes?(document_with_extension(".js"))
     end
 
-    test "it doen't recognize .eex documents" do
+    test "it doesn't recognize .eex documents" do
       refute recognizes?(document_with_extension(".eex"))
       refute recognizes?(document_with_extension(".html.eex"))
     end

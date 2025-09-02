@@ -75,7 +75,7 @@ defmodule Engine.Bootstrap do
 
     # Note about the following code:
     # I tried a bunch of stuff to get it to work, like checking if the
-    # app is an umbrella (umbrealla? returns false when started in a subapp)
+    # app is an umbrella (umbrella? returns false when started in a subapp)
     # to no avail. This was the only thing that consistently worked
     {:ok, configured_root} =
       Engine.Mix.in_project(project, fn _ ->

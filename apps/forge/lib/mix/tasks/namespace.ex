@@ -5,7 +5,7 @@ defmodule Mix.Tasks.Namespace do
   app.
 
   Transformers take a path, find their relevant files and apply transforms to them. For example,
-  the Beams transformer will find any instances of modules in .beam files, and will apply namepaces
+  the Beams transformer will find any instances of modules in .beam files, and will apply namespaces
   to them if the module is one of the modules defined in a dependency.
 
   This task takes a single argument, which is the full path to the release.

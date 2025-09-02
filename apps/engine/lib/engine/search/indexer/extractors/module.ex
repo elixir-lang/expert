@@ -278,14 +278,14 @@ defmodule Engine.Search.Indexer.Extractors.Module do
 
   defp module(_, _), do: :error
 
-  @protocol_module_attribue_names [:protocol, :for]
+  @protocol_module_attribute_names [:protocol, :for]
 
   @starts_with_capital ~r/[A-Z]+/
   defp module_part?(part) when is_atom(part) do
     Regex.match?(@starts_with_capital, Atom.to_string(part))
   end
 
-  defp module_part?({:@, _, [{type, _, _} | _]}) when type in @protocol_module_attribue_names,
+  defp module_part?({:@, _, [{type, _, _} | _]}) when type in @protocol_module_attribute_names,
     do: true
 
   defp module_part?({:__MODULE__, _, context}) when is_atom(context), do: true
@@ -306,7 +306,7 @@ defmodule Engine.Search.Indexer.Extractors.Module do
 
   # handles @protocol and @for in defimpl blocks
   defp to_range(%Reducer{} = reducer, [{:@, _, [{type, _, _} | _]} = attribute | segments], _)
-       when type in @protocol_module_attribue_names do
+       when type in @protocol_module_attribute_names do
     range = Sourceror.get_range(attribute)
 
     document = reducer.analysis.document

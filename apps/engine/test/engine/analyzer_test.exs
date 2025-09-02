@@ -33,7 +33,7 @@ defmodule Engine.AnalyzerTest do
       assert :error = Analyzer.current_module(analysis, position)
     end
 
-    test "reutrns the current module right after the do" do
+    test "returns the current module right after the do" do
       {position, document} =
         ~q[
           defmodule Outer do|

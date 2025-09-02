@@ -408,7 +408,7 @@ defmodule Engine.Search.Indexer.Extractors.FunctionDefinitionTest do
     end
 
     test "handles macro calls that define functions" do
-      {:ok, [definiton], doc} =
+      {:ok, [definition], doc} =
         ~q[
           quote do
             def rpc_call(pid, call = %Call{method: unquote(method_name)}),
@@ -418,9 +418,9 @@ defmodule Engine.Search.Indexer.Extractors.FunctionDefinitionTest do
         |> in_a_module()
         |> index()
 
-      assert definiton.type == {:function, :public}
+      assert definition.type == {:function, :public}
 
-      assert decorate(doc, definiton.range) =~
+      assert decorate(doc, definition.range) =~
                "def «rpc_call(pid, call = %Call{method: unquote(method_name)})»"
     end
 

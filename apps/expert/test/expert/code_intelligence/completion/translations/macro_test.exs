@@ -49,7 +49,7 @@ defmodule Expert.CodeIntelligence.Completion.Translations.MacroTest do
       assert apply_completion(completion) == "def ${1:name}($2) do\n  $0\nend"
     end
 
-    test "def preceeded by a @spec with args", %{project: project} do
+    test "def preceded by a @spec with args", %{project: project} do
       source = ~q[
         @spec my_function(term(), term()) :: term()
         def|
@@ -68,7 +68,7 @@ defmodule Expert.CodeIntelligence.Completion.Translations.MacroTest do
       ]
     end
 
-    test "def preceeded by a @spec with named args", %{project: project} do
+    test "def preceded by a @spec with named args", %{project: project} do
       source = ~q[
         @spec my_function(x :: term(), y :: term(), term()) :: term()
         def|
@@ -87,7 +87,7 @@ defmodule Expert.CodeIntelligence.Completion.Translations.MacroTest do
       ]
     end
 
-    test "def preceeded by a @spec without args", %{project: project} do
+    test "def preceded by a @spec without args", %{project: project} do
       source = ~q[
         @spec my_function :: term()
         def|
@@ -106,7 +106,7 @@ defmodule Expert.CodeIntelligence.Completion.Translations.MacroTest do
       ]
     end
 
-    test "defp preceeded by a @spec with args", %{project: project} do
+    test "defp preceded by a @spec with args", %{project: project} do
       source = ~q[
         @spec my_function(term(), term()) :: term()
         def|

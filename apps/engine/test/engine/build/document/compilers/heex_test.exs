@@ -47,7 +47,7 @@ defmodule Engine.Build.Document.Compilers.HeexTest do
       assert {:ok, _} = compile(document)
     end
 
-    test "ignore undefinied assigns" do
+    test "ignore undefined assigns" do
       document = document_with_content(~q[
         <div><%= @thing %></div>
       ])
@@ -55,7 +55,7 @@ defmodule Engine.Build.Document.Compilers.HeexTest do
       assert {:error, []} = compile(document)
     end
 
-    test "handles undefinied variables" do
+    test "handles undefined variables" do
       document = document_with_content(~q[
         <div><%= thing %></div>
       ])
