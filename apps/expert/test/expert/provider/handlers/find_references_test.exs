@@ -15,6 +15,7 @@ defmodule Expert.Provider.Handlers.FindReferencesTest do
 
   setup_all do
     start_supervised(Expert.Application.document_store_child_spec())
+    start_supervised!({Expert.ActiveProjects, []})
     :ok
   end
 
@@ -45,13 +46,19 @@ defmodule Expert.Provider.Handlers.FindReferencesTest do
   end
 
   def handle(request, project) do
-    config = Expert.Configuration.new(project: project)
+    Expert.ActiveProjects.add_projects([project])
+    config = Expert.Configuration.new()
     Handlers.FindReferences.handle(request, config)
   end
 
   describe "find references" do
     test "returns locations that the entity returns", %{project: project, uri: uri} do
-      patch(EngineApi, :references, fn ^project, %Analysis{document: document}, _position, _ ->
+      project_uri = project.root_uri
+
+      patch(EngineApi, :references, fn %{root_uri: ^project_uri},
+                                       %Analysis{document: document},
+                                       _position,
+                                       _ ->
         locations = [
           Location.new(
             Document.Range.new(

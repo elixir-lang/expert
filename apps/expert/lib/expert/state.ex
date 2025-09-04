@@ -1,10 +1,12 @@
 defmodule Expert.State do
+  alias Expert.ActiveProjects
   alias Expert.CodeIntelligence
   alias Expert.Configuration
   alias Expert.EngineApi
   alias Expert.Project
   alias Expert.Provider.Handlers
   alias Forge.Document
+  alias Forge.Project
   alias GenLSP.Enumerations
   alias GenLSP.Notifications
   alias GenLSP.Requests
@@ -49,14 +51,31 @@ defmodule Expert.State do
         _ -> nil
       end
 
-    config = Configuration.new(event.root_uri, event.capabilities, client_name)
+    root_path = Document.Path.from_uri(event.root_uri)
+
+    root_path
+    |> Forge.Workspace.new()
+    |> Forge.Workspace.set_workspace()
+
+    config = Configuration.new(event.capabilities, client_name)
     new_state = %__MODULE__{state | configuration: config, initialized?: true}
-    Logger.info("Starting project at uri #{config.project.root_uri}")
 
     response = initialize_result()
 
+    projects =
+      for %{uri: uri} <- event.workspace_folders || [],
+          project = Project.new(uri),
+          project.mix_project? do
+        project
+      end
+
+    ActiveProjects.set_projects(projects)
+
     Task.Supervisor.start_child(:expert_task_queue, fn ->
-      Project.Supervisor.start(config.project)
+      for project <- projects do
+        ensure_project_node_started(project)
+      end
+
       send(Expert, :engine_initialized)
     end)
 
@@ -100,10 +119,38 @@ defmodule Expert.State do
     {:ok, state}
   end
 
+  def apply(%__MODULE__{} = state, %Notifications.WorkspaceDidChangeWorkspaceFolders{
+        params: %Structures.DidChangeWorkspaceFoldersParams{
+          event: %Structures.WorkspaceFoldersChangeEvent{added: added, removed: removed}
+        }
+      }) do
+    removed_projects =
+      for %{uri: uri} <- removed do
+        project = Project.new(uri)
+
+        stop_project_node(project)
+
+        project
+      end
+
+    added_projects =
+      for %{uri: uri} <- added do
+        project = Project.new(uri)
+        ensure_project_node_started(project)
+        project
+      end
+
+    ActiveProjects.add_projects(added_projects)
+    ActiveProjects.remove_projects(removed_projects)
+
+    {:ok, state}
+  end
+
   def apply(%__MODULE__{} = state, %GenLSP.Notifications.TextDocumentDidChange{params: params}) do
     uri = params.text_document.uri
     version = params.text_document.version
-    project = state.configuration.project
+    projects = ActiveProjects.projects()
+    project = Project.project_for_uri(projects, uri)
 
     case Document.Store.get_and_update(
            uri,
@@ -120,7 +167,7 @@ defmodule Expert.State do
           )
 
         EngineApi.broadcast(project, updated_message)
-        EngineApi.compile_document(state.configuration.project, updated_source)
+        EngineApi.compile_document(project, updated_source)
         {:ok, state}
 
       error ->
@@ -136,13 +183,27 @@ defmodule Expert.State do
       language_id: language_id
     } = did_open.params.text_document
 
+    config = state.configuration
+
+    project =
+      with nil <- Enum.find(ActiveProjects.projects(), &Project.within_project?(&1, uri)) do
+        Project.find_project(uri)
+      end
+
+    if project do
+      Task.Supervisor.start_child(:expert_task_queue, fn ->
+        ensure_project_node_started(project)
+      end)
+
+      ActiveProjects.add_projects([project])
+    end
+
     case Document.Store.open(uri, text, version, language_id) do
       :ok ->
-        Logger.info("################### opened #{uri}")
-        {:ok, state}
+        {:ok, %{state | configuration: config}}
 
       error ->
-        Logger.error("################## Could not open #{uri} #{inspect(error)}")
+        Logger.error("Could not open #{uri} #{inspect(error)}")
         error
     end
   end
@@ -165,10 +226,11 @@ defmodule Expert.State do
 
   def apply(%__MODULE__{} = state, %GenLSP.Notifications.TextDocumentDidSave{params: params}) do
     uri = params.text_document.uri
+    project = Forge.Project.project_for_uri(ActiveProjects.projects(), uri)
 
     case Document.Store.save(uri) do
       :ok ->
-        EngineApi.schedule_compile(state.configuration.project, false)
+        EngineApi.schedule_compile(project, false)
         {:ok, state}
 
       error ->
@@ -188,15 +250,12 @@ defmodule Expert.State do
     {:ok, nil, %__MODULE__{state | shutdown_received?: true}}
   end
 
-  def apply(%__MODULE__{} = state, %GenLSP.Notifications.WorkspaceDidChangeWatchedFiles{
-        params: params
-      }) do
-    project = state.configuration.project
-
-    Enum.each(params.changes, fn %GenLSP.Structures.FileEvent{} = change ->
-      event = filesystem_event(project: Project, uri: change.uri, event_type: change.type)
-      EngineApi.broadcast(project, event)
-    end)
+  def apply(%__MODULE__{} = state, %Notifications.WorkspaceDidChangeWatchedFiles{params: params}) do
+    for project <- ActiveProjects.projects(),
+        change <- params.changes do
+      params = filesystem_event(project: Project, uri: change.uri, event_type: change.type)
+      EngineApi.broadcast(project, params)
+    end
 
     {:ok, state}
   end
@@ -204,6 +263,39 @@ defmodule Expert.State do
   def apply(%__MODULE__{} = state, msg) do
     Logger.error("Ignoring unhandled message: #{inspect(msg)}")
     {:ok, state}
+  end
+
+  defp ensure_project_node_started(project) do
+    case Expert.Project.Supervisor.start(project) do
+      {:ok, _pid} ->
+        Logger.info("Project node started for #{Project.name(project)}")
+
+        GenLSP.log(Expert.get_lsp(), "Started project node for #{Project.name(project)}")
+
+      {:error, {reason, pid}} when reason in [:already_started, :already_present] ->
+        {:ok, pid}
+
+      {:error, reason} ->
+        Logger.error(
+          "Failed to start project node for #{Project.name(project)}: #{inspect(reason, pretty: true)}"
+        )
+
+        GenLSP.log(
+          Expert.get_lsp(),
+          "Failed to start project node for #{Project.name(project)}"
+        )
+
+        {:error, reason}
+    end
+  end
+
+  defp stop_project_node(project) do
+    Expert.Project.Supervisor.stop(project)
+
+    GenLSP.log(
+      Expert.get_lsp(),
+      "Stopping project node for #{Project.name(project)}"
+    )
   end
 
   def initialize_result do
@@ -243,7 +335,13 @@ defmodule Expert.State do
         hover_provider: true,
         references_provider: true,
         text_document_sync: sync_options,
-        workspace_symbol_provider: true
+        workspace_symbol_provider: true,
+        workspace: %{
+          workspace_folders: %Structures.WorkspaceFoldersServerCapabilities{
+            supported: true,
+            change_notifications: true
+          }
+        }
       }
 
     %GenLSP.Structures.InitializeResult{

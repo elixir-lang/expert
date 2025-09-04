@@ -1,4 +1,5 @@
 defmodule Expert.Provider.Handlers.Commands do
+  alias Expert.ActiveProjects
   alias Expert.Configuration
   alias Expert.EngineApi
   alias Forge.Project
@@ -25,13 +26,16 @@ defmodule Expert.Provider.Handlers.Commands do
 
   def handle(
         %Requests.WorkspaceExecuteCommand{params: %Structures.ExecuteCommandParams{} = params},
-        %Configuration{} = config
+        %Configuration{}
       ) do
+    projects = ActiveProjects.projects()
+
     response =
       case params.command do
         @reindex_name ->
-          Logger.info("Reindex #{Project.name(config.project)}")
-          reindex(config.project)
+          project_names = Enum.map_join(projects, ", ", &Project.name/1)
+          Logger.info("Reindex #{project_names}")
+          reindex_all(projects)
 
         invalid ->
           message = "#{invalid} is not a valid command"
@@ -41,23 +45,25 @@ defmodule Expert.Provider.Handlers.Commands do
     {:reply, response}
   end
 
-  defp reindex(%Project{} = project) do
-    case EngineApi.reindex(project) do
-      :ok ->
-        {:ok, "ok"}
+  defp reindex_all(projects) do
+    Enum.reduce_while(projects, :ok, fn project, _ ->
+      case EngineApi.reindex(project) do
+        :ok ->
+          {:cont, "ok"}
 
-      error ->
-        GenLSP.notify(Expert.get_lsp(), %GenLSP.Notifications.WindowShowMessage{
-          params: %GenLSP.Structures.ShowMessageParams{
-            type: GenLSP.Enumerations.MessageType.error(),
-            message: "Indexing #{Project.name(project)} failed"
-          }
-        })
+        error ->
+          GenLSP.notify(Expert.get_lsp(), %GenLSP.Notifications.WindowShowMessage{
+            params: %GenLSP.Structures.ShowMessageParams{
+              type: GenLSP.Enumerations.MessageType.error(),
+              message: "Indexing #{Project.name(project)} failed"
+            }
+          })
 
-        Logger.error("Indexing command failed due to #{inspect(error)}")
+          Logger.error("Indexing command failed due to #{inspect(error)}")
 
-        {:ok, internal_error("Could not reindex: #{error}")}
-    end
+          {:halt, internal_error("Could not reindex: #{error}")}
+      end
+    end)
   end
 
   defp internal_error(message) do
