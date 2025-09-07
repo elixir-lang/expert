@@ -1,14 +1,89 @@
 {
   "include": [
     {
+      "otp": "27",
+      "elixir": "1.18.4",
+      "project": "engine"
+    },
+    {
+      "otp": "26",
+      "elixir": "1.18.4",
+      "project": "engine"
+    },
+    {
+      "otp": "27",
+      "elixir": "1.17",
+      "project": "engine"
+    },
+    {
+      "otp": "26",
+      "elixir": "1.17",
+      "project": "engine"
+    },
+    {
       "otp": "25",
+      "elixir": "1.17",
+      "project": "engine"
+    },
+    {
+      "otp": "26",
+      "elixir": "1.16",
+      "project": "engine"
+    },
+    {
+      "otp": "25",
+      "elixir": "1.16",
+      "project": "engine"
+    },
+    {
+      "otp": "26",
       "elixir": "1.15.8",
       "project": "engine"
     },
     {
       "otp": "25",
       "elixir": "1.15.8",
-      "project": "expert"
+      "project": "engine"
+    },
+    {
+      "otp": "27",
+      "elixir": "1.18.4",
+      "project": "expert_credo"
+    },
+    {
+      "otp": "26",
+      "elixir": "1.18.4",
+      "project": "expert_credo"
+    },
+    {
+      "otp": "27",
+      "elixir": "1.17",
+      "project": "expert_credo"
+    },
+    {
+      "otp": "26",
+      "elixir": "1.17",
+      "project": "expert_credo"
+    },
+    {
+      "otp": "25",
+      "elixir": "1.17",
+      "project": "expert_credo"
+    },
+    {
+      "otp": "26",
+      "elixir": "1.16",
+      "project": "expert_credo"
+    },
+    {
+      "otp": "25",
+      "elixir": "1.16",
+      "project": "expert_credo"
+    },
+    {
+      "otp": "26",
+      "elixir": "1.15.8",
+      "project": "expert_credo"
     },
     {
       "otp": "25",
@@ -16,9 +91,54 @@
       "project": "expert_credo"
     },
     {
+      "otp": "27",
+      "elixir": "1.18.4",
+      "project": "forge"
+    },
+    {
+      "otp": "26",
+      "elixir": "1.18.4",
+      "project": "forge"
+    },
+    {
+      "otp": "27",
+      "elixir": "1.17",
+      "project": "forge"
+    },
+    {
+      "otp": "26",
+      "elixir": "1.17",
+      "project": "forge"
+    },
+    {
+      "otp": "25",
+      "elixir": "1.17",
+      "project": "forge"
+    },
+    {
+      "otp": "26",
+      "elixir": "1.16",
+      "project": "forge"
+    },
+    {
+      "otp": "25",
+      "elixir": "1.16",
+      "project": "forge"
+    },
+    {
+      "otp": "26",
+      "elixir": "1.15.8",
+      "project": "forge"
+    },
+    {
       "otp": "25",
       "elixir": "1.15.8",
       "project": "forge"
+    },
+    {
+      "otp": "27.3.4.1",
+      "elixir": "1.17.3",
+      "project": "expert"
     }
   ]
 }
