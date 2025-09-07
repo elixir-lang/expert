@@ -5,7 +5,7 @@ config :snowflake,
   # First second of 2024
   epoch: 1_704_070_800_000
 
-case System.get_env("EXPERT_RELEASE_MODE", "plain") do
+case dbg(System.get_env("EXPERT_RELEASE_MODE", "plain")) do
   "burrito" ->
     config :expert, arg_parser: {Burrito.Util.Args, :get_arguments, []}
 
