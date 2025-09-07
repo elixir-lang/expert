@@ -1,15 +1,12 @@
 Mix.install([:jason])
 
 versions = [
-  %{elixir: "1.18.4", otp: "27"},
-  %{elixir: "1.18.4", otp: "26"},
+  %{elixir: "1.18.4", otp: "28"},
+  %{elixir: "1.18", otp: "27"},
+  %{elixir: "1.18", otp: "26"},
   %{elixir: "1.17", otp: "27"},
   %{elixir: "1.17", otp: "26"},
-  %{elixir: "1.17", otp: "25"},
   %{elixir: "1.16", otp: "26"},
-  %{elixir: "1.16", otp: "25"},
-  %{elixir: "1.15.8", otp: "26"},
-  %{elixir: "1.15.8", otp: "25"}
 ]
 
 %{
