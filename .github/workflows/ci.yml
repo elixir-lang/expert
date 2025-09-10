@@ -3,7 +3,8 @@ name: Elixir CI
 on:
   pull_request:
   push:
-    branches: main
+    branches:
+      - main
 
 env:
   DEFAULT_ELIXIR: 1.15.8-otp-25
