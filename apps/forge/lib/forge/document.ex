@@ -355,37 +355,8 @@ defmodule Forge.Document do
         {:append, [text, ending]}
 
       line_number == start_line && line_number == end_line ->
-        chars_to_chop = max(end_char - start_char, 0)
-        <<prefix_text::binary-size(start_char - 1), remaining::binary>> = text
-
-        curr_line_len = byte_size(text)
-        remaining_len = byte_size(remaining)
-
-        chars_to_chop =
-          maybe_trim_chars_to_chop(%{
-            chars_to_chop: chars_to_chop,
-            edit_text: edit_text,
-            curr_line_len: curr_line_len,
-            start_char: start_char,
-            end_char: end_char
-          })
-
-        # suffix_text =
-        #   case remaining_len < chars_to_chop do
-        #     true -> ""
-        #     false -> binary_part(remaining, chars_to_chop, remaining_len - chars_to_chop)
-        #   end
-
-        suffix_text =
-          case remaining_len < chars_to_chop do
-            true ->
-              ""
-
-            false ->
-              <<_::binary-size(chars_to_chop), remaining::binary>> = remaining
-              remaining
-          end
-
+        prefix_text = utf8_prefix(line, start_char)
+        suffix_text = utf8_suffix(line, end_char)
         {:append, [prefix_text, edit_text, suffix_text, ending]}
 
       line_number == start_line ->
@@ -412,48 +383,6 @@ defmodule Forge.Document do
     length = byte_count - start_index
 
     binary_part(text, start_index, length)
-  end
-
-  # INFO: All empty strings are deletions, which can be easily considered a replacement
-  # for the current character in the position but the below heuristics needs to be followed
-  # for a more resilient and consitent reconcilation:
-  #
-  # 1. There's a possibility of receiving a deletion update whose start position is beyond
-  #    the length of the line, so we can safely consider it to be an unfinished reconcilation
-  #    on the client side and safely ignore it.
-  # 2. If the deletion stretch beyond the current line, the distance between the start and end
-  #    position can be safely used.
-  # 3.
-  defp maybe_trim_chars_to_chop(%{
-         edit_text: "",
-         chars_to_chop: chars_to_chop,
-         curr_line_len: curr_line_len,
-         end_char: end_char,
-         start_char: start_char
-       }) do
-    cond do
-      start_char > curr_line_len ->
-        0
-
-      end_char > curr_line_len ->
-        chars_to_chop
-
-      true ->
-        end_char = min(end_char, curr_line_len)
-
-        max(abs(end_char - start_char), 1)
-    end
-  end
-
-  defp maybe_trim_chars_to_chop(%{chars_to_chop: chars_to_chop, edit_text: edit_text}) do
-    # INFO: When the distance between the start and end position is zero, it's treated
-    # as a replacement if a character exists in the said position or an insertion if
-    # none exists. But, there are situations where the size of the new text is more
-    # than one character, so, room needs to be made by deleting extra characters.
-    case chars_to_chop == 0 and byte_size(edit_text) > 1 do
-      true -> byte_size(edit_text)
-      false -> chars_to_chop
-    end
   end
 
   defp to_iodata(%__MODULE__{} = document) do
