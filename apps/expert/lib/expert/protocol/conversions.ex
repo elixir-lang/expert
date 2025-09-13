@@ -148,15 +148,15 @@ defmodule Expert.Protocol.Conversions do
     {:ok, character}
   end
 
-  defp extract_elixir_character(%LSPosition{} = position, line(ascii?: true, text: text)) do
-    character = min(position.character + 1, byte_size(text) + 1)
-    {:ok, character}
+  defp extract_elixir_character(%LSPosition{} = position, line(ascii?: true)) do
+    {:ok, position.character + 1}
   end
 
   defp extract_elixir_character(%LSPosition{} = position, line(text: utf8_text)) do
-    with {:ok, code_unit} <- CodeUnit.utf16_offset_to_utf8_offset(utf8_text, position.character) do
-      character = min(code_unit, byte_size(utf8_text) + 1)
-      {:ok, character}
+    case CodeUnit.utf16_offset_to_utf8_offset(utf8_text, position.character) do
+      {:ok, _code_unit} = result -> result
+      {:error, :out_of_bounds} -> {:ok, position.character + 1}
+      {:error, _reason} = result -> result
     end
   end
 end

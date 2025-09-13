@@ -96,6 +96,44 @@ defmodule Forge.DocumentTest do
       {:ok, doc} = run_changes("hello there", [range_change])
       assert "hello people" == text(doc)
     end
+
+    test "applying batched incremental changes" do
+      content = """
+      defmodule Proxy do
+        String.dow
+      end
+      """
+
+      expected = """
+      defmodule Proxy do
+        String.downcase(string)
+      end
+      """
+
+      changes = [
+        %{text: "", range: new_range(1, 11, 1, 12), range_length: 1},
+        %{text: "", range: new_range(1, 10, 1, 11), range_length: 1},
+        %{text: "", range: new_range(1, 9, 1, 10), range_length: 1},
+        %{text: "d", range: new_range(1, 9, 1, 9), range_length: 0},
+        %{text: "o", range: new_range(1, 10, 1, 10), range_length: 0},
+        %{text: "w", range: new_range(1, 11, 1, 11), range_length: 0},
+        %{text: "n", range: new_range(1, 12, 1, 12), range_length: 0},
+        %{text: "c", range: new_range(1, 13, 1, 13), range_length: 0},
+        %{text: "a", range: new_range(1, 14, 1, 14), range_length: 0},
+        %{text: "s", range: new_range(1, 15, 1, 15), range_length: 0},
+        %{text: "e", range: new_range(1, 16, 1, 17), range_length: 0},
+        %{text: "", range: new_range(1, 9, 1, 17), range_length: 8},
+        %{text: "", range: new_range(1, 9, 1, 9), range_length: 0},
+        %{text: "downcase(", range: new_range(1, 9, 1, 9), range_length: 0},
+        %{text: "string", range: new_range(1, 18, 1, 18), range_length: 0},
+        %{text: ")", range: new_range(1, 24, 1, 24), range_length: 0},
+        %{text: "", range: new_range(1, 25, 1, 25), range_length: 0}
+      ]
+
+      {:ok, doc} = run_changes(content, changes)
+
+      assert text(doc) == expected
+    end
   end
 
   describe "apply_content_changes" do
