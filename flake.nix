@@ -75,6 +75,7 @@
               xz
               just
               _7zz
+              git
             ];
           };
         };
