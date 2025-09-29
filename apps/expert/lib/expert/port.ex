@@ -65,30 +65,20 @@ defmodule Expert.Port do
   # which contains path munging. This initial environment is present in the running
   # VM, and needs to be undone so we can find the correct elixir executable in the project.
   defp reset_env("asdf", root_path) do
-    {env, _} = System.cmd("asdf", ~w(env elixir), cd: root_path)
+    data_dir = System.get_env("ASDF_DATA_DIR") || Path.join(System.user_home!(), ".asdf")
+    installs_dir = Path.join(data_dir, "installs")
 
-    env =
-      env
-      |> String.trim()
-      |> String.split("\n")
-      |> Enum.map(fn key_and_value ->
-        [key, value] =
-          key_and_value
-          |> String.split("=", parts: 2)
-          |> Enum.map(&String.trim/1)
+    {current, 0} = System.cmd("asdf", ["list"], cd: root_path)
 
-        {key, value}
+    versions = parse_asdf_installed_versions(current, %{})
+
+    installed_bin_paths =
+      Enum.map_join(versions, ":", fn {tool, version} ->
+        Path.join([installs_dir, tool, version, "bin"])
       end)
-      |> Enum.reject(&is_nil/1)
-
-    asdf_path =
-      case List.keyfind(env, "ASDF_INSTALL_PATH", 0) do
-        {_, path} -> Path.join(path, "../../../shims")
-        _ -> ""
-      end
 
     Enum.map(System.get_env(), fn
-      {"PATH", path} -> {"PATH", "#{asdf_path}:#{path}"}
+      {"PATH", path} -> {"PATH", "#{installed_bin_paths}:#{path}"}
       other -> other
     end)
   end
@@ -141,6 +131,39 @@ defmodule Expert.Port do
         nil
     end)
     |> Enum.reject(&is_nil/1)
+  end
+
+  defp parse_asdf_installed_versions(output, acc) when is_binary(output) do
+    output
+    |> String.split("\n", trim: true)
+    |> parse_asdf_installed_versions(acc)
+  end
+
+  defp parse_asdf_installed_versions([], acc), do: acc
+
+  defp parse_asdf_installed_versions([line | rest], acc) do
+    tool_fn? = &(not String.starts_with?(&1, " "))
+
+    case tool_fn?.(line) do
+      true ->
+        {versions, rest} = Enum.split_while(rest, &(not tool_fn?.(&1)))
+        versions = Enum.map(versions, &String.trim/1)
+        version = Enum.find(versions, &String.starts_with?(&1, "*"))
+
+        case version do
+          nil ->
+            parse_asdf_installed_versions(rest, acc)
+
+          version when is_binary(version) ->
+            version = String.trim(version, "*")
+            acc = Map.put(acc, line, version)
+
+            parse_asdf_installed_versions(rest, acc)
+        end
+
+      false ->
+        parse_asdf_installed_versions(rest, acc)
+    end
   end
 
   @doc """
