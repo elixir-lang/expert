@@ -19,7 +19,7 @@ jobs:
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
 
       - name: Install Nix
-        uses: cachix/install-nix-action@a809471b5c7c913aa67bec8f459a11a0decc3fce # v31.6.2
+        uses: cachix/install-nix-action@9280e7aca88deada44c930f1e2c78e21c3ae3edd # v31.7.0
 
       - name: Setup Nix GHA Cache
         uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39 # v13
