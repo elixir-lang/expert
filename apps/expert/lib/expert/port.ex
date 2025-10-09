@@ -34,113 +34,23 @@ defmodule Expert.Port do
   def elixir_executable(%Project{} = project) do
     root_path = Project.root_path(project)
 
-    {path_result, env} =
-      with nil <- version_manager_path_and_env("asdf", root_path),
-           nil <- version_manager_path_and_env("mise", root_path),
-           nil <- version_manager_path_and_env("rtx", root_path) do
-        {File.cd!(root_path, fn -> System.find_executable("elixir") end), System.get_env()}
-      end
+    # We run a shell in interactive mode to populate the PATH with the right value
+    # at the project root. Otherwise, we either can't find an elixir executable,
+    # we use the wrong version if the user uses a version manager like asdf/mise,
+    # or we get an incomplete PATH not including erl or any other version manager
+    # managed programs.
+    shell = System.get_env("SHELL")
 
-    case path_result do
-      nil ->
-        {:error, :no_elixir}
-
-      executable when is_binary(executable) ->
-        {:ok, executable, env}
-    end
-  end
-
-  defp version_manager_path_and_env(manager, root_path) do
-    with true <- is_binary(System.find_executable(manager)),
-         env = reset_env(manager, root_path),
-         {path, 0} <- System.cmd(manager, ~w(which elixir), cd: root_path, env: env) do
-      {String.trim(path), env}
-    else
-      _ ->
-        nil
-    end
-  end
-
-  # We launch expert by asking the version managers to provide an environment,
-  # which contains path munging. This initial environment is present in the running
-  # VM, and needs to be undone so we can find the correct elixir executable in the project.
-  defp reset_env("asdf", root_path) do
-    {env, _} = System.cmd("asdf", ~w(env elixir), cd: root_path)
+    {path, 0} = System.cmd(shell, ["-i", "-l", "-c", "cd #{root_path} && echo $PATH"])
+    elixir = :os.find_executable(~c"elixir", to_charlist(path))
 
     env =
-      env
-      |> String.trim()
-      |> String.split("\n")
-      |> Enum.map(fn key_and_value ->
-        [key, value] =
-          key_and_value
-          |> String.split("=", parts: 2)
-          |> Enum.map(&String.trim/1)
-
-        {key, value}
+      Enum.map(System.get_env(), fn
+        {"PATH", _path} -> {"PATH", path}
+        other -> other
       end)
-      |> Enum.reject(&is_nil/1)
 
-    asdf_path =
-      case List.keyfind(env, "ASDF_INSTALL_PATH", 0) do
-        {_, path} -> Path.join(path, "../../../shims")
-        _ -> ""
-      end
-
-    Enum.map(System.get_env(), fn
-      {"PATH", path} -> {"PATH", "#{asdf_path}:#{path}"}
-      other -> other
-    end)
-  end
-
-  defp reset_env("rtx", root_path) do
-    {env, _} = System.cmd("rtx", ~w(env -s bash), cd: root_path)
-
-    env
-    |> String.trim()
-    |> String.split("\n")
-    |> Enum.map(fn
-      "export " <> key_and_value ->
-        [key, value] =
-          key_and_value
-          |> String.split("=", parts: 2)
-          |> Enum.map(&String.trim/1)
-          |> then(fn
-            ["PATH", path] -> ["PATH", String.trim(path, "'")]
-            other -> other
-          end)
-
-        {key, value}
-
-      _ ->
-        nil
-    end)
-    |> Enum.reject(&is_nil/1)
-  end
-
-  defp reset_env("mise", root_path) do
-    {env, _} = System.cmd("mise", ~w(env -s bash), cd: root_path)
-
-    env
-    |> String.trim()
-    |> String.split("\n")
-    |> Enum.map(fn
-      "export " <> key_and_value ->
-        [key, value] =
-          key_and_value
-          |> String.split("=", parts: 2)
-          |> Enum.map(&String.trim/1)
-          |> then(fn
-            ["PATH", path] -> ["PATH", String.trim(path, "'")]
-            other -> other
-          end)
-
-        {key, value}
-
-      _ ->
-        nil
-    end)
-    |> Enum.reject(&is_nil/1)
+    {:ok, elixir, env}
   end
 
   @doc """
