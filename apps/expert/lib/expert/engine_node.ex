@@ -171,10 +171,11 @@ defmodule Expert.EngineNode do
     # Expert release, and we build it on the fly for the project elixir+opt
     # versions if it was not built yet.
     defp glob_paths(%Project{} = project) do
+      lsp = Expert.get_lsp()
       project_name = Project.name(project)
       {:ok, elixir, env} = Expert.Port.elixir_executable(project)
 
-      Logger.info("Found elixir for #{project_name} at #{elixir}")
+      GenLSP.info(lsp, "Found elixir for #{project_name} at #{elixir}")
 
       expert_priv = :code.priv_dir(:expert)
       packaged_engine_source = Path.join([expert_priv, "engine_source", "apps", "engine"])
@@ -203,10 +204,7 @@ defmodule Expert.EngineNode do
 
       launcher = Expert.Port.path()
 
-      GenLSP.info(
-        Expert.get_lsp(),
-        "Finding or building engine for project #{project_name}"
-      )
+      GenLSP.info(lsp, "Finding or building engine for project #{project_name}")
 
       with_progress(project, "Building engine for #{project_name}", fn ->
         port =
