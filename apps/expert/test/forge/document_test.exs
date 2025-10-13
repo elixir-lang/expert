@@ -260,6 +260,12 @@ defmodule Forge.DocumentTest do
       assert doc.version == 0
     end
 
+    test "update on empty document" do
+      assert {:ok, doc} = run_changes("", [], version: 1)
+      assert "" == text(doc)
+      assert doc.version == 0
+    end
+
     test "setting the version" do
       assert {:ok, doc} = run_changes("abc123", [edit("mornin")], version: 3)
       assert "mornin" == text(doc)
