@@ -373,8 +373,10 @@ defmodule Forge.Document do
   end
 
   defp utf8_prefix(line(text: text), start_code_unit) do
+    byte_count = byte_size(text)
     desired_length = start_code_unit - 1
-    length = max(0, desired_length) |> min(byte_size(text))
+    length = min(max(0, desired_length), byte_count)
+
     binary_part(text, 0, length)
   end
 
