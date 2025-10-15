@@ -29,17 +29,21 @@ defmodule Expert.EngineNode do
 
     def start(%__MODULE__{} = state, paths, from) do
       this_node = inspect(Node.self())
+      dist_port = Expert.EPMD.dist_port()
 
-      args = [
-        "--name",
-        Project.node_name(state.project),
-        "--cookie",
-        state.cookie,
-        "--no-halt",
-        "-e",
-        "Node.connect(#{this_node})"
-        | path_append_arguments(paths)
-      ]
+      args =
+        [
+          "--erl",
+          "-start_epmd false -erl_epmd_port #{dist_port} -dist_listen false",
+          "--name",
+          Project.node_name(state.project),
+          "--cookie",
+          state.cookie,
+          "--no-halt",
+          "-e",
+          "Node.connect(#{this_node}); IO.puts(\"ok\")"
+          | path_append_arguments(paths)
+        ]
 
       port = Expert.Port.open_elixir(state.project, args: args)
 
@@ -110,7 +114,6 @@ defmodule Expert.EngineNode do
   use GenServer
 
   def start(project) do
-    :ok = ensure_epmd_started()
     start_net_kernel(project)
 
     node_name = Project.node_name(project)
@@ -132,16 +135,6 @@ defmodule Expert.EngineNode do
 
   defp ensure_apps_started(node) do
     :rpc.call(node, Engine, :ensure_apps_started, [])
-  end
-
-  defp ensure_epmd_started do
-    case System.cmd("epmd", ~w(-daemon)) do
-      {"", 0} ->
-        :ok
-
-      _ ->
-        {:error, :epmd_failed}
-    end
   end
 
   if Mix.env() == :test do
@@ -278,7 +271,7 @@ defmodule Expert.EngineNode do
 
   @impl true
   def handle_call({:start, paths}, from, %State{} = state) do
-    :ok = :net_kernel.monitor_nodes(true, node_type: :visible)
+    :ok = :net_kernel.monitor_nodes(true, node_type: :all)
     Process.send_after(self(), :maybe_start_timeout, @start_timeout)
     state = State.start(state, paths, from)
     {:noreply, state}
