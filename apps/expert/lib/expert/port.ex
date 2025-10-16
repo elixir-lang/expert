@@ -42,15 +42,25 @@ defmodule Expert.Port do
     shell = System.get_env("SHELL")
 
     {path, 0} = System.cmd(shell, ["-i", "-l", "-c", "cd #{root_path} && echo $PATH"])
-    elixir = :os.find_executable(~c"elixir", to_charlist(path))
 
-    env =
-      Enum.map(System.get_env(), fn
-        {"PATH", _path} -> {"PATH", path}
-        other -> other
-      end)
+    case :os.find_executable(~c"elixir", to_charlist(path)) do
+      false ->
+        GenLSP.error(
+          Expert.get_lsp(),
+          "Couldn't find an elixir executable for project at #{root_path}. Using shell at #{shell} with PATH=#{path}"
+        )
 
-    {:ok, elixir, env}
+        {:error, :no_elixir}
+
+      elixir ->
+        env =
+          Enum.map(System.get_env(), fn
+            {"PATH", _path} -> {"PATH", path}
+            other -> other
+          end)
+
+        {:ok, elixir, env}
+    end
   end
 
   @doc """
