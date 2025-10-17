@@ -23,7 +23,7 @@ Then point your editor to the downloaded binary.
 
 ### Building from source
 
-To build Expert from source, you need Zig `0.14.1` installed on your system.
+To build Expert from source, you need Zig `0.14.1` installed on your system. Later versions will not work.
 
 Then you can run the following command or follow the instructions in the [Installation Instructions](pages/installation.md):
 
