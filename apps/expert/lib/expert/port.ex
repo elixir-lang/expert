@@ -41,7 +41,15 @@ defmodule Expert.Port do
     # managed programs.
     shell = System.get_env("SHELL")
 
-    {path, 0} = System.cmd(shell, ["-i", "-l", "-c", "cd #{root_path} && echo $PATH"])
+    # Ideally, it should contain the path to fish shell (e.g. `/usr/bin/fish`),
+    # but it might contain only the name of the shell (e.g. `fish`).
+    is_fish? = String.contains?(shell, "fish")
+
+    # Fish uses space-separated PATH, so we use the built-in `string join` command
+    # to join the entries with colons and have a standard PATH output as in bash.
+    path_command = if is_fish?, do: "string join ':' $PATH", else: "echo $PATH"
+
+    {path, 0} = System.cmd(shell, ["-i", "-l", "-c", "cd #{root_path} && #{path_command}"])
 
     case :os.find_executable(~c"elixir", to_charlist(path)) do
       false ->
