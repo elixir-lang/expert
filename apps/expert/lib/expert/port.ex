@@ -34,23 +34,8 @@ defmodule Expert.Port do
   def elixir_executable(%Project{} = project) do
     root_path = Project.root_path(project)
 
-    # We run a shell in interactive mode to populate the PATH with the right value
-    # at the project root. Otherwise, we either can't find an elixir executable,
-    # we use the wrong version if the user uses a version manager like asdf/mise,
-    # or we get an incomplete PATH not including erl or any other version manager
-    # managed programs.
     shell = System.get_env("SHELL")
-
-    # Ideally, it should contain the path to shell (e.g. `/usr/bin/fish`),
-    # but it might contain only the name of the shell (e.g. `fish`).
-    is_fish? = String.contains?(shell, "fish")
-
-    # Fish uses space-separated PATH, so we use the built-in `string join` command
-    # to join the entries with colons and have a standard colon-separated PATH output
-    # as in bash, which is expected by `:os.find_executable/2`.
-    path_command = if is_fish?, do: "string join ':' $PATH", else: "echo $PATH"
-
-    {path, 0} = System.cmd(shell, ["-i", "-l", "-c", "cd #{root_path} && #{path_command}"])
+    path = path_env_at_directory(root_path, shell)
 
     case :os.find_executable(~c"elixir", to_charlist(path)) do
       false ->
@@ -69,6 +54,31 @@ defmodule Expert.Port do
           end)
 
         {:ok, elixir, env}
+    end
+  end
+
+  defp path_env_at_directory(directory, shell) do
+    # We run a shell in interactive mode to populate the PATH with the right value
+    # at the project root. Otherwise, we either can't find an elixir executable,
+    # we use the wrong version if the user uses a version manager like asdf/mise,
+    # or we get an incomplete PATH not including erl or any other version manager
+    # managed programs.
+
+    case Path.basename(shell) do
+      # Ideally, it should contain the path to shell (e.g. `/usr/bin/fish`),
+      # but it might contain only the name of the shell (e.g. `fish`).
+      "fish" ->
+        # Fish uses space-separated PATH, so we use the built-in `string join` command
+        # to join the entries with colons and have a standard colon-separated PATH output
+        # as in bash, which is expected by `:os.find_executable/2`.
+        {path, 0} =
+          System.cmd(shell, ["-i", "-l", "-c", "cd #{directory} && string join ':' $PATH"])
+
+        path
+
+      _ ->
+        {path, 0} = System.cmd(shell, ["-i", "-l", "-c", "cd #{directory} && echo $PATH"])
+        path
     end
   end
 
