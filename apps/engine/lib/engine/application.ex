@@ -18,7 +18,7 @@ defmodule Engine.Application do
           Engine.Build.CaptureServer,
           Engine.Plugin.Runner.Supervisor,
           Engine.Plugin.Runner.Coordinator,
-          Engine.Search.Store.Backends.Ets,
+          Engine.Search.Store.Backends.Sqlite,
           {Engine.Search.Store,
            [
              &Engine.Search.Indexer.create_index/1,

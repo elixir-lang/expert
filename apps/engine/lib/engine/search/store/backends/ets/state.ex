@@ -126,6 +126,7 @@ defmodule Engine.Search.Store.Backends.Ets.State do
 
   def siblings(%__MODULE__{} = state, %Entry{} = entry) do
     key = by_block_id(block_id: entry.block_id, path: entry.path)
+    dbg(key)
 
     siblings =
       state.table_name

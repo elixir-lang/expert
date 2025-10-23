@@ -14,7 +14,7 @@ defmodule Mix.Tasks.Namespace do
   alias Forge.Namespace.Transform
   use Mix.Task
 
-  @dev_deps [:patch, :burrito]
+  @dev_deps [:patch, :burrito, :exqlite, :db_connection, :telemetry]
   # Unless explicitly added, nimble_parsec won't show up as a loaded app
   # and will therefore not be namespaced.
   @no_app_deps [:nimble_parsec]

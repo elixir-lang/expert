@@ -362,7 +362,7 @@ defmodule Expert.EngineNode do
   end
 
   @impl true
-  def handle_info({_port, {:data, _message}}, %State{} = state) do
+  def handle_info({_port, _message}, %State{} = state) do
     {:noreply, state}
   end
 

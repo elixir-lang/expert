@@ -29,7 +29,7 @@ defmodule Engine.Search.Store do
           (project :: Project.t(), entries :: existing_entries ->
              {:ok, new_entries, paths_to_delete} | {:error, term()})
 
-  @backend Application.compile_env(:engine, :search_store_backend, Store.Backends.Ets)
+  @backend Application.compile_env(:engine, :search_store_backend, Store.Backends.Sqlite)
   @flush_interval_ms Application.compile_env(
                        :engine,
                        :search_store_quiescent_period_ms,

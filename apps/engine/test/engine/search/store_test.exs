@@ -3,6 +3,7 @@ defmodule Engine.Search.StoreTest do
   alias Engine.Search.Indexer
   alias Engine.Search.Store
   alias Engine.Search.Store.Backends.Ets
+  alias Engine.Search.Store.Backends.Sqlite
   alias Forge.Search.Indexer.Entry
   alias Forge.Test.EventualAssertions
   alias Forge.Test.Fixtures
@@ -14,7 +15,7 @@ defmodule Engine.Search.StoreTest do
   import Fixtures
   import Forge.Test.CodeSigil
 
-  @backends [Ets]
+  @backends [Sqlite]
 
   setup_all do
     project = project()

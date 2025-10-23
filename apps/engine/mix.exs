@@ -50,6 +50,7 @@ defmodule Engine.MixProject do
       Mix.Dialyzer.dependency(),
       {:elixir_sense,
        github: "elixir-lsp/elixir_sense", ref: "e3ddc403554050221a2fd19a10a896fa7525bc02"},
+      {:exqlite, "~> 0.33"},
       {:forge, path: "../forge"},
       {:gen_lsp, "~> 0.11"},
       {:patch, "~> 0.15", only: [:dev, :test], runtime: false},
