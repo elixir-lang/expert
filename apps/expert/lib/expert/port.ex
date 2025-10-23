@@ -21,7 +21,7 @@ defmodule Expert.Port do
   This function takes the project's context into account and looks for the executable via calling
   `elixir_executable(project)`. Environment variables are also retrieved with that call.
   """
-  @spec open_elixir(Project.t(), open_opts()) :: port()
+  @spec open_elixir(Project.t(), open_opts()) :: port() | {:error, :no_elixir, String.t()}
   def open_elixir(%Project{} = project, opts) do
     with {:ok, elixir_executable, environment_variables} <- elixir_executable(project) do
       opts =
