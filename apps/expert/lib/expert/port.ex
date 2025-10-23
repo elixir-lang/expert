@@ -5,6 +5,8 @@ defmodule Expert.Port do
 
   alias Forge.Project
 
+  require Logger
+
   @type open_opt ::
           {:env, list()}
           | {:cd, String.t() | charlist()}
@@ -21,14 +23,14 @@ defmodule Expert.Port do
   """
   @spec open_elixir(Project.t(), open_opts()) :: port()
   def open_elixir(%Project{} = project, opts) do
-    {:ok, elixir_executable, environment_variables} = elixir_executable(project)
+    with {:ok, elixir_executable, environment_variables} <- elixir_executable(project) do
+      opts =
+        opts
+        |> Keyword.put_new_lazy(:cd, fn -> Project.root_path(project) end)
+        |> Keyword.put_new(:env, environment_variables)
 
-    opts =
-      opts
-      |> Keyword.put_new_lazy(:cd, fn -> Project.root_path(project) end)
-      |> Keyword.put_new(:env, environment_variables)
-
-    open(project, elixir_executable, opts)
+      open(project, elixir_executable, opts)
+    end
   end
 
   def elixir_executable(%Project{} = project) do
@@ -39,12 +41,8 @@ defmodule Expert.Port do
 
     case :os.find_executable(~c"elixir", to_charlist(path)) do
       false ->
-        GenLSP.error(
-          Expert.get_lsp(),
-          "Couldn't find an elixir executable for project at #{root_path}. Using shell at #{shell} with PATH=#{path}"
-        )
-
-        {:error, :no_elixir}
+        {:error, :no_elixir,
+         "Couldn't find an elixir executable for project at #{root_path}. Using shell at #{shell} with PATH=#{path}"}
 
       elixir ->
         env =
@@ -64,6 +62,8 @@ defmodule Expert.Port do
     # or we get an incomplete PATH not including erl or any other version manager
     # managed programs.
 
+    env = [{"SHELL_SESSIONS_DISABLE", "1"}]
+
     case Path.basename(shell) do
       # Ideally, it should contain the path to shell (e.g. `/usr/bin/fish`),
       # but it might contain only the name of the shell (e.g. `fish`).
@@ -72,12 +72,16 @@ defmodule Expert.Port do
         # to join the entries with colons and have a standard colon-separated PATH output
         # as in bash, which is expected by `:os.find_executable/2`.
         {path, 0} =
-          System.cmd(shell, ["-i", "-l", "-c", "cd #{directory} && string join ':' $PATH"])
+          System.cmd(shell, ["-i", "-l", "-c", "cd #{directory} && string join ':' $PATH"],
+            env: env
+          )
 
         path
 
       _ ->
-        {path, 0} = System.cmd(shell, ["-i", "-l", "-c", "cd #{directory} && echo $PATH"])
+        {path, 0} =
+          System.cmd(shell, ["-i", "-l", "-c", "cd #{directory} && echo $PATH"], env: env)
+
         path
     end
   end

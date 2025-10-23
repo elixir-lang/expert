@@ -29,6 +29,11 @@ defmodule Expert do
 
   def get_lsp, do: :persistent_term.get(:expert_lsp, nil)
 
+  def terminate(message, status \\ 0) do
+    Logger.error(message)
+    System.stop(status)
+  end
+
   def start_link(args) do
     Logger.debug(inspect(args))
 

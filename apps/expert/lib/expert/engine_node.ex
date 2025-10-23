@@ -45,9 +45,16 @@ defmodule Expert.EngineNode do
           | path_append_arguments(paths)
         ]
 
-      port = Expert.Port.open_elixir(state.project, args: args)
+      case Expert.Port.open_elixir(state.project, args: args) do
+        {:error, :no_elixir, message} ->
+          GenLSP.error(Expert.get_lsp(), message)
+          Expert.terminate("Failed to find an elixir executable, shutting down", 1)
+          {:error, :no_elixir}
 
-      %{state | port: port, started_by: from}
+        port ->
+          state = %{state | port: port, started_by: from}
+          {:ok, state}
+      end
     end
 
     def stop(%__MODULE__{} = state, from, stop_timeout) do
@@ -166,48 +173,54 @@ defmodule Expert.EngineNode do
     defp glob_paths(%Project{} = project) do
       lsp = Expert.get_lsp()
       project_name = Project.name(project)
-      {:ok, elixir, env} = Expert.Port.elixir_executable(project)
 
-      GenLSP.info(lsp, "Found elixir for #{project_name} at #{elixir}")
+      case Expert.Port.elixir_executable(project) do
+        {:ok, elixir, env} ->
+          GenLSP.info(lsp, "Found elixir for #{project_name} at #{elixir}")
 
-      expert_priv = :code.priv_dir(:expert)
-      packaged_engine_source = Path.join([expert_priv, "engine_source", "apps", "engine"])
+          expert_priv = :code.priv_dir(:expert)
+          packaged_engine_source = Path.join([expert_priv, "engine_source", "apps", "engine"])
 
-      engine_source =
-        "EXPERT_ENGINE_PATH"
-        |> System.get_env(packaged_engine_source)
-        |> Path.expand()
+          engine_source =
+            "EXPERT_ENGINE_PATH"
+            |> System.get_env(packaged_engine_source)
+            |> Path.expand()
 
-      build_engine_script = Path.join(expert_priv, "build_engine.exs")
+          build_engine_script = Path.join(expert_priv, "build_engine.exs")
 
-      opts =
-        [
-          :stderr_to_stdout,
-          args: [
-            elixir,
-            build_engine_script,
-            "--source-path",
-            engine_source,
-            "--vsn",
-            Expert.vsn()
-          ],
-          env: Expert.Port.ensure_charlists(env),
-          cd: engine_source
-        ]
+          opts =
+            [
+              :stderr_to_stdout,
+              args: [
+                elixir,
+                build_engine_script,
+                "--source-path",
+                engine_source,
+                "--vsn",
+                Expert.vsn()
+              ],
+              env: Expert.Port.ensure_charlists(env),
+              cd: engine_source
+            ]
 
-      launcher = Expert.Port.path()
+          launcher = Expert.Port.path()
 
-      GenLSP.info(lsp, "Finding or building engine for project #{project_name}")
+          GenLSP.info(lsp, "Finding or building engine for project #{project_name}")
 
-      with_progress(project, "Building engine for #{project_name}", fn ->
-        port =
-          Port.open(
-            {:spawn_executable, launcher},
-            opts
-          )
+          with_progress(project, "Building engine for #{project_name}", fn ->
+            port =
+              Port.open(
+                {:spawn_executable, launcher},
+                opts
+              )
 
-        wait_for_engine(port)
-      end)
+            wait_for_engine(port)
+          end)
+
+        {:error, :no_elixir, message} ->
+          GenLSP.error(Expert.get_lsp(), message)
+          Expert.terminate("Failed to find an elixir executable, shutting down", 1)
+      end
     end
 
     defp wait_for_engine(port) do
@@ -273,8 +286,14 @@ defmodule Expert.EngineNode do
   def handle_call({:start, paths}, from, %State{} = state) do
     :ok = :net_kernel.monitor_nodes(true, node_type: :all)
     Process.send_after(self(), :maybe_start_timeout, @start_timeout)
-    state = State.start(state, paths, from)
-    {:noreply, state}
+
+    case State.start(state, paths, from) do
+      {:ok, state} ->
+        {:noreply, state}
+
+      {:error, :no_elixir} ->
+        {:reply, {:error, :no_elixir}, state}
+    end
   end
 
   @impl true
