@@ -31,10 +31,25 @@ defmodule Expert.EngineNode do
       this_node = inspect(Node.self())
       dist_port = Expert.EPMD.dist_port()
 
+      # Detect test env by checking if manager node name (see test_helper.exs)
+      is_test? = Node.self() |> to_string() |> String.starts_with?("expert-testing-")
+
+      # In release, use full epmdless config.
+      # In test, skip -erl_epmd_port and -dist_listen false b/c:
+      #   - Manager uses EPMD (can't load Expert.EPMD before Elixir runtime)
+      #   - Project needs to query EPMD on default port (4369) to find manager
+      #   - :global registry needs bidirectional communication
+      erl_flags =
+        if is_test? do
+          "-start_epmd false"
+        else
+          "-start_epmd false -erl_epmd_port #{dist_port} -dist_listen false"
+        end
+
       args =
         [
           "--erl",
-          "-start_epmd false -erl_epmd_port #{dist_port} -dist_listen false",
+          erl_flags,
           "--name",
           Project.node_name(state.project),
           "--cookie",
