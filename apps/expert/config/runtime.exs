@@ -20,5 +20,3 @@ if Code.ensure_loaded?(LoggerFileBackend) do
 else
   :ok
 end
-
-require Logger
