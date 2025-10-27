@@ -14,6 +14,7 @@ defmodule Expert do
     GenLSP.Notifications.TextDocumentDidChange,
     GenLSP.Notifications.WorkspaceDidChangeConfiguration,
     GenLSP.Notifications.WorkspaceDidChangeWatchedFiles,
+    GenLSP.Notifications.WorkspaceDidChangeWorkspaceFolders,
     GenLSP.Notifications.TextDocumentDidClose,
     GenLSP.Notifications.TextDocumentDidOpen,
     GenLSP.Notifications.TextDocumentDidSave,
@@ -130,6 +131,7 @@ defmodule Expert do
   end
 
   def handle_notification(%GenLSP.Notifications.Initialized{}, lsp) do
+    Logger.info("Server initialized, registering capabilities")
     registrations = registrations()
 
     if nil != GenLSP.request(lsp, registrations) do
