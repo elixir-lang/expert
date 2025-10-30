@@ -24,34 +24,41 @@ Caveats with the following versions of Elixir and Erlang are documented below:
 |  25         | `>= 25.0`        |        |
 
 ## Prerequisites
-First, Install git LFS by [following these instructions](https://docs.github.com/en/repositories/working-with-files/managing-large-files/installing-git-large-file-storage).
 
-Next, [install `just`](https://github.com/casey/just?tab=readme-ov-file#cross-platform)
+Before building the project, make sure you have the following tools installed:
 
-Next, [install `zig`](https://ziglang.org/learn/getting-started/) if not already installed. **Important:** version 0.14.1 is required, which is currently _not_ the latest version.
+### 1. Git LFS
+Install **Git Large File Storage** by following the [official guide](https://docs.github.com/en/repositories/working-with-files/managing-large-files/installing-git-large-file-storage).
 
-Then, clone the git repository. Do this with
+### 2. `just` command runner
+Install [`just`](https://github.com/casey/just?tab=readme-ov-file#cross-platform), a simple command runner used to execute predefined tasks.
 
-```elixir
+### 3. Zig compiler
+Install [`zig`](https://ziglang.org/learn/getting-started/).
+> **Important:** You must use **version `0.14.1`**, which is **not** the latest release.
+
+---
+
+## Setup Steps
+
+### 1. Clone the repository
+```shell
 git clone git@github.com:elixir-lang/expert.git
 ```
 
-Then change to the expert directory
-
+### 2. Enter the project directory
 ```shell
 cd expert
 ```
 
-Then fetch expert's dependencies
-
+### 3. Fetch dependencies
 ```shell
 just deps forge
 just deps engine
 just deps expert
 ```
 
-...and build the project
-
+### 4. Build the project
 ```shell
 just release-local
 ```
