@@ -12,8 +12,11 @@ defmodule Expert.Application do
 
   @impl true
   def start(_type, _args) do
+    {m, f, a} = Application.get_env(:expert, :arg_parser)
+    opts = apply(m, f, a)
+
     {opts, _argv, _invalid} =
-      OptionParser.parse(Burrito.Util.Args.argv(),
+      OptionParser.parse(opts,
         strict: [version: :boolean, help: :boolean, stdio: :boolean, port: :integer]
       )
 

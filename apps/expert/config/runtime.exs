@@ -17,8 +17,6 @@ if Code.ensure_loaded?(LoggerFileBackend) do
   config :logger, :general_log,
     path: log_file_name,
     level: :debug
-else
-  :ok
 end
 
-require Logger
+config :expert, :arg_parser, {System, :argv, []}

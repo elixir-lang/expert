@@ -49,6 +49,7 @@ defmodule Expert.MixProject do
       expert: [
         strip_beams: false,
         cookie: "expert",
+        config_release_path: "config/burrito/runtime.exs",
         steps: release_steps() ++ [&Burrito.wrap/1],
         burrito: [
           targets: [
