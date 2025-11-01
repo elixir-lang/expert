@@ -56,7 +56,7 @@ defmodule Expert.State do
     response = initialize_result()
 
     Task.Supervisor.start_child(:expert_task_queue, fn ->
-      Project.Supervisor.start(config.project)
+      {:ok, _pid} = Project.Supervisor.start(config.project)
       send(Expert, :engine_initialized)
     end)
 

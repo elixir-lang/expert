@@ -215,13 +215,15 @@ defmodule Expert.EngineNode do
           GenLSP.info(lsp, "Finding or building engine for project #{project_name}")
 
           with_progress(project, "Building engine for #{project_name}", fn ->
-            port =
+            Task.async(fn ->
+              Process.flag(:trap_exit, true)
               Port.open(
                 {:spawn_executable, launcher},
                 opts
               )
-
-            wait_for_engine(port)
+              |> wait_for_engine()
+            end)
+            |> Task.await(:infinity)
           end)
 
         {:error, :no_elixir, message} ->
@@ -230,7 +232,7 @@ defmodule Expert.EngineNode do
       end
     end
 
-    defp wait_for_engine(port) do
+    defp wait_for_engine(port, last_line \\ "") do
       receive do
         {^port, {:data, ~c"engine_path:" ++ engine_path}} ->
           engine_path = engine_path |> to_string() |> String.trim()
@@ -238,12 +240,12 @@ defmodule Expert.EngineNode do
 
           {:ok, ebin_paths(engine_path)}
 
-        {^port, _data} ->
-          wait_for_engine(port)
+        {^port, {:data, data}} ->
+          wait_for_engine(port, data)
 
         {:EXIT, ^port, reason} ->
-          Logger.error("Engine build script exited with reason: #{inspect(reason)}")
-          {:error, reason}
+          Logger.error("Engine build script exited with reason: #{inspect(reason)} #{last_line}")
+          {:error, reason, last_line}
       end
     end
 
