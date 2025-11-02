@@ -2,6 +2,11 @@
   "include": [
     {
       "otp": "28",
+      "elixir": "1.19",
+      "project": "engine"
+    },
+    {
+      "otp": "28",
       "elixir": "1.18.4",
       "project": "engine"
     },
@@ -32,6 +37,11 @@
     },
     {
       "otp": "28",
+      "elixir": "1.19",
+      "project": "expert_credo"
+    },
+    {
+      "otp": "28",
       "elixir": "1.18.4",
       "project": "expert_credo"
     },
@@ -59,6 +69,11 @@
       "otp": "26",
       "elixir": "1.16",
       "project": "expert_credo"
+    },
+    {
+      "otp": "28",
+      "elixir": "1.19",
+      "project": "forge"
     },
     {
       "otp": "28",
