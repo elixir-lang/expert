@@ -76,7 +76,7 @@ defmodule Forge.Project do
   The project node's name
   """
   def node_name(%__MODULE__{} = project) do
-    :"project-#{name(project)}-#{entropy(project)}@127.0.0.1"
+    :"project-#{name(project)}-#{entropy(project)}"
   end
 
   def entropy(%__MODULE__{} = project) do
@@ -164,7 +164,7 @@ defmodule Forge.Project do
   end
 
   def manager_node_name(%__MODULE__{} = project) do
-    :"manager-#{name(project)}-#{entropy(project)}@127.0.0.1"
+    :"manager-#{name(project)}-#{entropy(project)}"
   end
 
   @doc """

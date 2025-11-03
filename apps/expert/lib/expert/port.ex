@@ -80,9 +80,12 @@ defmodule Expert.Port do
 
       _ ->
         {path, 0} =
-          System.cmd(shell, ["-i", "-l", "-c", "cd #{directory} && echo $PATH"], env: env)
+          System.cmd(shell, ["-i", "-l", "-c", "cd #{directory} && echo $PATH"],
+            stderr_to_stdout: true,
+            env: env
+          )
 
-        path
+        path |> String.trim() |> String.split("\n") |> List.last()
     end
   end
 

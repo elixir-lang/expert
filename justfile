@@ -32,11 +32,11 @@ mix project="all" *args="":
     case {{ project }} in
       all)
         for proj in {{ apps }}; do
-          (cd "apps/$proj" && mix {{args}})
+          (cd "apps/$proj" && elixir --erl "-start_epmd false -epmd_module Elixir.Expert.EPMD" -S mix {{args}})
         done
       ;;
       *)
-         (cd "apps/{{ project }}" && mix {{args}})
+         (cd "apps/{{ project }}" && elixir --erl "-start_epmd false -epmd_module Elixir.Expert.EPMD" -S mix {{args}})
       ;;
     esac
 

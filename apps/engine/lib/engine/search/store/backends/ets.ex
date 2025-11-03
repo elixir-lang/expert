@@ -235,7 +235,7 @@ defmodule Engine.Search.Store.Backends.Ets do
     for {node_name_charlist, _port} <- node_and_port_list,
         node_name_string = List.to_string(node_name_charlist),
         String.contains?(node_name_string, project_substring) do
-      :"#{node_name_string}@127.0.0.1"
+      :"#{node_name_string}"
     end
   end
 

@@ -35,13 +35,13 @@ defmodule Expert.EngineNode do
         [
           "--erl",
           "-start_epmd false -erl_epmd_port #{dist_port} -dist_listen false",
-          "--name",
+          "--sname",
           Project.node_name(state.project),
           "--cookie",
           state.cookie,
           "--no-halt",
           "-e",
-          "Node.connect(#{this_node}); IO.puts(\"ok\")"
+          "Node.connect(#{this_node}) |> dbg(); IO.puts(\"ok\")"
           | path_append_arguments(paths)
         ]
 
@@ -52,6 +52,7 @@ defmodule Expert.EngineNode do
           {:error, :no_elixir}
 
         port ->
+          dbg(port)
           state = %{state | port: port, started_by: from}
           {:ok, state}
       end
@@ -68,7 +69,10 @@ defmodule Expert.EngineNode do
     end
 
     def on_nodeup(%__MODULE__{} = state, node_name) do
-      if node_name == Project.node_name(state.project) do
+      dbg(node_name)
+
+      if String.starts_with?(to_string(node_name), to_string(Project.node_name(state.project)))
+         |> dbg() do
         {pid, _ref} = state.started_by
         Process.monitor(pid)
         GenServer.reply(state.started_by, :ok)
@@ -126,18 +130,23 @@ defmodule Expert.EngineNode do
     node_name = Project.node_name(project)
     bootstrap_args = [project, Document.Store.entropy(), all_app_configs()]
 
+    dbg(node_name)
+
     with {:ok, node_pid} <- EngineSupervisor.start_project_node(project),
          {:ok, glob_paths} <- glob_paths(project),
          :ok <- start_node(project, glob_paths),
-         :ok <- :rpc.call(node_name, Engine.Bootstrap, :init, bootstrap_args),
+         dbg(Node.ping(node_name)),
+         dbg(Node.list(:hidden)),
+         :ok <- :rpc.call(node_name, Engine.Bootstrap, :init, bootstrap_args) |> dbg(),
          :ok <- ensure_apps_started(node_name) do
       {:ok, node_name, node_pid}
     end
+    |> dbg()
   end
 
   defp start_net_kernel(%Project{} = project) do
     manager = Project.manager_node_name(project)
-    :net_kernel.start(manager, %{name_domain: :longnames})
+    Node.start(manager, :shortnames) |> dbg()
   end
 
   defp ensure_apps_started(node) do
@@ -155,7 +164,7 @@ defmodule Expert.EngineNode do
       ["/**/priv" | app_globs]
     end
 
-    def glob_paths(_) do
+    defp glob_paths(_) do
       entries =
         for entry <- :code.get_path(),
             entry_string = List.to_string(entry),
@@ -206,6 +215,7 @@ defmodule Expert.EngineNode do
           launcher = Expert.Port.path()
 
           GenLSP.info(lsp, "Finding or building engine for project #{project_name}")
+          dbg("building engine")
 
           with_progress(project, "Building engine for #{project_name}", fn ->
             port =
@@ -265,15 +275,14 @@ defmodule Expert.EngineNode do
 
   def start_link(%Project{} = project) do
     state = State.new(project)
-    GenServer.start_link(__MODULE__, state, name: name(project))
+    dbg(state)
+    GenServer.start_link(__MODULE__, state, name: name(project)) |> dbg()
   end
 
-  @start_timeout 3_000
+  @start_timeout 30_000
 
   defp start_node(project, paths) do
-    project
-    |> name()
-    |> GenServer.call({:start, paths}, @start_timeout + 500)
+    project |> name() |> GenServer.call({:start, paths}, @start_timeout + 500) |> dbg()
   end
 
   @impl GenServer
@@ -287,8 +296,11 @@ defmodule Expert.EngineNode do
     :ok = :net_kernel.monitor_nodes(true, node_type: :all)
     Process.send_after(self(), :maybe_start_timeout, @start_timeout)
 
+    dbg("hi")
+
     case State.start(state, paths, from) do
       {:ok, state} ->
+        dbg(state)
         {:noreply, state}
 
       {:error, :no_elixir} ->
@@ -355,7 +367,8 @@ defmodule Expert.EngineNode do
   end
 
   @impl true
-  def handle_info({_port, {:data, _message}}, %State{} = state) do
+  def handle_info({_port, {:data, message}}, %State{} = state) do
+    dbg(message)
     {:noreply, state}
   end
 
