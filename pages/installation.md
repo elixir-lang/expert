@@ -60,6 +60,9 @@ If things complete successfully, you will then have a release in your
 `apps/expert/burrito_out` directory. If you see errors, please file a
 bug.
 
+To launch expert, you need to specify one of the `--stdio` or `--port <port>`. The
+examples below assume you want to use `--stdio`.
+
 In case you want to build and install it locally you can run `just install`,
 which will install the generated binary inside `~/.local/bin`.
 
@@ -170,7 +173,7 @@ configuration below as a reference:
 
 ```lua
 require('lspconfig').lexical.setup {
-  cmd = { "my/home/projects/expert/apps/expert/burrito_out/expert_linux_amd64" },
+  cmd = { "my/home/projects/expert/apps/expert/burrito_out/expert_linux_amd64", "--stdio" },
   root_dir = function(fname)
     return require('lspconfig').util.root_pattern("mix.exs", ".git")(fname) or vim.loop.cwd()
   end,
@@ -271,7 +274,7 @@ You'll need to add a key called `"clients"` in the top-level `LSP.sublime-settin
 "clients": {
   "elixir-expert": {
     "enabled": true,
-    "command": ["/my/home/projects/expert/apps/expert/burrito_out/expert_linux_amd64", ""],
+    "command": ["/my/home/projects/expert/apps/expert/burrito_out/expert_linux_amd64", "--stdio"],
     "selector": "source.elixir"
   }
 }
