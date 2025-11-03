@@ -76,7 +76,7 @@ defmodule Expert do
     with {:ok, request} <- Expert.Protocol.Convert.to_native(request),
          {:ok, response, state} <- apply_to_state(assigns(lsp).state, request),
          {:ok, response} <- Expert.Protocol.Convert.to_lsp(response) do
-      {:reply, Expert.Protocol.Convert.to_lsp(response), assign(lsp, state: state)}
+      {:reply, response, assign(lsp, state: state)}
     else
       error ->
         message = "Failed to handle #{mod}, #{inspect(error)}"
