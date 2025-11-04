@@ -79,6 +79,11 @@ defmodule Forge.Project do
     :"project-#{name(project)}-#{entropy(project)}"
   end
 
+  def node(%__MODULE__{} = project) do
+    {:ok, hostname} = :inet.gethostname()
+    :"#{node_name(project)}@#{hostname}"
+  end
+
   def entropy(%__MODULE__{} = project) do
     project.entropy
   end

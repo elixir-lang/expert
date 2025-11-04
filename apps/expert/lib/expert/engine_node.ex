@@ -41,7 +41,7 @@ defmodule Expert.EngineNode do
           state.cookie,
           "--no-halt",
           "-e",
-          "Node.connect(#{this_node}) |> dbg(); IO.puts(\"ok\")"
+          "Node.connect(#{this_node}); IO.puts(\"ok\")"
           | path_append_arguments(paths)
         ]
 
@@ -52,7 +52,6 @@ defmodule Expert.EngineNode do
           {:error, :no_elixir}
 
         port ->
-          dbg(port)
           state = %{state | port: port, started_by: from}
           {:ok, state}
       end
@@ -69,10 +68,7 @@ defmodule Expert.EngineNode do
     end
 
     def on_nodeup(%__MODULE__{} = state, node_name) do
-      dbg(node_name)
-
-      if String.starts_with?(to_string(node_name), to_string(Project.node_name(state.project)))
-         |> dbg() do
+      if String.starts_with?(to_string(node_name), to_string(Project.node_name(state.project))) do
         {pid, _ref} = state.started_by
         Process.monitor(pid)
         GenServer.reply(state.started_by, :ok)
@@ -84,7 +80,7 @@ defmodule Expert.EngineNode do
     end
 
     def on_nodedown(%__MODULE__{} = state, node_name) do
-      if node_name == Project.node_name(state.project) do
+      if node_name == Project.node(state.project) do
         maybe_reply_to_stopper(state)
         {:shutdown, %{state | status: :stopped}}
       else
@@ -115,7 +111,7 @@ defmodule Expert.EngineNode do
 
     defp project_rpc(%__MODULE__{} = state, module, function, args \\ []) do
       state.project
-      |> Project.node_name()
+      |> Project.node()
       |> :rpc.call(module, function, args)
     end
   end
@@ -127,26 +123,22 @@ defmodule Expert.EngineNode do
   def start(project) do
     start_net_kernel(project)
 
-    node_name = Project.node_name(project)
     bootstrap_args = [project, Document.Store.entropy(), all_app_configs()]
 
-    dbg(node_name)
+    node = Project.node(project)
 
     with {:ok, node_pid} <- EngineSupervisor.start_project_node(project),
          {:ok, glob_paths} <- glob_paths(project),
          :ok <- start_node(project, glob_paths),
-         dbg(Node.ping(node_name)),
-         dbg(Node.list(:hidden)),
-         :ok <- :rpc.call(node_name, Engine.Bootstrap, :init, bootstrap_args) |> dbg(),
-         :ok <- ensure_apps_started(node_name) do
-      {:ok, node_name, node_pid}
+         :ok <- :rpc.call(node, Engine.Bootstrap, :init, bootstrap_args),
+         :ok <- ensure_apps_started(node) do
+      {:ok, node, node_pid}
     end
-    |> dbg()
   end
 
   defp start_net_kernel(%Project{} = project) do
     manager = Project.manager_node_name(project)
-    Node.start(manager, :shortnames) |> dbg()
+    Node.start(manager, :shortnames)
   end
 
   defp ensure_apps_started(node) do
@@ -215,7 +207,6 @@ defmodule Expert.EngineNode do
           launcher = Expert.Port.path()
 
           GenLSP.info(lsp, "Finding or building engine for project #{project_name}")
-          dbg("building engine")
 
           with_progress(project, "Building engine for #{project_name}", fn ->
             port =
@@ -275,14 +266,13 @@ defmodule Expert.EngineNode do
 
   def start_link(%Project{} = project) do
     state = State.new(project)
-    dbg(state)
-    GenServer.start_link(__MODULE__, state, name: name(project)) |> dbg()
+    GenServer.start_link(__MODULE__, state, name: name(project))
   end
 
   @start_timeout 30_000
 
   defp start_node(project, paths) do
-    project |> name() |> GenServer.call({:start, paths}, @start_timeout + 500) |> dbg()
+    project |> name() |> GenServer.call({:start, paths}, @start_timeout + 500)
   end
 
   @impl GenServer
@@ -296,11 +286,8 @@ defmodule Expert.EngineNode do
     :ok = :net_kernel.monitor_nodes(true, node_type: :all)
     Process.send_after(self(), :maybe_start_timeout, @start_timeout)
 
-    dbg("hi")
-
     case State.start(state, paths, from) do
       {:ok, state} ->
-        dbg(state)
         {:noreply, state}
 
       {:error, :no_elixir} ->
@@ -368,6 +355,7 @@ defmodule Expert.EngineNode do
 
   @impl true
   def handle_info({_port, {:data, message}}, %State{} = state) do
+    Logger.debug("Received port message: #{inspect(message)}")
     dbg(message)
     {:noreply, state}
   end

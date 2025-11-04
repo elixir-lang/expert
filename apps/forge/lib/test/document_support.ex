@@ -3,7 +3,7 @@ defmodule Forge.Test.DocumentSupport do
   use ExUnit.CaseTemplate
 
   setup do
-    {:ok, _store} = start_supervised(Document.Store)
+    start_supervised(Document.Store)
     :ok
   end
 

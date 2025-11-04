@@ -42,7 +42,7 @@ defmodule Expert.Project.NodeTest do
   end
 
   test "the node restarts when the supervisor pid is killed", %{project: project} do
-    node_name = EngineNode.node_name(project)
+    node_name = Forge.Project.node(project)
     supervisor_pid = EngineApi.call(project, Process, :whereis, [Engine.Supervisor])
 
     assert is_pid(supervisor_pid)

@@ -13,7 +13,7 @@ defmodule Expert.EngineApi do
 
   def call(%Project{} = project, m, f, a \\ []) do
     project
-    |> Project.node_name()
+    |> Project.node()
     |> :erpc.call(m, f, a)
   end
 
