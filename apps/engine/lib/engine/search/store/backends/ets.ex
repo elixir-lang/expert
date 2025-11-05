@@ -182,7 +182,7 @@ defmodule Engine.Search.Store.Backends.Ets do
   end
 
   defp genserver_name(%Project{} = project) do
-    {:via, :swarm, leader_name(project)}
+    {:via, :global, leader_name(project)}
   end
 
   defp become_leader(%Project{} = project) do

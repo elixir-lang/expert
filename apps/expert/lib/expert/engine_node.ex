@@ -356,7 +356,6 @@ defmodule Expert.EngineNode do
   @impl true
   def handle_info({_port, {:data, message}}, %State{} = state) do
     Logger.debug("Received port message: #{inspect(message)}")
-    dbg(message)
     {:noreply, state}
   end
 
