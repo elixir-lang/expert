@@ -1,6 +1,5 @@
 defmodule Expert.Project.NodeTest do
   alias Expert.EngineApi
-  alias Expert.Project.Node, as: EngineNode
 
   import Forge.Test.Fixtures
   import Forge.EngineApi.Messages
@@ -30,7 +29,7 @@ defmodule Expert.Project.NodeTest do
   end
 
   test "the node is restarted when it goes down", %{project: project} do
-    node_name = EngineNode.node_name(project)
+    node_name = Forge.Project.node(project)
     old_pid = node_pid(project)
 
     :ok = EngineApi.stop(project)
