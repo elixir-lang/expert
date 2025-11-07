@@ -451,7 +451,7 @@ defmodule Engine.Build.ErrorTest do
 
       # used a regex here because the error changed in elixir 1.18
       assert diagnostic.message =~
-               ~r[protocol Enumerable not implemented for( 1 of)? type Integer]
+               ~r[protocol Enumerable not implemented for( 1 of)?( type)? Integer]
 
       assert decorate(document_text, diagnostic.position) =~ "«for i <- 1, do: i\n»"
     end
@@ -468,7 +468,7 @@ defmodule Engine.Build.ErrorTest do
 
       # used a regex here because the error changed in elixir 1.18
       assert diagnostic.message =~
-               ~r[protocol Enumerable not implemented for( 1 of)? type Integer]
+               ~r[protocol Enumerable not implemented for( 1 of)?( type)? Integer]
 
       assert decorate(document_text, diagnostic.position) =~ "«for i <- 1, do: i\n»"
     end
