@@ -413,23 +413,10 @@ defmodule Forge.Document.Store do
     end
   end
 
-  # NOTE(dorgan): In dev/prod we use Swarm for distribution,
-  # mainly to avoid using EPMD. This works well in practice,
-  # but in tests Swarm becomes incredibly noisy and causes
-  # lots of timing issues and introduces lots of flakiness.
-  # So in tests we use :global instead.
-  if Mix.env() == :test do
-    def clustering_method do
-      :global
-    end
-  else
-    def clustering_method do
-      :swarm
-    end
-  end
+  @clustering_method Application.compile_env(:forge, :document_store_clustering, :swarm)
 
   def name do
-    {:via, clustering_method(), {__MODULE__, entropy()}}
+    {:via, @clustering_method, {__MODULE__, entropy()}}
   end
 
   defp entropy_key do
