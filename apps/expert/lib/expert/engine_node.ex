@@ -58,8 +58,14 @@ defmodule Expert.EngineNode do
     end
 
     def stop(%__MODULE__{} = state, from, stop_timeout) do
-      project_rpc(state, System, :stop)
+      # Wait a little bit before stopping the node to allow the reply
+      # to be sent back to the caller before the node goes down.
+      :timer.apply_after(50, __MODULE__, :perform_stop, [state])
       %{state | stopped_by: from, stop_timeout: stop_timeout, status: :stopping}
+    end
+
+    def perform_stop(%__MODULE__{} = state) do
+      project_rpc(state, System, :stop)
     end
 
     def halt(%__MODULE__{} = state) do
