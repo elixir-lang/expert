@@ -226,7 +226,7 @@ defmodule Engine.CodeMod.Aliases do
         %Position{position | character: character}
 
       position.line > scope_range.end.line ->
-        %Position{scope_range.end | character: 1}
+        %{scope_range.end | character: 1}
 
       true ->
         position

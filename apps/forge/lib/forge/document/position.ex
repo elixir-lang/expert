@@ -107,8 +107,6 @@ end
 defimpl Inspect, for: Forge.Document.Position do
   import Inspect.Algebra
 
-  def inspect(nil, _), do: "nil"
-
   def inspect(pos, _) do
     concat(["XpPos", to_string(pos)])
   end

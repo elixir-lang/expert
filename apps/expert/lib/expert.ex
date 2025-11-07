@@ -176,7 +176,7 @@ defmodule Expert do
   def handle_info(:engine_initialized, lsp) do
     state = assigns(lsp).state
 
-    new_state = %State{state | engine_initialized?: true}
+    new_state = %{state | engine_initialized?: true}
 
     lsp = assign(lsp, state: new_state)
 
@@ -195,7 +195,7 @@ defmodule Expert do
       )
 
       {:ok, config} = State.default_configuration(state)
-      {:noreply, assign(lsp, state: %State{state | configuration: config})}
+      {:noreply, assign(lsp, state: %{state | configuration: config})}
     else
       {:noreply, lsp}
     end
