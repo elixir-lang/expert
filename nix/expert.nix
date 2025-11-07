@@ -47,7 +47,7 @@ beamPackages.mixRelease rec {
 
   postInstall = ''
     mv $out/bin/plain $out/bin/expert
-    wrapProgram $out/bin/expert --add-flag start
+    wrapProgram $out/bin/expert --add-flag "eval" --add-flag "System.no_halt(true); Application.ensure_all_started(:xp_expert)"
   '';
 
   removeCookie = false;
