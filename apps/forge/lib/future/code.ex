@@ -1894,7 +1894,7 @@ defmodule Future.Code do
     case :code.ensure_loaded(module) do
       {:error, :nofile} = error ->
         if can_await_module_compilation?() do
-          case Kernel.ErrorHandler.ensure_compiled(module, :module, mode, nil) do
+          case do_ensure_compiled(module, :module, mode, nil) do
             :found -> {:module, module}
             :deadlock -> {:error, :unavailable}
             :not_found -> {:error, :nofile}
@@ -1905,6 +1905,16 @@ defmodule Future.Code do
 
       other ->
         other
+    end
+  end
+
+  if Version.match?(System.version(), ">= 1.19.0") do
+    defp do_ensure_compiled(module, kind, deadlock, position) do
+      Kernel.ErrorHandler.ensure_compiled(module, kind, deadlock, position)
+    end
+  else
+    defp do_ensure_compiled(module, kind, deadlock, _position) do
+      Kernel.ErrorHandler.ensure_compiled(module, kind, deadlock)
     end
   end
 
