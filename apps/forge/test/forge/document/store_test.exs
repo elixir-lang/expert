@@ -8,7 +8,7 @@ defmodule Forge.Document.StoreTest do
 
   def with_store(%{} = context) do
     store_opts = Map.get(context, :store, [])
-    {:ok, _} = start_supervised({Document.Store, store_opts})
+    {:ok, _pid} = start_supervised({Document.Store, store_opts})
     :ok
   end
 
