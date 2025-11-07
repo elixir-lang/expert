@@ -217,6 +217,7 @@ defmodule Expert.EngineNode do
           with_progress(project, "Building engine for #{project_name}", fn ->
             Task.async(fn ->
               Process.flag(:trap_exit, true)
+
               Port.open(
                 {:spawn_executable, launcher},
                 opts
@@ -241,6 +242,7 @@ defmodule Expert.EngineNode do
           {:ok, ebin_paths(engine_path)}
 
         {^port, {:data, data}} ->
+          Logger.debug("Building engine: #{to_string(data)}")
           wait_for_engine(port, data)
 
         {:EXIT, ^port, reason} ->
