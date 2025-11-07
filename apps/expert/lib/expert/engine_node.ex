@@ -215,15 +215,14 @@ defmodule Expert.EngineNode do
           GenLSP.info(lsp, "Finding or building engine for project #{project_name}")
 
           with_progress(project, "Building engine for #{project_name}", fn ->
-            Task.async(fn ->
+            fn ->
               Process.flag(:trap_exit, true)
 
-              Port.open(
-                {:spawn_executable, launcher},
-                opts
-              )
+              {:spawn_executable, launcher}
+              |> Port.open(opts)
               |> wait_for_engine()
-            end)
+            end
+            |> Task.async()
             |> Task.await(:infinity)
           end)
 
