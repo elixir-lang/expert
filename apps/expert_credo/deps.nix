@@ -169,6 +169,23 @@ let
         in
         drv;
 
+      gen_state_machine =
+        let
+          version = "2.1.0";
+          drv = buildMix {
+            inherit version;
+            name = "gen_state_machine";
+            appConfigPath = ./config;
+
+            src = fetchHex {
+              inherit version;
+              pkg = "gen_state_machine";
+              sha256 = "ae367038808db25cee2f2c4b8d0531522ea587c4995eb6f96ee73410a60fa06b";
+            };
+          };
+        in
+        drv;
+
       jason =
         let
           version = "1.4.4";
@@ -181,6 +198,23 @@ let
               inherit version;
               pkg = "jason";
               sha256 = "c5eb0cab91f094599f94d55bc63409236a8ec69a21a67814529e8d5f6cc90b3b";
+            };
+          };
+        in
+        drv;
+
+      libring =
+        let
+          version = "1.7.0";
+          drv = buildMix {
+            inherit version;
+            name = "libring";
+            appConfigPath = ./config;
+
+            src = fetchHex {
+              inherit version;
+              pkg = "libring";
+              sha256 = "070e3593cb572e04f2c8470dd0c119bc1817a7a0a7f88229f43cf0345268ec42";
             };
           };
         in
@@ -254,6 +288,29 @@ let
               pkg = "sourceror";
               sha256 = "d20a9dd5efe162f0d75a307146faa2e17b823ea4f134f662358d70f0332fed82";
             };
+          };
+        in
+        drv;
+
+      swarm =
+        let
+          version = "0fff93ab51d28783b8eab22f2a2bff859c7e0b69";
+          drv = buildMix {
+            inherit version;
+            name = "swarm";
+            appConfigPath = ./config;
+
+            src = pkgs.fetchFromGitHub {
+              owner = "doorgan";
+              repo = "swarm";
+              rev = "0fff93ab51d28783b8eab22f2a2bff859c7e0b69";
+              hash = "sha256-GpgapXxf0LTTD0PqrACBhX42dtQqRxZiOV43iuXzjqo=";
+            };
+
+            beamDeps = [
+              libring
+              gen_state_machine
+            ];
           };
         in
         drv;

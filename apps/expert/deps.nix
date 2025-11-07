@@ -147,7 +147,7 @@ let
 
       burrito =
         let
-          version = "1.4.0";
+          version = "1.5.0";
           drv = buildMix {
             inherit version;
             name = "burrito";
@@ -156,7 +156,7 @@ let
             src = fetchHex {
               inherit version;
               pkg = "burrito";
-              sha256 = "0fa052e6f446cd3e5ff7e00813452b09eeadeddb5ec5174c2976eb0e4ad88765";
+              sha256 = "3861abda7bffa733862b48da3e03df0b4cd41abf6fd24b91745f5c16d971e5fa";
             };
 
             beamDeps = [
@@ -195,7 +195,7 @@ let
 
       gen_lsp =
         let
-          version = "0.11.0";
+          version = "0.11.1";
           drv = buildMix {
             inherit version;
             name = "gen_lsp";
@@ -204,7 +204,7 @@ let
             src = fetchHex {
               inherit version;
               pkg = "gen_lsp";
-              sha256 = "d67c20650a5290a02f7bac53083ac4487d3c6b461f35a8b14c5d2d7638c20d26";
+              sha256 = "78cd7994c0e46399c71e727fe29cfb8ff41e32711c1a30ad4b92203ee0d7920d";
             };
 
             beamDeps = [
@@ -213,6 +213,23 @@ let
               schematic
               typed_struct
             ];
+          };
+        in
+        drv;
+
+      gen_state_machine =
+        let
+          version = "2.1.0";
+          drv = buildMix {
+            inherit version;
+            name = "gen_state_machine";
+            appConfigPath = ./config;
+
+            src = fetchHex {
+              inherit version;
+              pkg = "gen_state_machine";
+              sha256 = "ae367038808db25cee2f2c4b8d0531522ea587c4995eb6f96ee73410a60fa06b";
+            };
           };
         in
         drv;
@@ -246,6 +263,23 @@ let
               inherit version;
               pkg = "jason";
               sha256 = "c5eb0cab91f094599f94d55bc63409236a8ec69a21a67814529e8d5f6cc90b3b";
+            };
+          };
+        in
+        drv;
+
+      libring =
+        let
+          version = "1.7.0";
+          drv = buildMix {
+            inherit version;
+            name = "libring";
+            appConfigPath = ./config;
+
+            src = fetchHex {
+              inherit version;
+              pkg = "libring";
+              sha256 = "070e3593cb572e04f2c8470dd0c119bc1817a7a0a7f88229f43cf0345268ec42";
             };
           };
         in
@@ -452,6 +486,29 @@ let
               pkg = "sourceror";
               sha256 = "29dbdfc92e04569c9d8e6efdc422fc1d815f4bd0055dc7c51b8800fb75c4b3f1";
             };
+          };
+        in
+        drv;
+
+      swarm =
+        let
+          version = "0fff93ab51d28783b8eab22f2a2bff859c7e0b69";
+          drv = buildMix {
+            inherit version;
+            name = "swarm";
+            appConfigPath = ./config;
+
+            src = pkgs.fetchFromGitHub {
+              owner = "doorgan";
+              repo = "swarm";
+              rev = "0fff93ab51d28783b8eab22f2a2bff859c7e0b69";
+              hash = "sha256-GpgapXxf0LTTD0PqrACBhX42dtQqRxZiOV43iuXzjqo=";
+            };
+
+            beamDeps = [
+              libring
+              gen_state_machine
+            ];
           };
         in
         drv;
