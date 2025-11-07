@@ -297,6 +297,7 @@ defmodule Expert.EngineNode do
 
   @impl true
   def handle_call({:stop, stop_timeout}, from, %State{} = state) do
+    Logger.info("Stopping engine node for project #{Project.name(state.project)}")
     state = State.stop(state, from, stop_timeout)
     {:noreply, state, stop_timeout}
   end
