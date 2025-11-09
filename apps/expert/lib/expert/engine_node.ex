@@ -207,7 +207,7 @@ defmodule Expert.EngineNode do
                 Expert.vsn()
               ],
               env: Expert.Port.ensure_charlists(env),
-              cd: engine_source
+              cd: Project.root_path(project)
             ]
 
           launcher = Expert.Port.path()
