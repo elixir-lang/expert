@@ -106,7 +106,7 @@ defmodule Expert.Port do
         opts
       end
 
-    Port.open({:spawn_executable, launcher}, opts)
+    Port.open({:spawn_executable, launcher}, [:stderr_to_stdout | opts])
   end
 
   @doc """

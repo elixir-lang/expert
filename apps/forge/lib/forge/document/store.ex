@@ -414,7 +414,7 @@ defmodule Forge.Document.Store do
   end
 
   def name do
-    {:via, :global, {__MODULE__, entropy()}}
+    {:global, {__MODULE__, entropy()}}
   end
 
   defp entropy_key do

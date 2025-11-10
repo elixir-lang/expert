@@ -65,6 +65,7 @@ defmodule Expert.Application do
       end
 
     children = [
+      {Forge.NodePortMapper, []},
       document_store_child_spec(),
       {DynamicSupervisor, Expert.Project.DynamicSupervisor.options()},
       {DynamicSupervisor, name: Expert.DynamicSupervisor},

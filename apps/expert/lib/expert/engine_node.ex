@@ -28,20 +28,49 @@ defmodule Expert.EngineNode do
     @dialyzer {:nowarn_function, start: 3}
 
     def start(%__MODULE__{} = state, paths, from) do
-      this_node = inspect(Node.self())
+      epmd_module = to_charlist(Forge.EPMD)
 
-      args = [
-        "--name",
-        Project.node_name(state.project),
-        "--cookie",
-        state.cookie,
-        "--no-halt",
-        "-e",
-        "Node.connect(#{this_node})"
-        | path_append_arguments(paths)
-      ]
+      case :init.get_argument(:epmd_module) do
+        {:ok, [[^epmd_module]]} ->
+          :ok
 
-      case Expert.Port.open_elixir(state.project, args: args) do
+        _ ->
+          Application.put_env(:kernel, :epmd_module, Forge.EPMD, persistent: true)
+
+          # Note: this is a private API
+          if :net_kernel.epmd_module() != Forge.EPMD do
+            raise("""
+            you must set the environment variable ELIXIR_ERL_OPTIONS="-epmd_module #{Forge.EPMD}"
+            """)
+          end
+      end
+
+      this_node = to_string(Node.self())
+      dist_port = Forge.EPMD.dist_port()
+
+      args =
+        [
+          "--erl",
+          "-start_epmd false -epmd_module #{Forge.EPMD}",
+          "--cookie",
+          state.cookie,
+          "--no-halt",
+          "-e",
+          """
+          {:ok, _} = Node.start(:"#{Project.node_name(state.project)}", :longnames)
+          #{Forge.NodePortMapper}.register()
+          IO.puts(\"ok\")
+          """
+          | path_append_arguments(paths)
+        ]
+
+      env =
+        [
+          {"EXPERT_PARENT_NODE", this_node},
+          {"EXPERT_PARENT_PORT", to_string(dist_port)}
+        ]
+
+      case Expert.Port.open_elixir(state.project, args: args, env: env) do
         {:error, :no_elixir, message} ->
           GenLSP.error(Expert.get_lsp(), message)
           Expert.terminate("Failed to find an elixir executable, shutting down", 1)
@@ -64,7 +93,7 @@ defmodule Expert.EngineNode do
     end
 
     def on_nodeup(%__MODULE__{} = state, node_name) do
-      if node_name == Project.node_name(state.project) do
+      if String.starts_with?(to_string(node_name), to_string(Project.node_name(state.project))) do
         {pid, _ref} = state.started_by
         Process.monitor(pid)
         GenServer.reply(state.started_by, :ok)
@@ -117,7 +146,6 @@ defmodule Expert.EngineNode do
   use GenServer
 
   def start(project) do
-    :ok = ensure_epmd_started()
     start_net_kernel(project)
 
     node_name = Project.node_name(project)
@@ -134,21 +162,11 @@ defmodule Expert.EngineNode do
 
   defp start_net_kernel(%Project{} = project) do
     manager = Project.manager_node_name(project)
-    :net_kernel.start(manager, %{name_domain: :longnames})
+    Node.start(manager, :longnames)
   end
 
   defp ensure_apps_started(node) do
     :rpc.call(node, Engine, :ensure_apps_started, [])
-  end
-
-  defp ensure_epmd_started do
-    case System.cmd("epmd", ~w(-daemon)) do
-      {"", 0} ->
-        :ok
-
-      _ ->
-        {:error, :epmd_failed}
-    end
   end
 
   if Mix.env() == :test do
@@ -294,7 +312,7 @@ defmodule Expert.EngineNode do
 
   @impl true
   def handle_call({:start, paths}, from, %State{} = state) do
-    :ok = :net_kernel.monitor_nodes(true, node_type: :visible)
+    :ok = :net_kernel.monitor_nodes(true, node_type: :all)
     Process.send_after(self(), :maybe_start_timeout, @start_timeout)
 
     case State.start(state, paths, from) do
@@ -365,7 +383,8 @@ defmodule Expert.EngineNode do
   end
 
   @impl true
-  def handle_info({_port, {:data, _message}}, %State{} = state) do
+  def handle_info({_port, {:data, message}}, %State{} = state) do
+    Logger.debug("Node port message: #{to_string(message)}")
     {:noreply, state}
   end
 

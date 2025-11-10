@@ -42,6 +42,7 @@ defmodule Engine.BuildTest do
     |> Project.workspace_path()
     |> File.rm_rf()
 
+    {:ok, _} = start_supervised(Forge.NodePortMapper)
     {:ok, _} = start_supervised({EngineSupervisor, project})
     {:ok, _, _} = EngineNode.start(project)
     EngineApi.register_listener(project, self(), [:all])
@@ -650,6 +651,7 @@ defmodule Engine.BuildTest do
 
   describe ".exs files" do
     setup do
+      start_supervised!({Forge.NodePortMapper, []})
       start_supervised!(Engine.Dispatch)
       start_supervised!(Engine.ModuleMappings)
       start_supervised!(Build.CaptureServer)

@@ -32,11 +32,27 @@ mix project="all" *args="":
     case {{ project }} in
       all)
         for proj in {{ apps }}; do
-          (cd "apps/$proj" && mix {{args}})
+          case $proj in
+            expert)
+              (cd "apps/$proj" && elixir --erl "-start_epmd false -epmd_module Elixir.Forge.EPMD" -S mix {{args}})
+            ;;
+            engine)
+              (cd "apps/$proj" && elixir --erl "-start_epmd false -epmd_module Elixir.Forge.EPMD" -S mix {{args}})
+            ;;
+            *)
+              (cd "apps/$proj" && mix {{args}})
+            ;;
+          esac
         done
       ;;
+      expert)
+        (cd "apps/expert" && elixir --erl "-start_epmd false -epmd_module Elixir.Forge.EPMD" -S mix {{args}})
+      ;;
+      engine)
+        (cd "apps/engine" && elixir --erl "-start_epmd false -epmd_module Elixir.Forge.EPMD" -S mix {{args}})
+      ;;
       *)
-         (cd "apps/{{ project }}" && mix {{args}})
+        (cd "apps/{{ project }}" && mix {{args}})
       ;;
     esac
 
