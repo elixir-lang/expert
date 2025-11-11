@@ -186,7 +186,7 @@ require('lspconfig').lexical.setup {
 As of neovim `0.11.3`, you can use the built-in lsp config:
 ```lua
 vim.lsp.config('expert', {
-  cmd = { 'expert' },
+  cmd = { 'expert', '--stdio' },
   root_markers = { 'mix.exs', '.git' },
   filetypes = { 'elixir', 'eelixir', 'heex' },
 })
