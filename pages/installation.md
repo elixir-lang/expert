@@ -291,6 +291,13 @@ So, first install the extension and then update your `settings.json` to use Expe
 
 ```json
 {
+  "lsp": {
+    "expert": {
+      "binary": {
+        "arguments": ["--stdio"]
+      }
+    }
+  },
   "languages": {
     "Elixir": {
       "language_servers": [
