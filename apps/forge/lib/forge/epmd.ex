@@ -47,7 +47,7 @@ defmodule Forge.EPMD do
   And in another terminal:
 
       $ EXPERT_PARENT_NODE=expert_parent_foo@macstudio EXPERT_PARENT_PORT=52914 \
-          iex --erl "-start_epmd false -epmd_module Elixir.Forge.EPMD -expert parent_port 52914" --sname expert-project-baz
+          iex --erl "-start_epmd false -epmd_module Elixir.Forge.EPMD" --sname expert-project-baz
       iex> Forge.NodePortMapper.register()
 
   If you try `Node.ping(:expert-project-bar@HOSTNAME)` from the last node, it should work.

@@ -56,6 +56,13 @@ defmodule Expert.EngineNode do
           state.cookie,
           "--no-halt",
           "-e",
+          # We manually start distribution here instead of using --sname/--name
+          # because those options are not really compatible with `-epmd_module`.
+          # Apparently, passing the --name/-sname options causes the Erlang VM
+          # to start distribution right away before the modules in the code path
+          # are loaded, and it will crash because Forge.EPMD doesn't exist yet.
+          # If we start distribution manually after all the code is loaded,
+          # everything works fine.
           """
           {:ok, _} = Node.start(:"#{Project.node_name(state.project)}", :longnames)
           #{Forge.NodePortMapper}.register()
