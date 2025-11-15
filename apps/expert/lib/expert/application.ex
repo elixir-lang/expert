@@ -64,6 +64,8 @@ defmodule Expert.Application do
           System.halt(1)
       end
 
+    ensure_epmd_module!()
+
     children = [
       {Forge.NodePortMapper, []},
       document_store_child_spec(),
@@ -89,5 +91,24 @@ defmodule Expert.Application do
   @doc false
   def document_store_child_spec do
     {Document.Store, derive: [analysis: &Forge.Ast.analyze/1]}
+  end
+
+  def ensure_epmd_module! do
+    epmd_module = to_charlist(Forge.EPMD)
+
+    case :init.get_argument(:epmd_module) do
+      {:ok, [[^epmd_module]]} ->
+        :ok
+
+      _ ->
+        Application.put_env(:kernel, :epmd_module, Forge.EPMD, persistent: true)
+
+        # Note: this is a private API
+        if :net_kernel.epmd_module() != Forge.EPMD do
+          raise("""
+          you must set the environment variable ELIXIR_ERL_OPTIONS="-epmd_module #{Forge.EPMD}"
+          """)
+        end
+    end
   end
 end

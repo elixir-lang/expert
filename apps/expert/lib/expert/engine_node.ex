@@ -28,23 +28,6 @@ defmodule Expert.EngineNode do
     @dialyzer {:nowarn_function, start: 3}
 
     def start(%__MODULE__{} = state, paths, from) do
-      epmd_module = to_charlist(Forge.EPMD)
-
-      case :init.get_argument(:epmd_module) do
-        {:ok, [[^epmd_module]]} ->
-          :ok
-
-        _ ->
-          Application.put_env(:kernel, :epmd_module, Forge.EPMD, persistent: true)
-
-          # Note: this is a private API
-          if :net_kernel.epmd_module() != Forge.EPMD do
-            raise("""
-            you must set the environment variable ELIXIR_ERL_OPTIONS="-epmd_module #{Forge.EPMD}"
-            """)
-          end
-      end
-
       this_node = to_string(Node.self())
       dist_port = Forge.EPMD.dist_port()
 
