@@ -84,6 +84,9 @@ defmodule Expert.Port do
 
         path
     end
+    |> String.trim()
+    |> String.split("\n")
+    |> List.last()
   end
 
   @doc """
