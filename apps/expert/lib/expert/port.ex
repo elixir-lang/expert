@@ -64,26 +64,29 @@ defmodule Expert.Port do
 
     env = [{"SHELL_SESSIONS_DISABLE", "1"}]
 
-    case Path.basename(shell) do
-      # Ideally, it should contain the path to shell (e.g. `/usr/bin/fish`),
-      # but it might contain only the name of the shell (e.g. `fish`).
-      "fish" ->
-        # Fish uses space-separated PATH, so we use the built-in `string join` command
-        # to join the entries with colons and have a standard colon-separated PATH output
-        # as in bash, which is expected by `:os.find_executable/2`.
-        {path, 0} =
-          System.cmd(shell, ["-i", "-l", "-c", "cd #{directory} && string join ':' $PATH"],
-            env: env
-          )
+    path =
+      case Path.basename(shell) do
+        # Ideally, it should contain the path to shell (e.g. `/usr/bin/fish`),
+        # but it might contain only the name of the shell (e.g. `fish`).
+        "fish" ->
+          # Fish uses space-separated PATH, so we use the built-in `string join` command
+          # to join the entries with colons and have a standard colon-separated PATH output
+          # as in bash, which is expected by `:os.find_executable/2`.
+          {path, 0} =
+            System.cmd(shell, ["-i", "-l", "-c", "cd #{directory} && string join ':' $PATH"],
+              env: env
+            )
 
-        path
+          path
 
-      _ ->
-        {path, 0} =
-          System.cmd(shell, ["-i", "-l", "-c", "cd #{directory} && echo $PATH"], env: env)
+        _ ->
+          {path, 0} =
+            System.cmd(shell, ["-i", "-l", "-c", "cd #{directory} && echo $PATH"], env: env)
 
-        path
-    end
+          path
+      end
+
+    path
     |> String.trim()
     |> String.split("\n")
     |> List.last()
