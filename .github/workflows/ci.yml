@@ -186,12 +186,15 @@ jobs:
        run: echo "matrix=$(jq -c . < .github/matrix.json)" >> $GITHUB_OUTPUT
 
   test:
-    runs-on: ubuntu-latest
-    name: Test ${{ matrix.project }} on OTP ${{matrix.otp}} / Elixir ${{matrix.elixir}}
+    runs-on: ${{matrix.os}}
+    name: Test ${{ matrix.project }} on OTP ${{matrix.otp}} / Elixir ${{matrix.elixir}} / ${{matrix.os}}
     needs: prep-matrix
     strategy:
       matrix: ${{ fromJson(needs.prep-matrix.outputs.matrix) }}
     steps:
+      - name: Set git to use original line ending (Windows)
+        if: runner.os == 'Windows'
+        run: git config --global core.autocrlf false
       - name: Checkout code
         uses: actions/checkout@v6
 
