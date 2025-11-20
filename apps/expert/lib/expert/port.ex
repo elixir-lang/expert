@@ -29,7 +29,9 @@ defmodule Expert.Port do
       opts =
         opts
         |> Keyword.put_new_lazy(:cd, fn -> Project.root_path(project) end)
-        |> Keyword.put_new(:env, environment_variables)
+        |> Keyword.update(:env, environment_variables, fn env ->
+          environment_variables ++ env
+        end)
 
       open(project, elixir_executable, opts)
     end
