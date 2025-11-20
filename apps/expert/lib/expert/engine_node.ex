@@ -52,7 +52,7 @@ defmodule Expert.EngineNode do
           IO.puts(\"ok\")
           """
           | path_append_arguments(paths)
-        ]
+        ] |> dbg()
 
       env =
         [
@@ -186,53 +186,9 @@ defmodule Expert.EngineNode do
     # Expert release, and we build it on the fly for the project elixir+opt
     # versions if it was not built yet.
     defp glob_paths(%Project{} = project) do
-      lsp = Expert.get_lsp()
-      project_name = Project.name(project)
-
       case Expert.Port.elixir_executable(project) do
         {:ok, elixir, env} ->
-          GenLSP.info(lsp, "Found elixir for #{project_name} at #{elixir}")
-
-          expert_priv = :code.priv_dir(:expert)
-          packaged_engine_source = Path.join([expert_priv, "engine_source", "apps", "engine"])
-
-          engine_source =
-            "EXPERT_ENGINE_PATH"
-            |> System.get_env(packaged_engine_source)
-            |> Path.expand()
-
-          build_engine_script = Path.join(expert_priv, "build_engine.exs")
-
-          opts =
-            [
-              :stderr_to_stdout,
-              args: [
-                elixir,
-                build_engine_script,
-                "--source-path",
-                engine_source,
-                "--vsn",
-                Expert.vsn()
-              ],
-              env: Expert.Port.ensure_charlists(env),
-              cd: Project.root_path(project)
-            ]
-
-          launcher = Expert.Port.path()
-
-          GenLSP.info(lsp, "Finding or building engine for project #{project_name}")
-
-          with_progress(project, "Building engine for #{project_name}", fn ->
-            fn ->
-              Process.flag(:trap_exit, true)
-
-              {:spawn_executable, launcher}
-              |> Port.open(opts)
-              |> wait_for_engine()
-            end
-            |> Task.async()
-            |> Task.await(:infinity)
-          end)
+          launch_engine_builder(project, elixir, env)
 
         {:error, :no_elixir, message} ->
           GenLSP.error(Expert.get_lsp(), message)
@@ -240,11 +196,75 @@ defmodule Expert.EngineNode do
       end
     end
 
+    defp launch_engine_builder(project, elixir, env) do
+      lsp = Expert.get_lsp()
+
+      project_name = Project.name(project)
+      Logger.info("Found elixir for #{project_name} at #{elixir}")
+      GenLSP.info(lsp, "Found elixir for #{project_name} at #{elixir}")
+
+      expert_priv = :code.priv_dir(:expert)
+      packaged_engine_source = Path.join([expert_priv, "engine_source", "apps", "engine"])
+
+      engine_source =
+        "EXPERT_ENGINE_PATH"
+        |> System.get_env(packaged_engine_source)
+        |> Path.expand()
+
+      build_engine_script = Path.join(expert_priv, "build_engine.exs")
+
+      opts =
+        [
+          :stderr_to_stdout,
+          args: [
+            build_engine_script,
+            "--source-path",
+            engine_source,
+            "--vsn",
+            Expert.vsn()
+          ],
+          env: Expert.Port.ensure_charlists(env),
+          cd: Project.root_path(project)
+        ]
+
+      {launcher, opts} =
+        case :os.type() do
+          {:win32, _} ->
+            {elixir, opts}
+
+          {:unix, _} ->
+            launcher = Expert.Port.path()
+
+            opts =
+              Keyword.update(opts, :args, [elixir], fn old_args ->
+                [elixir | Enum.map(old_args, &to_string/1)]
+              end)
+
+            {launcher, opts}
+        end
+
+      GenLSP.info(lsp, "Finding or building engine for project #{project_name}")
+
+      with_progress(project, "Building engine for #{project_name}", fn ->
+        fn ->
+          Process.flag(:trap_exit, true)
+
+          {:spawn_executable, launcher}
+          |> Port.open(opts)
+          |> wait_for_engine()
+        end
+        |> Task.async()
+        |> Task.await(:infinity)
+      end)
+    end
+
     defp wait_for_engine(port, last_line \\ "") do
       receive do
         {^port, {:data, ~c"engine_path:" ++ engine_path}} ->
           engine_path = engine_path |> to_string() |> String.trim()
           Logger.info("Engine build available at: #{engine_path}")
+
+          Logger.info("ebin paths:\n#{inspect(ebin_paths(engine_path), pretty: true)}")
 
           {:ok, ebin_paths(engine_path)}
 
@@ -374,6 +394,7 @@ defmodule Expert.EngineNode do
 
   @impl true
   def handle_info({_port, {:data, message}}, %State{} = state) do
+    dbg(message)
     Logger.debug("Node port message: #{to_string(message)}")
     {:noreply, state}
   end
