@@ -105,10 +105,15 @@ release-all: (deps "engine") (deps "expert")
     EXPERT_RELEASE_MODE=burrito MIX_ENV={{ env('MIX_ENV', 'prod')}} mix release --overwrite
 
 [doc('Build a plain release without burrito')]
+[unix]
 release-plain: (deps "engine") (deps "expert")
     #!/usr/bin/env bash
     cd apps/expert
     MIX_ENV={{ env('MIX_ENV', 'prod')}} mix release plain --overwrite
+
+[windows]
+release-plain: (deps "engine") (deps "expert")
+    cd apps/expert && export MIX_ENV={{ env('MIX_ENV', 'prod')}} && mix release plain --overwrite
 
 [doc('Compiles .github/matrix.json')]
 compile-ci-matrix:
@@ -128,3 +133,12 @@ clean-engine:
   elixir -e ':filename.basedir(:user_data, "Expert") |> File.rm_rf!() |> IO.inspect()'
 
 default: release-local
+
+[unix]
+start-tcp: release-plain
+  #!/usr/bin/env bash
+  ./apps/expert/_build/{{ env('MIX_ENV', 'prod')}}/rel/plain/bin/plain eval "System.no_halt(true); Application.ensure_all_started(:xp_expert)" --port 9000
+
+[windows]
+start-tcp: release-plain
+  ./apps/expert/_build/{{ env('MIX_ENV', 'prod')}}/rel/plain/bin/plain.bat eval "System.no_halt(true); Application.ensure_all_started(:xp_expert)" --port {{env('EXPERT_PORT', '9000')}}
