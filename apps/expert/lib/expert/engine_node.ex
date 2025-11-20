@@ -195,20 +195,15 @@ defmodule Expert.EngineNode do
     @excluded_apps [:patch, :nimble_parsec]
     @allowed_apps [:engine | Mix.Project.deps_apps()] -- @excluded_apps
 
-    defp app_globs do
-      app_globs = Enum.map(@allowed_apps, fn app_name -> "/**/#{app_name}*/ebin" end)
-      ["/**/priv" | app_globs]
-    end
-
     def glob_paths(_) do
       entries =
-        for entry <- :code.get_path(),
-            entry_string = List.to_string(entry),
-            entry_string != ".",
-            Enum.any?(app_globs(), &PathGlob.match?(entry_string, &1, match_dot: true)) do
-          entry
-        end
-
+        Mix.Project.build_path()
+        |> Path.join("**/ebin")
+        |> Path.wildcard()
+        |> Enum.filter(fn entry ->
+          Enum.any?(@allowed_apps, &String.contains?(entry, to_string(&1)))
+        end)
+      
       {:ok, entries}
     end
   else
