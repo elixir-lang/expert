@@ -48,7 +48,6 @@ defmodule Expert.Port do
             {:error, :no_elixir, "Couldn't find an elixir executable"}
 
           elixir ->
-            dbg(elixir)
             env =
               Enum.map(System.get_env(), fn
                 {"PATH", _path} -> {"PATH", path}
@@ -139,13 +138,10 @@ defmodule Expert.Port do
   end
 
   defp open_port(:win32, executable, opts) do
-    dbg("launching for windows")
-    dbg(opts)
     Port.open({:spawn_executable, executable}, [:stderr_to_stdout | opts])
   end
 
   defp open_port(:unix, executable, opts) do
-    dbg(opts)
     {launcher, opts} = Keyword.pop_lazy(opts, :path, &path/0)
 
     opts =

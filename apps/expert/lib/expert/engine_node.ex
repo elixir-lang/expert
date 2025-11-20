@@ -32,27 +32,27 @@ defmodule Expert.EngineNode do
       dist_port = Forge.EPMD.dist_port()
 
       args =
-        [
-          "--erl",
-          "-start_epmd false -epmd_module #{Forge.EPMD}",
-          "--cookie",
-          state.cookie,
-          "--no-halt",
-          "-e",
-          # We manually start distribution here instead of using --sname/--name
-          # because those options are not really compatible with `-epmd_module`.
-          # Apparently, passing the --name/-sname options causes the Erlang VM
-          # to start distribution right away before the modules in the code path
-          # are loaded, and it will crash because Forge.EPMD doesn't exist yet.
-          # If we start distribution manually after all the code is loaded,
-          # everything works fine.
-          """
-          {:ok, _} = Node.start(:"#{Project.node_name(state.project)}", :longnames)
-          #{Forge.NodePortMapper}.register()
-          IO.puts(\"ok\")
-          """
-          | path_append_arguments(paths)
-        ] |> dbg()
+        path_append_arguments(paths) ++
+          [
+            "--erl",
+            "-start_epmd false -epmd_module #{Forge.EPMD}",
+            "--cookie",
+            state.cookie,
+            "--no-halt",
+            "-e",
+            # We manually start distribution here instead of using --sname/--name
+            # because those options are not really compatible with `-epmd_module`.
+            # Apparently, passing the --name/-sname options causes the Erlang VM
+            # to start distribution right away before the modules in the code path
+            # are loaded, and it will crash because Forge.EPMD doesn't exist yet.
+            # If we start distribution manually after all the code is loaded,
+            # everything works fine.
+            """
+            {:ok, _} = Node.start(:"#{Project.node_name(state.project)}", :longnames)
+            #{Forge.NodePortMapper}.register()
+            IO.puts(\"ok\")
+            """
+          ]
 
       env =
         [
@@ -173,7 +173,7 @@ defmodule Expert.EngineNode do
         |> Enum.filter(fn entry ->
           Enum.any?(@allowed_apps, &String.contains?(entry, to_string(&1)))
         end)
-      
+
       {:ok, entries}
     end
   else
