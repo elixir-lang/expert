@@ -60,7 +60,7 @@ defmodule Expert.EngineNode do
           end
           """
           | path_append_arguments(paths)
-        ] |> dbg()
+        ]
 
       env =
         [
@@ -203,7 +203,7 @@ defmodule Expert.EngineNode do
         |> Enum.filter(fn entry ->
           Enum.any?(@allowed_apps, &String.contains?(entry, to_string(&1)))
         end)
-      
+
       {:ok, entries}
     end
   else

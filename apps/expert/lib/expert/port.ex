@@ -50,7 +50,6 @@ defmodule Expert.Port do
             {:error, :no_elixir, "Couldn't find an elixir executable"}
 
           elixir ->
-            dbg(elixir)
             env =
               Enum.map(System.get_env(), fn
                 {"PATH", _path} -> {"PATH", path}
