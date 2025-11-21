@@ -42,23 +42,8 @@ defmodule Expert.EngineNode do
           state.cookie,
           "--no-halt",
           "-e",
-          # We manually start distribution here instead of using --sname/--name
-          # because those options are not really compatible with `-epmd_module`.
-          # Apparently, passing the --name/-sname options causes the Erlang VM
-          # to start distribution right away before the modules in the code path
-          # are loaded, and it will crash because Forge.EPMD doesn't exist yet.
-          # If we start distribution manually after all the code is loaded,
-          # everything works fine.
-          """
-          node_start = Node.start(:"#{Project.node_name(state.project)}", :longnames)
-          case node_start do
-            {:ok, _} ->
-              #{Forge.NodePortMapper}.register()
-              IO.puts(\"ok\")
-            {:error, reason} ->
-              IO.puts(\"error starting node:\n  \#{inspect(reason)}\")
-          end
-          """
+          "System.argv() |> hd() |> Base.decode64!() |> Code.eval_string()",
+          project_node_eval_string(state.project)
           | path_append_arguments(paths)
         ]
 
@@ -78,6 +63,36 @@ defmodule Expert.EngineNode do
           state = %{state | port: port, started_by: from}
           {:ok, state}
       end
+    end
+
+    defp project_node_eval_string(project) do
+      # We pass the child node code as --eval argument. Windows handles
+      # escaped quotes and newlines differently from Unix, so to avoid
+      # those kind of issues, we encode the string in base 64 and pass
+      # as positional argument. Then, we use a simple --eval that decodes
+      # and evaluates the string.
+      project_node = Project.node_name(project)
+
+      code =
+        quote do
+          node = unquote(project_node)
+
+          # We start distribution here, rather than on node boot, so that
+          # -pa takes effect and Forge.EPMD is available
+          node_start = Node.start(node, :longnames)
+
+          case node_start do
+            {:ok, _} ->
+              Forge.NodePortMapper.register()
+              IO.puts("ok")
+            {:error, reason} ->
+              IO.puts("error starting node:\n \#{inspect(reason)}")
+          end
+        end
+
+      code
+      |> Macro.to_string()
+      |> Base.encode64()
     end
 
     def stop(%__MODULE__{} = state, from, stop_timeout) do
