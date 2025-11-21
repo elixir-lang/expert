@@ -76,10 +76,11 @@ appropriate binary name.
 2. [Vanilla Emacs with eglot](#vanilla-emacs-with-eglot)
 3. [Visual Studio Code](#visual-studio-code)
 4. [neovim](#neovim)
-7. [Vim + Vim-LSP](#vim--vim-lsp)
-8. [Helix](#helix)
-9. [Sublime Text](#sublime-text)
-10. [Zed](#zed)
+5. [Vim + Vim-LSP](#vim--vim-lsp)
+6. [Helix](#helix)
+7. [Sublime Text](#sublime-text)
+8. [Zed](#zed)
+9. [Cursor](#cursor)
 
 ### Vanilla Emacs with lsp-mode
 The emacs instructions assume you're using `use-package`, which you
@@ -313,3 +314,29 @@ So, first install the extension and then update your `settings.json` to use Expe
 ```
 
 The Elixir extension will [download the latest Expert release](https://github.com/zed-extensions/elixir/blob/96fd0581d84cfac857a23c1351e2405836de39fd/src/language_servers/expert.rs#L65) and keep it updated. So, you don't need to manually download and update the expert release yourself.
+
+### Cursor
+
+Click on the extensions button on the sidebar, then search for
+`lexical`, then click `install`.
+
+This is a stop gap until we create a dedicated Expert extension, so you'll need to configure it to
+use the Expert executable instead.
+
+First, create a wrapper script in your burrito_out directory to launch Expert with the `--stdio` flag:
+```bash
+cd /my/home/projects/expert/apps/expert/burrito_out
+cat > start_lexical.sh << 'EOF'
+#!/bin/bash
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+exec "$DIR/expert_linux_amd64" --stdio
+EOF
+chmod +x start_lexical.sh
+```
+
+Replace `expert_linux_amd64` with the appropriate binary name for your system.
+
+Then, go to `Settings -> Extensions -> Lexical` and enter the folder path in the `Server: Release path override` section:
+```
+/my/home/projects/expert/apps/expert/burrito_out
+```
