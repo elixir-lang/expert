@@ -48,7 +48,7 @@ defmodule Expert.Port do
           |> List.last()
 
         case :os.find_executable(~c"elixir", to_charlist(path)) do
-          nil ->
+          false ->
             {:error, :no_elixir, "Couldn't find an elixir executable"}
 
           elixir ->
