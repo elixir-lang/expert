@@ -47,10 +47,12 @@ defmodule Expert.EngineNode do
             # are loaded, and it will crash because Forge.EPMD doesn't exist yet.
             # If we start distribution manually after all the code is loaded,
             # everything works fine.
+            # We also need to pass the command as a single line with ;\, otherwise
+            # this will only run the first line on Windows.
             """
-            {:ok, _} = Node.start(:"#{Project.node_name(state.project)}", :longnames)
-            #{Forge.NodePortMapper}.register()
-            IO.puts(\"ok\")
+            {:ok, _} = Node.start(:"#{Project.node_name(state.project)}", :longnames);\
+            #{Forge.NodePortMapper}.register();\
+            IO.puts(\"ok\");\
             """
           ]
 
@@ -389,7 +391,6 @@ defmodule Expert.EngineNode do
 
   @impl true
   def handle_info({_port, {:data, message}}, %State{} = state) do
-    dbg(message)
     Logger.debug("Node port message: #{to_string(message)}")
     {:noreply, state}
   end
