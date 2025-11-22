@@ -245,6 +245,7 @@ In the case that the file doesn't exist yet, you can create a new file at this l
 ```toml
 [language-server.expert]
 command = "/my/home/projects/expert/apps/expert/burrito_out/expert_linux_amd64"
+args = ["--stdio"]
 
 [[language]]
 name = "elixir"
