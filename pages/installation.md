@@ -74,7 +74,7 @@ appropriate binary name.
 ## Editor-specific setup
 1. [Vanilla Emacs with lsp-mode](#vanilla-emacs-with-lsp-mode)
 2. [Vanilla Emacs with eglot](#vanilla-emacs-with-eglot)
-3. [Visual Studio Code](#visual-studio-code)
+3. [Visual Studio Code and Cursor](#visual-studio-code-and-cursor)
 4. [neovim](#neovim)
 7. [Vim + Vim-LSP](#vim--vim-lsp)
 8. [Helix](#helix)
@@ -149,17 +149,23 @@ for Eglot:
                      '("expert_linux_amd64" "start_lexical.sh"))))))
 ```
 
-### Visual Studio Code
+### Visual Studio Code and Cursor
 
-Click on the extensions button on the sidebar, then search for
-`lexical`, then click `install`.
+As Cursor is VS Code–compatible, we can use the exact same setup.
 
-This is a stop gap until we create a dedicated Expert extension, so you'll need to configure it to
-use the Expert executable instead. 
+Click on the extensions button on the sidebar to open the panel, then search for `lexical` and click on `install`.
 
-To change to a local executable, go to `Settings -> Extensions -> Lexical` and
-type `/my/home/projects/expert/apps/expert/burrito_out/expert_linux_amd64` into the text box in
-the `Server: Release path override` section.
+This is a stop gap until we create a dedicated Expert extension, so you'll need to configure it to use the Expert executable instead. 
+
+The Lexical VS Code extension doesn't support passing arguments to the server, so you'll need to create a quick bash script in order to start Expert with the `--stdio` flag. Under your workspace, create the script `scripts/start_expert.sh`:
+
+```bash
+#!/bin/sh
+
+/my/home/projects/expert/apps/expert/burrito_out/expert_linux_amd64 --stdio
+```
+
+Then, to change to a local executable, go to `Settings -> Extensions -> Lexical` (or, from the Lexical extension page, click on `Manage -> Settings`) and type `./scripts/start_expert.sh` into the text box in the `Server: Release path override` section. It is necessary to relaunch your editor after you edited the settings.
 
 ### Neovim
 
