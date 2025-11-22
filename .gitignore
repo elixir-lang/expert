@@ -37,3 +37,9 @@ apps/forge/src/future_elixir_parser.erl
 
 .notes/
 result
+
+# Ignore vscode
+.vscode/
+
+# Ignore asdf
+.tool-versions
