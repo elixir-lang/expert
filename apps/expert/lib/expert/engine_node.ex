@@ -32,27 +32,17 @@ defmodule Expert.EngineNode do
       dist_port = Forge.EPMD.dist_port()
 
       args =
-        [
-          "--erl",
-          "-start_epmd false -epmd_module #{Forge.EPMD}",
-          "--cookie",
-          state.cookie,
-          "--no-halt",
-          "-e",
-          # We manually start distribution here instead of using --sname/--name
-          # because those options are not really compatible with `-epmd_module`.
-          # Apparently, passing the --name/-sname options causes the Erlang VM
-          # to start distribution right away before the modules in the code path
-          # are loaded, and it will crash because Forge.EPMD doesn't exist yet.
-          # If we start distribution manually after all the code is loaded,
-          # everything works fine.
-          """
-          {:ok, _} = Node.start(:"#{Project.node_name(state.project)}", :longnames)
-          #{Forge.NodePortMapper}.register()
-          IO.puts(\"ok\")
-          """
-          | path_append_arguments(paths)
-        ]
+        path_append_arguments(paths) ++
+          [
+            "--erl",
+            "-start_epmd false -epmd_module #{Forge.EPMD}",
+            "--cookie",
+            state.cookie,
+            "--no-halt",
+            "-e",
+            "System.argv() |> hd() |> Base.decode64!() |> Code.eval_string()",
+            project_node_eval_string(state.project)
+          ]
 
       env =
         [
@@ -70,6 +60,29 @@ defmodule Expert.EngineNode do
           state = %{state | port: port, started_by: from}
           {:ok, state}
       end
+    end
+
+    defp project_node_eval_string(project) do
+      # We pass the child node code as --eval argument. Windows handles
+      # escaped quotes and newlines differently from Unix, so to avoid
+      # those kind of issues, we encode the string in base 64 and pass
+      # as positional argument. Then, we use a simple --eval that decodes
+      # and evaluates the string.
+      project_node = Project.node_name(project)
+
+      code =
+        quote do
+          node = unquote(project_node)
+
+          # We start distribution here, rather than on node boot, so that
+          # -pa takes effect and Forge.EPMD is available
+          {:ok, _} = Node.start(node, :longnames)
+          Forge.NodePortMapper.register()
+        end
+
+      code
+      |> Macro.to_string()
+      |> Base.encode64()
     end
 
     def stop(%__MODULE__{} = state, from, stop_timeout) do
@@ -165,19 +178,14 @@ defmodule Expert.EngineNode do
     @excluded_apps [:patch, :nimble_parsec]
     @allowed_apps [:engine | Mix.Project.deps_apps()] -- @excluded_apps
 
-    defp app_globs do
-      app_globs = Enum.map(@allowed_apps, fn app_name -> "/**/#{app_name}*/ebin" end)
-      ["/**/priv" | app_globs]
-    end
-
     def glob_paths(_) do
       entries =
-        for entry <- :code.get_path(),
-            entry_string = List.to_string(entry),
-            entry_string != ".",
-            Enum.any?(app_globs(), &PathGlob.match?(entry_string, &1, match_dot: true)) do
-          entry
-        end
+        Mix.Project.build_path()
+        |> Path.join("**/ebin")
+        |> Path.wildcard()
+        |> Enum.filter(fn entry ->
+          Enum.any?(@allowed_apps, &String.contains?(entry, to_string(&1)))
+        end)
 
       {:ok, entries}
     end
@@ -186,53 +194,9 @@ defmodule Expert.EngineNode do
     # Expert release, and we build it on the fly for the project elixir+opt
     # versions if it was not built yet.
     defp glob_paths(%Project{} = project) do
-      lsp = Expert.get_lsp()
-      project_name = Project.name(project)
-
       case Expert.Port.elixir_executable(project) do
         {:ok, elixir, env} ->
-          GenLSP.info(lsp, "Found elixir for #{project_name} at #{elixir}")
-
-          expert_priv = :code.priv_dir(:expert)
-          packaged_engine_source = Path.join([expert_priv, "engine_source", "apps", "engine"])
-
-          engine_source =
-            "EXPERT_ENGINE_PATH"
-            |> System.get_env(packaged_engine_source)
-            |> Path.expand()
-
-          build_engine_script = Path.join(expert_priv, "build_engine.exs")
-
-          opts =
-            [
-              :stderr_to_stdout,
-              args: [
-                elixir,
-                build_engine_script,
-                "--source-path",
-                engine_source,
-                "--vsn",
-                Expert.vsn()
-              ],
-              env: Expert.Port.ensure_charlists(env),
-              cd: Project.root_path(project)
-            ]
-
-          launcher = Expert.Port.path()
-
-          GenLSP.info(lsp, "Finding or building engine for project #{project_name}")
-
-          with_progress(project, "Building engine for #{project_name}", fn ->
-            fn ->
-              Process.flag(:trap_exit, true)
-
-              {:spawn_executable, launcher}
-              |> Port.open(opts)
-              |> wait_for_engine()
-            end
-            |> Task.async()
-            |> Task.await(:infinity)
-          end)
+          launch_engine_builder(project, elixir, env)
 
         {:error, :no_elixir, message} ->
           GenLSP.error(Expert.get_lsp(), message)
@@ -240,11 +204,75 @@ defmodule Expert.EngineNode do
       end
     end
 
+    defp launch_engine_builder(project, elixir, env) do
+      lsp = Expert.get_lsp()
+
+      project_name = Project.name(project)
+      Logger.info("Found elixir for #{project_name} at #{elixir}")
+      GenLSP.info(lsp, "Found elixir for #{project_name} at #{elixir}")
+
+      expert_priv = :code.priv_dir(:expert)
+      packaged_engine_source = Path.join([expert_priv, "engine_source", "apps", "engine"])
+
+      engine_source =
+        "EXPERT_ENGINE_PATH"
+        |> System.get_env(packaged_engine_source)
+        |> Path.expand()
+
+      build_engine_script = Path.join(expert_priv, "build_engine.exs")
+
+      opts =
+        [
+          :stderr_to_stdout,
+          args: [
+            build_engine_script,
+            "--source-path",
+            engine_source,
+            "--vsn",
+            Expert.vsn()
+          ],
+          env: Expert.Port.ensure_charlists(env),
+          cd: Project.root_path(project)
+        ]
+
+      {launcher, opts} =
+        case :os.type() do
+          {:win32, _} ->
+            {elixir, opts}
+
+          {:unix, _} ->
+            launcher = Expert.Port.path()
+
+            opts =
+              Keyword.update(opts, :args, [elixir], fn old_args ->
+                [elixir | Enum.map(old_args, &to_string/1)]
+              end)
+
+            {launcher, opts}
+        end
+
+      GenLSP.info(lsp, "Finding or building engine for project #{project_name}")
+
+      with_progress(project, "Building engine for #{project_name}", fn ->
+        fn ->
+          Process.flag(:trap_exit, true)
+
+          {:spawn_executable, launcher}
+          |> Port.open(opts)
+          |> wait_for_engine()
+        end
+        |> Task.async()
+        |> Task.await(:infinity)
+      end)
+    end
+
     defp wait_for_engine(port, last_line \\ "") do
       receive do
         {^port, {:data, ~c"engine_path:" ++ engine_path}} ->
           engine_path = engine_path |> to_string() |> String.trim()
           Logger.info("Engine build available at: #{engine_path}")
+
+          Logger.info("ebin paths:\n#{inspect(ebin_paths(engine_path), pretty: true)}")
 
           {:ok, ebin_paths(engine_path)}
 
