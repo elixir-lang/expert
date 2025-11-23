@@ -524,9 +524,11 @@ defmodule Forge.Ast do
   end
 
   defp do_surround_context_again(fragment, {line, column} = position) do
-    case Code.Fragment.surround_context(fragment, {line, column - 1}) do
+    prev_position = {line, column - 1}
+
+    case Code.Fragment.surround_context(fragment, prev_position) do
       :none ->
-        {:error, :surround_context}
+        maybe_heex_component_context(fragment, prev_position)
 
       context ->
         if context.end == position do
@@ -534,6 +536,28 @@ defmodule Forge.Ast do
         else
           {:error, :surround_context}
         end
+    end
+  end
+
+  defp maybe_heex_component_context(fragment, {line, column}) do
+    lines = String.split(fragment, "\n")
+    line_text = Enum.at(lines, line - 1, "")
+
+    {prefix, suffix} = String.split_at(line_text, column)
+
+    with true <- Regex.match?(~r/<\/?\./, prefix),
+         [before_cursor] <- Regex.run(~r/<\/?\.(\w*)$/, prefix, capture: :all_but_first),
+         [after_cursor] <- Regex.run(~r/^(\w*)/, suffix, capture: :all_but_first),
+         component_name = before_cursor <> after_cursor,
+         true <- component_name != "" do
+      {:ok,
+       %{
+         context: {:local_call, String.to_charlist(component_name)},
+         begin: {line, column - String.length(before_cursor) + 1},
+         end: {line, column + String.length(after_cursor) + 1}
+       }}
+    else
+      _ -> {:error, :surround_context}
     end
   end
 

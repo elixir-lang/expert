@@ -23,4 +23,8 @@ defmodule MyDefinition do
       IO.puts("Hello, world!")
     end
   end
+
+  def component_greet(assigns) do
+    ~s(<div>Hello, #{assigns.name}!</div>)
+  end
 end

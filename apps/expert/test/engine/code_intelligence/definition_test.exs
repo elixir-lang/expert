@@ -435,6 +435,218 @@ defmodule Expert.Engine.CodeIntelligence.DefinitionTest do
     end
   end
 
+  describe "definition/2 when using HEEX components" do
+    setup [:with_referenced_file]
+
+    test "find local function component definition pre", %{
+      project: project,
+      subject_uri: subject_uri
+    } do
+      subject_module = ~q[
+        defmodule MyLiveView do
+          def button(assigns) do
+            ~H"""
+            <button><%= @label %></button>
+            """
+          end
+
+          def render(assigns) do
+            ~H"""
+            <.|button label="Click me" />
+            """
+          end
+        end
+      ]
+
+      {:ok, referenced_uri, definition_line} = definition(project, subject_module, subject_uri)
+
+      assert definition_line =~ ~S[def «button(assigns)» do]
+      assert referenced_uri == subject_uri
+    end
+
+    test "find local function component definition", %{
+      project: project,
+      subject_uri: subject_uri
+    } do
+      subject_module = ~q[
+        defmodule MyLiveView do
+          def button(assigns) do
+            ~H"""
+            <button><%= @label %></button>
+            """
+          end
+
+          def render(assigns) do
+            ~H"""
+            <.butto|n label="Click me" />
+            """
+          end
+        end
+      ]
+
+      {:ok, referenced_uri, definition_line} = definition(project, subject_module, subject_uri)
+
+      assert definition_line =~ ~S[def «button(assigns)» do]
+      assert referenced_uri == subject_uri
+    end
+
+    test "find local function component definition post", %{
+      project: project,
+      subject_uri: subject_uri
+    } do
+      subject_module = ~q[
+        defmodule MyLiveView do
+          def button(assigns) do
+            ~H"""
+            <button><%= @label %></button>
+            """
+          end
+
+          def render(assigns) do
+            ~H"""
+            <.button| label="Click me" />
+            """
+          end
+        end
+      ]
+
+      {:ok, referenced_uri, definition_line} = definition(project, subject_module, subject_uri)
+
+      assert definition_line =~ ~S[def «button(assigns)» do]
+      assert referenced_uri == subject_uri
+    end
+
+    test "find imported function component definition", %{
+      project: project,
+      uri: referenced_uri
+    } do
+      subject_module = ~q[
+        defmodule MyLiveView do
+          import MyDefinition
+
+          def render(assigns) do
+            ~H"""
+            <.component_gree|t name="World" />
+            """
+          end
+        end
+      ]
+
+      assert {:ok, ^referenced_uri, definition_line} =
+               definition(project, subject_module, referenced_uri)
+
+      assert definition_line == ~S[  def «component_greet(assigns)» do]
+    end
+
+    test "find aliased module component definition", %{
+      project: project,
+      uri: referenced_uri
+    } do
+      subject_module = ~q[
+        defmodule MyLiveView do
+          alias MyDefinition
+
+          def render(assigns) do
+            ~H"""
+            <MyDefinition.component_gree|t name="World" />
+            """
+          end
+        end
+      ]
+
+      assert {:ok, ^referenced_uri, definition_line} =
+               definition(project, subject_module, referenced_uri)
+
+      assert definition_line == ~S[  def «component_greet(assigns)» do]
+    end
+
+    test "find component in multiline call", %{
+      project: project,
+      subject_uri: subject_uri
+    } do
+      subject_module = ~q[
+        defmodule MyLiveView do
+          def card(assigns) do
+            ~H"""
+            <div class="card">
+              <%= render_slot(@inner_block) %>
+            </div>
+            """
+          end
+
+          def render(assigns) do
+            ~H"""
+            <div>
+              <.car|d>
+                Content here
+              </.card>
+            </div>
+            """
+          end
+        end
+      ]
+
+      {:ok, referenced_uri, definition_line} = definition(project, subject_module, subject_uri)
+
+      assert definition_line =~ ~S[def «card(assigns)» do]
+      assert referenced_uri == subject_uri
+    end
+
+    test "find component with attributes", %{
+      project: project,
+      subject_uri: subject_uri
+    } do
+      subject_module = ~q[
+        defmodule MyLiveView do
+          def button(assigns) do
+            ~H"""
+            <button><%= @label %></button>
+            """
+          end
+
+          def render(assigns) do
+            ~H"""
+            <.butto|n class="primary" label="Click" phx-click="save" />
+            """
+          end
+        end
+      ]
+
+      {:ok, referenced_uri, definition_line} = definition(project, subject_module, subject_uri)
+
+      assert definition_line =~ ~S[def «button(assigns)» do]
+      assert referenced_uri == subject_uri
+    end
+
+    test "find component in closing tag", %{
+      project: project,
+      subject_uri: subject_uri
+    } do
+      subject_module = ~q[
+        defmodule MyLiveView do
+          def card(assigns) do
+            ~H"""
+            <div class="card"><%= render_slot(@inner_block) %></div>
+            """
+          end
+
+          def render(assigns) do
+            ~H"""
+            <.card>
+              Content
+            </.car|d>
+            """
+          end
+        end
+      ]
+
+      {:ok, referenced_uri, definition_line} = definition(project, subject_module, subject_uri)
+
+      assert definition_line =~ ~S[def «card(assigns)» do]
+      assert referenced_uri == subject_uri
+    end
+  end
+
   describe "edge cases" do
     setup [:with_referenced_file]
 

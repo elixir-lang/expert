@@ -418,6 +418,10 @@ defmodule Engine.CodeIntelligence.Entity do
     arity
   end
 
+  # HEEX templates
+  # return arity 1 assuming component function call
+  defp arity_at_position([{:sigil_H, _, _} | _], _position), do: 1
+
   # Calls not inside of a pipe:
   # MyModule.some_function(1, 2)
   # some_function.(1, 2)
