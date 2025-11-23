@@ -140,6 +140,23 @@ defmodule Expert.Engine.CodeIntelligence.DefinitionTest do
       assert definition_line == ~S[  defmacro «print_hello» do]
     end
 
+    test "find the guard definition", %{project: project, uri: referenced_uri} do
+      subject_module = ~q[
+        defmodule UsesRemoteGuard do
+          require MyDefinition
+
+          def adult?(age) when MyDefinition.is_ad|ult(age) do
+            true
+          end
+        end
+      ]
+
+      assert {:ok, ^referenced_uri, definition_line} =
+               definition(project, subject_module, referenced_uri)
+
+      assert definition_line == ~S[  defguard is_adult(age) «when» age >= 18]
+    end
+
     test "find the right arity function definition", %{
       project: project,
       uri: referenced_uri
@@ -197,6 +214,24 @@ defmodule Expert.Engine.CodeIntelligence.DefinitionTest do
                definition(project, subject_module, referenced_uri)
 
       assert definition_line == ~S[  defmacro «print_hello» do]
+    end
+
+    test "find the definition of a remote guard call",
+         %{project: project, uri: referenced_uri} do
+      subject_module = ~q[
+        defmodule UsesRemoteGuard do
+          import MyDefinition
+
+          def adult?(age) when is_ad|ult(age) do
+            true
+          end
+        end
+      ]
+
+      assert {:ok, ^referenced_uri, definition_line} =
+               definition(project, subject_module, referenced_uri)
+
+      assert definition_line == ~S[  defguard is_adult(age) «when» age >= 18]
     end
   end
 
@@ -287,6 +322,23 @@ defmodule Expert.Engine.CodeIntelligence.DefinitionTest do
       {:ok, referenced_uri, definition_line} = definition(project, subject_module, subject_uri)
 
       assert definition_line == ~S[  def «greet» do]
+      assert referenced_uri =~ "navigations/lib/my_module.ex"
+    end
+
+    test "find the guard definition", %{project: project, subject_uri: subject_uri} do
+      subject_module = ~q[
+        defmodule UsesOwnGuard do
+          defguard is_adult(n) when n > 18
+
+          def adult?(age) when is_ad|ult(age) do
+            true
+          end
+        end
+      ]
+
+      {:ok, referenced_uri, definition_line} = definition(project, subject_module, subject_uri)
+
+      assert definition_line == ~S[  defguard is_adult(n) «when» n > 18]
       assert referenced_uri =~ "navigations/lib/my_module.ex"
     end
 

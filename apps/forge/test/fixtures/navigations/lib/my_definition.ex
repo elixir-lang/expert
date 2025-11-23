@@ -3,6 +3,8 @@ defmodule MyDefinition do
 
   defstruct [:field, another_field: nil]
 
+  defguard is_adult(age) when age >= 18
+
   defmacro __using__(_opts) do
     quote do
       import MyDefinition
