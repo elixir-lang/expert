@@ -178,7 +178,7 @@ defmodule Expert.Engine.CodeIntelligence.DefinitionTest do
       assert {:ok, ^referenced_uri, definition_line} =
                definition(project, subject_module, referenced_uri)
 
-      assert definition_line == ~S[  def «greet(name)» do]
+      assert definition_line == ~S[  def «greet»(name) do]
     end
 
     test "find the definition of a remote macro call",
@@ -479,6 +479,101 @@ defmodule Expert.Engine.CodeIntelligence.DefinitionTest do
     end
   end
 
+  describe "definition/2 within LiveView's ~H sigil" do
+    setup [:with_referenced_file]
+
+    test "find the definition when full module specified", %{
+      project: project,
+      uri: uri,
+      subject_uri: subject_uri
+    } do
+      subject_module = ~q[
+        defmodule MyLiveView do
+          def render(assigns) do
+            ~H"""
+            <MyDefinition.but|ton navigate="/home">Home</MyDefinition.button>
+            """
+          end
+        end
+      ]
+
+      result = definition(project, subject_module, [uri, subject_uri])
+      assert {:ok, file, definition} = result
+
+      assert file == uri
+      assert definition == "  def «button»(_assigns) do"
+    end
+
+    test "find the definition when shorthand notation for function from same module", %{
+      project: project,
+      uri: uri,
+      subject_uri: subject_uri
+    } do
+      subject_module = ~q[
+        defmodule MyLiveView do
+          def render(assigns) do
+            ~H"""
+            <.but|ton navigate="/home">Home</.button>
+            """
+          end
+
+          def button(_assigns), do: nil
+        end
+      ]
+
+      result = definition(project, subject_module, [uri, subject_uri])
+      assert {:ok, file, fragment} = result
+      assert file == subject_uri
+      assert fragment == "  def «button»(_assigns), do: nil"
+    end
+
+    test "find the definition when shorthand notation used and imported function", %{
+      project: project,
+      uri: uri,
+      subject_uri: subject_uri
+    } do
+      subject_module = ~q[
+        defmodule MyLiveView do
+          import MyDefinition
+
+          def render(assigns) do
+            ~H"""
+            <.but|ton navigate="/home">Home</.button>
+            """
+          end
+        end
+      ]
+
+      result = definition(project, subject_module, [uri, subject_uri])
+      assert {:ok, file, fragment} = result
+      assert file == uri
+      assert fragment == "  def «button»(_assigns) do"
+    end
+
+    test "find the definition when shorthand notation used on closing tag", %{
+      project: project,
+      uri: uri,
+      subject_uri: subject_uri
+    } do
+      subject_module = ~q[
+        defmodule MyLiveView do
+          import MyDefinition
+
+          def render(assigns) do
+            ~H"""
+            <.button navigate="/home">Home</.but|ton>
+            """
+          end
+        end
+      ]
+
+      result = definition(project, subject_module, [uri, subject_uri])
+      assert {:ok, file, fragment} = result
+      assert file == uri
+      assert fragment == "  def «button»(_assigns) do"
+    end
+  end
+
   describe "edge cases" do
     setup [:with_referenced_file]
 
@@ -500,10 +595,15 @@ defmodule Expert.Engine.CodeIntelligence.DefinitionTest do
          :ok <- index(project, referenced_uri),
          {:ok, location} <-
            EngineApi.definition(project, document, position) do
-      if is_list(location) do
-        {:ok, Enum.map(location, &{&1.document.uri, decorate(&1.document, &1.range)})}
-      else
-        {:ok, location.document.uri, decorate(location.document, location.range)}
+      cond do
+        is_list(location) ->
+          {:ok, Enum.map(location, &{&1.document.uri, decorate(&1.document, &1.range)})}
+
+        location == nil ->
+          {:ok, nil}
+
+        true ->
+          {:ok, location.document.uri, decorate(location.document, location.range)}
       end
     end
   end

@@ -30,7 +30,10 @@ defmodule Engine.CodeIntelligence.Entity do
   """
   @spec resolve(Analysis.t(), Position.t()) :: {:ok, resolved, Range.t()} | {:error, term()}
   def resolve(%Analysis{} = analysis, %Position{} = position) do
-    analysis = Ast.reanalyze_to(analysis, position)
+    analysis =
+      analysis
+      |> Ast.reanalyze_to(position)
+      |> Engine.CodeIntelligence.HeexNormalizer.call(position)
 
     with :ok <- check_commented(analysis, position),
          {:ok, surround_context} <- Ast.surround_context(analysis, position),
@@ -39,9 +42,17 @@ defmodule Engine.CodeIntelligence.Entity do
       Logger.info("Resolved entity: #{inspect(resolved)}")
       {:ok, resolved, to_range(analysis.document, begin_pos, end_pos)}
     else
-      :error -> {:error, :not_found}
-      {:error, :surround_context} -> maybe_local_capture_func(analysis, position)
-      {:error, _} = error -> error
+      :error ->
+        {:error, :not_found}
+
+      {:error, :surround_context} ->
+        case maybe_local_capture_func(analysis, position) do
+          {:ok, _, _} = result -> result
+          _ -> {:error, :not_found}
+        end
+
+      {:error, _} = error ->
+        error
     end
   end
 
