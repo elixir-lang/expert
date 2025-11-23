@@ -346,6 +346,10 @@ defmodule Engine.CodeIntelligence.Entity do
     String.upcase(first_char) == first_char
   end
 
+  defp expand_alias({:var, ~c"__MODULE__"}, analysis, %Position{} = position) do
+    Engine.Analyzer.current_module(analysis, position)
+  end
+
   defp expand_alias({:alias, {:local_or_var, prefix}, charlist}, analysis, %Position{} = position) do
     expand_alias(prefix ++ [?.] ++ charlist, analysis, position)
   end
