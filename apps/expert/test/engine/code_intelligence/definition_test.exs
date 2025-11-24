@@ -647,6 +647,482 @@ defmodule Expert.Engine.CodeIntelligence.DefinitionTest do
     end
   end
 
+  describe "definition/2 with multi-alias syntax" do
+    setup [:with_referenced_file]
+
+    test "find definition when cursor on module in simple multi-alias", %{
+      project: project,
+      uri: referenced_uri
+    } do
+      subject_module = ~q[
+        defmodule UsesMultiAlias do
+          alias Foo.{Bar, Ba|z}
+
+          def test do
+            :ok
+          end
+        end
+      ]
+
+      # Create a fixture module Foo.Baz for this test
+      baz_uri =
+        project
+        |> file_path(Path.join("lib", "foo_baz.ex"))
+        |> Document.Path.ensure_uri()
+
+      baz_content = """
+      defmodule Foo.Baz do
+        def hello, do: :world
+      end
+      """
+
+      {:ok, _} = Document.Store.open_temporary(baz_uri, baz_content, 1)
+
+      on_exit(fn ->
+        :ok = Document.Store.close(baz_uri)
+      end)
+
+      assert {:ok, ^baz_uri, definition_line} =
+               definition(project, subject_module, [baz_uri, referenced_uri])
+
+      assert definition_line == ~S[defmodule «Foo.Baz» do]
+    end
+
+    test "find definition when cursor on first module in multi-alias", %{
+      project: project,
+      uri: referenced_uri
+    } do
+      subject_module = ~q[
+        defmodule UsesMultiAlias do
+          alias Foo.{B|ar, Baz}
+
+          def test do
+            :ok
+          end
+        end
+      ]
+
+      # Create a fixture module Foo.Bar for this test
+      bar_uri =
+        project
+        |> file_path(Path.join("lib", "foo_bar.ex"))
+        |> Document.Path.ensure_uri()
+
+      bar_content = """
+      defmodule Foo.Bar do
+        def hello, do: :world
+      end
+      """
+
+      {:ok, _} = Document.Store.open_temporary(bar_uri, bar_content, 1)
+
+      on_exit(fn ->
+        :ok = Document.Store.close(bar_uri)
+      end)
+
+      assert {:ok, ^bar_uri, definition_line} =
+               definition(project, subject_module, [bar_uri, referenced_uri])
+
+      assert definition_line == ~S[defmodule «Foo.Bar» do]
+    end
+
+    test "find function definition through multi-alias", %{
+      project: project,
+      uri: referenced_uri
+    } do
+      bar_uri =
+        project
+        |> file_path(Path.join("lib", "foo_bar.ex"))
+        |> Document.Path.ensure_uri()
+
+      bar_content = """
+      defmodule Foo.Bar do
+        def hello(name) do
+          "Hello, \#{name}!"
+        end
+      end
+      """
+
+      {:ok, _} = Document.Store.open_temporary(bar_uri, bar_content, 1)
+
+      on_exit(fn ->
+        :ok = Document.Store.close(bar_uri)
+      end)
+
+      subject_module = ~q[
+        defmodule UsesMultiAlias do
+          alias Foo.{Bar, Baz}
+
+          def test do
+            Bar.hell|o("World")
+          end
+        end
+      ]
+
+      assert {:ok, ^bar_uri, definition_line} =
+               definition(project, subject_module, [bar_uri, referenced_uri])
+
+      assert definition_line == ~S[  def «hello(name)» do]
+    end
+
+    test "find definition with multi-alias containing three modules", %{
+      project: project,
+      uri: referenced_uri
+    } do
+      bar_uri =
+        project
+        |> file_path(Path.join("lib", "foo_bar.ex"))
+        |> Document.Path.ensure_uri()
+
+      baz_uri =
+        project
+        |> file_path(Path.join("lib", "foo_baz.ex"))
+        |> Document.Path.ensure_uri()
+
+      qux_uri =
+        project
+        |> file_path(Path.join("lib", "foo_qux.ex"))
+        |> Document.Path.ensure_uri()
+
+      {:ok, _} = Document.Store.open_temporary(bar_uri, "defmodule Foo.Bar, do: :ok", 1)
+      {:ok, _} = Document.Store.open_temporary(baz_uri, "defmodule Foo.Baz, do: :ok", 1)
+      {:ok, _} = Document.Store.open_temporary(qux_uri, "defmodule Foo.Qux, do: :ok", 1)
+
+      on_exit(fn ->
+        :ok = Document.Store.close(bar_uri)
+        :ok = Document.Store.close(baz_uri)
+        :ok = Document.Store.close(qux_uri)
+      end)
+
+      subject_module = ~q[
+        defmodule UsesMultiAlias do
+          alias Foo.{Bar, Baz, Qu|x}
+
+          def test do
+            :ok
+          end
+        end
+      ]
+
+      assert {:ok, ^qux_uri, definition_line} =
+               definition(project, subject_module, [bar_uri, baz_uri, qux_uri, referenced_uri])
+
+      assert definition_line == ~S[defmodule «Foo.Qux», do: :ok]
+    end
+
+    test "find struct definition through multi-alias", %{
+      project: project,
+      uri: referenced_uri
+    } do
+      bar_uri =
+        project
+        |> file_path(Path.join("lib", "foo_bar.ex"))
+        |> Document.Path.ensure_uri()
+
+      bar_content = """
+      defmodule Foo.Bar do
+        defstruct [:name, :value]
+      end
+      """
+
+      {:ok, _} = Document.Store.open_temporary(bar_uri, bar_content, 1)
+
+      on_exit(fn ->
+        :ok = Document.Store.close(bar_uri)
+      end)
+
+      subject_module = ~q[
+        defmodule UsesMultiAliasStruct do
+          alias Foo.{Bar, Baz}
+
+          def test do
+            %B|ar{}
+          end
+        end
+      ]
+
+      assert {:ok, ^bar_uri, definition_line} =
+               definition(project, subject_module, [bar_uri, referenced_uri])
+
+      assert definition_line == "  «defstruct [:name, :value]»"
+    end
+
+    test "find definition with multi-alias on multiple lines", %{
+      project: project,
+      uri: referenced_uri
+    } do
+      bar_uri =
+        project
+        |> file_path(Path.join("lib", "foo_bar.ex"))
+        |> Document.Path.ensure_uri()
+
+      {:ok, _} = Document.Store.open_temporary(bar_uri, "defmodule Foo.Bar, do: :ok", 1)
+
+      on_exit(fn ->
+        :ok = Document.Store.close(bar_uri)
+      end)
+
+      subject_module = ~q[
+        defmodule UsesMultilineMultiAlias do
+          alias Foo.{
+            B|ar,
+            Baz
+          }
+
+          def test do
+            :ok
+          end
+        end
+      ]
+
+      assert {:ok, ^bar_uri, definition_line} =
+               definition(project, subject_module, [bar_uri, referenced_uri])
+
+      assert definition_line == ~S[defmodule «Foo.Bar», do: :ok]
+    end
+
+    test "find definition with whitespace in multi-alias", %{
+      project: project,
+      uri: referenced_uri
+    } do
+      bar_uri =
+        project
+        |> file_path(Path.join("lib", "foo_bar.ex"))
+        |> Document.Path.ensure_uri()
+
+      {:ok, _} = Document.Store.open_temporary(bar_uri, "defmodule Foo.Bar, do: :ok", 1)
+
+      on_exit(fn ->
+        :ok = Document.Store.close(bar_uri)
+      end)
+
+      subject_module = ~q[
+        defmodule UsesMultiAliasWithSpaces do
+          alias Foo.{  Ba|r  ,  Baz  }
+
+          def test do
+            :ok
+          end
+        end
+      ]
+
+      assert {:ok, ^bar_uri, definition_line} =
+               definition(project, subject_module, [bar_uri, referenced_uri])
+
+      assert definition_line == ~S[defmodule «Foo.Bar», do: :ok]
+    end
+
+    test "find definition with nested module in multi-alias", %{
+      project: project,
+      uri: referenced_uri
+    } do
+      nested_uri =
+        project
+        |> file_path(Path.join("lib", "foo_bar_nested.ex"))
+        |> Document.Path.ensure_uri()
+
+      {:ok, _} = Document.Store.open_temporary(nested_uri, "defmodule Foo.Bar.Nested, do: :ok", 1)
+
+      on_exit(fn ->
+        :ok = Document.Store.close(nested_uri)
+      end)
+
+      subject_module = ~q[
+        defmodule UsesNestedMultiAlias do
+          alias Foo.{Bar.Nest|ed, Baz}
+
+          def test do
+            :ok
+          end
+        end
+      ]
+
+      assert {:ok, ^nested_uri, definition_line} =
+               definition(project, subject_module, [nested_uri, referenced_uri])
+
+      assert definition_line == ~S[defmodule «Foo.Bar.Nested», do: :ok]
+    end
+
+    test "call aliased function from multi-alias with correct arity", %{
+      project: project,
+      uri: referenced_uri
+    } do
+      bar_uri =
+        project
+        |> file_path(Path.join("lib", "foo_bar.ex"))
+        |> Document.Path.ensure_uri()
+
+      bar_content = """
+      defmodule Foo.Bar do
+        def process(x, y, z) do
+          x + y + z
+        end
+      end
+      """
+
+      {:ok, _} = Document.Store.open_temporary(bar_uri, bar_content, 1)
+
+      on_exit(fn ->
+        :ok = Document.Store.close(bar_uri)
+      end)
+
+      subject_module = ~q[
+        defmodule UsesMultiAliasArity do
+          alias Foo.{Bar, Baz}
+
+          def test do
+            Bar.proces|s(1, 2, 3)
+          end
+        end
+      ]
+
+      assert {:ok, ^bar_uri, definition_line} =
+               definition(project, subject_module, [bar_uri, referenced_uri])
+
+      assert definition_line == ~S[  def «process(x, y, z)» do]
+    end
+
+    test "find macro definition through multi-alias", %{
+      project: project,
+      uri: referenced_uri
+    } do
+      bar_uri =
+        project
+        |> file_path(Path.join("lib", "foo_bar.ex"))
+        |> Document.Path.ensure_uri()
+
+      bar_content = """
+      defmodule Foo.Bar do
+        defmacro debug(expr) do
+          quote do: IO.inspect(unquote(expr))
+        end
+      end
+      """
+
+      {:ok, _} = Document.Store.open_temporary(bar_uri, bar_content, 1)
+
+      on_exit(fn ->
+        :ok = Document.Store.close(bar_uri)
+      end)
+
+      subject_module = ~q[
+        defmodule UsesMultiAliasMacro do
+          require Foo.{Bar, Baz}
+
+          def test do
+            Bar.debu|g(:test)
+          end
+        end
+      ]
+
+      assert {:ok, ^bar_uri, definition_line} =
+               definition(project, subject_module, [bar_uri, referenced_uri])
+
+      assert definition_line == ~S[  defmacro «debug(expr)» do]
+    end
+
+    test "find definition with imported function from multi-alias", %{
+      project: project,
+      uri: referenced_uri
+    } do
+      bar_uri =
+        project
+        |> file_path(Path.join("lib", "foo_bar.ex"))
+        |> Document.Path.ensure_uri()
+
+      bar_content = """
+      defmodule Foo.Bar do
+        def imported_func(x) do
+          x * 2
+        end
+      end
+      """
+
+      {:ok, _} = Document.Store.open_temporary(bar_uri, bar_content, 1)
+
+      on_exit(fn ->
+        :ok = Document.Store.close(bar_uri)
+      end)
+
+      subject_module = ~q[
+        defmodule UsesMultiAliasImport do
+          import Foo.{Bar, Baz}
+
+          def test do
+            imported_fun|c(5)
+          end
+        end
+      ]
+
+      assert {:ok, ^bar_uri, definition_line} =
+               definition(project, subject_module, [bar_uri, referenced_uri])
+
+      assert definition_line == ~S[  def «imported_func(x)» do]
+    end
+
+    test "handle multi-alias with single module", %{
+      project: project,
+      uri: referenced_uri
+    } do
+      bar_uri =
+        project
+        |> file_path(Path.join("lib", "foo_bar.ex"))
+        |> Document.Path.ensure_uri()
+
+      {:ok, _} = Document.Store.open_temporary(bar_uri, "defmodule Foo.Bar, do: :ok", 1)
+
+      on_exit(fn ->
+        :ok = Document.Store.close(bar_uri)
+      end)
+
+      subject_module = ~q[
+        defmodule UsesSingleMultiAlias do
+          alias Foo.{Ba|r}
+
+          def test do
+            :ok
+          end
+        end
+      ]
+
+      assert {:ok, ^bar_uri, definition_line} =
+               definition(project, subject_module, [bar_uri, referenced_uri])
+
+      assert definition_line == ~S[defmodule «Foo.Bar», do: :ok]
+    end
+
+    test "find definition on prefix module before curly brace", %{
+      project: project,
+      uri: referenced_uri
+    } do
+      foo_uri =
+        project
+        |> file_path(Path.join("lib", "foo.ex"))
+        |> Document.Path.ensure_uri()
+
+      {:ok, _} = Document.Store.open_temporary(foo_uri, "defmodule Foo, do: :ok", 1)
+
+      on_exit(fn ->
+        :ok = Document.Store.close(foo_uri)
+      end)
+
+      subject_module = ~q[
+        defmodule UsesMultiAliasPrefix do
+          alias Fo|o.{Bar, Baz}
+
+          def test do
+            :ok
+          end
+        end
+      ]
+
+      assert {:ok, ^foo_uri, definition_line} =
+               definition(project, subject_module, [foo_uri, referenced_uri])
+
+      assert definition_line == ~S[defmodule «Foo», do: :ok]
+    end
+  end
+
   describe "edge cases" do
     setup [:with_referenced_file]
 

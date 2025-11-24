@@ -203,6 +203,7 @@ defmodule Engine.CodeIntelligence.Entity do
 
     maybe_prepended =
       module_before_cursor
+      |> maybe_prepend_multi_alias_prefix(analysis, position)
       |> maybe_prepend_phoenix_scope_module(analysis, position)
       |> maybe_prepend_ecto_schema(analysis, position)
 
@@ -216,9 +217,144 @@ defmodule Engine.CodeIntelligence.Entity do
   # Since we no longer have formatting information at this point, we
   # just return the entire module for now.
   defp resolve_module(charlist, node_range, analysis, %Position{} = position) do
-    with {:ok, module} <- expand_alias(charlist, analysis, position) do
+    module_string = List.to_string(charlist)
+
+    maybe_prepended =
+      module_string
+      |> maybe_prepend_multi_alias_prefix(analysis, position)
+
+    with {:ok, module} <- expand_alias(maybe_prepended, analysis, position) do
       {:ok, {:module, module}, node_range}
     end
+  end
+
+  # Prepends the multi-alias prefix to a module string if the cursor is inside a
+  # multi-alias expression.
+  #
+  # For example, in `alias Foo.{Bar, Baz}`, when the cursor is on `Bar`, this
+  # function will prepend `Foo.` to return `"Foo.Bar"`.
+  #
+  # Examples:
+  #   - cursor on Bar in: alias Foo.{Bar, Baz} -> "Foo.Bar"
+  #   - cursor not in multi-alias -> unchanged
+  defp maybe_prepend_multi_alias_prefix(
+         module_string,
+         %Analysis{} = analysis,
+         %Position{} = position
+       ) do
+    with {:ok, path} <- Ast.path_at(analysis, position),
+         {:ok, prefix_segments} <- extract_multi_alias_prefix(path) do
+      # Handle __MODULE__ in prefix
+      expanded_prefix =
+        case prefix_segments do
+          [:__MODULE__] ->
+            case Engine.Analyzer.current_module(analysis, position) do
+              {:ok, current_module} -> Formats.module(current_module)
+              _ -> "__MODULE__"
+            end
+
+          segments ->
+            segments |> Enum.join(".")
+        end
+
+      expanded_prefix <> "." <> module_string
+    else
+      _ ->
+        module_string
+    end
+  end
+
+  # Extracts the prefix from a multi-alias AST path.
+  #
+  # Multi-alias expressions like `alias Foo.Bar.{Baz, Qux}` have a specific AST
+  # structure where the prefix (`Foo.Bar`) is in a dot expression before the
+  # curly brace list.
+  #
+  # Returns `{:ok, prefix_segments}` if the cursor is inside a multi-alias,
+  # `:error` otherwise.
+  #
+  # AST Structure:
+  #   A multi-alias like `alias Foo.{Bar, Baz}` has this structure:
+  #   {:alias, [...], [
+  #     {{:., [...], [{:__aliases__, [...], [:Foo]}, :{}]}, [...], [
+  #       {:__aliases__, [...], [:Bar]},
+  #       {:__aliases__, [...], [:Baz]}
+  #     ]}
+  #   ]}
+  #
+  # Examples:
+  #   - Path for Bar in: alias Foo.{Bar, Baz} -> {:ok, [:Foo]}
+  #   - Path for Qux in: alias Foo.Bar.{Baz, Qux} -> {:ok, [:Foo, :Bar]}
+  #   - Path not in multi-alias -> :error
+  defp extract_multi_alias_prefix(path) do
+    # Walk up the path looking for the multi-alias pattern:
+    # The cursor is on {:__aliases__, [...], [module_name]}
+    # Inside a list [..., {:__aliases__, [...], [module_name]}, ...]
+    # That list is the third element of {{:., [...], [{:__aliases__, prefix}, :{}]}, [...], alias_list}
+    # Which is inside {:alias, [...], [...]}
+
+    case find_multi_alias_in_path(path) do
+      {:ok, prefix_segments} -> {:ok, prefix_segments}
+      :error -> :error
+    end
+  end
+
+  defp find_multi_alias_in_path(path) do
+    # Look for the pattern where we have:
+    # 1. An __aliases__ node (the cursor position, e.g., Bar)
+    # 2. Inside a list (the list of aliases in curly braces)
+    # 3. That list is the 3rd element of a dot call
+    # 4. The dot call has {:__aliases__, prefix} as its first element
+    # 5. The dot call is inside an :alias expression
+
+    case path do
+      [{:__aliases__, _, [_cursor_segment]} | rest] ->
+        find_multi_alias_dot_call(rest)
+
+      _ ->
+        :error
+    end
+  end
+
+  defp find_multi_alias_dot_call([list | rest]) when is_list(list) do
+    # We're in the list of aliases
+    find_multi_alias_dot_call(rest)
+  end
+
+  defp find_multi_alias_dot_call([
+         {{:., _, [{:__aliases__, _, prefix_segments}, :{}]}, _, _aliases_list} | rest
+       ]) do
+    # Found the multi-alias dot call with the prefix (e.g., alias Foo.{Bar, Baz})
+    # Verify it's inside an :alias expression
+    case rest do
+      [{:alias, _, _} | _] ->
+        {:ok, prefix_segments}
+
+      _ ->
+        :error
+    end
+  end
+
+  defp find_multi_alias_dot_call([
+         {{:., _, [{:__MODULE__, _, _}, :{}]}, _, _aliases_list} | rest
+       ]) do
+    # Found the multi-alias dot call with __MODULE__ prefix (e.g., alias __MODULE__.{Bar, Baz})
+    # Verify it's inside an :alias expression
+    case rest do
+      [{:alias, _, _} | _] ->
+        {:ok, [:__MODULE__]}
+
+      _ ->
+        :error
+    end
+  end
+
+  defp find_multi_alias_dot_call([_ | rest]) do
+    find_multi_alias_dot_call(rest)
+  end
+
+  defp find_multi_alias_dot_call([]) do
+    :error
   end
 
   defp maybe_prepend_ecto_schema(module_string, %Analysis{} = analysis, %Position{} = position) do
