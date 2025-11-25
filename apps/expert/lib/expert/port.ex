@@ -73,9 +73,7 @@ defmodule Expert.Port do
           # to join the entries with colons and have a standard colon-separated PATH output
           # as in bash, which is expected by `:os.find_executable/2`.
           {path, 0} =
-            System.cmd(shell, ["-i", "-l", "-c", "cd #{directory} && string join ':' $PATH"],
-              env: env
-            )
+            System.cmd(shell, ["-l", "-c", "cd #{directory} && string join ':' $PATH"], env: env)
 
           path
 
