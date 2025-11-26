@@ -72,6 +72,7 @@ defmodule Expert.EngineNode do
       # as positional argument. Then, we use a simple --eval that decodes
       # and evaluates the string.
       project_node = Project.node_name(project)
+      port_mapper = Forge.NodePortMapper
 
       code =
         quote do
@@ -83,7 +84,7 @@ defmodule Expert.EngineNode do
 
           case node_start do
             {:ok, _} ->
-              Forge.NodePortMapper.register()
+              unquote(port_mapper).register()
               IO.puts("ok")
             {:error, reason} ->
               IO.puts("error starting node:\n \#{inspect(reason)}")
