@@ -69,6 +69,7 @@ defmodule Expert.EngineNode do
       # as positional argument. Then, we use a simple --eval that decodes
       # and evaluates the string.
       project_node = Project.node_name(project)
+      port_mapper = Forge.NodePortMapper
 
       code =
         quote do
@@ -77,7 +78,7 @@ defmodule Expert.EngineNode do
           # We start distribution here, rather than on node boot, so that
           # -pa takes effect and Forge.EPMD is available
           {:ok, _} = Node.start(node, :longnames)
-          Forge.NodePortMapper.register()
+          unquote(port_mapper).register()
         end
 
       code
