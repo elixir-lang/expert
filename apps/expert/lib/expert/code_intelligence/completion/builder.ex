@@ -108,7 +108,7 @@ defmodule Expert.CodeIntelligence.Completion.Builder do
 
   defp prefix_range(%Env{} = env) do
     end_char = env.position.character
-    start_char = end_char - prefix_length(env)
+    start_char = max(end_char - prefix_length(env), 1)
     {start_char, end_char}
   end
 
