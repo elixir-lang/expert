@@ -213,9 +213,8 @@ defmodule Expert.EngineNode do
 
     def glob_paths(_) do
       entries =
-        Mix.Project.build_path()
-        |> Path.join("**/ebin")
-        |> Path.wildcard()
+        [Mix.Project.build_path(), "**/ebin"]
+        |> Forge.Path.glob()
         |> Enum.filter(fn entry ->
           Enum.any?(@allowed_apps, &String.contains?(entry, to_string(&1)))
         end)
@@ -269,19 +268,17 @@ defmodule Expert.EngineNode do
         ]
 
       {launcher, opts} =
-        case :os.type() do
-          {:win32, _} ->
-            {elixir, opts}
+        if Forge.OS.windows?() do
+          {elixir, opts}
+        else
+          launcher = Expert.Port.path()
 
-          {:unix, _} ->
-            launcher = Expert.Port.path()
+          opts =
+            Keyword.update(opts, :args, [elixir], fn old_args ->
+              [elixir | Enum.map(old_args, &to_string/1)]
+            end)
 
-            opts =
-              Keyword.update(opts, :args, [elixir], fn old_args ->
-                [elixir | Enum.map(old_args, &to_string/1)]
-              end)
-
-            {launcher, opts}
+          {launcher, opts}
         end
 
       GenLSP.info(lsp, "Finding or building engine for project #{project_name}")
@@ -320,9 +317,7 @@ defmodule Expert.EngineNode do
     end
 
     defp ebin_paths(base_path) do
-      base_path
-      |> Path.join("lib/**/ebin")
-      |> Path.wildcard()
+      Forge.Path.glob([base_path, "lib/**/ebin"])
     end
   end
 

@@ -53,9 +53,16 @@ defmodule Expert.Provider.Handlers.CodeLens do
   end
 
   defp show_reindex_lens?(%Project{} = project, %Document{} = document) do
-    document_path = Path.expand(document.path)
+    document_path = normalize_path(document.path)
+    mix_exs_path = normalize_path(Project.mix_exs_path(project))
 
-    document_path == Project.mix_exs_path(project) and
+    document_path == mix_exs_path and
       not EngineApi.index_running?(project)
+  end
+
+  defp normalize_path(path) do
+    path
+    |> Path.expand()
+    |> Forge.Path.normalize()
   end
 end

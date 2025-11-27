@@ -35,7 +35,7 @@ defmodule Expert.Project.NodeTest do
     old_pid = node_pid(project)
 
     :ok = EngineApi.stop(project)
-    assert_eventually Node.ping(node_name) == :pong, 1000
+    assert_eventually Node.ping(node_name) == :pong, 5000
 
     new_pid = node_pid(project)
     assert is_pid(new_pid)

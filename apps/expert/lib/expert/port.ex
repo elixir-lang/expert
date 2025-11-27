@@ -38,49 +38,47 @@ defmodule Expert.Port do
   end
 
   def elixir_executable(%Project{} = project) do
-    case :os.type() do
-      {:win32, _} ->
-        # Remove the burrito binaries from PATH
-        path =
-          "PATH"
-          |> System.get_env()
-          |> String.split(";", parts: 2)
-          |> List.last()
+    if Forge.OS.windows?() do
+      # Remove the burrito binaries from PATH
+      path =
+        "PATH"
+        |> System.get_env()
+        |> String.split(";", parts: 2)
+        |> List.last()
 
-        case :os.find_executable(~c"elixir", to_charlist(path)) do
-          false ->
-            {:error, :no_elixir, "Couldn't find an elixir executable"}
+      case :os.find_executable(~c"elixir", to_charlist(path)) do
+        false ->
+          {:error, :no_elixir, "Couldn't find an elixir executable"}
 
-          elixir ->
-            env =
-              Enum.map(System.get_env(), fn
-                {"PATH", _path} -> {"PATH", path}
-                other -> other
-              end)
+        elixir ->
+          env =
+            Enum.map(System.get_env(), fn
+              {"PATH", _path} -> {"PATH", path}
+              other -> other
+            end)
 
-            {:ok, elixir, env}
-        end
+          {:ok, elixir, env}
+      end
+    else
+      root_path = Project.root_path(project)
 
-      _ ->
-        root_path = Project.root_path(project)
+      shell = System.get_env("SHELL")
+      path = path_env_at_directory(root_path, shell)
 
-        shell = System.get_env("SHELL")
-        path = path_env_at_directory(root_path, shell)
+      case :os.find_executable(~c"elixir", to_charlist(path)) do
+        false ->
+          {:error, :no_elixir,
+           "Couldn't find an elixir executable for project at #{root_path}. Using shell at #{shell} with PATH=#{path}"}
 
-        case :os.find_executable(~c"elixir", to_charlist(path)) do
-          false ->
-            {:error, :no_elixir,
-             "Couldn't find an elixir executable for project at #{root_path}. Using shell at #{shell} with PATH=#{path}"}
+        elixir ->
+          env =
+            Enum.map(System.get_env(), fn
+              {"PATH", _path} -> {"PATH", path}
+              other -> other
+            end)
 
-          elixir ->
-            env =
-              Enum.map(System.get_env(), fn
-                {"PATH", _path} -> {"PATH", path}
-                other -> other
-              end)
-
-            {:ok, elixir, env}
-        end
+          {:ok, elixir, env}
+      end
     end
   end
 
@@ -129,7 +127,7 @@ defmodule Expert.Port do
   Launches an executable in the project context via a port.
   """
   def open(%Project{} = project, executable, opts) do
-    {os_type, _} = :os.type()
+    {os_type, _} = Forge.OS.type()
 
     opts =
       opts
@@ -164,7 +162,7 @@ defmodule Expert.Port do
   Provides the path of an executable to launch another erlang node via ports.
   """
   def path do
-    path(:os.type())
+    path(Forge.OS.type())
   end
 
   def path({:unix, _}) do
