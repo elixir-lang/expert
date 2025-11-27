@@ -223,7 +223,6 @@ defmodule Expert.EngineNode do
 
       opts =
         [
-          :stderr_to_stdout,
           args: [
             build_engine_script,
             "--source-path",
@@ -256,7 +255,7 @@ defmodule Expert.EngineNode do
           Process.flag(:trap_exit, true)
 
           {:spawn_executable, launcher}
-          |> Port.open(opts)
+          |> Port.open([:stderr_to_stdout | opts])
           |> wait_for_engine()
         end
         |> Task.async()
