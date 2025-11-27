@@ -54,9 +54,10 @@ defmodule Expert.Test.Expert.CompletionCase do
     file_path =
       case Keyword.fetch(opts, :path) do
         {:ok, path} ->
-          if Path.expand(path) == path do
-            # it's absolute
-            path
+          if String.starts_with?(path, "/") do
+            # On Windows, absolute paths start with the drive name, but we write
+            # tests mostly assuming Linux/macos. This handles that discrepancy.
+            if Forge.OS.windows?(), do: Path.expand(path), else: path
           else
             Path.join(root_path, path)
           end

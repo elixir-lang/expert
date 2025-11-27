@@ -70,7 +70,7 @@ defmodule Engine.Search.Indexer do
     with {:ok, contents} <- File.read(path),
          {:ok, entries} <- Indexer.Source.index(path, contents) do
       Enum.filter(entries, fn entry ->
-        if contained_in?(path, deps_dir) do
+        if Forge.Path.contains?(path, deps_dir) do
           entry.subtype == :definition
         else
           true
@@ -185,18 +185,13 @@ defmodule Engine.Search.Indexer do
     build_dir = build_dir()
 
     [root_dir, "**", @indexable_extensions]
-    |> Path.join()
-    |> Path.wildcard()
-    |> Enum.reject(&contained_in?(&1, build_dir))
+    |> Forge.Path.glob()
+    |> Enum.reject(&Forge.Path.contains?(&1, build_dir))
   end
 
   # stat(path) is here for testing so it can be mocked
   defp stat(path) do
     File.stat(path)
-  end
-
-  defp contained_in?(file_path, possible_parent) do
-    String.starts_with?(file_path, possible_parent)
   end
 
   defp deps_dir do
