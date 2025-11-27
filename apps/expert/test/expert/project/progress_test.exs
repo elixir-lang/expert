@@ -59,7 +59,7 @@ defmodule Expert.Project.ProgressTest do
   end
 
   def with_work_done_progress_support(_) do
-    patch(Configuration, :client_supports?, fn :work_done_progress -> true end)
+    patch(Configuration, :client_support, fn :work_done_progress -> true end)
     :ok
   end
 
@@ -67,7 +67,7 @@ defmodule Expert.Project.ProgressTest do
     setup [:with_patched_transport]
 
     test "it should be able to send the report progress", %{project: project} do
-      patch(Configuration, :client_supports?, fn :work_done_progress -> true end)
+      patch(Configuration, :client_support, fn :work_done_progress -> true end)
 
       begin_message = progress(:begin, "mix compile")
       EngineApi.broadcast(project, begin_message)
@@ -94,7 +94,7 @@ defmodule Expert.Project.ProgressTest do
     end
 
     test "it should write nothing when the client does not support work done", %{project: project} do
-      patch(Configuration, :client_supports?, fn :work_done_progress -> false end)
+      patch(Configuration, :client_support, fn :work_done_progress -> false end)
 
       begin_message = progress(:begin, "mix compile")
       EngineApi.broadcast(project, begin_message)
