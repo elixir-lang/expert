@@ -2,6 +2,9 @@ defmodule Expert.CodeIntelligence.Completion.BuilderTest do
   alias Expert.CodeIntelligence.Completion.SortScope
   alias Forge.Ast
   alias Forge.Ast.Env
+  alias Forge.Document
+  alias Forge.Document.Position
+  alias Forge.Protocol.Convertible
   alias GenLSP.Structures.CompletionItem
 
   use ExUnit.Case, async: true
@@ -80,6 +83,48 @@ defmodule Expert.CodeIntelligence.Completion.BuilderTest do
       "@hello.Submodule"
       |> new_env()
       |> snippet("", label: "")
+    end
+  end
+
+  describe "non-ascii line range clamp" do
+    test "plain_text clamps start_char >= 1 and serializes on non-ASCII line" do
+      doc = Document.new("file:///builder_test.ex", "⚠️ hello", 0)
+      pos = Position.new(doc, 1, 1)
+
+      env = %Env{document: doc, position: pos, prefix: "a"}
+
+      item = plain_text(env, "X", label: "X")
+
+      assert {:ok, lsp_text_edit_or_list} = Convertible.to_lsp(item.text_edit)
+
+      lsp_edits = List.wrap(lsp_text_edit_or_list)
+
+      refute Enum.empty?(lsp_edits)
+
+      for %{range: %{start: %{character: start_ch}, end: %{character: end_ch}}} <- lsp_edits do
+        assert start_ch == 0
+        assert end_ch == 0
+      end
+    end
+
+    test "snippet clamps start_char >= 1 and serializes on non-ASCII line" do
+      doc = Document.new("file:///builder_test.ex", "⚠️ hello", 0)
+      pos = Position.new(doc, 1, 1)
+
+      env = %Env{document: doc, position: pos, prefix: "a"}
+
+      item = snippet(env, "X$0", label: "X")
+
+      assert {:ok, lsp_text_edit_or_list} = Convertible.to_lsp(item.text_edit)
+
+      lsp_edits = List.wrap(lsp_text_edit_or_list)
+
+      refute Enum.empty?(lsp_edits)
+
+      for %{range: %{start: %{character: start_ch}, end: %{character: end_ch}}} <- lsp_edits do
+        assert start_ch == 0
+        assert end_ch == 0
+      end
     end
   end
 end
