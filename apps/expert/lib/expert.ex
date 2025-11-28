@@ -24,7 +24,16 @@ defmodule Expert do
 
   @dialyzer {:nowarn_function, apply_to_state: 2}
 
+  @version Mix.Project.config()[:version]
+
+  def vsn, do: @version
+
   def get_lsp, do: :persistent_term.get(:expert_lsp, nil)
+
+  def terminate(message, status \\ 0) do
+    Logger.error(message)
+    System.stop(status)
+  end
 
   def start_link(args) do
     Logger.debug(inspect(args))
@@ -68,7 +77,7 @@ defmodule Expert do
     with {:ok, request} <- Expert.Protocol.Convert.to_native(request),
          {:ok, response, state} <- apply_to_state(assigns(lsp).state, request),
          {:ok, response} <- Expert.Protocol.Convert.to_lsp(response) do
-      {:reply, Expert.Protocol.Convert.to_lsp(response), assign(lsp, state: state)}
+      {:reply, response, assign(lsp, state: state)}
     else
       error ->
         message = "Failed to handle #{mod}, #{inspect(error)}"
@@ -169,7 +178,7 @@ defmodule Expert do
   def handle_info(:engine_initialized, lsp) do
     state = assigns(lsp).state
 
-    new_state = %State{state | engine_initialized?: true}
+    new_state = %{state | engine_initialized?: true}
 
     lsp = assign(lsp, state: new_state)
 
@@ -188,7 +197,7 @@ defmodule Expert do
       )
 
       {:ok, config} = State.default_configuration(state)
-      {:noreply, assign(lsp, state: %State{state | configuration: config})}
+      {:noreply, assign(lsp, state: %{state | configuration: config})}
     else
       {:noreply, lsp}
     end

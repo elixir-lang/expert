@@ -226,7 +226,7 @@ defmodule Forge.AstTest do
     end
 
     test "within the node", %{ast: ast, range: range} do
-      position = %Position{range.start | character: range.start.character + 1}
+      position = %{range.start | character: range.start.character + 1}
       assert Ast.contains_position?(ast, position)
     end
 

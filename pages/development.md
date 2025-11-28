@@ -1,5 +1,27 @@
 # Development
 
+## Getting Started
+
+First follow the [installation instructions](installation.md) to install the
+required prerequisites.
+
+To build Expert, run:
+
+```sh
+MIX_ENV=dev just release-local
+```
+
+>[!IMPORTANT]
+> We set `MIX_ENV=dev` to disable Burrito's caching mechanisms. This provides a
+> smoother development experience but expect server load times to be slightly
+> longer.
+
+You may point your editor's LSP configuration to path provided by Burrito, eg:
+
+```sh
+<your-repo>/apps/expert/burrito_out/expert_linux_amd64
+```
+
 ## Logging
 
 When expert starts up, it creates a `.expert` directory in the root

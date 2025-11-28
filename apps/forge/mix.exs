@@ -38,6 +38,7 @@ defmodule Forge.MixProject do
       {:benchee, "~> 1.3", only: :test},
       Mix.Credo.dependency(),
       Mix.Dialyzer.dependency(),
+      {:deps_nix, "~> 2.4", only: :dev},
       {:gen_lsp, "~> 0.11"},
       {:snowflake, "~> 1.0"},
       {:sourceror, "~> 1.9"},

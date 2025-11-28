@@ -106,7 +106,7 @@ defmodule Engine.Build.ErrorTest do
 
     @feature_condition span_in_diagnostic?: false
     @tag execute_if(@feature_condition)
-    test "handles unsued variable warning" do
+    test "handles unused variable warning" do
       document_text = ~S[
         defmodule Foo do
           def bar do
@@ -126,7 +126,7 @@ defmodule Engine.Build.ErrorTest do
 
     @feature_condition span_in_diagnostic?: true
     @tag execute_if(@feature_condition)
-    test "handles unsued variable warning when #{inspect(@feature_condition)}" do
+    test "handles unused variable warning when #{inspect(@feature_condition)}" do
       document_text = ~S[
         defmodule Foo do
           def bar do
@@ -208,7 +208,7 @@ defmodule Engine.Build.ErrorTest do
                "«def add(a, b) when is_integer(a) and is_integer(b) do\n»"
     end
 
-    test "handles UndefinedError for erlang moudle" do
+    test "handles UndefinedError for erlang module" do
       document_text = ~S[
         defmodule Foo do
          :slave.stop
@@ -341,7 +341,7 @@ defmodule Engine.Build.ErrorTest do
       end
     end
 
-    test "handles UndefinedError without moudle" do
+    test "handles UndefinedError without module" do
       document_text = ~S[
 
           IO.ins
@@ -451,7 +451,7 @@ defmodule Engine.Build.ErrorTest do
 
       # used a regex here because the error changed in elixir 1.18
       assert diagnostic.message =~
-               ~r[protocol Enumerable not implemented for( 1 of)? type Integer]
+               ~r[protocol Enumerable not implemented for( 1 of)?( type)? Integer]
 
       assert decorate(document_text, diagnostic.position) =~ "«for i <- 1, do: i\n»"
     end
@@ -468,7 +468,7 @@ defmodule Engine.Build.ErrorTest do
 
       # used a regex here because the error changed in elixir 1.18
       assert diagnostic.message =~
-               ~r[protocol Enumerable not implemented for( 1 of)? type Integer]
+               ~r[protocol Enumerable not implemented for( 1 of)?( type)? Integer]
 
       assert decorate(document_text, diagnostic.position) =~ "«for i <- 1, do: i\n»"
     end

@@ -9,6 +9,7 @@ defmodule EngineTest do
   import Forge.Test.Fixtures
 
   def start_project(%Project{} = project) do
+    start_supervised!({Forge.NodePortMapper, []})
     start_supervised!({Expert.EngineSupervisor, project})
     assert {:ok, _, _} = EngineNode.start(project)
     :ok

@@ -106,11 +106,11 @@ defmodule Engine.CodeIntelligence.Symbols do
           children =
             Enum.map(defs, fn child ->
               [_, rest] = String.split(child.name, " ", parts: 2)
-              %Symbols.Document{child | name: rest}
+              %{child | name: rest}
             end)
 
           range = Range.new(first.range.start, last.range.end)
-          %Symbols.Document{first | name: name, range: range, children: children}
+          %{first | name: name, range: range, children: children}
       end)
 
     grouped_functions

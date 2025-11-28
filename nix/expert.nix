@@ -1,43 +1,62 @@
 {
-  mixRelease,
-  fetchMixDeps,
-  elixir,
-  writeScript,
+  beamPackages,
+  callPackages,
+  lib,
 }:
-mixRelease rec {
+let
+  version = builtins.readFile ../version.txt;
+
+  engineDeps = callPackages ../apps/engine/deps.nix {
+    inherit lib beamPackages;
+  };
+in
+beamPackages.mixRelease rec {
   pname = "expert";
-  version = "development";
+  inherit version;
 
-  src = ./..;
-
-  mixFodDeps = fetchMixDeps {
-    inherit pname;
-    inherit version;
-
-    src = ./..;
-
-    sha256 = builtins.readFile ./hash;
+  src = lib.fileset.toSource {
+    root = ./..;
+    fileset = lib.fileset.unions [
+      ../apps
+      ../mix_credo.exs
+      ../mix_dialyzer.exs
+      ../mix_includes.exs
+      ../version.txt
+    ];
   };
 
-  installPhase = ''
-    runHook preInstall
+  mixNixDeps = callPackages ../apps/expert/deps.nix {
+    inherit lib beamPackages;
+  };
 
-    mix do compile --no-deps-check, package --path "$out"
+  mixReleaseName = "plain";
 
-    runHook postInstall
+  preConfigure = ''
+    # copy the logic from mixRelease to build a deps dir for engine
+    mkdir -p apps/engine/deps
+    ${lib.concatMapStringsSep "\n" (dep: ''
+      dep_name=$(basename ${dep} | cut -d '-' -f2)
+      dep_path="apps/engine/deps/$dep_name"
+      if [ -d "${dep}/src" ]; then
+        ln -s ${dep}/src $dep_path
+      fi
+    '') (builtins.attrValues engineDeps)}
+
+    cd apps/expert
   '';
 
-  preFixup = let
-    activate_version_manager = writeScript "activate_version_manager.sh" ''
-    true
-    '';
-  in ''
-    substituteInPlace "$out/bin/start_expert.sh" --replace 'elixir_command=' 'elixir_command="${elixir}/bin/"'
-    rm "$out/bin/activate_version_manager.sh"
-    ln -s ${activate_version_manager} "$out/bin/activate_version_manager.sh"
-
-    mv "$out/bin" "$out/binsh"
-
-    makeWrapper "$out/binsh/start_expert.sh" "$out/bin/expert" --set RELEASE_COOKIE expert
+  postInstall = ''
+    mv $out/bin/plain $out/bin/expert
+    wrapProgram $out/bin/expert --add-flag "eval" --add-flag "System.no_halt(true); Application.ensure_all_started(:xp_expert)"
   '';
+
+  removeCookie = false;
+
+  passthru = {
+    # not used by package, but exposed for repl and direct build access
+    # e.g. nix build .#expert.mixNixDeps.jason
+    inherit engineDeps mixNixDeps;
+  };
+
+  meta.mainProgram = "expert";
 }

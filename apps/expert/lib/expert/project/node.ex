@@ -1,6 +1,6 @@
 defmodule Expert.Project.Node do
   @moduledoc """
-  A genserver responsibile for starting the remote node and cleaning up the build directory if it crashes
+  A genserver responsible for starting the remote node and cleaning up the build directory if it crashes
   """
 
   defmodule State do

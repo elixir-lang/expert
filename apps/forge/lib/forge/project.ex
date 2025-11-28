@@ -59,7 +59,7 @@ defmodule Forge.Project do
       |> folder_name()
       |> String.replace(~r/[^a-zA-Z0-9_]/, "_")
 
-    # This might be a litte verbose, but this code is hot.
+    # This might be a little verbose, but this code is hot.
     case sanitized do
       <<c::utf8, _rest::binary>> when c in ?a..?z ->
         sanitized
@@ -76,7 +76,7 @@ defmodule Forge.Project do
   The project node's name
   """
   def node_name(%__MODULE__{} = project) do
-    :"project-#{name(project)}-#{entropy(project)}@127.0.0.1"
+    :"expert-project-#{name(project)}-#{entropy(project)}@127.0.0.1"
   end
 
   def entropy(%__MODULE__{} = project) do
@@ -98,7 +98,7 @@ defmodule Forge.Project do
   end
 
   @doc """
-  Returns the the name definied in the `project/0` of mix.exs file
+  Returns the the name defined in the `project/0` of mix.exs file
   """
   def display_name(%__MODULE__{} = project) do
     case config(project) do
@@ -172,13 +172,13 @@ defmodule Forge.Project do
         _ -> Forge.Workspace.name(workspace)
       end
 
-    :"manager-#{workspace_name}-#{entropy(project)}@127.0.0.1"
+    :"expert-manager-#{workspace_name}-#{entropy(project)}@127.0.0.1"
   end
 
   @doc """
   Returns the full path to the project's expert workspace directory
 
-  Expert maintains a workspace directory in project it konws about, and places various
+  Expert maintains a workspace directory in project it knows about, and places various
   artifacts there. This function returns the full path to that directory
   """
   @spec workspace_path(t) :: String.t()

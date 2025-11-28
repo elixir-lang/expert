@@ -152,7 +152,7 @@ defmodule Engine.CodeAction.Handlers.OrganizeAliasesTest do
       assert expected == organized
     end
 
-    test "dependent aliase are honored" do
+    test "dependent aliases are honored" do
       {:ok, organized} =
         ~q[
           defmodule Deps do

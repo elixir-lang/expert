@@ -38,7 +38,7 @@ defmodule Engine.Build.State do
         compile_file(state, document)
       end)
 
-    %__MODULE__{new_state | uri_to_document: %{}, project_compile: :none}
+    %{new_state | uri_to_document: %{}, project_compile: :none}
   end
 
   def on_file_compile(%__MODULE__{} = state, %Document{} = document) do

@@ -2,6 +2,8 @@ defmodule Expert.EngineNode do
   alias Forge.Project
   require Logger
 
+  use Expert.Project.Progress.Support
+
   defmodule State do
     defstruct [
       :project,
@@ -26,22 +28,48 @@ defmodule Expert.EngineNode do
     @dialyzer {:nowarn_function, start: 3}
 
     def start(%__MODULE__{} = state, paths, from) do
-      this_node = inspect(Node.self())
+      this_node = to_string(Node.self())
+      dist_port = Forge.EPMD.dist_port()
 
-      args = [
-        "--name",
-        Project.node_name(state.project),
-        "--cookie",
-        state.cookie,
-        "--no-halt",
-        "-e",
-        "Node.connect(#{this_node})"
-        | path_append_arguments(paths)
-      ]
+      args =
+        [
+          "--erl",
+          "-start_epmd false -epmd_module #{Forge.EPMD}",
+          "--cookie",
+          state.cookie,
+          "--no-halt",
+          "-e",
+          # We manually start distribution here instead of using --sname/--name
+          # because those options are not really compatible with `-epmd_module`.
+          # Apparently, passing the --name/-sname options causes the Erlang VM
+          # to start distribution right away before the modules in the code path
+          # are loaded, and it will crash because Forge.EPMD doesn't exist yet.
+          # If we start distribution manually after all the code is loaded,
+          # everything works fine.
+          """
+          {:ok, _} = Node.start(:"#{Project.node_name(state.project)}", :longnames)
+          #{Forge.NodePortMapper}.register()
+          IO.puts(\"ok\")
+          """
+          | path_append_arguments(paths)
+        ]
 
-      port = Expert.Port.open_elixir(state.project, args: args)
+      env =
+        [
+          {"EXPERT_PARENT_NODE", this_node},
+          {"EXPERT_PARENT_PORT", to_string(dist_port)}
+        ]
 
-      %{state | port: port, started_by: from}
+      case Expert.Port.open_elixir(state.project, args: args, env: env) do
+        {:error, :no_elixir, message} ->
+          GenLSP.error(Expert.get_lsp(), message)
+          Expert.terminate("Failed to find an elixir executable, shutting down", 1)
+          {:error, :no_elixir}
+
+        port ->
+          state = %{state | port: port, started_by: from}
+          {:ok, state}
+      end
     end
 
     def stop(%__MODULE__{} = state, from, stop_timeout) do
@@ -55,7 +83,7 @@ defmodule Expert.EngineNode do
     end
 
     def on_nodeup(%__MODULE__{} = state, node_name) do
-      if node_name == Project.node_name(state.project) do
+      if String.starts_with?(to_string(node_name), to_string(Project.node_name(state.project))) do
         {pid, _ref} = state.started_by
         Process.monitor(pid)
         GenServer.reply(state.started_by, :ok)
@@ -108,14 +136,14 @@ defmodule Expert.EngineNode do
   use GenServer
 
   def start(project) do
-    :ok = ensure_epmd_started()
     start_net_kernel(project)
 
     node_name = Project.node_name(project)
     bootstrap_args = [project, Document.Store.entropy(), all_app_configs()]
 
     with {:ok, node_pid} <- EngineSupervisor.start_project_node(project),
-         :ok <- start_node(project, glob_paths()),
+         {:ok, glob_paths} <- glob_paths(project),
+         :ok <- start_node(project, glob_paths),
          :ok <- :rpc.call(node_name, Engine.Bootstrap, :init, bootstrap_args),
          :ok <- ensure_apps_started(node_name) do
       {:ok, node_name, node_pid}
@@ -124,21 +152,11 @@ defmodule Expert.EngineNode do
 
   defp start_net_kernel(%Project{} = project) do
     manager = Project.manager_node_name(project)
-    :net_kernel.start(manager, %{name_domain: :longnames})
+    Node.start(manager, :longnames)
   end
 
   defp ensure_apps_started(node) do
     :rpc.call(node, Engine, :ensure_apps_started, [])
-  end
-
-  defp ensure_epmd_started do
-    case System.cmd("epmd", ~w(-daemon)) do
-      {"", 0} ->
-        :ok
-
-      _ ->
-        {:error, :epmd_failed}
-    end
   end
 
   if Mix.env() == :test do
@@ -152,22 +170,96 @@ defmodule Expert.EngineNode do
       ["/**/priv" | app_globs]
     end
 
-    def glob_paths do
-      for entry <- :code.get_path(),
-          entry_string = List.to_string(entry),
-          entry_string != ".",
-          Enum.any?(app_globs(), &PathGlob.match?(entry_string, &1, match_dot: true)) do
-        entry
-      end
+    def glob_paths(_) do
+      entries =
+        for entry <- :code.get_path(),
+            entry_string = List.to_string(entry),
+            entry_string != ".",
+            Enum.any?(app_globs(), &PathGlob.match?(entry_string, &1, match_dot: true)) do
+          entry
+        end
+
+      {:ok, entries}
     end
   else
-    # In dev and prod environments, a default build of Engine is built
-    # separately and copied to expert's priv directory.
-    # When Engine is built in CI for a version matrix, we'll need to check if
-    # we have the right version downloaded, and if not, we should download it.
-    defp glob_paths do
-      :expert
-      |> :code.priv_dir()
+    # In dev and prod environments, the engine source code is included in the
+    # Expert release, and we build it on the fly for the project elixir+opt
+    # versions if it was not built yet.
+    defp glob_paths(%Project{} = project) do
+      lsp = Expert.get_lsp()
+      project_name = Project.name(project)
+
+      case Expert.Port.elixir_executable(project) do
+        {:ok, elixir, env} ->
+          GenLSP.info(lsp, "Found elixir for #{project_name} at #{elixir}")
+
+          expert_priv = :code.priv_dir(:expert)
+          packaged_engine_source = Path.join([expert_priv, "engine_source", "apps", "engine"])
+
+          engine_source =
+            "EXPERT_ENGINE_PATH"
+            |> System.get_env(packaged_engine_source)
+            |> Path.expand()
+
+          build_engine_script = Path.join(expert_priv, "build_engine.exs")
+
+          opts =
+            [
+              :stderr_to_stdout,
+              args: [
+                elixir,
+                build_engine_script,
+                "--source-path",
+                engine_source,
+                "--vsn",
+                Expert.vsn()
+              ],
+              env: Expert.Port.ensure_charlists(env),
+              cd: Project.root_path(project)
+            ]
+
+          launcher = Expert.Port.path()
+
+          GenLSP.info(lsp, "Finding or building engine for project #{project_name}")
+
+          with_progress(project, "Building engine for #{project_name}", fn ->
+            fn ->
+              Process.flag(:trap_exit, true)
+
+              {:spawn_executable, launcher}
+              |> Port.open(opts)
+              |> wait_for_engine()
+            end
+            |> Task.async()
+            |> Task.await(:infinity)
+          end)
+
+        {:error, :no_elixir, message} ->
+          GenLSP.error(Expert.get_lsp(), message)
+          Expert.terminate("Failed to find an elixir executable, shutting down", 1)
+      end
+    end
+
+    defp wait_for_engine(port, last_line \\ "") do
+      receive do
+        {^port, {:data, ~c"engine_path:" ++ engine_path}} ->
+          engine_path = engine_path |> to_string() |> String.trim()
+          Logger.info("Engine build available at: #{engine_path}")
+
+          {:ok, ebin_paths(engine_path)}
+
+        {^port, {:data, data}} ->
+          Logger.debug("Building engine: #{to_string(data)}")
+          wait_for_engine(port, data)
+
+        {:EXIT, ^port, reason} ->
+          Logger.error("Engine build script exited with reason: #{inspect(reason)} #{last_line}")
+          {:error, reason, last_line}
+      end
+    end
+
+    defp ebin_paths(base_path) do
+      base_path
       |> Path.join("lib/**/ebin")
       |> Path.wildcard()
     end
@@ -210,10 +302,16 @@ defmodule Expert.EngineNode do
 
   @impl true
   def handle_call({:start, paths}, from, %State{} = state) do
-    :ok = :net_kernel.monitor_nodes(true, node_type: :visible)
+    :ok = :net_kernel.monitor_nodes(true, node_type: :all)
     Process.send_after(self(), :maybe_start_timeout, @start_timeout)
-    state = State.start(state, paths, from)
-    {:noreply, state}
+
+    case State.start(state, paths, from) do
+      {:ok, state} ->
+        {:noreply, state}
+
+      {:error, :no_elixir} ->
+        {:reply, {:error, :no_elixir}, state}
+    end
   end
 
   @impl true
@@ -275,7 +373,8 @@ defmodule Expert.EngineNode do
   end
 
   @impl true
-  def handle_info({_port, {:data, _message}}, %State{} = state) do
+  def handle_info({_port, {:data, message}}, %State{} = state) do
+    Logger.debug("Node port message: #{to_string(message)}")
     {:noreply, state}
   end
 

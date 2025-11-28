@@ -246,7 +246,7 @@ defmodule Engine.CodeAction.Handlers.RemoveUnusedAlias do
 
   defp include_next_line(%Range{} = range) do
     update_in(range.end, fn old_position ->
-      %Position{
+      %{
         old_position
         | line: old_position.line + 1,
           character: 1

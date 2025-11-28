@@ -6,9 +6,11 @@ defmodule Expert.EngineNodeTest do
   import Forge.Test.Fixtures
 
   use ExUnit.Case, async: false
+  use Patch
 
   setup do
     project = project()
+    start_supervised!({Forge.NodePortMapper, []})
     start_supervised!({EngineSupervisor, project})
     {:ok, %{project: project}}
   end
@@ -39,5 +41,27 @@ defmodule Expert.EngineNodeTest do
     assert node_process_name |> Process.whereis() |> Process.alive?()
     Process.exit(linked_node_process, :kill)
     assert_eventually Process.whereis(node_process_name) == nil, 50
+  end
+
+  test "terminates the server if no elixir is found", %{project: project} do
+    test_pid = self()
+
+    patch(Expert.Port, :path_env_at_directory, nil)
+
+    patch(Expert, :terminate, fn _, status ->
+      send(test_pid, {:stopped, status})
+    end)
+
+    # Note(dorgan): ideally we would use GenLSP.Test here, but
+    # calling `server(Expert)` causes the tests to behave erratically
+    # and either not run or terminate ExUnit early
+    patch(GenLSP, :error, fn _, message ->
+      send(test_pid, {:lsp_log, message})
+    end)
+
+    {:error, :no_elixir} = EngineNode.start(project)
+
+    assert_receive {:stopped, 1}
+    assert_receive {:lsp_log, "Couldn't find an elixir executable for project" <> _}
   end
 end

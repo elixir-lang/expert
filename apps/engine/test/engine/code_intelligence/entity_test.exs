@@ -38,7 +38,7 @@ defmodule Engine.CodeIntelligence.EntityTest do
       assert {:error, :not_found} = resolve(code)
     end
 
-    test "fails immediately preceeding the module" do
+    test "fails immediately preceding the module" do
       code = ~q[
         | Before.The.Beginning
       ]

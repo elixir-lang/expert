@@ -37,7 +37,7 @@ defmodule Expert.Project.DiagnosticsTest do
     struct(Diagnostic.Result, values)
   end
 
-  def with_patched_tranport(_) do
+  def with_patched_transport(_) do
     test = self()
 
     patch(GenLSP, :notify_server, fn _, message ->
@@ -63,7 +63,7 @@ defmodule Expert.Project.DiagnosticsTest do
   end
 
   describe "clearing diagnostics on compile" do
-    setup [:with_patched_tranport]
+    setup [:with_patched_transport]
 
     test "it clears a file's diagnostics if it's not dirty", %{
       project: project

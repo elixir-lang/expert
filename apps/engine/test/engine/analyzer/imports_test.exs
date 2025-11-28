@@ -98,7 +98,7 @@ defmodule Engine.Ast.Analysis.ImportsTest do
       assert_imported(imports, ImportedModule)
     end
 
-    test "single underscore functions aren't imported by defualt" do
+    test "single underscore functions aren't imported by default" do
       imports =
         ~q[
           import Parent.Child.ImportedModule

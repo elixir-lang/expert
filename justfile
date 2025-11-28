@@ -32,11 +32,27 @@ mix project="all" *args="":
     case {{ project }} in
       all)
         for proj in {{ apps }}; do
-          (cd "apps/$proj" && mix {{args}})
+          case $proj in
+            expert)
+              (cd "apps/$proj" && elixir --erl "-start_epmd false -epmd_module Elixir.Forge.EPMD" -S mix {{args}})
+            ;;
+            engine)
+              (cd "apps/$proj" && elixir --erl "-start_epmd false -epmd_module Elixir.Forge.EPMD" -S mix {{args}})
+            ;;
+            *)
+              (cd "apps/$proj" && mix {{args}})
+            ;;
+          esac
         done
       ;;
+      expert)
+        (cd "apps/expert" && elixir --erl "-start_epmd false -epmd_module Elixir.Forge.EPMD" -S mix {{args}})
+      ;;
+      engine)
+        (cd "apps/engine" && elixir --erl "-start_epmd false -epmd_module Elixir.Forge.EPMD" -S mix {{args}})
+      ;;
       *)
-         (cd "apps/{{ project }}" && mix {{args}})
+        (cd "apps/{{ project }}" && mix {{args}})
       ;;
     esac
 
@@ -49,24 +65,9 @@ lint *project="all":
   just mix {{ project }} credo
   just mix {{ project }} dialyzer
 
-build-engine:
-    #!/usr/bin/env bash
-    set -euxo pipefail
-
-    cd apps/engine
-    MIX_ENV=dev mix compile
-    namespaced_dir=_build/dev_ns/
-    rm -rf $namespaced_dir
-    mkdir -p $namespaced_dir
-
-    cp -a _build/dev/. "$namespaced_dir"
-
-    MIX_ENV=dev mix namespace "$namespaced_dir"
-
-
 [doc('Build a release for the local system')]
 [unix]
-release-local: (deps "expert") (compile "engine") build-engine
+release-local: (deps "engine") (deps "expert")
   #!/usr/bin/env bash
   cd apps/expert
 
@@ -79,12 +80,12 @@ release-local: (deps "expert") (compile "engine") build-engine
   MIX_ENV={{ env('MIX_ENV', 'prod')}} EXPERT_RELEASE_MODE=burrito BURRITO_TARGET="{{ local_target }}" mix release --overwrite
 
 [windows]
-release-local: (deps "expert") (compile "engine") build-engine
+release-local: (deps "engine") (deps "expert")
     # idk actually how to set env vars like this on windows, might crash
-    EXPERT_RELEASE_MODE=burrito BURRITO_TARGET="windows_amd64" MIX_ENV={{ env('MIX_ENV', 'prod')}} mix release --no-compile
+    EXPERT_RELEASE_MODE=burrito BURRITO_TARGET="windows_amd64" MIX_ENV={{ env('MIX_ENV', 'prod')}} mix release --overwrite
 
 [doc('Build releases for all target platforms')]
-release-all: (deps "expert") (compile "engine") build-engine
+release-all: (deps "engine") (deps "expert")
     #!/usr/bin/env bash
     cd apps/expert
 
@@ -93,7 +94,7 @@ release-all: (deps "expert") (compile "engine") build-engine
     EXPERT_RELEASE_MODE=burrito MIX_ENV={{ env('MIX_ENV', 'prod')}} mix release --overwrite
 
 [doc('Build a plain release without burrito')]
-release-plain: (compile "engine")
+release-plain: (deps "engine") (deps "expert")
     #!/usr/bin/env bash
     cd apps/expert
     MIX_ENV={{ env('MIX_ENV', 'prod')}} mix release plain --overwrite
@@ -101,5 +102,18 @@ release-plain: (compile "engine")
 [doc('Compiles .github/matrix.json')]
 compile-ci-matrix:
   elixir matrix.exs
+
+[doc('Build and install binary locally')]
+[unix]
+install: release-local
+  #!/usr/bin/env bash
+  set -euxo pipefail
+
+  mkdir -p ~/.local/bin
+  cp ./apps/expert/burrito_out/expert_{{ local_target }} ~/.local/bin/expert
+  chmod +x ~/.local/bin/expert
+
+clean-engine:
+  elixir -e ':filename.basedir(:user_data, "Expert") |> File.rm_rf!() |> IO.inspect()'
 
 default: release-local

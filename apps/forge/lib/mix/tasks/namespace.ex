@@ -5,7 +5,7 @@ defmodule Mix.Tasks.Namespace do
   app.
 
   Transformers take a path, find their relevant files and apply transforms to them. For example,
-  the Beams transformer will find any instances of modules in .beam files, and will apply namepaces
+  the Beams transformer will find any instances of modules in .beam files, and will apply namespaces
   to them if the module is one of the modules defined in a dependency.
 
   This task takes a single argument, which is the full path to the release.
@@ -30,7 +30,16 @@ defmodule Mix.Tasks.Namespace do
 
   require Logger
 
-  def run([base_directory]) do
+  def run([base_directory | opts]) do
+    {args, _, _} =
+      OptionParser.parse(opts,
+        strict: [cwd: :string]
+      )
+
+    cwd = Keyword.get(args, :cwd, File.cwd!())
+
+    :persistent_term.put(:forge_namespace_cwd, cwd)
+
     # Ensure we cache the loaded apps at the time of namespacing
     # Otherwise only the @extra_apps will be cached
     init()
@@ -124,7 +133,7 @@ defmodule Mix.Tasks.Namespace do
   end
 
   defp discover_deps_apps do
-    cwd = File.cwd!()
+    cwd = :persistent_term.get(:forge_namespace_cwd, File.cwd!())
 
     :application.loaded_applications()
     |> Enum.flat_map(fn {app_name, _description, _version} ->

@@ -23,8 +23,8 @@ defmodule Engine.Api.Proxy do
 
   Internally, there are three states: proxying, draining and buffering.
   The proxy starts in proxying mode. Then, when start_buffering is called, it changes to draining mode. This
-  mode checks if there are any in-flight calls. If there aren't any, it changes immediately to buffring mode.
-  If there are in-flight reqeusts, it waits for them to finish, and then switches to buffer mode. Once in buffer
+  mode checks if there are any in-flight calls. If there aren't any, it changes immediately to buffering mode.
+  If there are in-flight requests, it waits for them to finish, and then switches to buffer mode. Once in buffer
   mode, requests are buffered until the process that called `start_buffering` exits. When that happens, then
   the requests are de-duplicated and run, and then the proxy returns to proxying mode.
 

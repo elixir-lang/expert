@@ -12,6 +12,7 @@ defmodule Expert.Provider.Handlers.FormattingTest do
   end
 
   def with_real_project(%{project: project}) do
+    {:ok, _} = start_supervised({Forge.NodePortMapper, []})
     {:ok, _} = start_supervised({Expert.EngineSupervisor, project})
     {:ok, _, _} = EngineNode.start(project)
     EngineApi.register_listener(project, self(), [:all])

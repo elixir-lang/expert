@@ -230,7 +230,7 @@ defmodule Engine.Search.Fuzzy.Scorer do
     {streak_length, @consecutive_character_bonus * streak_length}
   end
 
-  @mismatched_chracter_penalty 5
+  @mismatched_character_penalty 5
 
   def mismatched_penalty(matched_positions) do
     {penalty, _} =
@@ -244,7 +244,7 @@ defmodule Engine.Search.Fuzzy.Scorer do
         matched_position, {penalty, last_match} ->
           distance = matched_position - last_match
 
-          {penalty + distance * @mismatched_chracter_penalty, matched_position}
+          {penalty + distance * @mismatched_character_penalty, matched_position}
       end)
 
     penalty

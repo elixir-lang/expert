@@ -11,6 +11,7 @@ defmodule Expert.Project.NodeTest do
   setup do
     project = project()
 
+    {:ok, _} = start_supervised({Forge.NodePortMapper, []})
     {:ok, _} = start_supervised({DynamicSupervisor, Expert.Project.DynamicSupervisor.options()})
     {:ok, _} = start_supervised({Expert.Project.Supervisor, project})
 

@@ -1,11 +1,11 @@
 defmodule Engine.Completion do
   alias Forge.Ast.Analysis
   alias Forge.Ast.Env
+  alias Forge.Completion.Candidate
   alias Forge.Document
   alias Forge.Document.Position
 
   alias Engine.CodeMod.Format
-  alias Forge.Completion.Candidate
 
   import Document.Line
   import Forge.Logging

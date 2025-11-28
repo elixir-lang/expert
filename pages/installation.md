@@ -26,6 +26,10 @@ Caveats with the following versions of Elixir and Erlang are documented below:
 ## Prerequisites
 First, Install git LFS by [following these instructions](https://docs.github.com/en/repositories/working-with-files/managing-large-files/installing-git-large-file-storage).
 
+Next, [install `just`](https://github.com/casey/just?tab=readme-ov-file#cross-platform)
+
+Next, [install `zig`](https://ziglang.org/learn/getting-started/) if not already installed. **Important:** version 0.15.2 is required, which is currently _not_ the latest version.
+
 Then, clone the git repository. Do this with
 
 ```elixir
@@ -56,6 +60,12 @@ If things complete successfully, you will then have a release in your
 `apps/expert/burrito_out` directory. If you see errors, please file a
 bug.
 
+To launch expert, you need to specify one of the `--stdio` or `--port <port>`. The
+examples below assume you want to use `--stdio`.
+
+In case you want to build and install it locally you can run `just install`,
+which will install the generated binary inside `~/.local/bin`.
+
 For the following examples, assume the absolute path to your Expert
 source code is `/my/home/projects/expert` and that you are running an amd64
 Linux system. For other systems, replace the `expert_linux_amd64` with the
@@ -66,11 +76,10 @@ appropriate binary name.
 2. [Vanilla Emacs with eglot](#vanilla-emacs-with-eglot)
 3. [Visual Studio Code](#visual-studio-code)
 4. [neovim](#neovim)
-5. [LunarVim](#lunarvim)
-6. [Vim + ALE](#vim--ale)
 7. [Vim + Vim-LSP](#vim--vim-lsp)
 8. [Helix](#helix)
 9. [Sublime Text](#sublime-text)
+10. [Zed](#zed)
 
 ### Vanilla Emacs with lsp-mode
 The emacs instructions assume you're using `use-package`, which you
@@ -91,10 +100,9 @@ emacs configuration), insert the following code:
   :ensure t
   :custom
   (lsp-elixir-server-command '("/my/home/projects/expert/apps/expert/burrito_out/expert_linux_amd64")))
-
 ```
 
-Restart emacs, and Lexical should start when you open a file with a
+Restart emacs, and Expert should start when you open a file with a
 `.ex` extension.
 
 
@@ -114,7 +122,7 @@ You can add Expert support in the following way:
            '("expert_linux_amd64" "start_lexical.sh")))))
 ```
 
-For versions before 30, you can add Eglot support for Lexical in the
+For versions before 30, you can add Eglot support for Expert in the
 following way:
 
 ```emacs-lisp
@@ -144,14 +152,16 @@ for Eglot:
 ### Visual Studio Code
 
 Click on the extensions button on the sidebar, then search for
-`lexical`, then click `install`.  By default, the extension will automatically
-download the latest version of Lexical.
+`lexical`, then click `install`.
+
+This is a stop gap until we create a dedicated Expert extension, so you'll need to configure it to
+use the Expert executable instead. 
 
 To change to a local executable, go to `Settings -> Extensions -> Lexical` and
 type `/my/home/projects/expert/apps/expert/burrito_out/expert_linux_amd64` into the text box in
 the `Server: Release path override` section.
 
-### neovim
+### Neovim
 
 Expert requires neovim `>= 0.9.0`.
 
@@ -163,9 +173,9 @@ configuration below as a reference:
 
 ```lua
 require('lspconfig').lexical.setup {
-  cmd = { "my/home/projects/expert/apps/expert/burrito_out/expert_linux_amd64" },
+  cmd = { "my/home/projects/expert/apps/expert/burrito_out/expert_linux_amd64", "--stdio" },
   root_dir = function(fname)
-    return util.root_pattern("mix.exs", ".git")(fname) or vim.loop.cwd()
+    return require('lspconfig').util.root_pattern("mix.exs", ".git")(fname) or vim.loop.cwd()
   end,
   filetypes = { "elixir", "eelixir", "heex" },
   -- optional settings
@@ -173,9 +183,22 @@ require('lspconfig').lexical.setup {
 }
 ```
 
+As of neovim `0.11.3`, you can use the built-in lsp config:
+```lua
+vim.lsp.config('expert', {
+  cmd = { 'expert', '--stdio' },
+  root_markers = { 'mix.exs', '.git' },
+  filetypes = { 'elixir', 'eelixir', 'heex' },
+})
+
+vim.lsp.enable 'expert'
+```
+
+If you are using `nvim-lspconfig` this should be handled automatically.
+
 ### Vim + Vim-LSP
 
-An example of configuring Lexical as the Elixir language server for
+An example of configuring Expert as the Elixir language server for
 [Vim-LSP](https://github.com/prabirshrestha/vim-lsp). Uses the newer vim9script syntax but
 can be converted to Vim 8 etc (`:h vim9script`).
 
@@ -222,6 +245,7 @@ In the case that the file doesn't exist yet, you can create a new file at this l
 ```toml
 [language-server.expert]
 command = "/my/home/projects/expert/apps/expert/burrito_out/expert_linux_amd64"
+args = ["--stdio"]
 
 [[language]]
 name = "elixir"
@@ -236,9 +260,9 @@ language-servers = ["expert"]
 
 #### Background
 
-Lexical can be used with Sublime Text via the [LSP-Sublime](https://lsp.sublimetext.io/) package, which integrates Language Servers with Sublime Text. If you don't have the LSP-Sublime package installed already, [install it with Package Control](https://packagecontrol.io/packages/LSP).
+Expert can be used with Sublime Text via the [LSP-Sublime](https://lsp.sublimetext.io/) package, which integrates Language Servers with Sublime Text. If you don't have the LSP-Sublime package installed already, [install it with Package Control](https://packagecontrol.io/packages/LSP).
 
-There is currently no [language server package](https://lsp.sublimetext.io/language_servers/) specifically for Lexical that works with LSP-Sublime so we'll need to create a [custom client configuration](https://lsp.sublimetext.io/client_configuration/).
+There is currently no [language server package](https://lsp.sublimetext.io/language_servers/) specifically for Expert that works with LSP-Sublime so we'll need to create a [custom client configuration](https://lsp.sublimetext.io/client_configuration/).
 
 #### Installation
 First, install LSP-Sublime with Package Control if you haven't already.
@@ -251,7 +275,7 @@ You'll need to add a key called `"clients"` in the top-level `LSP.sublime-settin
 "clients": {
   "elixir-expert": {
     "enabled": true,
-    "command": ["/my/home/projects/expert/apps/expert/burrito_out/expert_linux_amd64", ""],
+    "command": ["/my/home/projects/expert/apps/expert/burrito_out/expert_linux_amd64", "--stdio"],
     "selector": "source.elixir"
   }
 }
@@ -259,3 +283,34 @@ You'll need to add a key called `"clients"` in the top-level `LSP.sublime-settin
 _note: you can name elixir-expert whatever you like, it's just for your own identification_
 
 Upon saving the configuration, LSP-Sublime should enable the new `elixir-expert` LSP server. Go into an Elixir file and you should now see `elixir-expert` in the lower left of the status bar. If not, invoke the command palette and select `LSP: Enable Language Server Globally/In Project` and it should run.
+
+### Zed
+
+Zed [supports Expert](https://zed.dev/docs/languages/elixir) through the [Elixir extension](https://github.com/zed-extensions/elixir).
+
+So, first install the extension and then update your `settings.json` to use Expert as language server:
+
+```json
+{
+  "lsp": {
+    "expert": {
+      "binary": {
+        "arguments": ["--stdio"]
+      }
+    }
+  },
+  "languages": {
+    "Elixir": {
+      "language_servers": [
+        "expert",
+        "!elixir-ls",
+        "!next-ls",
+        "!lexical",
+        "..."
+      ]
+    }
+  }
+}
+```
+
+The Elixir extension will [download the latest Expert release](https://github.com/zed-extensions/elixir/blob/96fd0581d84cfac857a23c1351e2405836de39fd/src/language_servers/expert.rs#L65) and keep it updated. So, you don't need to manually download and update the expert release yourself.

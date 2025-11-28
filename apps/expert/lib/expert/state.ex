@@ -200,10 +200,13 @@ defmodule Expert.State do
 
     case Document.Store.open(uri, text, version, language_id) do
       :ok ->
-        {:ok, %{state | configuration: config}}
+        Logger.info("Opened #{uri}")
+
+        {:ok, state}
 
       error ->
         Logger.error("Could not open #{uri} #{inspect(error)}")
+
         error
     end
   end

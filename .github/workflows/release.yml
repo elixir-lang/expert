@@ -45,8 +45,8 @@ jobs:
           version-type: strict
       - uses: mlugg/setup-zig@v2
         with:
-          version: "0.14.1"
-      - uses: actions/checkout@v5
+          version: "0.15.2"
+      - uses: actions/checkout@v6
       - run: just release-all
         env:
           MIX_ENV: prod

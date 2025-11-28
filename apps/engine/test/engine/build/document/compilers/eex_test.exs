@@ -124,7 +124,7 @@ defmodule Engine.Build.Document.Compilers.EExTest do
   end
 
   describe "eval_quoted/2" do
-    test "handles undefinied function" do
+    test "handles undefined function" do
       document = document_with_content(~q[
         <%= IO.uts("thing") %>
       ])
@@ -139,7 +139,7 @@ defmodule Engine.Build.Document.Compilers.EExTest do
 
     @feature_condition span_in_diagnostic?: false
     @tag execute_if(@feature_condition)
-    test "handles undefinied variable" do
+    test "handles undefined variable" do
       document = document_with_content(~q[
         <%= thing %>
       ])
@@ -160,7 +160,7 @@ defmodule Engine.Build.Document.Compilers.EExTest do
 
     @feature_condition span_in_diagnostic?: true
     @tag execute_if(@feature_condition)
-    test "handles undefinied variable when #{inspect(@feature_condition)}" do
+    test "handles undefined variable when #{inspect(@feature_condition)}" do
       document = document_with_content(~q[
         <%= thing %>
       ])

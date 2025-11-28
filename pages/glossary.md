@@ -12,7 +12,7 @@ This section covers features, names, and abstractions used by Expert that have a
 
 ### Messages, Requests, Responses, and Notifications
 
-LSP defines a general heirarchy of the types of messages langauge servers and clients and may exchange, and the expected behaviours associated with them.
+LSP defines a general hierarchy of the types of messages language servers and clients and may exchange, and the expected behaviours associated with them.
 
 There's 3 top-level types of messages: [Requests](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#requestMessage), [Responses](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#responseMessage), and [Notifications](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#notificationMessage):
 
@@ -84,4 +84,4 @@ Examples of code mods include:
  * Formatting code in a file (`> Format Document`/`shift`+`alt`+`f` in VSCode).
  * Prefixing unused variables with an `_`.
 
-Code mods are defined in the `remote_control` sub-app and are executed in the project's virutal machine.
+Code mods are defined in the `engine` sub-app and are executed in the project's virtual machine.

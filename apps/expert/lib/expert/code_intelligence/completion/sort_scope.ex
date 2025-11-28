@@ -34,7 +34,7 @@ defmodule Expert.CodeIntelligence.Completion.SortScope do
   end
 
   @doc """
-  Intended for delcarations defined in other modules than the immediate scope,
+  Intended for declarations defined in other modules than the immediate scope,
   either from one's project, dependencies, or the standard library.
   """
   def remote(deprecated? \\ false, local_priority \\ 1) do
