@@ -19,7 +19,7 @@ defmodule Forge.Namespace.Transform.Boots do
   end
 
   defp find_boot_files(base_directory) do
-    [base_directory, "releases", "**", "*.script"]
+    [base_directory, "**", "*.script"]
     |> Path.join()
     |> Path.wildcard()
   end

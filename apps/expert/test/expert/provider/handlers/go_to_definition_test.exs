@@ -19,6 +19,7 @@ defmodule Expert.Provider.Handlers.GoToDefinitionTest do
     start_supervised!(Expert.Application.document_store_child_spec())
     start_supervised!({DynamicSupervisor, Expert.Project.DynamicSupervisor.options()})
     start_supervised!({Expert.Project.Supervisor, project})
+    start_supervised!({Expert.ActiveProjects, []})
 
     EngineApi.register_listener(project, self(), [
       project_compiled(),
@@ -54,7 +55,8 @@ defmodule Expert.Provider.Handlers.GoToDefinitionTest do
   end
 
   def handle(request, project) do
-    config = Expert.Configuration.new(project: project)
+    Expert.ActiveProjects.add_projects([project])
+    config = Expert.Configuration.new()
     Handlers.GoToDefinition.handle(request, config)
   end
 

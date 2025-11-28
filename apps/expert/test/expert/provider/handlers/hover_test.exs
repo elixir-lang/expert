@@ -24,6 +24,7 @@ defmodule Expert.Provider.Handlers.HoverTest do
     start_supervised!(Expert.Application.document_store_child_spec())
     start_supervised!({DynamicSupervisor, Expert.Project.DynamicSupervisor.options()})
     start_supervised!({Expert.Project.Supervisor, project})
+    start_supervised!({Expert.ActiveProjects, []})
 
     :ok = EngineApi.register_listener(project, self(), [Messages.project_compiled()])
     assert_receive Messages.project_compiled(), 5000
@@ -720,10 +721,12 @@ defmodule Expert.Provider.Handlers.HoverTest do
   end
 
   defp hover(project, hovered) do
+    Expert.ActiveProjects.add_projects([project])
+
     with {position, hovered} <- pop_cursor(hovered),
          {:ok, document} <- document_with_content(project, hovered),
          {:ok, request} <- hover_request(document.uri, position) do
-      config = Expert.Configuration.new(project: project)
+      config = Expert.Configuration.new()
       Handlers.Hover.handle(request, config)
     end
   end
