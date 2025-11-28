@@ -183,8 +183,6 @@ defmodule Expert.State do
       language_id: language_id
     } = did_open.params.text_document
 
-    config = state.configuration
-
     project =
       with nil <- Enum.find(ActiveProjects.projects(), &Project.within_project?(&1, uri)) do
         Project.find_project(uri)
