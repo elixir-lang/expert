@@ -53,20 +53,25 @@ defmodule Expert do
     state = assigns(lsp).state
     Process.send_after(self(), :default_config, :timer.seconds(5))
 
-    case State.initialize(state, request) do
-      {:ok, response, state} ->
-        lsp = assign(lsp, state: state)
-        {:ok, response} = Expert.Protocol.Convert.to_lsp(response)
+    with {:ok, response, state} <- State.initialize(state, request),
+         {:ok, response} <- Expert.Protocol.Convert.to_lsp(response) do
+      lsp = assign(lsp, state: state)
 
-        {:reply, response, lsp}
+      {:reply, response, lsp}
+    else
+      {:error, {:shutdown, {:failed_to_start_child, _, _}}} ->
+        {:reply,
+         %GenLSP.ErrorResponse{
+           code: GenLSP.Enumerations.ErrorCodes.server_not_initialized(),
+           message: "Failed to start node"
+         }, lsp}
 
-      {:error, error} ->
-        response = %GenLSP.ErrorResponse{
-          code: GenLSP.Enumerations.ErrorCodes.invalid_request(),
-          message: to_string(error)
-        }
-
-        {:reply, response, lsp}
+      {:error, reason} ->
+        {:reply,
+         %GenLSP.ErrorResponse{
+           code: GenLSP.Enumerations.ErrorCodes.server_not_initialized(),
+           message: to_string(reason)
+         }, lsp}
     end
   end
 

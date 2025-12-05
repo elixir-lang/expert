@@ -13,6 +13,7 @@ defmodule Expert.Project.DiagnosticsTest do
 
   import Forge.EngineApi.Messages
   import Forge.Test.Fixtures
+  import Expert.Test.Protocol.TransportSupport
 
   setup do
     project = project()
@@ -35,24 +36,6 @@ defmodule Expert.Project.DiagnosticsTest do
 
     values = Keyword.merge(defaults, opts)
     struct(Diagnostic.Result, values)
-  end
-
-  def with_patched_transport(_) do
-    test = self()
-
-    patch(GenLSP, :notify_server, fn _, message ->
-      send(test, {:transport, message})
-    end)
-
-    patch(GenLSP, :notify, fn _, message ->
-      send(test, {:transport, message})
-    end)
-
-    patch(GenLSP, :request, fn _, message ->
-      send(test, {:transport, message})
-    end)
-
-    :ok
   end
 
   defp open_file(project, contents) do

@@ -5,6 +5,8 @@ defmodule Expert.EngineNode do
   use Expert.Project.Progress.Support
 
   defmodule State do
+    require Logger
+
     defstruct [
       :project,
       :port,
@@ -12,6 +14,7 @@ defmodule Expert.EngineNode do
       :stopped_by,
       :stop_timeout,
       :started_by,
+      :last_message,
       :status
     ]
 
@@ -101,6 +104,19 @@ defmodule Expert.EngineNode do
       else
         :continue
       end
+    end
+
+    def on_exit_status(%__MODULE__{} = state, exit_status) do
+      if exit_status > 0 do
+        GenLSP.error(
+          Expert.get_lsp(),
+          "Node exited with status #{exit_status}, last message: #{to_string(state.last_message)}"
+        )
+      else
+        Logger.debug("Node exited with status 0")
+      end
+
+      %{state | status: :stopped}
     end
 
     def maybe_reply_to_stopper(%State{stopped_by: stopped_by} = state)
@@ -373,9 +389,16 @@ defmodule Expert.EngineNode do
   end
 
   @impl true
+  def handle_info({_port, {:exit_status, exit_status}}, %State{} = state) do
+    state = State.on_exit_status(state, exit_status)
+
+    {:stop, :shutdown, state}
+  end
+
+  @impl true
   def handle_info({_port, {:data, message}}, %State{} = state) do
     Logger.debug("Node port message: #{to_string(message)}")
-    {:noreply, state}
+    {:noreply, %{state | last_message: message}}
   end
 
   @impl true

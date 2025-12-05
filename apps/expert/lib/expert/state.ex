@@ -50,17 +50,15 @@ defmodule Expert.State do
       end
 
     config = Configuration.new(event.root_uri, event.capabilities, client_name)
-    new_state = %__MODULE__{state | configuration: config, initialized?: true}
     Logger.info("Starting project at uri #{config.project.root_uri}")
 
-    response = initialize_result()
-
-    Task.Supervisor.start_child(:expert_task_queue, fn ->
-      {:ok, _pid} = Project.Supervisor.start(config.project)
+    with {:ok, _pid} <- Project.Supervisor.start(config.project) do
       send(Expert, :engine_initialized)
-    end)
+      new_state = %__MODULE__{state | configuration: config, initialized?: true}
+      response = initialize_result()
 
-    {:ok, response, new_state}
+      {:ok, response, new_state}
+    end
   end
 
   def initialize(%__MODULE__{initialized?: true}, %Requests.Initialize{}) do
