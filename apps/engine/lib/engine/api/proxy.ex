@@ -39,9 +39,7 @@ defmodule Engine.Api.Proxy do
   alias Engine.Api.Proxy.Records
   alias Engine.CodeMod
   alias Engine.Commands
-  alias Forge.EngineApi.Messages
 
-  import Messages
   import Record
   import Records, only: :macros
 
@@ -62,7 +60,17 @@ defmodule Engine.Api.Proxy do
 
   # proxied functions
 
-  def broadcast(percent_progress() = message) do
+  # Progress messages bypass buffering to ensure timely progress updates
+  def broadcast({:engine_progress_begin, _, _, _} = message) do
+    Engine.Dispatch.broadcast(message)
+  end
+
+  # report and complete are 3-tuples: {type, token, updates_or_opts}
+  def broadcast({:engine_progress_report, _, _} = message) do
+    Engine.Dispatch.broadcast(message)
+  end
+
+  def broadcast({:engine_progress_complete, _, _} = message) do
     Engine.Dispatch.broadcast(message)
   end
 

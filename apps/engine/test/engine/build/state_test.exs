@@ -68,6 +68,10 @@ defmodule Engine.Build.StateTest do
   def with_patched_compilation(_) do
     patch(Build.Document, :compile, :ok)
     patch(Build.Project, :compile, :ok)
+    # Patch Progress and building_label to avoid side effects during state tests
+    patch(State, :building_label, "Building test")
+    patch(Engine.Progress, :begin, fn _, _ -> 0 end)
+    patch(Engine.Progress, :complete, fn _, _ -> :ok end)
     :ok
   end
 

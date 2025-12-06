@@ -77,7 +77,7 @@ defmodule Engine.BuildTest do
       EngineApi.schedule_compile(project, true)
 
       assert_receive project_compiled(status: :success)
-      assert_receive project_progress(label: "Building " <> project_name)
+      assert_receive {:engine_progress_begin, _token, "Building " <> project_name, _}
       assert project_name == "project_metadata"
     end
 
@@ -85,6 +85,7 @@ defmodule Engine.BuildTest do
       {:ok, project} = with_project(:project_metadata)
 
       EngineApi.schedule_compile(project, true)
+
       assert_receive module_updated(name: ProjectMetadata, functions: functions)
 
       assert {:zero_arity, 0} in functions
@@ -113,7 +114,7 @@ defmodule Engine.BuildTest do
       assert {:arity_1, 1} in functions
       assert {:arity_2, 2} in functions
 
-      assert_receive project_progress(label: "Building " <> project_name)
+      assert_receive {:engine_progress_begin, _token, "Building " <> project_name, _}
       assert project_name == "umbrella"
     end
   end

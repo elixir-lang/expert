@@ -1,6 +1,6 @@
 defmodule Engine.Compilation.Tracer do
-  alias Engine.Build
   alias Engine.Module.Loader
+  alias Engine.Progress
 
   import Forge.EngineApi.Messages
 
@@ -57,9 +57,7 @@ defmodule Engine.Compilation.Tracer do
 
   defp maybe_report_progress(file) do
     if Path.extname(file) == ".ex" do
-      file
-      |> progress_message()
-      |> Engine.broadcast()
+      Progress.report(:build, message: progress_message(file))
     end
   end
 
@@ -72,9 +70,6 @@ defmodule Engine.Compilation.Tracer do
     base_dir = List.first(relative_path_elements)
     file_name = List.last(relative_path_elements)
 
-    message = "compiling: " <> Path.join([base_dir, "...", file_name])
-
-    label = Build.State.building_label(Engine.get_project())
-    project_progress(label: label, message: message)
+    "compiling: " <> Path.join([base_dir, "...", file_name])
   end
 end

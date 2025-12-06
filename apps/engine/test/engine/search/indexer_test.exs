@@ -26,6 +26,8 @@ defmodule Engine.Search.IndexerTest do
   setup do
     project = project()
     start_supervised(Dispatch)
+    # Mock the broadcast so progress reporting doesn't fail
+    patch(Engine.Api.Proxy, :broadcast, fn _ -> :ok end)
     {:ok, project: project}
   end
 

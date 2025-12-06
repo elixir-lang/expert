@@ -34,9 +34,10 @@ defmodule Engine.Api.ProxyTest do
 
     test "proxies broadcasts of progress messages" do
       patch(Dispatch, :broadcast, :ok)
-      assert :ok = Proxy.broadcast(percent_progress())
+      progress_message = {:engine_progress_report, 123, [message: "testing"]}
+      assert :ok = Proxy.broadcast(progress_message)
 
-      assert_called(Dispatch.broadcast(percent_progress()))
+      assert_called(Dispatch.broadcast(^progress_message))
     end
 
     test "schedule compile is proxied", %{project: project} do
@@ -152,9 +153,10 @@ defmodule Engine.Api.ProxyTest do
 
     test "proxies broadcasts of progress messages" do
       patch(Dispatch, :broadcast, :ok)
-      assert :ok = Proxy.broadcast(percent_progress())
+      progress_message = {:engine_progress_begin, 123, "test", []}
+      assert :ok = Proxy.broadcast(progress_message)
 
-      assert_called(Dispatch.broadcast(percent_progress()))
+      assert_called(Dispatch.broadcast(^progress_message))
     end
 
     test "buffers broadcasts" do

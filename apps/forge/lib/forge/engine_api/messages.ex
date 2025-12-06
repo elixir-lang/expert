@@ -33,10 +33,6 @@ defmodule Forge.EngineApi.Messages do
 
   defrecord :file_diagnostics, project: nil, build_number: 0, uri: nil, diagnostics: []
 
-  defrecord :project_progress, label: nil, message: nil, stage: :report
-
-  defrecord :percent_progress, label: nil, message: nil, stage: :report, max: 0, delta: 0
-
   defrecord :struct_discovered, module: nil, fields: []
 
   defrecord :project_index_ready, project: nil
@@ -114,13 +110,6 @@ defmodule Forge.EngineApi.Messages do
             project: Forge.Project.t(),
             uri: Forge.uri(),
             diagnostics: diagnostics()
-          )
-
-  @type project_progress ::
-          record(:project_progress,
-            label: String.t(),
-            message: String.t() | integer(),
-            stage: :prepare | :begin | :report | :complete
           )
 
   @type struct_discovered :: record(:struct_discovered, module: module(), fields: field_list())

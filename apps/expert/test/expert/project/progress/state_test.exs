@@ -1,72 +1,156 @@
 defmodule Expert.Project.Progress.StateTest do
+  alias Expert.Configuration
   alias Expert.Project.Progress.State
-  alias Expert.Project.Progress.Value
 
-  import Forge.EngineApi.Messages
   import Forge.Test.Fixtures
 
   use ExUnit.Case, async: true
+  use Patch
 
   setup do
     project = project()
+    # Mock LSP interactions
+    # GenLSP.request returns nil for success, non-nil for error
+    patch(Expert, :get_lsp, fn -> self() end)
+    patch(GenLSP, :request, fn _, _ -> nil end)
+    patch(GenLSP, :notify, fn _, _ -> :ok end)
+    patch(Configuration, :client_supports?, fn :work_done_progress -> true end)
     {:ok, project: project}
   end
 
-  def progress(label, message \\ nil) do
-    project_progress(label: label, message: message)
+  describe "engine-initiated progress" do
+    test "register_engine_token adds token to active and sends begin notification", %{
+      project: project
+    } do
+      state = State.new(project)
+      token = 12345
+      title = "mix compile"
+
+      {:ok, new_state} = State.register_engine_token(state, token, title, [])
+
+      assert MapSet.member?(new_state.active, token)
+    end
+
+    test "report works for registered engine token", %{project: project} do
+      state = State.new(project)
+      token = 12345
+
+      {:ok, state} = State.register_engine_token(state, token, "mix compile", [])
+      {:ok, ^token, _state} = State.report(state, token, message: "Compiling...")
+
+      # Should not error
+      assert true
+    end
+
+    test "report returns noop for unknown engine token", %{project: project} do
+      state = State.new(project)
+
+      assert {:noop, _state} = State.report(state, 99999, message: "test")
+    end
+
+    test "complete removes engine token from active", %{project: project} do
+      state = State.new(project)
+      token = 12345
+
+      {:ok, state} = State.register_engine_token(state, token, "mix compile", [])
+      {:ok, new_state} = State.complete(state, token, [])
+
+      refute MapSet.member?(new_state.active, token)
+    end
+
+    test "complete returns error for unknown engine token", %{project: project} do
+      state = State.new(project)
+
+      assert {:error, :unknown_token, _state} = State.complete(state, 99999, [])
+    end
   end
 
-  test "it should be able to add a begin event and put the new token", %{project: project} do
-    label = "mix deps.get"
-    state = project |> State.new() |> State.begin(progress(label))
+  describe "server-initiated progress" do
+    test "begin creates token and tracks in active set", %{project: project} do
+      state = State.new(project)
+      title = "Building"
 
-    assert %Value{token: token, title: ^label, kind: :begin} = state.progress_by_label[label]
-    assert token != nil
+      {:ok, token, new_state} = State.begin(state, title, [])
+
+      assert is_integer(token)
+      assert MapSet.member?(new_state.active, token)
+    end
+
+    test "report works for active token", %{project: project} do
+      state = State.new(project)
+
+      {:ok, token, state} = State.begin(state, "Building", [])
+      {:ok, ^token, _state} = State.report(state, token, message: "In progress...")
+
+      assert true
+    end
+
+    test "report returns noop for unknown token", %{project: project} do
+      state = State.new(project)
+
+      assert {:noop, _state} = State.report(state, 12345, message: "test")
+    end
+
+    test "complete removes token from active set", %{project: project} do
+      state = State.new(project)
+
+      {:ok, token, state} = State.begin(state, "Building", [])
+      {:ok, new_state} = State.complete(state, token, [])
+
+      refute MapSet.member?(new_state.active, token)
+    end
   end
 
-  test "it should be able to add a report event use the begin event token", %{project: project} do
-    label = "mix compile"
-    state = project |> State.new() |> State.begin(progress(label))
+  describe "ref-based progress" do
+    test "register tracks token with ref", %{project: project} do
+      state = State.new(project)
+      token = "client-token"
 
-    previous_token = state.progress_by_label[label].token
+      {:ok, new_state} = State.register(state, token, ref: :initialize)
 
-    %{progress_by_label: progress_by_label} =
-      State.report(state, progress(label, "lib/my_module.ex"))
+      assert MapSet.member?(new_state.active, token)
+      assert new_state.refs[:initialize] == token
+    end
 
-    assert %Value{token: ^previous_token, message: "lib/my_module.ex", kind: :report} =
-             progress_by_label[label]
-  end
+    test "register without ref only tracks token", %{project: project} do
+      state = State.new(project)
+      token = "client-token"
 
-  test "clear the token_by_label after received a complete event", %{project: project} do
-    state = project |> State.new() |> State.begin(progress("mix compile"))
+      {:ok, new_state} = State.register(state, token, [])
 
-    %{progress_by_label: progress_by_label} =
-      State.complete(state, progress("mix compile", "in 2s"))
+      assert MapSet.member?(new_state.active, token)
+      assert new_state.refs == %{}
+    end
 
-    assert progress_by_label == %{}
-  end
+    test "report works for known ref", %{project: project} do
+      state = State.new(project)
+      token = "client-token"
 
-  test "set the progress value to nil when there is no begin event", %{
-    project: project
-  } do
-    state = project |> State.new() |> State.report(progress("mix compile"))
-    assert state.progress_by_label["mix compile"] == nil
-  end
+      {:ok, state} = State.register(state, token, ref: :initialize)
+      {:ok, ^token, _state} = State.report(state, :initialize, message: "Loading...")
+    end
 
-  test "set the progress value to nil when a complete event received before the report", %{
-    project: project
-  } do
-    label = "mix compile"
+    test "report returns noop for unknown ref", %{project: project} do
+      state = State.new(project)
 
-    state =
-      project
-      |> State.new()
-      |> State.begin(progress(label))
-      |> State.complete(progress(label, "in 2s"))
+      assert {:noop, _state} = State.report(state, :unknown, message: "test")
+    end
 
-    %{progress_by_label: progress_by_label} =
-      State.report(state, progress(label, "lib/my_module.ex"))
+    test "complete removes ref and token from tracking", %{project: project} do
+      state = State.new(project)
+      token = "client-token"
 
-    assert progress_by_label[label] == nil
+      {:ok, state} = State.register(state, token, ref: :initialize)
+      {:ok, new_state} = State.complete(state, :initialize, [])
+
+      refute Map.has_key?(new_state.refs, :initialize)
+      refute MapSet.member?(new_state.active, token)
+    end
+
+    test "complete returns error for unknown ref", %{project: project} do
+      state = State.new(project)
+
+      assert {:error, :unknown_ref} = State.complete(state, :unknown, [])
+    end
   end
 end

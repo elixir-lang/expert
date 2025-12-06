@@ -84,6 +84,7 @@ defmodule Engine.Search.Indexer do
 
   # 128 K blocks indexed expert in 5.3 seconds
   @bytes_per_block 1024 * 128
+
   defp async_chunks(file_paths, processor, timeout \\ :infinity) do
     # this function tries to even out the amount of data processed by
     # async stream by making each chunk emitted by the initial stream to
@@ -101,8 +102,9 @@ defmodule Engine.Search.Indexer do
     total_bytes = paths_to_sizes |> Enum.map(&elem(&1, 1)) |> Enum.sum()
 
     if total_bytes > 0 do
-      {on_update_progress, on_complete} =
-        Progress.begin_percent("Indexing source code", total_bytes)
+      # Start progress tracking
+      token = Progress.begin("Indexing source code", percentage: 0)
+      bytes_processed = :counters.new(1, [:atomics])
 
       initial_state = {0, []}
 
@@ -131,7 +133,13 @@ defmodule Engine.Search.Indexer do
         fn chunk ->
           block_bytes = chunk |> Enum.map(&Map.get(path_to_size_map, &1)) |> Enum.sum()
           result = Enum.map(chunk, processor)
-          on_update_progress.(block_bytes, "Indexing")
+
+          :counters.add(bytes_processed, 1, block_bytes)
+          processed = :counters.get(bytes_processed, 1)
+          percentage = min(100, div(processed * 100, total_bytes))
+
+          Progress.report(token, message: "Indexing", percentage: percentage)
+
           result
         end,
         timeout: timeout
@@ -150,7 +158,7 @@ defmodule Engine.Search.Indexer do
           {chunk_items, acc}
         end,
         fn _acc ->
-          on_complete.()
+          Progress.complete(token)
         end
       )
     else

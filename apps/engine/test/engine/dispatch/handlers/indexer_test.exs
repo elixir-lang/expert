@@ -19,6 +19,9 @@ defmodule Engine.Dispatch.Handlers.IndexingTest do
     create_index = &Search.Indexer.create_index/1
     update_index = &Search.Indexer.update_index/2
 
+    # Mock the broadcast so progress reporting doesn't fail
+    patch(Engine.Api.Proxy, :broadcast, fn _ -> :ok end)
+
     start_supervised!(Engine.Dispatch)
     start_supervised!(Commands.Reindex)
     start_supervised!(Search.Store.Backends.Ets)

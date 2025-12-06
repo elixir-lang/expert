@@ -2,8 +2,6 @@ defmodule Expert.EngineNode do
   alias Forge.Project
   require Logger
 
-  use Expert.Project.Progress.Support
-
   defmodule State do
     defstruct [
       :project,
@@ -222,17 +220,24 @@ defmodule Expert.EngineNode do
 
           GenLSP.info(lsp, "Finding or building engine for project #{project_name}")
 
-          with_progress(project, "Building engine for #{project_name}", fn ->
-            fn ->
-              Process.flag(:trap_exit, true)
+          Expert.Project.Progress.with_server_progress(
+            project,
+            "Building engine for #{project_name}",
+            fn _token ->
+              result =
+                fn ->
+                  Process.flag(:trap_exit, true)
 
-              {:spawn_executable, launcher}
-              |> Port.open(opts)
-              |> wait_for_engine()
+                  {:spawn_executable, launcher}
+                  |> Port.open(opts)
+                  |> wait_for_engine()
+                end
+                |> Task.async()
+                |> Task.await(:infinity)
+
+              {:done, result, "Engine node built for #{project_name}."}
             end
-            |> Task.async()
-            |> Task.await(:infinity)
-          end)
+          )
 
         {:error, :no_elixir, message} ->
           GenLSP.error(Expert.get_lsp(), message)

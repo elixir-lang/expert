@@ -20,7 +20,6 @@ defmodule Expert.Project.Node do
   require Logger
 
   use GenServer
-  use Progress.Support
 
   def start_link(%Project{} = project) do
     GenServer.start_link(__MODULE__, project, name: name(project))
@@ -51,12 +50,15 @@ defmodule Expert.Project.Node do
 
   @impl GenServer
   def init(%Project{} = project) do
-    case with_progress(project, "Project Node", fn -> start_node(project) end) do
-      {:ok, state} ->
-        {:ok, state, {:continue, :trigger_build}}
+    project
+    |> Progress.with_server_progress("Project Node", fn _token ->
+      result = start_node(project)
 
-      error ->
-        {:stop, error}
+      {:done, result, "Project node started"}
+    end)
+    |> case do
+      {:ok, state} -> {:ok, state, {:continue, :trigger_build}}
+      error -> {:stop, error}
     end
   end
 

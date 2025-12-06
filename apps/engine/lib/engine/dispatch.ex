@@ -10,9 +10,14 @@ defmodule Engine.Dispatch do
   alias Engine.Dispatch.Handlers
   alias Engine.Dispatch.PubSub
   alias Forge.Project
-  import Forge.EngineApi.Messages
 
   @handlers [PubSub, Handlers.Indexing]
+
+  @progress_message_types [
+    :engine_progress_begin,
+    :engine_progress_report,
+    :engine_progress_complete
+  ]
 
   # public API
 
@@ -74,7 +79,7 @@ defmodule Engine.Dispatch do
   end
 
   defp register_progress_listener do
-    register_listener(progress_pid(), [project_progress(), percent_progress()])
+    register_listener(progress_pid(), @progress_message_types)
   end
 
   defp progress_pid do
