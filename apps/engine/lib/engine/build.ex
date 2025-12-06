@@ -12,6 +12,11 @@ defmodule Engine.Build do
 
   # Public interface
 
+  @doc """
+  Token for reporting build progress to the language client.
+  """
+  def progress_token(%Project{} = project), do: "build_engine:#{project.root_uri}"
+
   def schedule_compile(%Project{} = _project, force? \\ false) do
     GenServer.cast(__MODULE__, {:compile, force?})
   end

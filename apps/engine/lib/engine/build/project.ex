@@ -10,12 +10,11 @@ defmodule Engine.Build.Project do
     Engine.Mix.in_project(fn _ ->
       Mix.Task.clear()
 
-      prepare_for_project_build(initial?)
+      prepare_for_project_build(project, initial?)
 
       compile_fun = fn ->
         Mix.Task.clear()
-
-        Progress.report(:initialize, message: building_label(project))
+        do_progress_report(project, message: building_label(project))
         result = compile_in_isolation()
         Mix.Task.run(:loadpaths)
         result
@@ -62,34 +61,36 @@ defmodule Engine.Build.Project do
     end
   end
 
-  defp prepare_for_project_build(false = _initial?) do
-    :ok
-  end
+  defp prepare_for_project_build(_project, false = _initial?), do: :ok
 
-  defp prepare_for_project_build(true = _initial?) do
+  defp prepare_for_project_build(project, true = _initial?) do
     if connected_to_internet?() do
-      Progress.report(:initialize, message: "mix local.hex")
+      do_progress_report(project, message: "mix local.hex")
       Mix.Task.run("local.hex", ~w(--force))
 
-      Progress.report(:initialize, message: "mix local.rebar")
+      do_progress_report(project, message: "mix local.rebar")
       Mix.Task.run("local.rebar", ~w(--force))
 
-      Progress.report(:initialize, message: "mix deps.get")
+      do_progress_report(project, message: "mix deps.get")
       Mix.Task.run("deps.get")
     else
       Logger.warning("Could not connect to hex.pm, dependencies will not be fetched")
     end
 
-    Progress.report(:initialize, message: "mix loadconfig")
+    do_progress_report(project, message: "mix loadconfig")
     Mix.Task.run(:loadconfig)
 
     if not Elixir.Features.compile_keeps_current_directory?() do
-      Progress.report(:initialize, message: "mix deps.compile")
+      do_progress_report(project, message: "mix deps.compile")
       Mix.Task.run("deps.safe_compile", ~w(--skip-umbrella-children))
     end
 
-    Progress.report(:initialize, message: "Loading plugins")
+    do_progress_report(project, message: "Loading plugins")
     Plugin.Discovery.run()
+  end
+
+  defp do_progress_report(project, opts) do
+    Progress.report(Build.progress_token(project), opts)
   end
 
   defp connected_to_internet? do

@@ -53,16 +53,19 @@ defmodule Expert.Progress do
   * `:message` - Initial status message (optional)
   * `:percentage` - Initial percentage 0-100 (optional)
   * `:cancellable` - Whether the client can cancel (default: false)
+  * `:token` - Custom token to use (caller ensures uniqueness)
 
   ## Examples
 
       {:ok, token} = Progress.begin("Building project")
       {:ok, token} = Progress.begin("Indexing", message: "Starting...", percentage: 0)
+      {:ok, token} = Progress.begin("Custom", token: my_unique_token)
   """
   @spec begin(String.t(), keyword()) :: {:ok, integer()} | {:error, :rejected}
   def begin(title, opts \\ []) do
-    opts = Keyword.validate!(opts, [:message, :percentage, :cancellable])
-    token = System.unique_integer([:positive])
+    opts = Keyword.validate!(opts, [:message, :percentage, :cancellable, :token])
+
+    token = opts[:token] || System.unique_integer([:positive])
 
     if Configuration.client_supports?(:work_done_progress) do
       case request_work_done_progress(token) do

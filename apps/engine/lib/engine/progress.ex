@@ -86,8 +86,10 @@ defmodule Engine.Progress do
   - `:message` - Status message to display
   - `:percentage` - Progress percentage 0-100
   """
-  @spec report(integer(), keyword()) :: :ok
-  def report(token, updates \\ []) when is_integer(token) do
+  @spec report(integer() | String.t(), keyword()) :: :ok
+  def report(token, updates \\ [])
+
+  def report(token, updates) when is_integer(token) or is_binary(token) do
     Dispatch.rpc_cast(Expert.Progress, :report, [token, updates])
     :ok
   end
