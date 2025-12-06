@@ -1,6 +1,7 @@
 defmodule Engine.Build.State do
   alias Elixir.Features
   alias Engine.Build
+  alias Engine.Compilation.Tracer
   alias Engine.Plugin
   alias Engine.Progress
   alias Forge.Document
@@ -82,7 +83,7 @@ defmodule Engine.Build.State do
     project = state.project
 
     Build.with_lock(fn ->
-      {:ok, work_done_token} = Progress.begin(building_label(project))
+      work_done_token = Progress.begin(building_label(project))
 
       try do
         compile_requested_message =
@@ -123,6 +124,7 @@ defmodule Engine.Build.State do
         Engine.broadcast(diagnostics_message)
         Plugin.diagnose(project, state.build_number)
       after
+        Tracer.clear_build_token()
         Progress.complete(work_done_token)
       end
     end)

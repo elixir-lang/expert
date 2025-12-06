@@ -13,12 +13,6 @@ defmodule Engine.Dispatch do
 
   @handlers [PubSub, Handlers.Indexing]
 
-  @progress_message_types [
-    :engine_progress_begin,
-    :engine_progress_report,
-    :engine_progress_complete
-  ]
-
   # public API
 
   @doc """
@@ -51,15 +45,10 @@ defmodule Engine.Dispatch do
 
   # GenServer callbacks
 
-  def start_link(opts) do
+  def start_link(_opts) do
     case :gen_event.start_link(name()) do
       {:ok, pid} = success ->
         Enum.each(@handlers, &:gen_event.add_handler(pid, &1, []))
-
-        if opts[:progress] do
-          register_progress_listener()
-        end
-
         success
 
       error ->
@@ -78,13 +67,21 @@ defmodule Engine.Dispatch do
     {:local, __MODULE__}
   end
 
-  defp register_progress_listener do
-    register_listener(progress_pid(), @progress_message_types)
+  @doc """
+  :rpc.call to the server node.
+  """
+  def rpc_call(module, function, args) do
+    project = Engine.get_project()
+    manager_node = Project.manager_node_name(project)
+    :rpc.call(manager_node, module, function, args)
   end
 
-  defp progress_pid do
+  @doc """
+  :rpc.cast to the server node.
+  """
+  def rpc_cast(module, function, args) do
     project = Engine.get_project()
-    manager_node_name = Project.manager_node_name(project)
-    :rpc.call(manager_node_name, Expert.Project.Progress, :whereis, [project])
+    manager_node = Project.manager_node_name(project)
+    :rpc.cast(manager_node, module, function, args)
   end
 end

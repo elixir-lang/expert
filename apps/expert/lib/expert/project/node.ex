@@ -15,7 +15,7 @@ defmodule Expert.Project.Node do
 
   alias Expert.EngineApi
   alias Expert.EngineNode
-  alias Expert.Project.Progress
+  alias Expert.Progress
 
   require Logger
 
@@ -50,8 +50,7 @@ defmodule Expert.Project.Node do
 
   @impl GenServer
   def init(%Project{} = project) do
-    project
-    |> Progress.with_server_progress("Project Node", fn _token ->
+    Progress.with_progress("Project Node", fn _token ->
       result = start_node(project)
 
       {:done, result, "Project node started"}

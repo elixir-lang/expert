@@ -3,7 +3,6 @@ defmodule Expert.Project.Supervisor do
   alias Expert.Project.Diagnostics
   alias Expert.Project.Intelligence
   alias Expert.Project.Node
-  alias Expert.Project.Progress
   alias Expert.Project.SearchListener
   alias Forge.Project
 
@@ -25,7 +24,6 @@ defmodule Expert.Project.Supervisor do
 
   def init(%Project{} = project) do
     children = [
-      {Progress, project},
       {EngineSupervisor, project},
       {Node, project},
       {Diagnostics, project},

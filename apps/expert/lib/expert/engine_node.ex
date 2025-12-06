@@ -220,8 +220,7 @@ defmodule Expert.EngineNode do
 
           GenLSP.info(lsp, "Finding or building engine for project #{project_name}")
 
-          Expert.Project.Progress.with_server_progress(
-            project,
+          Expert.Progress.with_progress(
             "Building engine for #{project_name}",
             fn _token ->
               result =

@@ -3,6 +3,8 @@ defmodule Engine.Progress do
   LSP progress reporting for engine operations.
   """
 
+  alias Engine.Dispatch
+
   @type work_result :: {:done, term()} | {:done, term(), String.t()} | {:cancel, term()}
   @type work_fn :: (integer() -> work_result())
 
@@ -58,51 +60,48 @@ defmodule Engine.Progress do
   @doc """
   Manually begins a progress sequence with the given title.
 
-  Generates a token internally and returns it for use with subsequent `report/2` and `complete/2` calls.
+  Generates a token internally and returns it for use with subsequent
+  `report/2` and `complete/2` calls.
 
   ## Options
 
   - `:message` - Initial status message
   - `:percentage` - Initial percentage 0-100
   - `:cancellable` - Whether the client can cancel
-  - `:ref` - Atom ref to associate with this progress (e.g. `:build`).
-    Allows using `report/2` and `complete/2` with the ref instead of the token.
   """
   @spec begin(String.t(), keyword()) :: integer()
   def begin(title, opts \\ []) do
-    token = System.unique_integer([:positive])
-    Engine.broadcast({:engine_progress_begin, token, title, opts})
-    token
+    # TODO: BAD.
+    case Dispatch.rpc_call(Expert.Progress, :begin, [title, opts]) do
+      {:ok, token} -> token
+      _ -> -1
+    end
   end
 
   @doc """
   Reports progress for an in-progress operation.
-
-  Accepts either a token (integer returned by `begin/2`) or a ref (atom registered
-  via `begin/2` with `:ref` option, or `:initialize` for client-initiated progress).
 
   ## Options
 
   - `:message` - Status message to display
   - `:percentage` - Progress percentage 0-100
   """
-  @spec report(integer() | atom(), keyword()) :: :ok
-  def report(token_or_ref, updates \\ []) do
-    Engine.broadcast({:engine_progress_report, token_or_ref, updates})
+  @spec report(integer(), keyword()) :: :ok
+  def report(token, updates \\ []) when is_integer(token) do
+    Dispatch.rpc_cast(Expert.Progress, :report, [token, updates])
+    :ok
   end
 
   @doc """
   Completes a progress sequence.
 
-  Accepts either a token (integer returned by `begin/2`) or a ref (atom registered
-  via `begin/2` with `:ref` option, or `:initialize` for client-initiated progress).
-
   ## Options
 
   - `:message` - Final completion message
   """
-  @spec complete(integer() | atom(), keyword()) :: :ok
-  def complete(token_or_ref, opts \\ []) do
-    Engine.broadcast({:engine_progress_complete, token_or_ref, opts})
+  @spec complete(integer(), keyword()) :: :ok
+  def complete(token, opts \\ []) when is_integer(token) do
+    Dispatch.rpc_cast(Expert.Progress, :complete, [token, opts])
+    :ok
   end
 end

@@ -57,7 +57,10 @@ defmodule Engine.Compilation.Tracer do
 
   defp maybe_report_progress(file) do
     if Path.extname(file) == ".ex" do
-      Progress.report(:build, message: progress_message(file))
+      case get_build_token() do
+        nil -> :noop
+        token -> Progress.report(token, message: progress_message(file))
+      end
     end
   end
 
@@ -72,4 +75,10 @@ defmodule Engine.Compilation.Tracer do
 
     "compiling: " <> Path.join([base_dir, "...", file_name])
   end
+
+  # Kludgy persistent_term for build token access
+  @build_token_key {__MODULE__, :build_token}
+  def set_build_token(token), do: :persistent_term.put(@build_token_key, token)
+  def clear_build_token, do: :persistent_term.erase(@build_token_key)
+  defp get_build_token, do: :persistent_term.get(@build_token_key, nil)
 end
