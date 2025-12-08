@@ -135,9 +135,9 @@ jobs:
         os:
           - name: ubuntu-latest
             target: linux_amd64
-          - name: macos-14
+          - name: macos-15
             target: darwin_arm64
-          - name: macos-13
+          - name: macos-14
             target: darwin_amd64
 
         include:
