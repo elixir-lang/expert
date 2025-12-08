@@ -83,7 +83,7 @@ defmodule Engine.Build.State do
     project = state.project
 
     Build.with_lock(fn ->
-      token = Progress.begin(building_label(project), token: Build.progress_token(project))
+      {:ok, token} = Progress.begin(building_label(project), token: Build.progress_token(project))
 
       try do
         compile_requested_message =
@@ -124,7 +124,6 @@ defmodule Engine.Build.State do
         Engine.broadcast(diagnostics_message)
         Plugin.diagnose(project, state.build_number)
       after
-        Tracer.clear_build_token()
         Progress.complete(token)
       end
     end)

@@ -5,8 +5,12 @@ defmodule Engine.Progress do
 
   alias Engine.Dispatch
 
+  require Logger
+
   @type work_result :: {:done, term()} | {:done, term(), String.t()} | {:cancel, term()}
   @type work_fn :: (integer() -> work_result())
+
+  defguardp is_token(token) when is_binary(token) or is_integer(token)
 
   @doc """
   Wraps work with progress reporting.
@@ -71,11 +75,7 @@ defmodule Engine.Progress do
   """
   @spec begin(String.t(), keyword()) :: integer()
   def begin(title, opts \\ []) do
-    # TODO: BAD.
-    case Dispatch.rpc_call(Expert.Progress, :begin, [title, opts]) do
-      {:ok, token} -> token
-      _ -> -1
-    end
+    Dispatch.erpc_call(Expert.Progress, :begin, [title, opts])
   end
 
   @doc """
@@ -89,8 +89,8 @@ defmodule Engine.Progress do
   @spec report(integer() | String.t(), keyword()) :: :ok
   def report(token, updates \\ [])
 
-  def report(token, updates) when is_integer(token) or is_binary(token) do
-    Dispatch.rpc_cast(Expert.Progress, :report, [token, updates])
+  def report(token, updates) when is_token(token) do
+    Dispatch.erpc_cast(Expert.Progress, :report, [token, updates])
     :ok
   end
 
@@ -102,8 +102,8 @@ defmodule Engine.Progress do
   - `:message` - Final completion message
   """
   @spec complete(integer(), keyword()) :: :ok
-  def complete(token, opts \\ []) when is_integer(token) do
-    Dispatch.rpc_cast(Expert.Progress, :complete, [token, opts])
+  def complete(token, opts \\ []) when is_token(token) do
+    Dispatch.erpc_cast(Expert.Progress, :complete, [token, opts])
     :ok
   end
 end

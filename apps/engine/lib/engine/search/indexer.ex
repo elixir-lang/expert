@@ -102,9 +102,7 @@ defmodule Engine.Search.Indexer do
     total_bytes = paths_to_sizes |> Enum.map(&elem(&1, 1)) |> Enum.sum()
 
     if total_bytes > 0 do
-      # Start progress tracking
-      token = Progress.begin("Indexing source code", percentage: 0)
-      bytes_processed = :counters.new(1, [:atomics])
+      {:ok, token} = Progress.begin("Indexing source code", percentage: 0)
 
       initial_state = {0, []}
 
@@ -120,12 +118,11 @@ defmodule Engine.Search.Indexer do
       end
 
       after_fn = fn
-        {_, []} ->
-          {:cont, []}
-
-        {_, paths} ->
-          {:cont, paths, []}
+        {_, []} -> {:cont, []}
+        {_, paths} -> {:cont, paths, []}
       end
+
+      bytes_processed = :counters.new(1, [:atomics])
 
       paths_to_sizes
       |> Stream.chunk_while(initial_state, chunk_fn, after_fn)
@@ -157,9 +154,7 @@ defmodule Engine.Search.Indexer do
           # will flatten the resulting steam
           {chunk_items, acc}
         end,
-        fn _acc ->
-          Progress.complete(token)
-        end
+        fn _acc -> Progress.complete(token) end
       )
     else
       []

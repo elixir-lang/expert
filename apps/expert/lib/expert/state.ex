@@ -55,8 +55,16 @@ defmodule Expert.State do
 
     response = initialize_result()
 
-    {:ok, _pid} = Project.Supervisor.start(config.project)
-    send(Expert, :engine_initialized)
+    Task.Supervisor.start_child(:expert_task_queue, fn ->
+      # Race Cond:
+      # Project startup ends up calling `window/workDoneProgress/create` before
+      # the initialize response is returned. This is against spec and will result
+      # in the progress tokens being discarded. Adding a sleep here as a slim fix
+      # pending a more comprehensive solution.
+      Process.sleep(50)
+      {:ok, _pid} = Project.Supervisor.start(config.project)
+      send(Expert, :engine_initialized)
+    end)
 
     {:ok, response, new_state}
   end

@@ -70,18 +70,18 @@ defmodule Engine.Dispatch do
   @doc """
   :rpc.call to the server node.
   """
-  def rpc_call(module, function, args) do
+  def erpc_call(module, function, args) do
     project = Engine.get_project()
     manager_node = Project.manager_node_name(project)
-    :rpc.call(manager_node, module, function, args)
+    :erpc.call(manager_node, module, function, args, 1_000)
   end
 
   @doc """
   :rpc.cast to the server node.
   """
-  def rpc_cast(module, function, args) do
+  def erpc_cast(module, function, args) do
     project = Engine.get_project()
     manager_node = Project.manager_node_name(project)
-    :rpc.cast(manager_node, module, function, args)
+    :erpc.cast(manager_node, module, function, args)
   end
 end

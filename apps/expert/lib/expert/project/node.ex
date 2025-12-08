@@ -50,7 +50,7 @@ defmodule Expert.Project.Node do
 
   @impl GenServer
   def init(%Project{} = project) do
-    Progress.with_progress("Project Node", fn _token ->
+    Progress.with_progress("Starting project node", fn _token ->
       result = start_node(project)
 
       {:done, result, "Project node started"}
