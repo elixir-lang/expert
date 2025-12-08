@@ -15,6 +15,8 @@ defmodule Expert.Port do
 
   @type open_opts :: [open_opt]
 
+  @path_marker "__EXPERT_PATH__"
+
   @doc """
   Launches elixir in a port.
 
@@ -62,9 +64,10 @@ defmodule Expert.Port do
     # or we get an incomplete PATH not including erl or any other version manager
     # managed programs.
 
+    # Disable shell session history to reduce noise
     env = [{"SHELL_SESSIONS_DISABLE", "1"}]
 
-    path =
+    args =
       case Path.basename(shell) do
         # Ideally, it should contain the path to shell (e.g. `/usr/bin/fish`),
         # but it might contain only the name of the shell (e.g. `fish`).
@@ -72,6 +75,35 @@ defmodule Expert.Port do
           # Fish uses space-separated PATH, so we use the built-in `string join` command
           # to join the entries with colons and have a standard colon-separated PATH output
           # as in bash, which is expected by `:os.find_executable/2`.
+          # Also, no -i flag
+          cmd =
+            "cd #{directory}; printf \"#{@path_marker}:%s:#{@path_marker}\" (string join ':' $PATH)"
+
+          ["-l", "-c", cmd]
+
+        _ ->
+          cmd = "cd #{directory} && printf \"#{@path_marker}:%s:#{@path_marker}\" \"$PATH\""
+          ["-i", "-l", "-c", cmd]
+      end
+
+    {output, _} = System.cmd(shell, args, env: env)
+
+    # This ignores banners (start) and logout garbage (end)
+    case Regex.run(~r/#{@path_marker}:(.*?):#{@path_marker}/s, output) do
+      [_, clean_path] ->
+        clean_path
+
+      nil ->
+        output |> String.trim() |> String.split("\n") |> List.last()
+    end
+  end
+
+  defp _path_env_at_directory(directory, shell) do
+    env = [{"SHELL_SESSIONS_DISABLE", "1"}]
+
+    path =
+      case Path.basename(shell) do
+        "fish" ->
           {path, 0} =
             System.cmd(shell, ["-l", "-c", "cd #{directory} && string join ':' $PATH"], env: env)
 
@@ -81,6 +113,7 @@ defmodule Expert.Port do
           {path, 0} =
             System.cmd(shell, ["-i", "-l", "-c", "cd #{directory} && echo $PATH"], env: env)
 
+          Logger.error("this is the PATH: #{inspect(path)}")
           path
       end
 
