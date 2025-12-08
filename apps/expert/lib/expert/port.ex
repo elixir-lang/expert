@@ -98,31 +98,6 @@ defmodule Expert.Port do
     end
   end
 
-  defp _path_env_at_directory(directory, shell) do
-    env = [{"SHELL_SESSIONS_DISABLE", "1"}]
-
-    path =
-      case Path.basename(shell) do
-        "fish" ->
-          {path, 0} =
-            System.cmd(shell, ["-l", "-c", "cd #{directory} && string join ':' $PATH"], env: env)
-
-          path
-
-        _ ->
-          {path, 0} =
-            System.cmd(shell, ["-i", "-l", "-c", "cd #{directory} && echo $PATH"], env: env)
-
-          Logger.error("this is the PATH: #{inspect(path)}")
-          path
-      end
-
-    path
-    |> String.trim()
-    |> String.split("\n")
-    |> List.last()
-  end
-
   @doc """
   Launches an executable in the project context via a port.
   """
