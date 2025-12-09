@@ -51,9 +51,9 @@ defmodule Expert.EngineNode do
           # everything works fine.
           """
           node_start = Node.start(:"#{Project.node_name(state.project)}", :longnames)
-          #{Forge.NodePortMapper}.register()
           case node_start do
             {:ok, _} ->
+              #{Forge.NodePortMapper}.register()
               IO.puts(\"ok\")
             {:error, reason} ->
               IO.puts(\"error starting node:\n  \#{inspect(reason)}\")
@@ -112,16 +112,18 @@ defmodule Expert.EngineNode do
     end
 
     def on_exit_status(%__MODULE__{} = state, exit_status) do
-      Logger.debug(
-        "Node exited with status #{exit_status}, last message: #{to_string(state.last_message)}"
-      )
-
       stop_reason =
         case exit_status do
           0 ->
+            Logger.info("Engine shutdown")
+
             :shutdown
 
           _error_status ->
+            Logger.error(
+              "Engine shut down unexpectedly, node exited with status #{exit_status}). Last message: #{state.last_message}"
+            )
+
             {:shutdown, {:node_exit, %{status: exit_status, last_message: state.last_message}}}
         end
 

@@ -4,6 +4,7 @@ defmodule Expert do
   alias Expert.Protocol.Id
   alias Expert.Provider.Handlers
   alias Expert.State
+  alias GenLSP.Enumerations
   alias GenLSP.Requests
   alias GenLSP.Structures
 
@@ -55,10 +56,12 @@ defmodule Expert do
 
     with {:ok, response, state} <- State.initialize(state, request),
          {:ok, response} <- Expert.Protocol.Convert.to_lsp(response) do
-      config = state.configuration
-
       Task.Supervisor.start_child(:expert_task_queue, fn ->
-        Logger.info("Starting project at uri #{config.project.root_uri}")
+        config = state.configuration
+
+        start_message = "Starting project at uri #{config.project.root_uri}"
+        GenLSP.info(lsp, start_message)
+        Logger.info(start_message)
 
         start_result = Project.Supervisor.start(config.project)
 
@@ -201,9 +204,40 @@ defmodule Expert do
   end
 
   def handle_info({:engine_initialized, {:error, reason}}, lsp) do
-    GenLSP.error(get_lsp(), initialization_error_message(reason))
+    error_message = initialization_error_message(reason)
+    error(error_message)
 
     {:noreply, lsp}
+  end
+
+  def info(message) do
+    Logger.info(message)
+
+    log_show(message, Enumerations.MessageType.info())
+  end
+
+  def error(message) do
+    Logger.error(message)
+
+    log_show(message, Enumerations.MessageType.error())
+  end
+
+  defp log_show(message, log_level) do
+    lsp = get_lsp()
+
+    GenLSP.notify(lsp, %GenLSP.Notifications.WindowShowMessage{
+      params: %GenLSP.Structures.ShowMessageParams{
+        type: log_level,
+        message: message
+      }
+    })
+
+    GenLSP.notify(lsp, %GenLSP.Notifications.WindowLogMessage{
+      params: %GenLSP.Structures.LogMessageParams{
+        type: log_level,
+        message: message
+      }
+    })
   end
 
   defp apply_to_state(%State{} = state, %{} = request_or_notification) do
@@ -298,13 +332,13 @@ defmodule Expert do
       # NOTE:
       # ** (Mix.Error) httpc request failed with: ... Could not install Hex because Mix could not download metadata ...
       {:shutdown, {:error, :normal, message}} ->
-        "Node #{name} shutdown with error:\n\n#{message}"
+        "Engine #{name} shutdown with error:\n\n#{message}"
 
       {:shutdown, {:node_exit, node_exit}} ->
-        "Node #{name} exit with status #{node_exit.status}, last message:\n\n#{node_exit.last_message}"
+        "Engine #{name} exit with status #{node_exit.status}, last message:\n\n#{node_exit.last_message}"
 
       reason ->
-        "Failed to start node #{name}: #{inspect(reason)}"
+        "Failed to start engine #{name}: #{inspect(reason)}"
     end
   end
 end
