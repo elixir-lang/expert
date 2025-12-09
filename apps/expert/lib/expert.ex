@@ -1,4 +1,5 @@
 defmodule Expert do
+  alias Expert.Project
   alias Expert.Protocol.Convert
   alias Expert.Protocol.Id
   alias Expert.Provider.Handlers
@@ -51,27 +52,36 @@ defmodule Expert do
 
   def handle_request(%GenLSP.Requests.Initialize{} = request, lsp) do
     state = assigns(lsp).state
-    Process.send_after(self(), :default_config, :timer.seconds(5))
 
     with {:ok, response, state} <- State.initialize(state, request),
          {:ok, response} <- Expert.Protocol.Convert.to_lsp(response) do
-      lsp = assign(lsp, state: state)
+      config = state.configuration
 
-      {:reply, response, lsp}
+      Task.Supervisor.start_child(:expert_task_queue, fn ->
+        Logger.info("Starting project at uri #{config.project.root_uri}")
+
+        start_result = Project.Supervisor.start(config.project)
+
+        send(Expert, {:engine_initialized, start_result})
+      end)
+
+      {:reply, response, assign(lsp, state: state)}
     else
-      {:error, {:shutdown, {:failed_to_start_child, _, _}}} ->
-        {:reply,
-         %GenLSP.ErrorResponse{
-           code: GenLSP.Enumerations.ErrorCodes.server_not_initialized(),
-           message: "Failed to start node"
-         }, lsp}
+      {:error, :already_initialized} ->
+        response = %GenLSP.ErrorResponse{
+          code: GenLSP.Enumerations.ErrorCodes.invalid_request(),
+          message: "Already initialized"
+        }
+
+        {:reply, response, lsp}
 
       {:error, reason} ->
-        {:reply,
-         %GenLSP.ErrorResponse{
-           code: GenLSP.Enumerations.ErrorCodes.server_not_initialized(),
-           message: to_string(reason)
-         }, lsp}
+        response = %GenLSP.ErrorResponse{
+          code: GenLSP.Enumerations.ErrorCodes.server_not_initialized(),
+          message: "Failed to initialize: #{inspect(reason)}"
+        }
+
+        {:reply, response, lsp}
     end
   end
 
@@ -178,7 +188,7 @@ defmodule Expert do
     end
   end
 
-  def handle_info(:engine_initialized, lsp) do
+  def handle_info({:engine_initialized, {:ok, _pid}}, lsp) do
     state = assigns(lsp).state
 
     new_state = %{state | engine_initialized?: true}
@@ -190,20 +200,10 @@ defmodule Expert do
     {:noreply, lsp}
   end
 
-  def handle_info(:default_config, lsp) do
-    state = assigns(lsp).state
+  def handle_info({:engine_initialized, {:error, reason}}, lsp) do
+    GenLSP.error(get_lsp(), initialization_error_message(reason))
 
-    if state.configuration == nil do
-      Logger.warning(
-        "Did not receive workspace/didChangeConfiguration notification after 5 seconds. " <>
-          "Using default settings."
-      )
-
-      {:ok, config} = State.default_configuration(state)
-      {:noreply, assign(lsp, state: %{state | configuration: config})}
-    else
-      {:noreply, lsp}
-    end
+    {:noreply, lsp}
   end
 
   defp apply_to_state(%State{} = state, %{} = request_or_notification) do
@@ -277,5 +277,34 @@ defmodule Expert do
       method: "workspace/didChangeWatchedFiles",
       register_options: %Structures.DidChangeWatchedFilesRegistrationOptions{watchers: watchers}
     }
+  end
+
+  defp initialization_error_message({:shutdown, {:failed_to_start_child, child, {reason, _}}}) do
+    case child do
+      {Project.Node, node_name} ->
+        node_initialization_message(node_name, reason)
+
+      child ->
+        "Failed to start child #{inspect(child)}: #{inspect(reason)}"
+    end
+  end
+
+  defp initialization_error_message(reason) do
+    "Failed to initialize: #{inspect(reason)}"
+  end
+
+  defp node_initialization_message(name, reason) do
+    case reason do
+      # NOTE:
+      # ** (Mix.Error) httpc request failed with: ... Could not install Hex because Mix could not download metadata ...
+      {:shutdown, {:error, :normal, message}} ->
+        "Node #{name} shutdown with error:\n\n#{message}"
+
+      {:shutdown, {:node_exit, node_exit}} ->
+        "Node #{name} exit with status #{node_exit.status}, last message:\n\n#{node_exit.last_message}"
+
+      reason ->
+        "Failed to start node #{name}: #{inspect(reason)}"
+    end
   end
 end

@@ -35,8 +35,6 @@ defmodule Expert.State do
     %__MODULE__{}
   end
 
-  # TODO: this function has a side effect (starting the project supervisor)
-  # that i think might be better off in the calling function
   def initialize(
         %__MODULE__{initialized?: false} = state,
         %Requests.Initialize{
@@ -50,23 +48,15 @@ defmodule Expert.State do
       end
 
     config = Configuration.new(event.root_uri, event.capabilities, client_name)
-    Logger.info("Starting project at uri #{config.project.root_uri}")
 
-    with {:ok, _pid} <- Project.Supervisor.start(config.project) do
-      send(Expert, :engine_initialized)
-      new_state = %__MODULE__{state | configuration: config, initialized?: true}
-      response = initialize_result()
+    response = initialize_result()
+    new_state = %__MODULE__{state | configuration: config, initialized?: true}
 
-      {:ok, response, new_state}
-    end
+    {:ok, response, new_state}
   end
 
   def initialize(%__MODULE__{initialized?: true}, %Requests.Initialize{}) do
     {:error, :already_initialized}
-  end
-
-  def default_configuration(%__MODULE__{configuration: config}) do
-    Configuration.default(config)
   end
 
   def apply(%__MODULE__{initialized?: false}, request) do

@@ -4,7 +4,6 @@ defmodule Expert.EngineNodeTest do
 
   import Forge.Test.EventualAssertions
   import Forge.Test.Fixtures
-  import Expert.Test.Protocol.TransportSupport
 
   use ExUnit.Case, async: false
   use Patch
@@ -66,33 +65,19 @@ defmodule Expert.EngineNodeTest do
     assert_receive {:lsp_log, "Couldn't find an elixir executable for project" <> _}
   end
 
-  test "sends a message to client if exited with error code", %{project: project} do
-    with_patched_transport()
-
+  test "shuts down with error message if exited with error code", %{project: project} do
     {:ok, _node_name, node_pid} = EngineNode.start(project)
 
-    project_alive? = project |> EngineNode.name() |> Process.whereis() |> Process.alive?()
-    assert project_alive?
+    Process.monitor(node_pid)
 
     exit_status = 127
 
     send(node_pid, {nil, {:exit_status, exit_status}})
 
-    error_message_type = GenLSP.Enumerations.MessageType.error()
+    assert_receive {:DOWN, _ref, :process, ^node_pid, exit_reason}
 
-    assert_receive {:transport,
-                    %GenLSP.Notifications.WindowLogMessage{
-                      params: %GenLSP.Structures.LogMessageParams{
-                        type: ^error_message_type,
-                        message: message
-                      }
-                    }}
-
-    assert String.starts_with?(
-             message,
-             "Node exited with status #{exit_status}, last message:"
-           )
-
-    assert_eventually Process.whereis(EngineNode.name(project)) == nil, :timer.seconds(5)
+    assert {:shutdown, {:node_exit, node_exit}} = exit_reason
+    assert %{status: ^exit_status, last_message: last_message} = node_exit
+    assert is_binary(last_message)
   end
 end
