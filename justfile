@@ -2,11 +2,19 @@ os := if os() == "macos" { "darwin" } else { os() }
 arch := if arch() =~ "(arm|aarch64)" { "arm64" } else { if arch() =~ "(x86|x86_64)" { "amd64" } else { "unsupported" } }
 local_target := if os =~ "(darwin|linux|windows)" { os + "_" + arch } else { "unsupported" }
 apps := "expert engine forge expert_credo"
+expert_erl_flags := "-start_epmd false -epmd_module Elixir.Forge.EPMD"
+engine_erl_flags := "-start_epmd false -epmd_module Elixir.Forge.EPMD"
 
 [doc('Run mix deps.get for the given project')]
+[unix]
 deps project:
     #!/usr/bin/env bash
     cd apps/{{ project }}
+    mix deps.get
+
+[windows]
+deps project:
+    cd apps/{{ project }} && \
     mix deps.get
 
 [doc('Run an arbitrary command inside the given project directory')]
@@ -34,10 +42,10 @@ mix project="all" *args="":
         for proj in {{ apps }}; do
           case $proj in
             expert)
-              (cd "apps/$proj" && elixir --erl "-start_epmd false -epmd_module Elixir.Forge.EPMD" -S mix {{args}})
+              (cd "apps/$proj" && elixir --erl "{{ expert_erl_flags }}" -S mix {{args}})
             ;;
             engine)
-              (cd "apps/$proj" && elixir --erl "-start_epmd false -epmd_module Elixir.Forge.EPMD" -S mix {{args}})
+              (cd "apps/$proj" && elixir --erl "{{ engine_erl_flags }}" -S mix {{args}})
             ;;
             *)
               (cd "apps/$proj" && mix {{args}})
@@ -46,10 +54,10 @@ mix project="all" *args="":
         done
       ;;
       expert)
-        (cd "apps/expert" && elixir --erl "-start_epmd false -epmd_module Elixir.Forge.EPMD" -S mix {{args}})
+        (cd "apps/expert" && elixir --erl "{{ expert_erl_flags }}" -S mix {{args}})
       ;;
       engine)
-        (cd "apps/engine" && elixir --erl "-start_epmd false -epmd_module Elixir.Forge.EPMD" -S mix {{args}})
+        (cd "apps/engine" && elixir --erl "{{ engine_erl_flags }}" -S mix {{args}})
       ;;
       *)
         (cd "apps/{{ project }}" && mix {{args}})
@@ -81,8 +89,11 @@ release-local: (deps "engine") (deps "expert")
 
 [windows]
 release-local: (deps "engine") (deps "expert")
-    # idk actually how to set env vars like this on windows, might crash
-    EXPERT_RELEASE_MODE=burrito BURRITO_TARGET="windows_amd64" MIX_ENV={{ env('MIX_ENV', 'prod')}} mix release --overwrite
+    export EXPERT_RELEASE_MODE=burrito && \
+    export BURRITO_TARGET="windows_amd64" && \
+    export MIX_ENV={{ env('MIX_ENV', 'prod')}} && \
+    cd apps/expert && \
+    mix release --overwrite
 
 [doc('Build releases for all target platforms')]
 release-all: (deps "engine") (deps "expert")
@@ -94,10 +105,15 @@ release-all: (deps "engine") (deps "expert")
     EXPERT_RELEASE_MODE=burrito MIX_ENV={{ env('MIX_ENV', 'prod')}} mix release --overwrite
 
 [doc('Build a plain release without burrito')]
+[unix]
 release-plain: (deps "engine") (deps "expert")
     #!/usr/bin/env bash
     cd apps/expert
     MIX_ENV={{ env('MIX_ENV', 'prod')}} mix release plain --overwrite
+
+[windows]
+release-plain: (deps "engine") (deps "expert")
+    cd apps/expert && export MIX_ENV={{ env('MIX_ENV', 'prod')}} && mix release plain --overwrite
 
 [doc('Compiles .github/matrix.json')]
 compile-ci-matrix:
@@ -117,3 +133,12 @@ clean-engine:
   elixir -e ':filename.basedir(:user_data, "Expert") |> File.rm_rf!() |> IO.inspect()'
 
 default: release-local
+
+[unix]
+start-tcp: release-plain
+  #!/usr/bin/env bash
+  ./apps/expert/_build/{{ env('MIX_ENV', 'prod')}}/rel/plain/bin/plain eval "System.no_halt(true); Application.ensure_all_started(:xp_expert)" --port 9000
+
+[windows]
+start-tcp: release-plain
+  ./apps/expert/_build/{{ env('MIX_ENV', 'prod')}}/rel/plain/bin/plain.bat eval "System.no_halt(true); Application.ensure_all_started(:xp_expert)" --port {{env('EXPERT_PORT', '9000')}}

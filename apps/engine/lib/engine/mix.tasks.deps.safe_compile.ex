@@ -282,7 +282,7 @@ unless Elixir.Features.compile_keeps_current_directory?() do
       makefile_win? = makefile_win?(dep)
 
       command =
-        case :os.type() do
+        case Forge.OS.type() do
           {:win32, _} when makefile_win? ->
             "nmake /F Makefile.win"
 

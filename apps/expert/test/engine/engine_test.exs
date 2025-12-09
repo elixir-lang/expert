@@ -16,7 +16,17 @@ defmodule EngineTest do
   end
 
   def engine_cwd(project) do
-    EngineApi.call(project, File, :cwd!, [])
+    project
+    |> EngineApi.call(File, :cwd!, [])
+    |> normalize_path_separators()
+  end
+
+  defp normalize_path_separators(path) when is_binary(path) do
+    if Forge.OS.windows?() do
+      String.replace(path, "/", "\\")
+    else
+      path
+    end
   end
 
   describe "detecting an umbrella app" do

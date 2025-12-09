@@ -8,7 +8,7 @@ defmodule ElixirLS.LanguageServer.SourceFile.PathTest do
     test = self()
 
     spawn(fn ->
-      patch(Forge.Document.Path, :os_type, os_type)
+      patch(Forge.OS, :type, os_type)
 
       try do
         rv = fun.()
@@ -133,7 +133,7 @@ defmodule ElixirLS.LanguageServer.SourceFile.PathTest do
   describe "to_uri/1" do
     # tests based on cases from https://github.com/microsoft/vscode-uri/blob/master/src/test/uri.test.ts
     test "unix path" do
-      unless windows?() do
+      unless Forge.OS.windows?() do
         assert "file:///nodes%2B%23.ex" == to_uri("/nodes+#.ex")
         assert "file:///coding/c%23/project1" == to_uri("/coding/c#/project1")
 
@@ -146,7 +146,7 @@ defmodule ElixirLS.LanguageServer.SourceFile.PathTest do
     end
 
     test "windows path" do
-      if windows?() do
+      if Forge.OS.windows?() do
         drive_letter = "/" |> Path.expand() |> String.split(":") |> hd()
         assert "file:///c%3A/win/path" == to_uri("c:/win/path")
         assert "file:///c%3A/win/path" == to_uri("C:/win/path")
@@ -186,7 +186,7 @@ defmodule ElixirLS.LanguageServer.SourceFile.PathTest do
     end
 
     test "UNC path" do
-      if windows?() do
+      if Forge.OS.windows?() do
         assert "file://sh%C3%A4res/path/c%23/plugin.json" ==
                  to_uri("\\\\shäres\\path\\c#\\plugin.json")
 
@@ -197,18 +197,10 @@ defmodule ElixirLS.LanguageServer.SourceFile.PathTest do
   end
 
   defp maybe_convert_path_separators(path) do
-    if windows?() do
+    if Forge.OS.windows?() do
       String.replace(path, "/", "\\")
     else
       String.replace(path, "\\", "/")
-    end
-  end
-
-  def windows? do
-    if match?({:win32, _}, :os.type()) do
-      true
-    else
-      false
     end
   end
 end
