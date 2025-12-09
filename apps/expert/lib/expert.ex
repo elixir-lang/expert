@@ -59,9 +59,7 @@ defmodule Expert do
       Task.Supervisor.start_child(:expert_task_queue, fn ->
         config = state.configuration
 
-        start_message = "Starting project at uri #{config.project.root_uri}"
-        GenLSP.info(lsp, start_message)
-        Logger.info(start_message)
+        log_info("Starting project at uri #{config.project.root_uri}")
 
         start_result = Project.Supervisor.start(config.project)
 
@@ -205,35 +203,28 @@ defmodule Expert do
 
   def handle_info({:engine_initialized, {:error, reason}}, lsp) do
     error_message = initialization_error_message(reason)
-    error(error_message)
+    log_error(error_message)
 
     {:noreply, lsp}
   end
 
-  def info(message) do
+  def log_info(message) do
     Logger.info(message)
 
-    log_show(message, Enumerations.MessageType.info())
+    GenLSP.log(get_lsp(), message)
   end
 
-  def error(message) do
+  # When logging errors we also notify the client to display the message
+  def log_error(message) do
     Logger.error(message)
 
-    log_show(message, Enumerations.MessageType.error())
-  end
-
-  defp log_show(message, log_level) do
+    log_level = Enumerations.MessageType.error()
     lsp = get_lsp()
+
+    GenLSP.error(lsp, message)
 
     GenLSP.notify(lsp, %GenLSP.Notifications.WindowShowMessage{
       params: %GenLSP.Structures.ShowMessageParams{
-        type: log_level,
-        message: message
-      }
-    })
-
-    GenLSP.notify(lsp, %GenLSP.Notifications.WindowLogMessage{
-      params: %GenLSP.Structures.LogMessageParams{
         type: log_level,
         message: message
       }
