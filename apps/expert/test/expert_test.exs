@@ -1,5 +1,5 @@
 defmodule Expert.ExpertTest do
-  use ExUnit.Case, async: false
+  use ExUnit.Case, async: true
   use Patch
 
   import Expert.Test.Protocol.TransportSupport
