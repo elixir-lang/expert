@@ -115,7 +115,8 @@ defmodule Expert.EngineNode do
       stop_reason =
         case exit_status do
           0 ->
-            Logger.info("Engine shutdown")
+            project = state.project
+            Logger.info("Engine for #{project.root_uri} shut down")
 
             :shutdown
 

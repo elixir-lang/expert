@@ -59,7 +59,7 @@ defmodule Expert do
       Task.Supervisor.start_child(:expert_task_queue, fn ->
         config = state.configuration
 
-        log_info("Starting project at uri #{config.project.root_uri}")
+        log_info(lsp, "Starting project at uri #{config.project.root_uri}")
 
         start_result = Project.Supervisor.start(config.project)
 
@@ -203,23 +203,22 @@ defmodule Expert do
 
   def handle_info({:engine_initialized, {:error, reason}}, lsp) do
     error_message = initialization_error_message(reason)
-    log_error(error_message)
+    log_error(lsp, error_message)
 
     {:noreply, lsp}
   end
 
-  def log_info(message) do
+  def log_info(lsp \\ get_lsp(), message) do
     Logger.info(message)
 
-    GenLSP.log(get_lsp(), message)
+    GenLSP.info(lsp, message)
   end
 
   # When logging errors we also notify the client to display the message
-  def log_error(message) do
+  def log_error(lsp \\ get_lsp(), message) do
     Logger.error(message)
 
     log_level = Enumerations.MessageType.error()
-    lsp = get_lsp()
 
     GenLSP.error(lsp, message)
 
