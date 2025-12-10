@@ -1,8 +1,10 @@
 defmodule Expert do
+  alias Expert.ActiveProjects
   alias Expert.Protocol.Convert
   alias Expert.Protocol.Id
   alias Expert.Provider.Handlers
   alias Expert.State
+  alias Forge.Project
   alias GenLSP.Requests
   alias GenLSP.Structures
 
@@ -94,41 +96,71 @@ defmodule Expert do
   def handle_request(request, lsp) do
     state = assigns(lsp).state
 
-    if state.engine_initialized? do
-      with {:ok, handler} <- fetch_handler(request),
-           {:ok, request} <- Convert.to_native(request),
-           {:ok, response} <- handler.handle(request, state.configuration),
-           {:ok, response} <- Expert.Protocol.Convert.to_lsp(response) do
-        {:reply, response, lsp}
-      else
-        {:error, {:unhandled, _}} ->
-          Logger.info("Unhandled request: #{request.method}")
-
-          {:reply,
-           %GenLSP.ErrorResponse{
-             code: GenLSP.Enumerations.ErrorCodes.method_not_found(),
-             message: "Method not found"
-           }, lsp}
-
-        error ->
-          message = "Failed to handle #{request.method}, #{inspect(error)}"
-          Logger.error(message)
-
-          {:reply,
-           %GenLSP.ErrorResponse{
-             code: GenLSP.Enumerations.ErrorCodes.internal_error(),
-             message: message
-           }, lsp}
-      end
+    with {:ok, handler} <- fetch_handler(request),
+         {:ok, request} <- Convert.to_native(request),
+         :ok <- check_engine_initialized(request),
+         {:ok, response} <- handler.handle(request, state.configuration),
+         {:ok, response} <- Expert.Protocol.Convert.to_lsp(response) do
+      {:reply, response, lsp}
     else
-      GenLSP.warning(
-        lsp,
-        "Received request #{request.method} before engine was initialized. Ignoring."
-      )
+      {:error, {:unhandled, _}} ->
+        Logger.info("Unhandled request: #{request.method}")
 
-      {:noreply, lsp}
+        {:reply,
+         %GenLSP.ErrorResponse{
+           code: GenLSP.Enumerations.ErrorCodes.method_not_found(),
+           message: "Method not found"
+         }, lsp}
+
+      {:error, :engine_not_initialized, project} ->
+        GenLSP.info(
+          lsp,
+          "Received request #{request.method} before engine for #{project && Project.name(project)} was initialized. Ignoring."
+        )
+
+        {:reply, nil, lsp}
+
+      error ->
+        message = "Failed to handle #{request.method}, #{inspect(error)}"
+        Logger.error(message)
+
+        {:reply,
+         %GenLSP.ErrorResponse{
+           code: GenLSP.Enumerations.ErrorCodes.internal_error(),
+           message: message
+         }, lsp}
     end
   end
+
+  defp check_engine_initialized(request) do
+    if document_request?(request) do
+      case Forge.Document.Container.context_document(request, nil) do
+        %Forge.Document{} = document ->
+          projects = ActiveProjects.projects()
+          project = Project.project_for_document(projects, document)
+
+          if ActiveProjects.active?(project) do
+            :ok
+          else
+            {:error, :engine_not_initialized, project}
+          end
+
+        nil ->
+          {:error, :engine_not_initialized, nil}
+      end
+    else
+      :ok
+    end
+  end
+
+  defp document_request?(%{document: %Forge.Document{}}), do: true
+
+  defp document_request?(%{params: params}) do
+    document_request?(params)
+  end
+
+  defp document_request?(%{text_document: %{uri: _}}), do: true
+  defp document_request?(_), do: false
 
   def handle_notification(%GenLSP.Notifications.Initialized{}, lsp) do
     Logger.info("Server initialized, registering capabilities")
@@ -173,18 +205,6 @@ defmodule Expert do
 
         {:noreply, lsp}
     end
-  end
-
-  def handle_info(:engine_initialized, lsp) do
-    state = assigns(lsp).state
-
-    new_state = %{state | engine_initialized?: true}
-
-    lsp = assign(lsp, state: new_state)
-
-    Logger.info("Engine initialized")
-
-    {:noreply, lsp}
   end
 
   def handle_info(:default_config, lsp) do

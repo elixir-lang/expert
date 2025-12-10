@@ -18,7 +18,6 @@ defmodule Expert.State do
 
   defstruct configuration: nil,
             initialized?: false,
-            engine_initialized?: false,
             shutdown_received?: false,
             in_flight_requests: %{}
 
@@ -71,13 +70,11 @@ defmodule Expert.State do
 
     ActiveProjects.set_projects(projects)
 
-    Task.Supervisor.start_child(:expert_task_queue, fn ->
-      for project <- projects do
+    for project <- projects do
+      Task.Supervisor.start_child(:expert_task_queue, fn ->
         ensure_project_node_started(project)
-      end
-
-      send(Expert, :engine_initialized)
-    end)
+      end)
+    end
 
     {:ok, response, new_state}
   end
@@ -152,22 +149,31 @@ defmodule Expert.State do
     projects = ActiveProjects.projects()
     project = Project.project_for_uri(projects, uri)
 
-    case Document.Store.get_and_update(
-           uri,
-           # TODO: this function needs to accept the GenLSP data structure
-           &Document.apply_content_changes(&1, version, params.content_changes)
-         ) do
-      {:ok, updated_source} ->
-        updated_message =
-          file_changed(
-            uri: updated_source.uri,
-            open?: true,
-            from_version: version,
-            to_version: updated_source.version
-          )
+    with true <- ActiveProjects.active?(project),
+         {:ok, updated_source} <-
+           Document.Store.get_and_update(
+             uri,
+             # TODO: this function needs to accept the GenLSP data structure
+             &Document.apply_content_changes(&1, version, params.content_changes)
+           ) do
+      updated_message =
+        file_changed(
+          uri: updated_source.uri,
+          open?: true,
+          from_version: version,
+          to_version: updated_source.version
+        )
 
-        EngineApi.broadcast(project, updated_message)
-        EngineApi.compile_document(project, updated_source)
+      EngineApi.broadcast(project, updated_message)
+      EngineApi.compile_document(project, updated_source)
+      {:ok, state}
+    else
+      false ->
+        GenLSP.info(
+          Expert.get_lsp(),
+          "Received request textDocument/didChange before engine for #{Project.name(project)} was initialized. Ignoring."
+        )
+
         {:ok, state}
 
       error ->
@@ -269,6 +275,7 @@ defmodule Expert.State do
   defp ensure_project_node_started(project) do
     case Expert.Project.Supervisor.start(project) do
       {:ok, _pid} ->
+        ActiveProjects.set_ready(project, true)
         Logger.info("Project node started for #{Project.name(project)}")
 
         GenLSP.log(Expert.get_lsp(), "Started project node for #{Project.name(project)}")
@@ -281,9 +288,9 @@ defmodule Expert.State do
           "Failed to start project node for #{Project.name(project)}: #{inspect(reason, pretty: true)}"
         )
 
-        GenLSP.log(
+        GenLSP.error(
           Expert.get_lsp(),
-          "Failed to start project node for #{Project.name(project)}"
+          "Failed to start project node for #{Project.name(project)}: #{inspect(reason, pretty: true)}"
         )
 
         {:error, reason}
@@ -292,6 +299,7 @@ defmodule Expert.State do
 
   defp stop_project_node(project) do
     Expert.Project.Supervisor.stop(project)
+    ActiveProjects.set_ready(project, false)
 
     GenLSP.log(
       Expert.get_lsp(),

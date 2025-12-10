@@ -1,3 +1,5 @@
+Mix.install([:benchee])
+
 alias Forge.Project
 
 alias Engine.Search.Store.Backends.Ets

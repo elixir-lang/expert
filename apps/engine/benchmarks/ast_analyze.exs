@@ -1,3 +1,5 @@
+Mix.install([:benchee])
+
 alias Forge.Ast
 alias Forge.Document
 

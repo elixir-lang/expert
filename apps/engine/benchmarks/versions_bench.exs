@@ -1,3 +1,5 @@
+Mix.install([:benchee])
+
 alias Forge.VM.Versions
 
 Benchee.run(%{
