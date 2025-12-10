@@ -59,7 +59,7 @@ defmodule Expert do
       Task.Supervisor.start_child(:expert_task_queue, fn ->
         config = state.configuration
 
-        log_info(lsp, "Starting project at uri #{config.project.root_uri}")
+        log_info(lsp, "Starting project")
 
         start_result = Project.Supervisor.start(config.project)
 
@@ -209,22 +209,22 @@ defmodule Expert do
   end
 
   def log_info(lsp \\ get_lsp(), message) do
-    Logger.info(message)
+    message = log_prepend_project_root(message, assigns(lsp).state)
 
+    Logger.info(message)
     GenLSP.info(lsp, message)
   end
 
   # When logging errors we also notify the client to display the message
   def log_error(lsp \\ get_lsp(), message) do
+    message = log_prepend_project_root(message, assigns(lsp).state)
+
     Logger.error(message)
-
-    log_level = Enumerations.MessageType.error()
-
     GenLSP.error(lsp, message)
 
     GenLSP.notify(lsp, %GenLSP.Notifications.WindowShowMessage{
       params: %GenLSP.Structures.ShowMessageParams{
-        type: log_level,
+        type: Enumerations.MessageType.error(),
         message: message
       }
     })
@@ -331,4 +331,12 @@ defmodule Expert do
         "Failed to start engine #{name}: #{inspect(reason)}"
     end
   end
+
+  defp log_prepend_project_root(message, %State{
+         configuration: %Expert.Configuration{project: %Forge.Project{} = project}
+       }) do
+    "[Project #{project.root_uri}] #{message}"
+  end
+
+  defp log_prepend_project_root(message, _state), do: message
 end
