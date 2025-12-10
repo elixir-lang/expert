@@ -9,6 +9,7 @@ defmodule Expert.Project.ProgressTest do
 
   import Forge.Test.Fixtures
   import Forge.EngineApi.Messages
+  import Expert.Test.Protocol.TransportSupport
 
   use ExUnit.Case
   use Patch
@@ -42,20 +43,6 @@ defmodule Expert.Project.ProgressTest do
 
   def progress(stage, label, message \\ "") do
     project_progress(label: label, message: message, stage: stage)
-  end
-
-  def with_patched_transport(_) do
-    test = self()
-
-    patch(GenLSP, :notify, fn _, message ->
-      send(test, {:transport, message})
-    end)
-
-    patch(GenLSP, :request, fn _, message ->
-      send(test, {:transport, message})
-    end)
-
-    :ok
   end
 
   def with_work_done_progress_support(_) do

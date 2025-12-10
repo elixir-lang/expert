@@ -64,4 +64,20 @@ defmodule Expert.EngineNodeTest do
     assert_receive {:stopped, 1}
     assert_receive {:lsp_log, "Couldn't find an elixir executable for project" <> _}
   end
+
+  test "shuts down with error message if exited with error code", %{project: project} do
+    {:ok, _node_name, node_pid} = EngineNode.start(project)
+
+    Process.monitor(node_pid)
+
+    exit_status = 127
+
+    send(node_pid, {nil, {:exit_status, exit_status}})
+
+    assert_receive {:DOWN, _ref, :process, ^node_pid, exit_reason}
+
+    assert {:shutdown, {:node_exit, node_exit}} = exit_reason
+    assert %{status: ^exit_status, last_message: last_message} = node_exit
+    assert is_binary(last_message)
+  end
 end

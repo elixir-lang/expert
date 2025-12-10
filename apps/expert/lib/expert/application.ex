@@ -66,7 +66,18 @@ defmodule Expert.Application do
 
     ensure_epmd_module!()
 
-    children = [
+    LogFilter.hook_into_logger()
+
+    children_spec = children(buffer: buffer_opts)
+    opts = [strategy: :one_for_one, name: Expert.Supervisor]
+
+    Supervisor.start_link(children_spec, opts)
+  end
+
+  def children(opts) do
+    buffer_opts = Keyword.fetch!(opts, :buffer)
+
+    [
       {Forge.NodePortMapper, []},
       document_store_child_spec(),
       {DynamicSupervisor, Expert.Project.DynamicSupervisor.options()},
@@ -81,11 +92,6 @@ defmodule Expert.Application do
        dynamic_supervisor: Expert.DynamicSupervisor,
        assigns: Expert.Assigns}
     ]
-
-    LogFilter.hook_into_logger()
-
-    opts = [strategy: :one_for_one, name: Expert.Supervisor]
-    Supervisor.start_link(children, opts)
   end
 
   @doc false
