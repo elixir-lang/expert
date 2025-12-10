@@ -1,9 +1,11 @@
 defmodule Expert.Provider.Handlers.Completion do
+  alias Expert.ActiveProjects
   alias Expert.CodeIntelligence
   alias Expert.Configuration
   alias Forge.Ast
   alias Forge.Document
   alias Forge.Document.Position
+  alias Forge.Project
   alias GenLSP.Enumerations.CompletionTriggerKind
   alias GenLSP.Requests
   alias GenLSP.Structures
@@ -13,13 +15,15 @@ defmodule Expert.Provider.Handlers.Completion do
         %Requests.TextDocumentCompletion{
           params: %Structures.CompletionParams{} = params
         },
-        %Configuration{} = config
+        %Configuration{}
       ) do
     document = Document.Container.context_document(params, nil)
+    projects = ActiveProjects.projects()
+    project = Project.project_for_document(projects, document)
 
     completions =
       CodeIntelligence.Completion.complete(
-        config.project,
+        project,
         document_analysis(document, params.position),
         params.position,
         params.context || %CompletionContext{trigger_kind: CompletionTriggerKind.invoked()}
