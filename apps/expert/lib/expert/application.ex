@@ -12,8 +12,19 @@ defmodule Expert.Application do
 
   @impl true
   def start(_type, _args) do
+    argv = Burrito.Util.Args.argv()
+
+    # Handle engine subcommand first (before starting the LSP server)
+    case argv do
+      ["engine" | engine_args] ->
+        Expert.Engine.run(engine_args)
+
+      _ ->
+        :noop
+    end
+
     {opts, _argv, _invalid} =
-      OptionParser.parse(Burrito.Util.Args.argv(),
+      OptionParser.parse(argv,
         strict: [version: :boolean, help: :boolean, stdio: :boolean, port: :integer]
       )
 
@@ -26,6 +37,7 @@ defmodule Expert.Application do
     Source code: https://github.com/elixir-lang/expert
 
     expert [flags]
+    expert engine <subcommand> [options]
 
     #{IO.ANSI.bright()}FLAGS#{IO.ANSI.reset()}
 
@@ -33,6 +45,10 @@ defmodule Expert.Application do
       --port <port>       Use TCP as the transport mechanism, with the given port
       --help              Show this help message
       --version           Show Expert version
+
+    #{IO.ANSI.bright()}SUBCOMMANDS#{IO.ANSI.reset()}
+
+      engine              Manage engine builds (use 'expert engine --help' for details)
     """
 
     cond do
