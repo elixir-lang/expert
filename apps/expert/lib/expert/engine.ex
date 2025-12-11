@@ -14,7 +14,7 @@ defmodule Expert.Engine do
 
   Returns :ok and halts the system after executing the command.
   """
-  @spec run([String.t()]) :: :ok
+  @spec run([String.t()]) :: no_return()
   def run(args) do
     {opts, subcommand, _invalid} =
       OptionParser.parse(args,
@@ -29,7 +29,8 @@ defmodule Expert.Engine do
     end
   end
 
-  defp list_engines() do
+  @spec list_engines() :: no_return()
+  defp list_engines do
     case get_engine_dirs() do
       [] ->
         IO.puts("No engine builds found.")
@@ -42,6 +43,7 @@ defmodule Expert.Engine do
     System.halt(0)
   end
 
+  @spec clean_engines(keyword()) :: no_return()
   defp clean_engines(opts) do
     case get_engine_dirs() do
       [] ->
@@ -77,6 +79,7 @@ defmodule Expert.Engine do
     end
   end
 
+  @spec clean_all_force([String.t()]) :: no_return()
   defp clean_all_force(dirs) do
     Enum.each(dirs, fn dir ->
       case File.rm_rf(dir) do
@@ -91,6 +94,7 @@ defmodule Expert.Engine do
     System.halt(0)
   end
 
+  @spec clean_interactive([String.t()]) :: no_return()
   defp clean_interactive(dirs) do
     Enum.each(dirs, fn dir ->
       answer = prompt_delete(dir)
@@ -113,7 +117,8 @@ defmodule Expert.Engine do
     IO.puts(["Delete #{dir}", IO.ANSI.red(), "?", IO.ANSI.reset(), " [Yn] "])
 
     input =
-      IO.gets("")
+      ""
+      |> IO.gets()
       |> String.trim()
       |> String.downcase()
 
@@ -129,6 +134,7 @@ defmodule Expert.Engine do
     IO.puts("\nEngine builds are stored in: #{base_dir()}")
   end
 
+  @spec print_help() :: no_return()
   defp print_help do
     IO.puts("""
     Expert Engine Management
