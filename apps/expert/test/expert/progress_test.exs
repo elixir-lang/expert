@@ -12,7 +12,7 @@ defmodule Expert.ProgressTest do
     lsp = spawn(fn -> Process.sleep(:infinity) end)
 
     patch(Expert, :get_lsp, fn -> lsp end)
-    patch(Expert.Configuration, :client_supports?, fn :work_done_progress -> true end)
+    patch(Expert.Configuration, :client_support, fn :work_done_progress -> true end)
 
     # Mock GenLSP.request to return nil (success) and send the request to test process
     patch(GenLSP, :request, fn ^lsp, request ->
@@ -179,7 +179,7 @@ defmodule Expert.ProgressTest do
 
   describe "when client does not support progress" do
     setup do
-      patch(Expert.Configuration, :client_supports?, fn :work_done_progress -> false end)
+      patch(Expert.Configuration, :client_support, fn :work_done_progress -> false end)
       :ok
     end
 

@@ -50,8 +50,8 @@ defmodule Expert.Project.Node do
 
   @impl GenServer
   def init(%Project{} = project) do
-    Progress.with_progress("Starting project node", fn _token ->
-      result = start_node(project)
+    Progress.with_progress("Starting project node", fn token ->
+      result = start_node(project, token)
 
       {:done, result, "Project node started"}
     end)
@@ -93,8 +93,8 @@ defmodule Expert.Project.Node do
 
   # private api
 
-  defp start_node(%Project{} = project) do
-    with {:ok, node, node_pid} <- EngineNode.start(project) do
+  defp start_node(%Project{} = project, token \\ -1) do
+    with {:ok, node, node_pid} <- EngineNode.start(project, token) do
       Node.monitor(node, true)
       {:ok, State.new(project, node, node_pid)}
     end

@@ -69,8 +69,6 @@ defmodule Expert.Progress do
       Progress.report(token, message: "Halfway there", percentage: 50)
   """
   @impl Forge.Progress
-  def report(token, opts \\ [])
-
   def report(@noop_token, _opts), do: :ok
 
   def report(token, opts) when is_token(token) do

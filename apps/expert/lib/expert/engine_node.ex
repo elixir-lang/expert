@@ -133,7 +133,7 @@ defmodule Expert.EngineNode do
   alias Forge.Document
   use GenServer
 
-  def start(project) do
+  def start(project, token \\ nil) do
     start_net_kernel(project)
 
     node_name = Project.node_name(project)
@@ -141,20 +141,25 @@ defmodule Expert.EngineNode do
 
     with {:ok, node_pid} <- EngineSupervisor.start_project_node(project),
          {:ok, glob_paths} <- glob_paths(project),
+         :ok <- report_progress(token, "Starting Erlang node..."),
          :ok <- start_node(project, glob_paths),
+         :ok <- report_progress(token, "Bootstrapping engine..."),
          :ok <- :rpc.call(node_name, Engine.Bootstrap, :init, bootstrap_args),
-         :ok <- ensure_apps_started(node_name) do
+         :ok <- ensure_apps_started(node_name, token) do
       {:ok, node_name, node_pid}
     end
   end
+
+  defp report_progress(nil, _message), do: :ok
+  defp report_progress(token, message), do: Expert.Progress.report(token, message: message)
 
   defp start_net_kernel(%Project{} = project) do
     manager = Project.manager_node_name(project)
     Node.start(manager, :longnames)
   end
 
-  defp ensure_apps_started(node) do
-    :rpc.call(node, Engine, :ensure_apps_started, [])
+  defp ensure_apps_started(node, token) do
+    :rpc.call(node, Engine, :ensure_apps_started, [token])
   end
 
   if Mix.env() == :test do

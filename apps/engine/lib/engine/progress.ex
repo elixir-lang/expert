@@ -13,9 +13,7 @@ defmodule Engine.Progress do
   end
 
   @impl true
-  def report(token, opts \\ [])
-
-  def report(token, opts) when is_token(token) do
+  def report(token, opts) when is_token(token) and is_list(opts) do
     Dispatch.erpc_cast(Expert.Progress, :report, [token, opts])
   end
 

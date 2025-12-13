@@ -80,6 +80,8 @@ defmodule Engine.Build.State do
     state = increment_build_number(state)
     project = state.project
 
+    Logger.info("Compiling project #{Project.display_name(project)}")
+
     Build.with_lock(fn ->
       compile_requested_message =
         project_compile_requested(project: project, build_number: state.build_number)

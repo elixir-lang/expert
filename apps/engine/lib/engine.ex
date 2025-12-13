@@ -8,6 +8,7 @@ defmodule Engine do
   alias Engine.Api.Proxy
   alias Engine.CodeAction
   alias Engine.CodeIntelligence
+  alias Engine.Progress
   alias Forge.Project
 
   require Logger
@@ -68,10 +69,12 @@ defmodule Engine do
         do: app
   end
 
-  def ensure_apps_started do
+  def ensure_apps_started(token \\ -1) do
     apps_to_start = [:elixir, :runtime_tools | @allowed_apps]
 
     Enum.reduce_while(apps_to_start, :ok, fn app_name, _ ->
+      Progress.report(token, message: "Starting #{app_name}...")
+
       case :application.ensure_all_started(app_name) do
         {:ok, _} -> {:cont, :ok}
         error -> {:halt, error}

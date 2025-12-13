@@ -7,12 +7,12 @@ defmodule Engine.Build.Project do
   require Logger
 
   def compile(%Project{} = project, initial?) do
+    Logger.info("Building #{Project.display_name(project)}")
     Progress.with_progress("Building #{Project.display_name(project)}", fn token ->
       Build.set_progress_token(token)
 
       try do
-        result = do_compile(project, initial?, token)
-        {:done, result}
+        {:done, do_compile(project, initial?, token)}
       after
         Build.clear_progress_token()
       end
