@@ -114,5 +114,23 @@ defmodule Engine.CodeMod.FormatTest do
 
       assert result == formatted()
     end
+
+    test "it handles special characters", %{project: project} do
+      assert {:ok, result} =
+               ~q"""
+               [
+                 {"Karolína Plíšková","Kristýna Plíšková"}
+               ]
+               """
+               |> modify(project: project)
+
+      assert result ==
+               """
+               [
+                 {"Karolína Plíšková", "Kristýna Plíšková"}
+               ]
+               """
+               |> String.trim()
+    end
   end
 end

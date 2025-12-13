@@ -101,7 +101,7 @@ defmodule Engine.CodeMod.Diff do
   end
 
   defp advance(<<c::utf8, rest::binary>>, {line, unit}, edits) do
-    increment = CodeUnit.count(:utf8, <<c::utf8>>)
+    increment = CodeUnit.count(:utf16, <<c::utf8>>)
     advance(rest, {line, unit + increment}, edits)
   end
 
