@@ -63,7 +63,7 @@ defmodule Expert.MixProject do
       plain: [
         strip_beams: false,
         cookie: "expert",
-        steps: release_steps()
+        steps: release_steps() ++ [&Expert.Release.plain_assemble/1]
       ]
     ]
   end
