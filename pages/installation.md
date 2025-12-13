@@ -12,6 +12,7 @@ Caveats with the following versions of Elixir and Erlang are documented below:
 
 | Elixir   | Version Range  | Notes    |
 | -------- | -------------- | -------- |
+| 1.19     | `>= 1.19.0`    |          |
 | 1.18     | `>= 1.18.0`    |          |
 | 1.17     | `>= 1.17.0`    |          |
 | 1.16     | `>= 1.16.0`    |          |
@@ -55,6 +56,18 @@ just deps expert
 ```shell
 just release-local
 ```
+
+> ![NOTE]
+> If you want to skip burrito and build Expert only for your own system, you can
+> build a "plain" release instead by running:
+>
+> ```shell
+> just release-plain
+> ```
+>
+> You can then find the generated `start_expert` executable in the
+> generated release directory. For the next steps, point your editor to
+> this executable instead.
 
 If things complete successfully, you will then have a release in your
 `apps/expert/burrito_out` directory. If you see errors, please file a

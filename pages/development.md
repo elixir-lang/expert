@@ -8,18 +8,14 @@ required prerequisites.
 To build Expert, run:
 
 ```sh
-MIX_ENV=dev just release-local
+just release-plain
 ```
 
->[!IMPORTANT]
-> We set `MIX_ENV=dev` to disable Burrito's caching mechanisms. This provides a
-> smoother development experience but expect server load times to be slightly
-> longer.
-
-You may point your editor's LSP configuration to path provided by Burrito, eg:
+You may point your editor's LSP configuration to the `start_expert` executable
+in the generated release:
 
 ```sh
-<your-repo>/apps/expert/burrito_out/expert_linux_amd64
+<your-repo>/apps/expert/_build/prod/rel/plain/bin/start_expert --stdio
 ```
 
 ## Logging
