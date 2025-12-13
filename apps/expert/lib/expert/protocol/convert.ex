@@ -16,6 +16,10 @@ defmodule Expert.Protocol.Convert do
     Convertible.to_lsp(other)
   end
 
+  def to_native(%GenLSP.Notifications.Exit{params: nil} = exit_notification) do
+    {:ok, exit_notification}
+  end
+
   def to_native(%{params: request_or_notification} = original_request) do
     context_document = Document.Container.context_document(request_or_notification, nil)
 
