@@ -57,8 +57,9 @@ defmodule Engine.Compilation.Tracer do
   end
 
   defp maybe_report_progress(file) do
-    if Path.extname(file) == ".ex" do
-      Progress.report(Build.progress_token(), message: progress_message(file))
+    with ".ex" <- Path.extname(file),
+         token when not is_nil(token) <- Build.get_progress_token() do
+      Progress.report(token, message: progress_message(file))
     end
   end
 

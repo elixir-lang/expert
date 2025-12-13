@@ -12,11 +12,6 @@ defmodule Engine.Build do
 
   # Public interface
 
-  @doc """
-  Token for reporting build progress to the language client.
-  """
-  def progress_token(%Project{} = project), do: "build_engine:#{project.root_uri}"
-
   def schedule_compile(%Project{} = _project, force? \\ false) do
     GenServer.cast(__MODULE__, {:compile, force?})
   end
@@ -40,9 +35,17 @@ defmodule Engine.Build do
     :ok
   end
 
-  def with_lock(func) do
-    Engine.with_lock(__MODULE__, func)
+  def with_lock(func), do: Engine.with_lock(__MODULE__, func)
+
+  # can't pass work token to Tracer module, so store it in persistent term.
+
+  def set_progress_token(%Project{} = project) do
+    :persistent_term.put({__MODULE__, :progress_token}, "build_engine:#{project.root_uri}")
   end
+
+  def get_progress_token, do: :persistent_term.get({__MODULE__, :progress_token})
+
+  def clear_progress_token, do: :persistent_term.erase({__MODULE__, :progress_token})
 
   # GenServer Callbacks
 

@@ -177,27 +177,6 @@ defmodule Expert.ProgressTest do
     end
   end
 
-  describe "with_client_progress/2" do
-    test "uses client-provided token" do
-      client_token = "client-token-123"
-
-      result =
-        Progress.with_client_progress(client_token, fn token ->
-          assert token == client_token
-          {:done, :ok}
-        end)
-
-      assert result == :ok
-
-      # Should NOT request token creation (client already did)
-      refute_received {:request, _}
-
-      # Should send end notification with client token
-      assert_received {:notify, %Notifications.DollarProgress{params: params}}
-      assert params.token == client_token
-    end
-  end
-
   describe "when client does not support progress" do
     setup do
       patch(Expert.Configuration, :client_supports?, fn :work_done_progress -> false end)

@@ -10,11 +10,11 @@ defmodule Engine.Build.Project do
     Engine.Mix.in_project(fn _ ->
       Mix.Task.clear()
 
-      prepare_for_project_build(project, initial?)
+      if initial?, do: prepare_for_project_build()
 
       compile_fun = fn ->
         Mix.Task.clear()
-        do_progress_report(project, message: building_label(project))
+        do_progress_report(message: "Building #{Project.display_name(project)}")
         result = compile_in_isolation()
         Mix.Task.run(:loadpaths)
         result
@@ -61,37 +61,33 @@ defmodule Engine.Build.Project do
     end
   end
 
-  defp prepare_for_project_build(_project, false = _initial?), do: :ok
-
-  defp prepare_for_project_build(project, true = _initial?) do
+  defp prepare_for_project_build() do
     if connected_to_internet?() do
-      do_progress_report(project, message: "mix local.hex")
+      do_progress_report(message: "mix local.hex")
       Mix.Task.run("local.hex", ~w(--force))
 
-      do_progress_report(project, message: "mix local.rebar")
+      do_progress_report(message: "mix local.rebar")
       Mix.Task.run("local.rebar", ~w(--force))
 
-      do_progress_report(project, message: "mix deps.get")
+      do_progress_report(message: "mix deps.get")
       Mix.Task.run("deps.get")
     else
       Logger.warning("Could not connect to hex.pm, dependencies will not be fetched")
     end
 
-    do_progress_report(project, message: "mix loadconfig")
+    do_progress_report(message: "mix loadconfig")
     Mix.Task.run(:loadconfig)
 
     if not Elixir.Features.compile_keeps_current_directory?() do
-      do_progress_report(project, message: "mix deps.compile")
+      do_progress_report(message: "mix deps.compile")
       Mix.Task.run("deps.safe_compile", ~w(--skip-umbrella-children))
     end
 
-    do_progress_report(project, message: "Loading plugins")
+    do_progress_report(message: "Loading plugins")
     Plugin.Discovery.run()
   end
 
-  defp do_progress_report(project, opts) do
-    Progress.report(Build.progress_token(project), opts)
-  end
+  defp do_progress_report(opts), do: Progress.report(Build.get_progress_token(), opts)
 
   defp connected_to_internet? do
     # While there's no perfect way to check if a computer is connected to the internet,
@@ -102,10 +98,6 @@ defmodule Engine.Build.Project do
       {:ok, _} -> true
       _ -> false
     end
-  end
-
-  def building_label(%Project{} = project) do
-    "Building #{Project.display_name(project)}"
   end
 
   defp mix_compile_opts do

@@ -21,6 +21,12 @@ defmodule Engine.Dispatch.Handlers.IndexingTest do
 
     # Mock the broadcast so progress reporting doesn't fail
     patch(Engine.Api.Proxy, :broadcast, fn _ -> :ok end)
+    # Mock erpc calls for progress reporting
+    patch(Engine.Dispatch, :erpc_call, fn Expert.Progress, :begin, [_title, _opts] ->
+      {:ok, System.unique_integer([:positive])}
+    end)
+
+    patch(Engine.Dispatch, :erpc_cast, fn Expert.Progress, _function, _args -> true end)
 
     start_supervised!(Engine.Dispatch)
     start_supervised!(Commands.Reindex)
