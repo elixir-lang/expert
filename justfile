@@ -134,11 +134,3 @@ clean-engine:
 
 default: release-local
 
-[unix]
-start-tcp: release-plain
-  #!/usr/bin/env bash
-  ./apps/expert/_build/{{ env('MIX_ENV', 'prod')}}/rel/plain/bin/plain eval "System.no_halt(true); Application.ensure_all_started(:xp_expert)" --port 9000
-
-[windows]
-start-tcp: release-plain
-  ./apps/expert/_build/{{ env('MIX_ENV', 'prod')}}/rel/plain/bin/plain.bat eval "System.no_halt(true); Application.ensure_all_started(:xp_expert)" --port {{env('EXPERT_PORT', '9000')}}

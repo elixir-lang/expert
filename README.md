@@ -23,9 +23,26 @@ Then point your editor to the downloaded binary.
 
 ### Building from source
 
-To build Expert from source, you need Zig `0.15.2` installed on your system. Later versions will not work.
+Expert can be built in two ways: building a regular release for your own system(a "plain" release), or building
+a "burrito" release that works on multiple systems.
 
-Then you can run the following command or follow the instructions in the [Installation Instructions](pages/installation.md):
+To build Expert for your system, run the following command:
+
+```sh
+just release-plain
+```
+
+You can then point your editor to the `start_expert` executable in the generated release.
+You can also run `start_expert --help` to see available options.
+
+> [!IMPORTANT]
+>
+> If your editor doesn't do it automatically, make sure to pass the `--stdio` flag to Expert.
+
+To build Expert using burrito, you need Zig `0.15.2` installed on your system.
+Later versions will not work.
+
+Then you can run the following command:
 
 ```sh
 just release-local
@@ -33,6 +50,8 @@ just release-local
 
 This will build the Expert binary and place it in the `apps/expert/burrito_out` directory. You can then point your
 editor to this binary.
+
+You can find more information in the [Installation Instructions](pages/installation.md).
 
 ## Sponsorship
 

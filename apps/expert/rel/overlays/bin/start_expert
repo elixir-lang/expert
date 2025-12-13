@@ -1,0 +1,4 @@
+#!/bin/sh
+
+cd -P -- "$(dirname -- "$0")"
+exec ./plain eval "System.no_halt(true); Application.ensure_all_started(:xp_expert)" "$@"
