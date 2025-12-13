@@ -11,6 +11,8 @@ defmodule Expert.Progress do
 
   require Logger
 
+  @noop_token -1
+
   # Behaviour implementations
 
   @doc """
@@ -41,7 +43,7 @@ defmodule Expert.Progress do
     if Configuration.client_supports?(:work_done_progress) do
       case request_work_done_progress(token) do
         :ok ->
-          notify_begin(token, title, opts)
+          notify(token, progress_begin(title, opts))
           {:ok, token}
 
         {:error, reason} ->
@@ -49,7 +51,7 @@ defmodule Expert.Progress do
           {:error, :rejected}
       end
     else
-      {:ok, -1}
+      {:ok, @noop_token}
     end
   end
 
@@ -69,10 +71,10 @@ defmodule Expert.Progress do
   @impl Forge.Progress
   def report(token, opts \\ [])
 
-  def report(-1, _opts), do: :ok
+  def report(@noop_token, _opts), do: :ok
 
   def report(token, opts) when is_token(token) do
-    notify_report(token, opts)
+    notify(token, progress_report(opts))
     :ok
   end
 
@@ -91,10 +93,10 @@ defmodule Expert.Progress do
   @impl Forge.Progress
   def complete(token, opts \\ [])
 
-  def complete(-1, _opts), do: :ok
+  def complete(@noop_token, _opts), do: :ok
 
   def complete(token, opts) when is_token(token) do
-    notify_end(token, opts)
+    notify(token, progress_end(opts))
     :ok
   end
 
@@ -112,49 +114,31 @@ defmodule Expert.Progress do
     end
   end
 
-  defp notify_begin(token, title, opts) do
-    lsp = Expert.get_lsp()
-
-    GenLSP.notify(lsp, %Notifications.DollarProgress{
-      params: %Structures.ProgressParams{
-        token: token,
-        value: %Structures.WorkDoneProgressBegin{
-          kind: "begin",
-          title: title,
-          message: Keyword.get(opts, :message),
-          percentage: Keyword.get(opts, :percentage),
-          cancellable: Keyword.get(opts, :cancellable)
-        }
-      }
+  defp notify(token, value) do
+    GenLSP.notify(Expert.get_lsp(), %Notifications.DollarProgress{
+      params: %Structures.ProgressParams{token: token, value: value}
     })
   end
 
-  defp notify_report(token, updates) do
-    lsp = Expert.get_lsp()
-
-    GenLSP.notify(lsp, %Notifications.DollarProgress{
-      params: %Structures.ProgressParams{
-        token: token,
-        value: %Structures.WorkDoneProgressReport{
-          kind: "report",
-          message: Keyword.get(updates, :message),
-          percentage: Keyword.get(updates, :percentage)
-        }
-      }
-    })
+  defp progress_begin(title, opts) do
+    %Structures.WorkDoneProgressBegin{
+      kind: "begin",
+      title: title,
+      message: opts[:message],
+      percentage: opts[:percentage],
+      cancellable: opts[:cancellable]
+    }
   end
 
-  defp notify_end(token, opts) do
-    lsp = Expert.get_lsp()
+  defp progress_report(opts) do
+    %Structures.WorkDoneProgressReport{
+      kind: "report",
+      message: opts[:message],
+      percentage: opts[:percentage]
+    }
+  end
 
-    GenLSP.notify(lsp, %Notifications.DollarProgress{
-      params: %Structures.ProgressParams{
-        token: token,
-        value: %Structures.WorkDoneProgressEnd{
-          kind: "end",
-          message: Keyword.get(opts, :message)
-        }
-      }
-    })
+  defp progress_end(opts) do
+    %Structures.WorkDoneProgressEnd{kind: "end", message: opts[:message]}
   end
 end

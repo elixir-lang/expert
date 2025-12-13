@@ -67,18 +67,12 @@ defmodule Engine.Dispatch do
     {:local, __MODULE__}
   end
 
-  @doc """
-  :rpc.call to the server node.
-  """
   def erpc_call(module, function, args) do
     project = Engine.get_project()
     manager_node = Project.manager_node_name(project)
     :erpc.call(manager_node, module, function, args, 1_000)
   end
 
-  @doc """
-  :rpc.cast to the server node.
-  """
   def erpc_cast(module, function, args) do
     project = Engine.get_project()
     manager_node = Project.manager_node_name(project)
