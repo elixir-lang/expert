@@ -11,7 +11,7 @@ defmodule Expert.Progress do
 
   require Logger
 
-  @noop_token -1
+  @noop_token Forge.Progress.noop_token()
 
   # Behaviour implementations
 
@@ -40,7 +40,7 @@ defmodule Expert.Progress do
 
     token = opts[:token] || System.unique_integer([:positive])
 
-    if Configuration.client_supports?(:work_done_progress) do
+    if Configuration.client_support(:work_done_progress) do
       case request_work_done_progress(token) do
         :ok ->
           notify(token, progress_begin(title, opts))

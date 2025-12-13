@@ -2,7 +2,6 @@ defmodule Engine.Build.State do
   alias Elixir.Features
   alias Engine.Build
   alias Engine.Plugin
-  alias Engine.Progress
   alias Forge.Document
   alias Forge.EngineApi.Messages
   alias Forge.Project
@@ -82,56 +81,41 @@ defmodule Engine.Build.State do
     project = state.project
 
     Build.with_lock(fn ->
-      Build.set_progress_token(project)
+      compile_requested_message =
+        project_compile_requested(project: project, build_number: state.build_number)
 
-      {:ok, token} =
-        Progress.begin(
-          "Building #{Project.display_name(project)}",
-          token: Build.get_progress_token()
+      Engine.broadcast(compile_requested_message)
+      {elapsed_us, result} = :timer.tc(fn -> Build.Project.compile(project, initial?) end)
+      elapsed_ms = to_ms(elapsed_us)
+
+      {compile_message, diagnostics} =
+        case result do
+          :ok ->
+            message = project_compiled(status: :success, project: project, elapsed_ms: elapsed_ms)
+
+            {message, []}
+
+          {:ok, diagnostics} ->
+            message = project_compiled(status: :success, project: project, elapsed_ms: elapsed_ms)
+
+            {message, List.wrap(diagnostics)}
+
+          {:error, diagnostics} ->
+            message = project_compiled(status: :error, project: project, elapsed_ms: elapsed_ms)
+
+            {message, List.wrap(diagnostics)}
+        end
+
+      diagnostics_message =
+        project_diagnostics(
+          project: project,
+          build_number: state.build_number,
+          diagnostics: diagnostics
         )
 
-      try do
-        compile_requested_message =
-          project_compile_requested(project: project, build_number: state.build_number)
-
-        Engine.broadcast(compile_requested_message)
-        {elapsed_us, result} = :timer.tc(fn -> Build.Project.compile(project, initial?) end)
-        elapsed_ms = to_ms(elapsed_us)
-
-        {compile_message, diagnostics} =
-          case result do
-            :ok ->
-              message =
-                project_compiled(status: :success, project: project, elapsed_ms: elapsed_ms)
-
-              {message, []}
-
-            {:ok, diagnostics} ->
-              message =
-                project_compiled(status: :success, project: project, elapsed_ms: elapsed_ms)
-
-              {message, List.wrap(diagnostics)}
-
-            {:error, diagnostics} ->
-              message = project_compiled(status: :error, project: project, elapsed_ms: elapsed_ms)
-
-              {message, List.wrap(diagnostics)}
-          end
-
-        diagnostics_message =
-          project_diagnostics(
-            project: project,
-            build_number: state.build_number,
-            diagnostics: diagnostics
-          )
-
-        Engine.broadcast(compile_message)
-        Engine.broadcast(diagnostics_message)
-        Plugin.diagnose(project, state.build_number)
-      after
-        Build.clear_progress_token()
-        Progress.complete(token)
-      end
+      Engine.broadcast(compile_message)
+      Engine.broadcast(diagnostics_message)
+      Plugin.diagnose(project, state.build_number)
     end)
 
     state

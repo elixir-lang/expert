@@ -7,14 +7,27 @@ defmodule Engine.Build.Project do
   require Logger
 
   def compile(%Project{} = project, initial?) do
+    Progress.with_progress("Building #{Project.display_name(project)}", fn token ->
+      Build.set_progress_token(token)
+
+      try do
+        result = do_compile(project, initial?, token)
+        {:done, result}
+      after
+        Build.clear_progress_token()
+      end
+    end)
+  end
+
+  defp do_compile(project, initial?, token) do
     Engine.Mix.in_project(fn _ ->
       Mix.Task.clear()
 
-      if initial?, do: prepare_for_project_build()
+      if initial?, do: prepare_for_project_build(token)
 
       compile_fun = fn ->
         Mix.Task.clear()
-        do_progress_report(message: "Building #{Project.display_name(project)}")
+        Progress.report(token, message: "Compiling #{Project.display_name(project)}")
         result = compile_in_isolation()
         Mix.Task.run(:loadpaths)
         result
@@ -61,33 +74,31 @@ defmodule Engine.Build.Project do
     end
   end
 
-  defp prepare_for_project_build() do
+  defp prepare_for_project_build(token) do
     if connected_to_internet?() do
-      do_progress_report(message: "mix local.hex")
+      Progress.report(token, message: "mix local.hex")
       Mix.Task.run("local.hex", ~w(--force))
 
-      do_progress_report(message: "mix local.rebar")
+      Progress.report(token, message: "mix local.rebar")
       Mix.Task.run("local.rebar", ~w(--force))
 
-      do_progress_report(message: "mix deps.get")
+      Progress.report(token, message: "mix deps.get")
       Mix.Task.run("deps.get")
     else
       Logger.warning("Could not connect to hex.pm, dependencies will not be fetched")
     end
 
-    do_progress_report(message: "mix loadconfig")
+    Progress.report(token, message: "mix loadconfig")
     Mix.Task.run(:loadconfig)
 
     if not Elixir.Features.compile_keeps_current_directory?() do
-      do_progress_report(message: "mix deps.compile")
+      Progress.report(token, message: "mix deps.compile")
       Mix.Task.run("deps.safe_compile", ~w(--skip-umbrella-children))
     end
 
-    do_progress_report(message: "Loading plugins")
+    Progress.report(token, message: "Loading plugins")
     Plugin.Discovery.run()
   end
-
-  defp do_progress_report(opts), do: Progress.report(Build.get_progress_token(), opts)
 
   defp connected_to_internet? do
     # While there's no perfect way to check if a computer is connected to the internet,

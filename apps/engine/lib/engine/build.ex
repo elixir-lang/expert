@@ -1,7 +1,5 @@
 defmodule Engine.Build do
-  alias Forge.Document
-  alias Forge.Project
-
+  alias Forge.{Document, Project}
   alias Engine.Build.Document.Compilers.HEEx
   alias Engine.Build.State
 
@@ -39,11 +37,9 @@ defmodule Engine.Build do
 
   # can't pass work token to Tracer module, so store it in persistent term.
 
-  def set_progress_token(%Project{} = project) do
-    :persistent_term.put({__MODULE__, :progress_token}, "build_engine:#{project.root_uri}")
-  end
+  def set_progress_token(token), do: :persistent_term.put({__MODULE__, :progress_token}, token)
 
-  def get_progress_token, do: :persistent_term.get({__MODULE__, :progress_token})
+  def get_progress_token, do: :persistent_term.get({__MODULE__, :progress_token}, nil)
 
   def clear_progress_token, do: :persistent_term.erase({__MODULE__, :progress_token})
 
