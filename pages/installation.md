@@ -54,7 +54,7 @@ just deps expert
 ...and build the project
 
 ```shell
-just release-local
+just burrito-local
 ```
 
 > ![NOTE]
@@ -62,7 +62,7 @@ just release-local
 > build a "plain" release instead by running:
 >
 > ```shell
-> just release-plain
+> just release
 > ```
 >
 > You can then find the generated `start_expert` executable in the

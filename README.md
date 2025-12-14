@@ -29,7 +29,7 @@ a "burrito" release that works on multiple systems.
 To build Expert for your system, run the following command:
 
 ```sh
-just release-plain
+just release
 ```
 
 You can then point your editor to the `start_expert` executable in the generated release.
@@ -45,7 +45,7 @@ Later versions will not work.
 Then you can run the following command:
 
 ```sh
-just release-local
+just burrito-local
 ```
 
 This will build the Expert binary and place it in the `apps/expert/burrito_out` directory. You can then point your

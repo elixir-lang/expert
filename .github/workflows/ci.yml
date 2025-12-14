@@ -172,7 +172,7 @@ jobs:
             ${{ runner.os }}-mix-${{ matrix.elixir }}-${{ matrix.otp }}-
 
       - name: Build and release
-        run: just release-local
+        run: just burrito-local
 
   prep-matrix:
     runs-on: ubuntu-latest

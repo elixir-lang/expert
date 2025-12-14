@@ -73,9 +73,9 @@ lint *project="all":
   just mix {{ project }} credo
   just mix {{ project }} dialyzer
 
-[doc('Build a release for the local system')]
+[doc('Build a burrito release for the local system')]
 [unix]
-release-local: (deps "engine") (deps "expert")
+burrito-local: (deps "engine") (deps "expert")
   #!/usr/bin/env bash
   cd apps/expert
 
@@ -88,7 +88,7 @@ release-local: (deps "engine") (deps "expert")
   MIX_ENV={{ env('MIX_ENV', 'prod')}} EXPERT_RELEASE_MODE=burrito BURRITO_TARGET="{{ local_target }}" mix release --overwrite
 
 [windows]
-release-local: (deps "engine") (deps "expert")
+burrito-local: (deps "engine") (deps "expert")
     export EXPERT_RELEASE_MODE=burrito && \
     export BURRITO_TARGET="windows_amd64" && \
     export MIX_ENV={{ env('MIX_ENV', 'prod')}} && \
@@ -96,7 +96,7 @@ release-local: (deps "engine") (deps "expert")
     mix release --overwrite
 
 [doc('Build releases for all target platforms')]
-release-all: (deps "engine") (deps "expert")
+burrito: (deps "engine") (deps "expert")
     #!/usr/bin/env bash
     cd apps/expert
 
@@ -104,15 +104,15 @@ release-all: (deps "engine") (deps "expert")
 
     EXPERT_RELEASE_MODE=burrito MIX_ENV={{ env('MIX_ENV', 'prod')}} mix release --overwrite
 
-[doc('Build a plain release without burrito')]
+[doc('Build a plain release for the local system')]
 [unix]
-release-plain: (deps "engine") (deps "expert")
+release: (deps "engine") (deps "expert")
     #!/usr/bin/env bash
     cd apps/expert
     MIX_ENV={{ env('MIX_ENV', 'prod')}} mix release plain --overwrite
 
 [windows]
-release-plain: (deps "engine") (deps "expert")
+release: (deps "engine") (deps "expert")
     cd apps/expert && export MIX_ENV={{ env('MIX_ENV', 'prod')}} && mix release plain --overwrite
 
 [doc('Compiles .github/matrix.json')]
@@ -121,7 +121,7 @@ compile-ci-matrix:
 
 [doc('Build and install binary locally')]
 [unix]
-install: release-local
+install: burrito-local
   #!/usr/bin/env bash
   set -euxo pipefail
 
@@ -132,5 +132,5 @@ install: release-local
 clean-engine:
   elixir -e ':filename.basedir(:user_data, "Expert") |> File.rm_rf!() |> IO.inspect()'
 
-default: release-local
+default: burrito-local
 

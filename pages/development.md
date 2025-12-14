@@ -8,7 +8,7 @@ required prerequisites.
 To build Expert, run:
 
 ```sh
-just release-plain
+just release
 ```
 
 You may point your editor's LSP configuration to the `start_expert` executable
