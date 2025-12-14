@@ -70,8 +70,6 @@ defmodule Expert.Release do
     if release.options[:quiet] do
       release
     else
-      cmd = Path.relative_to(executable_path, File.cwd!())
-
       Mix.shell().info("""
 
       #{IO.ANSI.bright()}✨ Expert build created at:#{IO.ANSI.reset()} #{release.path}
@@ -82,11 +80,11 @@ defmodule Expert.Release do
 
       You can also run Expert in TCP mode by passing the `--port PORT` argument:
 
-          #{cmd} --port 9000
+          #{executable_path} --port 9000
 
       To get a list of all available command line options, run:
 
-          #{cmd} --help
+          #{executable_path} --help
       """)
 
       # Silence the release "announce" message
