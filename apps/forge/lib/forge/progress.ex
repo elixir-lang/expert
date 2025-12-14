@@ -21,9 +21,6 @@ defmodule Forge.Progress do
   @type token :: integer() | String.t()
   @type work_result :: {:done, term()} | {:done, term(), String.t()} | {:cancel, term()}
 
-  @noop_token -1
-  def noop_token, do: @noop_token
-
   @callback begin(title :: String.t(), opts :: keyword()) :: {:ok, token()} | {:error, :rejected}
   @callback report(token :: token(), opts :: keyword()) :: :ok
   @callback complete(token :: token(), opts :: keyword()) :: :ok
@@ -33,6 +30,10 @@ defmodule Forge.Progress do
       @behaviour Forge.Progress
 
       alias Forge.Progress.Tracker
+
+      @noop_token nil
+
+      def noop_token, do: @noop_token
 
       defguardp is_token(token) when is_binary(token) or is_integer(token)
 
@@ -86,7 +87,7 @@ defmodule Forge.Progress do
       defp run_with_progress(title, opts, work_fn) do
         case begin(title, opts) do
           {:ok, token} -> execute_work(token, work_fn)
-          {:error, :rejected} -> elem(work_fn.(Forge.Progress.noop_token()), 1)
+          {:error, :rejected} -> elem(work_fn.(@noop_token), 1)
         end
       end
 

@@ -93,7 +93,7 @@ defmodule Expert.Project.Node do
 
   # private api
 
-  defp start_node(%Project{} = project, token \\ -1) do
+  defp start_node(%Project{} = project, token \\ Progress.noop_token()) do
     with {:ok, node, node_pid} <- EngineNode.start(project, token) do
       Node.monitor(node, true)
       {:ok, State.new(project, node, node_pid)}

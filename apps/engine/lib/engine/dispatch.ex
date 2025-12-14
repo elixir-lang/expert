@@ -63,19 +63,15 @@ defmodule Engine.Dispatch do
     }
   end
 
-  defp name do
-    {:local, __MODULE__}
-  end
+  defp name, do: {:local, __MODULE__}
 
   def erpc_call(module, function, args) do
-    project = Engine.get_project()
-    manager_node = Project.manager_node_name(project)
-    :erpc.call(manager_node, module, function, args, 1_000)
+    :erpc.call(manager_node(), module, function, args, 1_000)
   end
 
   def erpc_cast(module, function, args) do
-    project = Engine.get_project()
-    manager_node = Project.manager_node_name(project)
-    :erpc.cast(manager_node, module, function, args)
+    :erpc.cast(manager_node(), module, function, args)
   end
+
+  defp manager_node(), do: Engine.get_project() |> Project.manager_node_name()
 end

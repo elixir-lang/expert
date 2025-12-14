@@ -183,16 +183,15 @@ defmodule Expert.ProgressTest do
       :ok
     end
 
-    test "begin still returns a token" do
-      assert {:ok, token} = Progress.begin("Building")
-      assert is_integer(token)
+    test "begin returns noop token" do
+      assert {:ok, nil} = Progress.begin("Building")
 
       # Should NOT send any requests or notifications
       refute_received {:request, _}
       refute_received {:notify, _}
     end
 
-    test "with_progress still executes the work" do
+    test "with_progress executes the work" do
       result = Progress.with_progress("Building", fn _token -> {:done, :ok} end)
 
       assert result == :ok

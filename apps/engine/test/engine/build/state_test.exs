@@ -11,13 +11,6 @@ defmodule Engine.Build.StateTest do
   use Patch
 
   setup do
-    # Mock erpc calls for progress reporting
-    patch(Engine.Dispatch, :erpc_call, fn Expert.Progress, :begin, [_title, _opts] ->
-      {:ok, System.unique_integer([:positive])}
-    end)
-
-    patch(Engine.Dispatch, :erpc_cast, fn Expert.Progress, _function, _args -> true end)
-
     start_supervised!(Engine.Dispatch)
     start_supervised!(Engine.Api.Proxy)
     start_supervised!(Build.CaptureServer)

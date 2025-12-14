@@ -11,8 +11,6 @@ defmodule Expert.Progress do
 
   require Logger
 
-  @noop_token Forge.Progress.noop_token()
-
   # Behaviour implementations
 
   @doc """
