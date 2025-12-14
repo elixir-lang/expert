@@ -35,8 +35,6 @@ defmodule Expert.State do
     %__MODULE__{}
   end
 
-  # TODO: this function has a side effect (starting the project supervisor)
-  # that i think might be better off in the calling function
   def initialize(
         %__MODULE__{initialized?: false} = state,
         %Requests.Initialize{
@@ -50,31 +48,16 @@ defmodule Expert.State do
       end
 
     config = Configuration.new(event.root_uri, event.capabilities, client_name)
-    new_state = %__MODULE__{state | configuration: config, initialized?: true}
-    Logger.info("Starting project at uri #{config.project.root_uri}")
 
     response = initialize_result()
 
-    Task.Supervisor.start_child(:expert_task_queue, fn ->
-      # Race Cond:
-      # Project startup ends up calling `window/workDoneProgress/create` before
-      # the initialize response is returned. This is against spec and will result
-      # in the progress tokens being discarded. Adding a sleep here as a slim fix
-      # pending a more comprehensive solution.
-      Process.sleep(50)
-      {:ok, _pid} = Project.Supervisor.start(config.project)
-      send(Expert, :engine_initialized)
-    end)
+    new_state = %__MODULE__{state | configuration: config, initialized?: true}
 
     {:ok, response, new_state}
   end
 
   def initialize(%__MODULE__{initialized?: true}, %Requests.Initialize{}) do
     {:error, :already_initialized}
-  end
-
-  def default_configuration(%__MODULE__{configuration: config}) do
-    Configuration.default(config)
   end
 
   def apply(%__MODULE__{initialized?: false}, request) do

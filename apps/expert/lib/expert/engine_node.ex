@@ -4,6 +4,8 @@ defmodule Expert.EngineNode do
   require Logger
 
   defmodule State do
+    require Logger
+
     defstruct [
       :project,
       :port,
@@ -11,6 +13,7 @@ defmodule Expert.EngineNode do
       :stopped_by,
       :stop_timeout,
       :started_by,
+      :last_message,
       :status
     ]
 
@@ -46,9 +49,14 @@ defmodule Expert.EngineNode do
           # If we start distribution manually after all the code is loaded,
           # everything works fine.
           """
-          {:ok, _} = Node.start(:"#{Project.node_name(state.project)}", :longnames)
-          #{Forge.NodePortMapper}.register()
-          IO.puts(\"ok\")
+          node_start = Node.start(:"#{Project.node_name(state.project)}", :longnames)
+          case node_start do
+            {:ok, _} ->
+              #{Forge.NodePortMapper}.register()
+              IO.puts(\"ok\")
+            {:error, reason} ->
+              IO.puts(\"error starting node:\n  \#{inspect(reason)}\")
+          end
           """
           | path_append_arguments(paths)
         ]
@@ -100,6 +108,28 @@ defmodule Expert.EngineNode do
       else
         :continue
       end
+    end
+
+    def on_exit_status(%__MODULE__{} = state, exit_status) do
+      stop_reason =
+        case exit_status do
+          0 ->
+            project = state.project
+            Logger.info("Engine for #{project.root_uri} shut down")
+
+            :shutdown
+
+          _error_status ->
+            Logger.error(
+              "Engine shut down unexpectedly, node exited with status #{exit_status}). Last message: #{state.last_message}"
+            )
+
+            {:shutdown, {:node_exit, %{status: exit_status, last_message: state.last_message}}}
+        end
+
+      new_state = %{state | status: :stopped}
+
+      {stop_reason, new_state}
     end
 
     def maybe_reply_to_stopper(%State{stopped_by: stopped_by} = state)
@@ -378,9 +408,18 @@ defmodule Expert.EngineNode do
   end
 
   @impl true
-  def handle_info({_port, {:data, message}}, %State{} = state) do
-    Logger.debug("Node port message: #{to_string(message)}")
-    {:noreply, state}
+  def handle_info({_port, {:exit_status, exit_status}}, %State{} = state) do
+    {stop_reason, state} = State.on_exit_status(state, exit_status)
+
+    {:stop, stop_reason, state}
+  end
+
+  @impl true
+  def handle_info({_port, {:data, data}}, %State{} = state) do
+    message = to_string(data)
+    Logger.debug("Node port message: #{message}")
+
+    {:noreply, %{state | last_message: message}}
   end
 
   @impl true
