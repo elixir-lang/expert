@@ -43,6 +43,18 @@ defmodule Engine.Dispatch do
     :gen_event.notify(__MODULE__, message)
   end
 
+  # bypass via rpc, primarily for progress reporting.
+
+  def erpc_call(module, function, args) do
+    :erpc.call(manager_node(), module, function, args, 1_000)
+  end
+
+  def erpc_cast(module, function, args) do
+    :erpc.cast(manager_node(), module, function, args)
+  end
+
+  defp manager_node(), do: Engine.get_project() |> Project.manager_node_name()
+
   # GenServer callbacks
 
   def start_link(_opts) do
@@ -64,14 +76,4 @@ defmodule Engine.Dispatch do
   end
 
   defp name, do: {:local, __MODULE__}
-
-  def erpc_call(module, function, args) do
-    :erpc.call(manager_node(), module, function, args, 1_000)
-  end
-
-  def erpc_cast(module, function, args) do
-    :erpc.cast(manager_node(), module, function, args)
-  end
-
-  defp manager_node(), do: Engine.get_project() |> Project.manager_node_name()
 end

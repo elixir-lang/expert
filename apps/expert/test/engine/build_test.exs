@@ -83,7 +83,6 @@ defmodule Engine.BuildTest do
       {:ok, project} = with_project(:project_metadata)
 
       EngineApi.schedule_compile(project, true)
-
       assert_receive module_updated(name: ProjectMetadata, functions: functions)
 
       assert {:zero_arity, 0} in functions

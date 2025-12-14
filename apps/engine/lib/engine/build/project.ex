@@ -8,6 +8,7 @@ defmodule Engine.Build.Project do
 
   def compile(%Project{} = project, initial?) do
     Logger.info("Building #{Project.display_name(project)}")
+
     Progress.with_progress("Building #{Project.display_name(project)}", fn token ->
       Build.set_progress_token(token)
 

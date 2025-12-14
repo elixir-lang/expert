@@ -10,14 +10,12 @@ defmodule Engine.Progress do
   @impl true
   def begin(title, opts \\ []) when is_list(opts) do
     Dispatch.erpc_call(Expert.Progress, :begin, [title, opts])
-  rescue
-    _ -> {:ok, @noop_token}
   end
 
   @impl true
   def report(@noop_token, _opts), do: :ok
 
-  def report(token, opts) when is_token(token) and is_list(opts) do
+  def report(token, [_ | _] = opts) when is_token(token) do
     Dispatch.erpc_cast(Expert.Progress, :report, [token, opts])
   end
 
