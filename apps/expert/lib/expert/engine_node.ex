@@ -35,17 +35,17 @@ defmodule Expert.EngineNode do
       dist_port = Forge.EPMD.dist_port()
 
       args =
-        [
-          "--erl",
-          "-start_epmd false -epmd_module #{Forge.EPMD}",
-          "--cookie",
-          state.cookie,
-          "--no-halt",
-          "-e",
-          "System.argv() |> hd() |> Base.decode64!() |> Code.eval_string()",
-          project_node_eval_string(state.project)
-          | path_append_arguments(paths)
-        ]
+        path_append_arguments(paths) ++
+          [
+            "--erl",
+            "-start_epmd false -epmd_module #{Forge.EPMD}",
+            "--cookie",
+            state.cookie,
+            "--no-halt",
+            "-e",
+            "System.argv() |> hd() |> Base.decode64!() |> Code.eval_string()",
+            project_node_eval_string(state.project)
+          ]
 
       env =
         [
@@ -86,6 +86,7 @@ defmodule Expert.EngineNode do
             {:ok, _} ->
               unquote(port_mapper).register()
               IO.puts("ok")
+
             {:error, reason} ->
               IO.puts("error starting node:\n \#{inspect(reason)}")
           end
