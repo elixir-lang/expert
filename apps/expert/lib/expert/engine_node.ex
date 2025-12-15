@@ -342,7 +342,7 @@ defmodule Expert.EngineNode do
     GenServer.start_link(__MODULE__, state, name: name(project))
   end
 
-  @start_timeout 5_000
+  @start_timeout 6_000
 
   defp start_node(project, paths) do
     project

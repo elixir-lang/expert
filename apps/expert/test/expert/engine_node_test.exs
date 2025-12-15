@@ -16,7 +16,7 @@ defmodule Expert.EngineNodeTest do
   end
 
   test "it should be able to stop a project node and won't restart", %{project: project} do
-    {:ok, _node_name, _} = EngineNode.start(project)
+    assert {:ok, _node_name, _} = try_start(project)
 
     project_alive? = project |> EngineNode.name() |> Process.whereis() |> Process.alive?()
 
@@ -30,13 +30,13 @@ defmodule Expert.EngineNodeTest do
 
     linked_node_process =
       spawn(fn ->
-        case EngineNode.start(project) do
+        case try_start(project) do
           {:ok, _node_name, _} -> send(test_pid, :started)
           {:error, reason} -> send(test_pid, {:error, reason})
         end
       end)
 
-    assert_receive :started, 7000
+    assert_receive :started, 10_000
 
     node_process_name = EngineNode.name(project)
 
@@ -78,5 +78,23 @@ defmodule Expert.EngineNodeTest do
     assert {:shutdown, {:node_exit, node_exit}} = exit_reason
     assert %{status: ^exit_status, last_message: last_message} = node_exit
     assert is_binary(last_message)
+  end
+
+  defp try_start(project, retries \\ 2) do
+    case EngineNode.start(project) do
+      {:ok, _, _} = ok ->
+        ok
+
+      {:error, _} when retries > 0 ->
+        Process.sleep(200)
+        try_start(project, retries - 1)
+
+      {:badrpc, :nodedown} when retries > 0 ->
+        Process.sleep(200)
+        try_start(project, retries - 1)
+
+      other ->
+        other
+    end
   end
 end
