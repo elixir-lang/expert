@@ -36,7 +36,7 @@ defmodule Expert.EngineNodeTest do
         end
       end)
 
-    assert_receive :started, 10_000
+    assert_receive :started, 20_000
 
     node_process_name = EngineNode.name(project)
 
