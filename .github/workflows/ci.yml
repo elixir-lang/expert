@@ -41,7 +41,7 @@ jobs:
       # Step: Define how to cache deps. Restores existing cache if present.
       - name: Cache deps
         id: cache-deps
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             apps/${{ matrix.project }}/deps
@@ -89,7 +89,7 @@ jobs:
       # Step: Define how to cache deps. Restores existing cache if present.
       - name: Cache deps
         id: cache-deps
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             apps/${{ matrix.project }}/deps
@@ -102,7 +102,7 @@ jobs:
       # Step: Create dialyzer .plt files if they're not present
       - name: Cache dialyzer plt files
         id: cache-plt
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           key: expert-plts-${{ env.DEFAULT_OTP }}-${{ env.DEFAULT_ELIXIR }}-${{ hashFiles('apps/${{ matrix.project }}/mix.lock' ) }}
           restore-keys: |
@@ -161,7 +161,7 @@ jobs:
 
       - name: Cache deps
         id: cache-deps
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             apps/**/deps
@@ -204,7 +204,7 @@ jobs:
 
       - name: Cache deps
         id: cache-deps
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             apps/${{ matrix.project }}/deps
