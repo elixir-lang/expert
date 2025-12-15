@@ -17,7 +17,9 @@ defmodule Expert.Application do
     # Handle engine subcommand first (before starting the LSP server)
     case argv do
       ["engine" | engine_args] ->
-        Expert.Engine.run(engine_args)
+        engine_args
+        |> Expert.Engine.run()
+        |> System.halt()
 
       _ ->
         :noop

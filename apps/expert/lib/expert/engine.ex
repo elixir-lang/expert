@@ -12,9 +12,16 @@ defmodule Expert.Engine do
   @doc """
   Runs engine management commands based on parsed arguments.
 
-  Returns :ok and halts the system after executing the command.
+  Returns the exit code for the command. Clean operations will stop at the
+  first deletion error and return exit code 1.
   """
-  @spec run([String.t()]) :: no_return()
+
+  @success_code 0
+  @error_code 1
+
+  @help_options ["-h", "--help"]
+
+  @spec run([String.t()]) :: non_neg_integer()
   def run(args) do
     {opts, subcommand, _invalid} =
       OptionParser.parse(args,
@@ -24,12 +31,14 @@ defmodule Expert.Engine do
 
     case subcommand do
       ["ls"] -> list_engines()
+      ["ls", options] when options in @help_options -> print_ls_help()
       ["clean"] -> clean_engines(opts)
+      ["clean", options] when options in @help_options -> print_clean_help()
       _ -> print_help()
     end
   end
 
-  @spec list_engines() :: no_return()
+  @spec list_engines() :: non_neg_integer()
   defp list_engines do
     case get_engine_dirs() do
       [] ->
@@ -40,16 +49,16 @@ defmodule Expert.Engine do
         Enum.each(dirs, &IO.puts/1)
     end
 
-    System.halt(0)
+    @success_code
   end
 
-  @spec clean_engines(keyword()) :: no_return()
+  @spec clean_engines(keyword()) :: non_neg_integer()
   defp clean_engines(opts) do
     case get_engine_dirs() do
       [] ->
         IO.puts("No engine builds found.")
         print_location_info()
-        System.halt(0)
+        @success_code
 
       dirs ->
         if opts[:force] do
@@ -79,38 +88,53 @@ defmodule Expert.Engine do
     end
   end
 
-  @spec clean_all_force([String.t()]) :: no_return()
+  @spec clean_all_force([String.t()]) :: non_neg_integer()
+  # Deletes all directories without prompting. Stops on first error and returns 1.
   defp clean_all_force(dirs) do
-    Enum.each(dirs, fn dir ->
-      case File.rm_rf(dir) do
-        {:ok, _} ->
-          IO.puts("Deleted #{dir}")
-
-        {:error, reason, file} ->
-          IO.puts(:stderr, "Error deleting #{file}: #{inspect(reason)}")
-      end
-    end)
-
-    System.halt(0)
-  end
-
-  @spec clean_interactive([String.t()]) :: no_return()
-  defp clean_interactive(dirs) do
-    Enum.each(dirs, fn dir ->
-      answer = prompt_delete(dir)
-
-      if answer do
+    result =
+      Enum.reduce_while(dirs, :ok, fn dir, _acc ->
         case File.rm_rf(dir) do
           {:ok, _} ->
-            :ok
+            IO.puts("Deleted #{dir}")
+            {:cont, :ok}
 
           {:error, reason, file} ->
             IO.puts(:stderr, "Error deleting #{file}: #{inspect(reason)}")
+            {:halt, :error}
         end
-      end
-    end)
+      end)
 
-    System.halt(0)
+    case result do
+      :ok -> @success_code
+      :error -> @error_code
+    end
+  end
+
+  @spec clean_interactive([String.t()]) :: non_neg_integer()
+  # Prompts the user for each directory deletion. Stops on first error and returns 1.
+  defp clean_interactive(dirs) do
+    result =
+      Enum.reduce_while(dirs, :ok, fn dir, _acc ->
+        answer = prompt_delete(dir)
+
+        if answer do
+          case File.rm_rf(dir) do
+            {:ok, _} ->
+              {:cont, :ok}
+
+            {:error, reason, file} ->
+              IO.puts(:stderr, "Error deleting #{file}: #{inspect(reason)}")
+              {:halt, :error}
+          end
+        else
+          {:cont, :ok}
+        end
+      end)
+
+    case result do
+      :ok -> @success_code
+      :error -> @error_code
+    end
   end
 
   defp prompt_delete(dir) do
@@ -134,7 +158,7 @@ defmodule Expert.Engine do
     IO.puts("\nEngine builds are stored in: #{base_dir()}")
   end
 
-  @spec print_help() :: no_return()
+  @spec print_help() :: non_neg_integer()
   defp print_help do
     IO.puts("""
     Expert Engine Management
@@ -143,21 +167,58 @@ defmodule Expert.Engine do
     to resolve dependency errors or free up disk space.
 
     USAGE:
-        expert engine <subcommand> [options]
+        expert engine <subcommand>
 
     SUBCOMMANDS:
         ls              List all engine build directories
         clean           Interactively delete engine build directories
 
-    OPTIONS:
-        -f, --force     Delete all builds without prompting (clean only)
+    Use 'expert engine <subcommand> --help' for more information on a specific command.
 
     EXAMPLES:
         expert engine ls
         expert engine clean
+    """)
+
+    @success_code
+  end
+
+  @spec print_ls_help() :: non_neg_integer()
+  defp print_ls_help do
+    IO.puts("""
+    List Engine Builds
+
+    List all cached engine build directories.
+
+    USAGE:
+        expert engine ls
+
+    EXAMPLES:
+        expert engine ls
+    """)
+
+    @success_code
+  end
+
+  @spec print_clean_help() :: non_neg_integer()
+  defp print_clean_help do
+    IO.puts("""
+    Clean Engine Builds
+
+    Interactively delete cached engine build directories. By default, you will
+    be prompted to confirm deletion of each build. Use --force to skip prompts.
+
+    USAGE:
+        expert engine clean [options]
+
+    OPTIONS:
+        -f, --force     Delete all builds without prompting
+
+    EXAMPLES:
+        expert engine clean
         expert engine clean --force
     """)
 
-    System.halt(0)
+    @success_code
   end
 end
