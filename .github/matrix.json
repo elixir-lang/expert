@@ -129,13 +129,13 @@
     {
       "os": "ubuntu-latest",
       "otp": "27.3.4.1",
-      "elixir": "1.17.3",
+      "elixir": "1.18.4",
       "project": "expert"
     },
     {
       "os": "windows-2022",
       "otp": "27.3.4.1",
-      "elixir": "1.17.3",
+      "elixir": "1.18.4",
       "project": "expert"
     }
   ]

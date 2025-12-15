@@ -12,8 +12,8 @@ versions = [
 
 expert_matrix =
   [
-    %{elixir: "1.17.3", otp: "27.3.4.1", project: "expert", os: "ubuntu-latest"},
-    %{elixir: "1.17.3", otp: "27.3.4.1", project: "expert", os: "windows-2022"}
+    %{elixir: "1.18.4", otp: "27.3.4.1", project: "expert", os: "ubuntu-latest"},
+    %{elixir: "1.18.4", otp: "27.3.4.1", project: "expert", os: "windows-2022"}
   ]
 
 %{
