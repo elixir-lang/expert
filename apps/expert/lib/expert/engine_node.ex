@@ -172,9 +172,9 @@ defmodule Expert.EngineNode do
 
     with {:ok, node_pid} <- EngineSupervisor.start_project_node(project),
          {:ok, glob_paths} <- glob_paths(project),
-         :ok <- Progress.report(token, "Starting Erlang node..."),
+         :ok <- Progress.report(token, message: "Starting Erlang node..."),
          :ok <- start_node(project, glob_paths),
-         :ok <- Progress.report(token, "Bootstrapping engine..."),
+         :ok <- Progress.report(token, message: "Bootstrapping engine..."),
          :ok <- :rpc.call(node_name, Engine.Bootstrap, :init, bootstrap_args),
          :ok <- ensure_apps_started(node_name, token) do
       {:ok, node_name, node_pid}
