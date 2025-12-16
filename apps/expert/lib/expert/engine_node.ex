@@ -165,10 +165,10 @@ defmodule Expert.EngineNode do
   use GenServer
 
   def start(project, token \\ Progress.noop_token()) do
-    start_net_kernel(project)
+     start_net_kernel(project)
 
     node_name = Project.node_name(project)
-    bootstrap_args = [project, Document.Store.entropy(), all_app_configs()]
+    bootstrap_args = [project, Document.Store.entropy(), all_app_configs(), Node.self()]
 
     with {:ok, node_pid} <- EngineSupervisor.start_project_node(project),
          {:ok, glob_paths} <- glob_paths(project),

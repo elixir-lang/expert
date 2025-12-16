@@ -11,7 +11,7 @@ defmodule Engine.Bootstrap do
 
   require Logger
 
-  def init(%Project{} = project, document_store_entropy, app_configs) do
+  def init(%Project{} = project, document_store_entropy, app_configs, manager_node) do
     Forge.Document.Store.set_entropy(document_store_entropy)
 
     Application.put_all_env(app_configs)
@@ -26,6 +26,7 @@ defmodule Engine.Bootstrap do
          {:ok, _} <- Application.ensure_all_started(:logger) do
       project = maybe_load_mix_exs(project)
       Engine.set_project(project)
+      Engine.set_manager_node(manager_node)
       Mix.env(:test)
       ExUnit.start()
       start_logger(project)

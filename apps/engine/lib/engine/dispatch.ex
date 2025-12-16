@@ -9,7 +9,6 @@ defmodule Engine.Dispatch do
 
   alias Engine.Dispatch.Handlers
   alias Engine.Dispatch.PubSub
-  alias Forge.Project
 
   @handlers [PubSub, Handlers.Indexing]
 
@@ -46,14 +45,12 @@ defmodule Engine.Dispatch do
   # bypass via rpc, primarily for progress reporting.
 
   def erpc_call(module, function, args) do
-    :erpc.call(manager_node(), module, function, args, 1_000)
+    :erpc.call(Engine.get_manager_node(), module, function, args, 1_000)
   end
 
   def erpc_cast(module, function, args) do
-    :erpc.cast(manager_node(), module, function, args)
+    :erpc.cast(Engine.get_manager_node(), module, function, args)
   end
-
-  defp manager_node(), do: Engine.get_project() |> Project.manager_node_name()
 
   # GenServer callbacks
 

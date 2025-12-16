@@ -114,4 +114,12 @@ defmodule Engine do
   def set_project(%Project{} = project) do
     :persistent_term.put({__MODULE__, :project}, project)
   end
+
+  def get_manager_node do
+    :persistent_term.get({__MODULE__, :manager_node}, nil)
+  end
+
+  def set_manager_node(node) when is_atom(node) do
+    :persistent_term.put({__MODULE__, :manager_node}, node)
+  end
 end
