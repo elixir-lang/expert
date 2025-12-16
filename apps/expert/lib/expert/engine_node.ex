@@ -1,6 +1,7 @@
 defmodule Expert.EngineNode do
-  alias Forge.Project
   alias Expert.Progress
+  alias Forge.Project
+
   require Logger
 
   defmodule State do
@@ -165,7 +166,7 @@ defmodule Expert.EngineNode do
   use GenServer
 
   def start(project, token \\ Progress.noop_token()) do
-     start_net_kernel(project)
+    start_net_kernel(project)
 
     node_name = Project.node_name(project)
     bootstrap_args = [project, Document.Store.entropy(), all_app_configs(), Node.self()]

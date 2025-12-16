@@ -93,7 +93,7 @@ defmodule Forge.Progress do
 
       defp execute_work(token, work_fn) do
         try do
-          work_fn.(token) |> complete_with(token)
+          token |> work_fn.() |> complete_with(token)
         rescue
           e ->
             complete(token, message: "Error: #{Exception.message(e)}")

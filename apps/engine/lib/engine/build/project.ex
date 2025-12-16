@@ -7,52 +7,52 @@ defmodule Engine.Build.Project do
   require Logger
 
   def compile(%Project{} = project, initial?) do
-    Logger.info("Building #{Project.display_name(project)}")
+    Engine.Mix.in_project(fn _ ->
+      Logger.info("Building #{Project.display_name(project)}")
 
-    Progress.with_progress("Building #{Project.display_name(project)}", fn token ->
-      Build.set_progress_token(token)
+      Progress.with_progress("Building #{Project.display_name(project)}", fn token ->
+        Build.set_progress_token(token)
 
-      try do
-        {:done, do_compile(project, initial?, token)}
-      after
-        Build.clear_progress_token()
-      end
+        try do
+          {:done, do_compile(project, initial?, token)}
+        after
+          Build.clear_progress_token()
+        end
+      end)
     end)
   end
 
   defp do_compile(project, initial?, token) do
-    Engine.Mix.in_project(fn _ ->
+    Mix.Task.clear()
+
+    if initial?, do: prepare_for_project_build(token)
+
+    compile_fun = fn ->
       Mix.Task.clear()
+      Progress.report(token, message: "Compiling #{Project.display_name(project)}")
+      result = compile_in_isolation()
+      Mix.Task.run(:loadpaths)
+      result
+    end
 
-      if initial?, do: prepare_for_project_build(token)
+    case compile_fun.() do
+      {:error, diagnostics} ->
+        diagnostics =
+          diagnostics
+          |> List.wrap()
+          |> Build.Error.refine_diagnostics()
 
-      compile_fun = fn ->
-        Mix.Task.clear()
-        Progress.report(token, message: "Compiling #{Project.display_name(project)}")
-        result = compile_in_isolation()
-        Mix.Task.run(:loadpaths)
-        result
-      end
+        {:error, diagnostics}
 
-      case compile_fun.() do
-        {:error, diagnostics} ->
-          diagnostics =
-            diagnostics
-            |> List.wrap()
-            |> Build.Error.refine_diagnostics()
+      {status, diagnostics} when status in [:ok, :noop] ->
+        Logger.info(
+          "Compile completed with status #{status} " <>
+            "Produced #{length(diagnostics)} diagnostics " <>
+            inspect(diagnostics)
+        )
 
-          {:error, diagnostics}
-
-        {status, diagnostics} when status in [:ok, :noop] ->
-          Logger.info(
-            "Compile completed with status #{status} " <>
-              "Produced #{length(diagnostics)} diagnostics " <>
-              inspect(diagnostics)
-          )
-
-          Build.Error.refine_diagnostics(diagnostics)
-      end
-    end)
+        Build.Error.refine_diagnostics(diagnostics)
+    end
   end
 
   defp compile_in_isolation do

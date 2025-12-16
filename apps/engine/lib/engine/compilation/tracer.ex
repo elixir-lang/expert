@@ -1,7 +1,7 @@
 defmodule Engine.Compilation.Tracer do
+  alias Engine.Build
   alias Engine.Module.Loader
   alias Engine.Progress
-  alias Engine.Build
 
   import Forge.EngineApi.Messages
 

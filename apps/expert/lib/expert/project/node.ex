@@ -50,12 +50,14 @@ defmodule Expert.Project.Node do
 
   @impl GenServer
   def init(%Project{} = project) do
-    Progress.with_progress("Starting project node", fn token ->
-      result = start_node(project, token)
+    result =
+      Progress.with_progress("Starting project node", fn token ->
+        result = start_node(project, token)
 
-      {:done, result, "Project node started"}
-    end)
-    |> case do
+        {:done, result, "Project node started"}
+      end)
+
+    case result do
       {:ok, state} -> {:ok, state, {:continue, :trigger_build}}
       error -> {:stop, error}
     end
