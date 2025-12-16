@@ -223,7 +223,7 @@ defmodule Expert.EngineNode do
 
       case Expert.Port.elixir_executable(project) do
         {:ok, elixir, env} ->
-          GenLSP.info(lsp, "Found elixir for #{project_name} at #{elixir}")
+          Expert.log_info(lsp, "Finding or building engine at #{elixir}")
 
           expert_priv = :code.priv_dir(:expert)
           packaged_engine_source = Path.join([expert_priv, "engine_source", "apps", "engine"])
@@ -252,8 +252,7 @@ defmodule Expert.EngineNode do
 
           launcher = Expert.Port.path()
 
-          Logger.info("Finding or building engine for project #{project_name}")
-          GenLSP.info(lsp, "Finding or building engine for project #{project_name}")
+          Expert.log_info(lsp, "Finding or building engine")
 
           Expert.Progress.with_progress("Building engine for #{project_name}", fn _token ->
             result =
