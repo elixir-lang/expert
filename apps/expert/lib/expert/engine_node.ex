@@ -223,7 +223,7 @@ defmodule Expert.EngineNode do
 
       case Expert.Port.elixir_executable(project) do
         {:ok, elixir, env} ->
-          Expert.log_info(lsp, "Finding or building engine at #{elixir}")
+          Expert.log_info(lsp, "Found elixir executable for project at #{elixir}")
 
           expert_priv = :code.priv_dir(:expert)
           packaged_engine_source = Path.join([expert_priv, "engine_source", "apps", "engine"])
