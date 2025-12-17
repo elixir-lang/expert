@@ -112,7 +112,7 @@ emacs configuration), insert the following code:
 (use-package elixir-mode
   :ensure t
   :custom
-  (lsp-elixir-server-command '("/my/home/projects/expert/apps/expert/burrito_out/expert_linux_amd64")))
+  (lsp-elixir-server-command '("expert_linux_amd64" "--stdio")))
 ```
 
 Restart emacs, and Expert should start when you open a file with a
@@ -130,9 +130,9 @@ You can add Expert support in the following way:
                    nil nil #'equal)
         (if (and (fboundp 'w32-shell-dos-semantics)
                  (w32-shell-dos-semantics))
-            '("expert_windows_amd64")
+            '(("expert_windows_amd64" "--stdio"))
           (eglot-alternatives
-           '("expert_linux_amd64" "start_lexical.sh")))))
+           '(("expert_linux_amd64" "--stdio"))))))
 ```
 
 For versions before 30, you can add Eglot support for Expert in the
@@ -143,9 +143,9 @@ following way:
   (setf (alist-get 'elixir-mode eglot-server-programs)
         (if (and (fboundp 'w32-shell-dos-semantics)
                  (w32-shell-dos-semantics))
-            '("expert_windows_amd64")
+            '(("expert_windows_amd64" "--stdio"))
           (eglot-alternatives
-           '("expert_linux_amd64" "start_lexical.sh")))))
+           '(("expert_linux_amd64" "--stdio"))))))
 ```
 
 If you're using `elixir-ts-mode` on Emacs 29, you can add a new entry
@@ -157,9 +157,9 @@ for Eglot:
                `((elixir-ts-mode heex-ts-mode) .
                  ,(if (and (fboundp 'w32-shell-dos-semantics)
                            (w32-shell-dos-semantics))
-                      '("expert_windows_amd64")
+                      '(("expert_windows_amd64" "--stdio"))
                     (eglot-alternatives
-                     '("expert_linux_amd64" "start_lexical.sh"))))))
+                     '(("expert_linux_amd64" "--stdio")))))))
 ```
 
 ### Visual Studio Code
