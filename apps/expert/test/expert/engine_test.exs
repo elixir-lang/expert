@@ -46,66 +46,48 @@ defmodule Expert.EngineTest do
       assert output =~ "0.1.0"
       assert output =~ "0.2.0"
     end
+
+    test "shows help with --help and -h flags" do
+      for flag <- ["--help", "-h"] do
+        output =
+          capture_io(fn ->
+            exit_code = Engine.run(["ls", flag])
+            assert exit_code == 0
+          end)
+
+        assert output =~ "List Engine Builds"
+        assert output =~ "expert engine ls"
+      end
+    end
   end
 
   describe "run/1 - clean subcommand with --force" do
-    test "deletes all engine directories without prompting" do
-      dir1 = Path.join(@test_base_dir, "0.1.0")
-      dir2 = Path.join(@test_base_dir, "0.2.0")
-      File.mkdir_p!(dir1)
-      File.mkdir_p!(dir2)
+    test "deletes all engine directories with --force and -f flags" do
+      for flag <- ["--force", "-f"] do
+        dir1 = Path.join(@test_base_dir, "0.1.0")
+        dir2 = Path.join(@test_base_dir, "0.2.0")
+        File.mkdir_p!(dir1)
+        File.mkdir_p!(dir2)
 
-      assert File.exists?(dir1)
-      assert File.exists?(dir2)
+        assert File.exists?(dir1)
+        assert File.exists?(dir2)
 
-      output =
-        capture_io(fn ->
-          exit_code = Engine.run(["clean", "--force"])
-          assert exit_code == 0
-        end)
-
-      assert output =~ "Deleted"
-      assert output =~ dir1
-      assert output =~ dir2
-
-      refute File.exists?(dir1)
-      refute File.exists?(dir2)
-    end
-
-    test "deletes all engine directories with -f short flag" do
-      dir1 = Path.join(@test_base_dir, "0.1.0")
-      File.mkdir_p!(dir1)
-
-      capture_io(fn ->
-        exit_code = Engine.run(["clean", "-f"])
-        assert exit_code == 0
-      end)
-
-      refute File.exists?(dir1)
-    end
-
-    test "stops on first deletion error and returns error code 1" do
-      dir1 = Path.join(@test_base_dir, "0.1.0")
-      File.mkdir_p!(dir1)
-
-      # Mock File.rm_rf to return an error
-      patch(File, :rm_rf, fn _path ->
-        {:error, :eacces, dir1}
-      end)
-
-      output =
-        capture_io(:stderr, fn ->
+        output =
           capture_io(fn ->
-            exit_code = Engine.run(["clean", "--force"])
-            assert exit_code == 1
+            exit_code = Engine.run(["clean", flag])
+            assert exit_code == 0
           end)
-        end)
 
-      assert output =~ "Error deleting"
-      assert output =~ dir1
+        assert output =~ "Deleted"
+        assert output =~ dir1
+        assert output =~ dir2
+
+        refute File.exists?(dir1)
+        refute File.exists?(dir2)
+      end
     end
 
-    test "stops deleting after first error" do
+    test "stops deleting after first error and returns error code 1" do
       dir1 = Path.join(@test_base_dir, "0.1.0")
       dir2 = Path.join(@test_base_dir, "0.2.0")
       dir3 = Path.join(@test_base_dir, "0.3.0")
@@ -127,16 +109,20 @@ defmodule Expert.EngineTest do
         end
       end)
 
-      capture_io(:stderr, fn ->
-        capture_io(fn ->
-          exit_code = Engine.run(["clean", "--force"])
-          assert exit_code == 1
+      output =
+        capture_io(:stderr, fn ->
+          capture_io(fn ->
+            exit_code = Engine.run(["clean", "--force"])
+            assert exit_code == 1
+          end)
         end)
-      end)
+
+      assert output =~ "Error deleting"
+      assert output =~ dir2
 
       # Should only attempt dir1 and dir2, not dir3
       attempted_dirs =
-        agent
+        agent_pid
         |> Agent.get(& &1)
         |> Enum.reverse()
 
@@ -147,66 +133,34 @@ defmodule Expert.EngineTest do
   end
 
   describe "run/1 - clean subcommand interactive mode" do
-    test "deletes directory when user confirms with 'y'" do
-      dir1 = Path.join(@test_base_dir, "0.1.0")
-      File.mkdir_p!(dir1)
+    test "deletes directory when user confirms" do
+      for input <- ["y\n", "yes\n", "\n"] do
+        dir1 = Path.join(@test_base_dir, "0.1.0")
+        File.mkdir_p!(dir1)
 
-      assert File.exists?(dir1)
+        assert File.exists?(dir1)
 
-      capture_io([input: "y\n"], fn ->
-        exit_code = Engine.run(["clean"])
-        assert exit_code == 0
-      end)
+        capture_io([input: input], fn ->
+          exit_code = Engine.run(["clean"])
+          assert exit_code == 0
+        end)
 
-      refute File.exists?(dir1)
+        refute File.exists?(dir1)
+      end
     end
 
-    test "deletes directory when user confirms with 'yes'" do
-      dir1 = Path.join(@test_base_dir, "0.1.0")
-      File.mkdir_p!(dir1)
+    test "keeps directory when user declines" do
+      for input <- ["n\n", "no\n"] do
+        dir1 = Path.join(@test_base_dir, "0.1.0")
+        File.mkdir_p!(dir1)
 
-      capture_io([input: "yes\n"], fn ->
-        exit_code = Engine.run(["clean"])
-        assert exit_code == 0
-      end)
+        capture_io([input: input], fn ->
+          exit_code = Engine.run(["clean"])
+          assert exit_code == 0
+        end)
 
-      refute File.exists?(dir1)
-    end
-
-    test "deletes directory when user presses enter (default yes)" do
-      dir1 = Path.join(@test_base_dir, "0.1.0")
-      File.mkdir_p!(dir1)
-
-      capture_io([input: "\n"], fn ->
-        exit_code = Engine.run(["clean"])
-        assert exit_code == 0
-      end)
-
-      refute File.exists?(dir1)
-    end
-
-    test "keeps directory when user declines with 'n'" do
-      dir1 = Path.join(@test_base_dir, "0.1.0")
-      File.mkdir_p!(dir1)
-
-      capture_io([input: "n\n"], fn ->
-        exit_code = Engine.run(["clean"])
-        assert exit_code == 0
-      end)
-
-      assert File.exists?(dir1)
-    end
-
-    test "keeps directory when user declines with 'no'" do
-      dir1 = Path.join(@test_base_dir, "0.1.0")
-      File.mkdir_p!(dir1)
-
-      capture_io([input: "no\n"], fn ->
-        exit_code = Engine.run(["clean"])
-        assert exit_code == 0
-      end)
-
-      assert File.exists?(dir1)
+        assert File.exists?(dir1)
+      end
     end
 
     test "keeps directory when user enters any other text" do
@@ -250,26 +204,7 @@ defmodule Expert.EngineTest do
       assert output =~ "No engine builds found."
     end
 
-    test "stops on first deletion error in interactive mode and returns error code 1" do
-      dir1 = Path.join(@test_base_dir, "0.1.0")
-      File.mkdir_p!(dir1)
-
-      patch(File, :rm_rf, fn _path ->
-        {:error, :eacces, dir1}
-      end)
-
-      output =
-        capture_io(:stderr, fn ->
-          capture_io([input: "y\n"], fn ->
-            exit_code = Engine.run(["clean"])
-            assert exit_code == 1
-          end)
-        end)
-
-      assert output =~ "Error deleting"
-    end
-
-    test "stops deleting after first error in interactive mode" do
+    test "stops deleting after first error and returns error code 1" do
       dir1 = Path.join(@test_base_dir, "0.1.0")
       dir2 = Path.join(@test_base_dir, "0.2.0")
       dir3 = Path.join(@test_base_dir, "0.3.0")
@@ -291,15 +226,19 @@ defmodule Expert.EngineTest do
         end
       end)
 
-      capture_io(:stderr, fn ->
-        capture_io([input: "y\ny\ny\n"], fn ->
-          exit_code = Engine.run(["clean"])
-          assert exit_code == 1
+      output =
+        capture_io(:stderr, fn ->
+          capture_io([input: "y\ny\ny\n"], fn ->
+            exit_code = Engine.run(["clean"])
+            assert exit_code == 1
+          end)
         end)
-      end)
 
+      assert output =~ "Error deleting"
+
+      # Should only attempt dir1 and dir2, not dir3
       attempted_dirs =
-        agent
+        agent_pid
         |> Agent.get(& &1)
         |> Enum.reverse()
 
