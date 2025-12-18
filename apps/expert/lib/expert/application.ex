@@ -15,14 +15,10 @@ defmodule Expert.Application do
     argv = Burrito.Util.Args.argv()
 
     # Handle engine subcommand first (before starting the LSP server)
-    case argv do
-      ["engine" | engine_args] ->
-        engine_args
-        |> Expert.Engine.run()
-        |> System.halt()
-
-      _ ->
-        :noop
+    with ["engine" | engine_args] <- argv do
+      engine_args
+      |> Expert.Engine.run()
+      |> System.halt()
     end
 
     {opts, _argv, _invalid} =
