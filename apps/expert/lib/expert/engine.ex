@@ -19,28 +19,44 @@ defmodule Expert.Engine do
   @success_code 0
   @error_code 1
 
-  @help_options ["-h", "--help"]
-
   @spec run([String.t()]) :: non_neg_integer()
   def run(args) do
     {opts, subcommand, _invalid} =
-      OptionParser.parse(args,
-        strict: [force: :boolean],
-        aliases: [f: :force]
+      OptionParser.parse_head(args,
+        strict: [help: :boolean],
+        aliases: [h: :help]
       )
 
-    case subcommand do
-      ["ls"] -> list_engines()
-      ["ls", options] when options in @help_options -> print_ls_help()
-      ["clean"] -> clean_engines(opts)
-      ["clean", options] when options in @help_options -> print_clean_help()
-      _ -> print_help()
+    cond do
+      opts[:help] ->
+        print_help()
+
+      true ->
+        case subcommand do
+          ["ls" | ls_opts] -> list_engines(ls_opts)
+          ["clean" | clean_opts] -> clean_engines(clean_opts)
+        end
     end
   end
 
-  @spec list_engines() :: non_neg_integer()
-  defp list_engines do
-    case get_engine_dirs() do
+  @spec list_engines([String.t()]) :: non_neg_integer()
+  defp list_engines(ls_options) do
+    {opts, _rest, _invalid} =
+      OptionParser.parse_head(ls_options,
+        strict: [help: :boolean],
+        aliases: [h: :help]
+      )
+
+    cond do
+      opts[:help] -> print_ls_help()
+      true -> print_engine_dirs()
+    end
+  end
+
+  defp print_engine_dirs() do
+    dirs = get_engine_dirs()
+
+    case dirs do
       [] ->
         IO.puts("No engine builds found.")
         print_location_info()
@@ -52,20 +68,30 @@ defmodule Expert.Engine do
     @success_code
   end
 
-  @spec clean_engines(keyword()) :: non_neg_integer()
-  defp clean_engines(opts) do
-    case get_engine_dirs() do
-      [] ->
+  @spec clean_engines([String.t()]) :: non_neg_integer()
+  defp clean_engines(clean_options) do
+    {opts, _rest, _invalid} =
+      OptionParser.parse_head(clean_options,
+        strict: [force: :boolean, help: :boolean],
+        aliases: [f: :force, h: :help]
+      )
+
+    dirs = get_engine_dirs()
+
+    cond do
+      opts[:help] ->
+        print_clean_help()
+
+      dirs == [] ->
         IO.puts("No engine builds found.")
         print_location_info()
         @success_code
 
-      dirs ->
-        if opts[:force] do
-          clean_all_force(dirs)
-        else
-          clean_interactive(dirs)
-        end
+      opts[:force] ->
+        clean_all_force(dirs)
+
+      true ->
+        clean_interactive(dirs)
     end
   end
 
