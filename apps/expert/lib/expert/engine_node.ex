@@ -438,7 +438,6 @@ defmodule Expert.EngineNode do
   @impl true
   def handle_info({_port, {:data, data}}, %State{} = state) do
     message = to_string(data)
-    GenLSP.info(Expert.get_lsp(), "#{Project.name(state.project)}: #{message}")
     Logger.debug("Node port message: #{message}")
 
     {:noreply, %{state | last_message: message}}
