@@ -27,15 +27,15 @@ defmodule Expert.Engine do
         aliases: [h: :help]
       )
 
-    cond do
-      opts[:help] ->
-        print_help()
-
-      true ->
-        case subcommand do
-          ["ls" | ls_opts] -> list_engines(ls_opts)
-          ["clean" | clean_opts] -> clean_engines(clean_opts)
-        end
+    if opts[:help] do
+      print_help()
+    else
+      case subcommand do
+        ["ls" | ls_opts] -> list_engines(ls_opts)
+        ["clean" | clean_opts] -> clean_engines(clean_opts)
+        [unknown | _] -> print_unknown_subcommand(unknown)
+        [] -> print_help()
+      end
     end
   end
 
@@ -47,19 +47,20 @@ defmodule Expert.Engine do
         aliases: [h: :help]
       )
 
-    cond do
-      opts[:help] -> print_ls_help()
-      true -> print_engine_dirs()
+    if opts[:help] do
+      print_ls_help()
+    else
+      print_engine_dirs()
     end
   end
 
-  defp print_engine_dirs() do
+  @spec print_engine_dirs() :: non_neg_integer()
+  defp print_engine_dirs do
     dirs = get_engine_dirs()
 
     case dirs do
       [] ->
-        IO.puts("No engine builds found.")
-        print_location_info()
+        print_no_engines_found()
 
       dirs ->
         Enum.each(dirs, &IO.puts/1)
@@ -83,9 +84,7 @@ defmodule Expert.Engine do
         print_clean_help()
 
       dirs == [] ->
-        IO.puts("No engine builds found.")
-        print_location_info()
-        @success_code
+        print_no_engines_found()
 
       opts[:force] ->
         clean_all_force(dirs)
@@ -95,11 +94,13 @@ defmodule Expert.Engine do
     end
   end
 
+  @spec base_dir() :: String.t()
   defp base_dir do
     base = :filename.basedir(:user_data, ~c"Expert")
     to_string(base)
   end
 
+  @spec get_engine_dirs() :: [String.t()]
   defp get_engine_dirs do
     base = base_dir()
 
@@ -163,6 +164,7 @@ defmodule Expert.Engine do
     end
   end
 
+  @spec prompt_delete(dir :: [String.t()]) :: boolean()
   defp prompt_delete(dir) do
     IO.puts(["Delete #{dir}", IO.ANSI.red(), "?", IO.ANSI.reset(), " [Yn] "])
 
@@ -180,8 +182,23 @@ defmodule Expert.Engine do
     end
   end
 
-  defp print_location_info do
+  @spec print_no_engines_found() :: non_neg_integer()
+  defp print_no_engines_found do
+    IO.puts("No engine builds found.")
     IO.puts("\nEngine builds are stored in: #{base_dir()}")
+
+    @success_code
+  end
+
+  @spec print_unknown_subcommand(String.t()) :: non_neg_integer()
+  defp print_unknown_subcommand(subcommand) do
+    IO.puts(:stderr, """
+    Error: Unknown subcommand '#{subcommand}'
+
+    Run 'expert engine --help' for usage information.
+    """)
+
+    @error_code
   end
 
   @spec print_help() :: non_neg_integer()
