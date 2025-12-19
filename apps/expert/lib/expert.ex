@@ -59,10 +59,14 @@ defmodule Expert do
 
     with {:ok, response, state} <- State.initialize(state, request),
          {:ok, response} <- Expert.Protocol.Convert.to_lsp(response) do
+      workspace_folders = request.params.workspace_folders || []
+
       projects =
-        for %{uri: uri} <- request.params.workspace_folders || [],
+        for %{uri: uri} <- workspace_folders,
             project = Project.new(uri),
-            project.mix_project? do
+            # Only include Mix projects, or include single-folder workspaces with
+            # bare elixir files.
+            project.mix_project? || length(workspace_folders) == 1 do
           project
         end
 

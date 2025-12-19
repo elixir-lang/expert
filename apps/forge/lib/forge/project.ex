@@ -381,7 +381,7 @@ defmodule Forge.Project do
   mix file exists, it returns false.
   """
   def within_project?(%__MODULE__{} = project, path) do
-    root_path = find_parent_root_dir(path)
+    root_path = if project.mix_project?, do: find_parent_root_dir(path), else: root_path(project)
     project_path = root_path(project)
 
     Forge.Path.parent_path?(root_path, project_path)
