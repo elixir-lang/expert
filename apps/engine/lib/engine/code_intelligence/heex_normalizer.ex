@@ -8,9 +8,13 @@ defmodule Engine.CodeIntelligence.HeexNormalizer do
   alias Forge.Document.Range
   alias Sourceror.Zipper
 
+  # Matches both opening and closing shorthand components (used for cursor detection)
   @component_regex ~r/<\/?\.([a-zA-Z0-9_!?.]+)/
-  @opening_replacement "< \1(assigns)"
-  @closing_replacement "</ \1(assigns)"
+  # Separate regexes for AST normalization to avoid overlap issues
+  @opening_component_regex ~r/<\.([a-zA-Z0-9_!?.]+)/
+  @closing_component_regex ~r/<\/\.([a-zA-Z0-9_!?.]+)/
+  @opening_replacement "< \\1(assigns)"
+  @closing_replacement "</ \\1(assigns)"
 
   # Normalizes HEEx templates by converting anonymous component references
   # (e.g., `<.component`) to explicit function calls (e.g., `<component(assigns)`).
@@ -143,8 +147,8 @@ defmodule Engine.CodeIntelligence.HeexNormalizer do
       Enum.map(parts, fn
         part when is_binary(part) ->
           part
-          |> then(&Regex.replace(@component_regex, &1, @opening_replacement))
-          |> then(&Regex.replace(~r/<\/\.([a-zA-Z0-9_!?.]+)/, &1, @closing_replacement))
+          |> then(&Regex.replace(@closing_component_regex, &1, @closing_replacement))
+          |> then(&Regex.replace(@opening_component_regex, &1, @opening_replacement))
 
         other ->
           other
