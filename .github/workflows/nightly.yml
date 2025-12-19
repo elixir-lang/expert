@@ -26,7 +26,7 @@ jobs:
       - run: just deps engine
       - name: Set release version to latest rev
         run: sed -i "$ s/$/-$(git rev-parse --short HEAD)/" version.txt
-      - run: just release-all
+      - run: just burrito
         env:
           MIX_ENV: prod
       - name: Create Checksum

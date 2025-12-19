@@ -1,10 +1,12 @@
 defmodule Expert do
   alias Expert.ActiveProjects
+  alias Expert.Project
   alias Expert.Protocol.Convert
   alias Expert.Protocol.Id
   alias Expert.Provider.Handlers
   alias Expert.State
   alias Forge.Project
+  alias GenLSP.Enumerations
   alias GenLSP.Requests
   alias GenLSP.Structures
 
@@ -54,19 +56,42 @@ defmodule Expert do
 
   def handle_request(%GenLSP.Requests.Initialize{} = request, lsp) do
     state = assigns(lsp).state
-    Process.send_after(self(), :default_config, :timer.seconds(5))
 
-    case State.initialize(state, request) do
-      {:ok, response, state} ->
-        lsp = assign(lsp, state: state)
-        {:ok, response} = Expert.Protocol.Convert.to_lsp(response)
+    with {:ok, response, state} <- State.initialize(state, request),
+         {:ok, response} <- Expert.Protocol.Convert.to_lsp(response) do
+      projects =
+        for %{uri: uri} <- request.params.workspace_folders || [],
+            project = Project.new(uri),
+            project.mix_project? do
+          project
+        end
+
+      ActiveProjects.set_projects(projects)
+
+      for project <- projects do
+        Task.Supervisor.start_child(:expert_task_queue, fn ->
+          log_info(lsp, project, "Starting project")
+
+          start_result = Expert.Project.Supervisor.ensure_node_started(project)
+
+          send(Expert, {:engine_initialized, project, start_result})
+        end)
+      end
+
+      {:reply, response, assign(lsp, state: state)}
+    else
+      {:error, :already_initialized} ->
+        response = %GenLSP.ErrorResponse{
+          code: GenLSP.Enumerations.ErrorCodes.invalid_request(),
+          message: "Already initialized"
+        }
 
         {:reply, response, lsp}
 
-      {:error, error} ->
+      {:error, reason} ->
         response = %GenLSP.ErrorResponse{
-          code: GenLSP.Enumerations.ErrorCodes.invalid_request(),
-          message: to_string(error)
+          code: GenLSP.Enumerations.ErrorCodes.server_not_initialized(),
+          message: "Failed to initialize: #{inspect(reason)}"
         }
 
         {:reply, response, lsp}
@@ -207,20 +232,43 @@ defmodule Expert do
     end
   end
 
-  def handle_info(:default_config, lsp) do
-    state = assigns(lsp).state
+  def handle_info({:engine_initialized, project, {:ok, _pid}}, lsp) do
+    log_info(
+      lsp,
+      project,
+      "Engine initialized for project #{Project.name(project)}"
+    )
 
-    if state.configuration == nil do
-      Logger.warning(
-        "Did not receive workspace/didChangeConfiguration notification after 5 seconds. " <>
-          "Using default settings."
-      )
+    {:noreply, lsp}
+  end
 
-      {:ok, config} = State.default_configuration(state)
-      {:noreply, assign(lsp, state: %{state | configuration: config})}
-    else
-      {:noreply, lsp}
-    end
+  def handle_info({:engine_initialized, project, {:error, reason}}, lsp) do
+    error_message = initialization_error_message(reason)
+    log_error(lsp, project, error_message)
+
+    {:noreply, lsp}
+  end
+
+  def log_info(lsp \\ get_lsp(), project, message) do
+    message = log_prepend_project_root(message, project)
+
+    Logger.info(message)
+    GenLSP.info(lsp, message)
+  end
+
+  # When logging errors we also notify the client to display the message
+  def log_error(lsp \\ get_lsp(), project, message) do
+    message = log_prepend_project_root(message, project)
+
+    Logger.error(message)
+    GenLSP.error(lsp, message)
+
+    GenLSP.notify(lsp, %GenLSP.Notifications.WindowShowMessage{
+      params: %GenLSP.Structures.ShowMessageParams{
+        type: Enumerations.MessageType.error(),
+        message: message
+      }
+    })
   end
 
   defp apply_to_state(%State{} = state, %{} = request_or_notification) do
@@ -294,5 +342,38 @@ defmodule Expert do
       method: "workspace/didChangeWatchedFiles",
       register_options: %Structures.DidChangeWatchedFilesRegistrationOptions{watchers: watchers}
     }
+  end
+
+  defp initialization_error_message({:shutdown, {:failed_to_start_child, child, {reason, _}}}) do
+    case child do
+      {Project.Node, node_name} ->
+        node_initialization_message(node_name, reason)
+
+      child ->
+        "Failed to start child #{inspect(child)}: #{inspect(reason)}"
+    end
+  end
+
+  defp initialization_error_message(reason) do
+    "Failed to initialize: #{inspect(reason)}"
+  end
+
+  defp node_initialization_message(name, reason) do
+    case reason do
+      # NOTE:
+      # ** (Mix.Error) httpc request failed with: ... Could not install Hex because Mix could not download metadata ...
+      {:shutdown, {:error, :normal, message}} ->
+        "Engine #{name} shutdown with error:\n\n#{message}"
+
+      {:shutdown, {:node_exit, node_exit}} ->
+        "Engine #{name} exit with status #{node_exit.status}, last message:\n\n#{node_exit.last_message}"
+
+      reason ->
+        "Failed to start engine #{name}: #{inspect(reason)}"
+    end
+  end
+
+  defp log_prepend_project_root(message, project) do
+    "[Project #{project.root_uri}] #{message}"
   end
 end

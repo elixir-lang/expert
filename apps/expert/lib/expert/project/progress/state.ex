@@ -90,7 +90,7 @@ defmodule Expert.Project.Progress.State do
   end
 
   defp write_work_done(lsp, token) do
-    if Configuration.client_supports?(:work_done_progress) do
+    if Configuration.client_support(:work_done_progress) == true do
       GenLSP.request(lsp, %Requests.WindowWorkDoneProgressCreate{
         id: Id.next(),
         params: %Structures.WorkDoneProgressCreateParams{token: token}
@@ -99,7 +99,7 @@ defmodule Expert.Project.Progress.State do
   end
 
   defp write(lsp, %progress_module{token: token} = progress) when not is_nil(token) do
-    if Configuration.client_supports?(:work_done_progress) do
+    if Configuration.client_support(:work_done_progress) == true do
       GenLSP.notify(
         lsp,
         progress_module.to_protocol(progress)

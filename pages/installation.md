@@ -12,6 +12,7 @@ Caveats with the following versions of Elixir and Erlang are documented below:
 
 | Elixir   | Version Range  | Notes    |
 | -------- | -------------- | -------- |
+| 1.19     | `>= 1.19.0`    |          |
 | 1.18     | `>= 1.18.0`    |          |
 | 1.17     | `>= 1.17.0`    |          |
 | 1.16     | `>= 1.16.0`    |          |
@@ -53,8 +54,20 @@ just deps expert
 ...and build the project
 
 ```shell
-just release-local
+just burrito-local
 ```
+
+> ![NOTE]
+> If you want to skip burrito and build Expert only for your own system, you can
+> build a "plain" release instead by running:
+>
+> ```shell
+> just release
+> ```
+>
+> You can then find the generated `start_expert` executable in the
+> generated release directory. For the next steps, point your editor to
+> this executable instead.
 
 If things complete successfully, you will then have a release in your
 `apps/expert/burrito_out` directory. If you see errors, please file a
@@ -99,7 +112,7 @@ emacs configuration), insert the following code:
 (use-package elixir-mode
   :ensure t
   :custom
-  (lsp-elixir-server-command '("/my/home/projects/expert/apps/expert/burrito_out/expert_linux_amd64")))
+  (lsp-elixir-server-command '("expert_linux_amd64" "--stdio")))
 ```
 
 Restart emacs, and Expert should start when you open a file with a
@@ -117,9 +130,9 @@ You can add Expert support in the following way:
                    nil nil #'equal)
         (if (and (fboundp 'w32-shell-dos-semantics)
                  (w32-shell-dos-semantics))
-            '("expert_windows_amd64")
+            '(("expert_windows_amd64" "--stdio"))
           (eglot-alternatives
-           '("expert_linux_amd64" "start_lexical.sh")))))
+           '(("expert_linux_amd64" "--stdio"))))))
 ```
 
 For versions before 30, you can add Eglot support for Expert in the
@@ -130,9 +143,9 @@ following way:
   (setf (alist-get 'elixir-mode eglot-server-programs)
         (if (and (fboundp 'w32-shell-dos-semantics)
                  (w32-shell-dos-semantics))
-            '("expert_windows_amd64")
+            '(("expert_windows_amd64" "--stdio"))
           (eglot-alternatives
-           '("expert_linux_amd64" "start_lexical.sh")))))
+           '(("expert_linux_amd64" "--stdio"))))))
 ```
 
 If you're using `elixir-ts-mode` on Emacs 29, you can add a new entry
@@ -144,9 +157,9 @@ for Eglot:
                `((elixir-ts-mode heex-ts-mode) .
                  ,(if (and (fboundp 'w32-shell-dos-semantics)
                            (w32-shell-dos-semantics))
-                      '("expert_windows_amd64")
+                      '(("expert_windows_amd64" "--stdio"))
                     (eglot-alternatives
-                     '("expert_linux_amd64" "start_lexical.sh"))))))
+                     '(("expert_linux_amd64" "--stdio")))))))
 ```
 
 ### Visual Studio Code

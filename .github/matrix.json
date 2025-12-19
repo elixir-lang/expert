@@ -1,113 +1,141 @@
 {
   "include": [
     {
+      "os": "ubuntu-latest",
       "otp": "28",
       "elixir": "1.19",
       "project": "engine"
     },
     {
+      "os": "ubuntu-latest",
       "otp": "28",
       "elixir": "1.18.4",
       "project": "engine"
     },
     {
+      "os": "ubuntu-latest",
       "otp": "27",
       "elixir": "1.18",
       "project": "engine"
     },
     {
+      "os": "ubuntu-latest",
       "otp": "26",
       "elixir": "1.18",
       "project": "engine"
     },
     {
+      "os": "ubuntu-latest",
       "otp": "27",
       "elixir": "1.17",
       "project": "engine"
     },
     {
+      "os": "ubuntu-latest",
       "otp": "26",
       "elixir": "1.17",
       "project": "engine"
     },
     {
+      "os": "ubuntu-latest",
       "otp": "26",
       "elixir": "1.16",
       "project": "engine"
     },
     {
+      "os": "ubuntu-latest",
       "otp": "28",
       "elixir": "1.19",
       "project": "expert_credo"
     },
     {
+      "os": "ubuntu-latest",
       "otp": "28",
       "elixir": "1.18.4",
       "project": "expert_credo"
     },
     {
+      "os": "ubuntu-latest",
       "otp": "27",
       "elixir": "1.18",
       "project": "expert_credo"
     },
     {
+      "os": "ubuntu-latest",
       "otp": "26",
       "elixir": "1.18",
       "project": "expert_credo"
     },
     {
+      "os": "ubuntu-latest",
       "otp": "27",
       "elixir": "1.17",
       "project": "expert_credo"
     },
     {
+      "os": "ubuntu-latest",
       "otp": "26",
       "elixir": "1.17",
       "project": "expert_credo"
     },
     {
+      "os": "ubuntu-latest",
       "otp": "26",
       "elixir": "1.16",
       "project": "expert_credo"
     },
     {
+      "os": "ubuntu-latest",
       "otp": "28",
       "elixir": "1.19",
       "project": "forge"
     },
     {
+      "os": "ubuntu-latest",
       "otp": "28",
       "elixir": "1.18.4",
       "project": "forge"
     },
     {
+      "os": "ubuntu-latest",
       "otp": "27",
       "elixir": "1.18",
       "project": "forge"
     },
     {
+      "os": "ubuntu-latest",
       "otp": "26",
       "elixir": "1.18",
       "project": "forge"
     },
     {
+      "os": "ubuntu-latest",
       "otp": "27",
       "elixir": "1.17",
       "project": "forge"
     },
     {
+      "os": "ubuntu-latest",
       "otp": "26",
       "elixir": "1.17",
       "project": "forge"
     },
     {
+      "os": "ubuntu-latest",
       "otp": "26",
       "elixir": "1.16",
       "project": "forge"
     },
     {
+      "os": "ubuntu-latest",
       "otp": "27.3.4.1",
-      "elixir": "1.17.3",
+      "elixir": "1.18.4",
+      "project": "expert"
+    },
+    {
+      "os": "windows-2022",
+      "otp": "27.3.4.1",
+      "elixir": "1.18.4",
       "project": "expert"
     }
   ]

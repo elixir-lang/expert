@@ -180,7 +180,7 @@ defmodule Engine.CodeMod.DiffTest do
       final = ~S[{"🎸", "after"}]
 
       assert [edit] = diff(orig, final)
-      assert_normalized(edit == edit(1, 10, 1, 12, ""))
+      assert_normalized(edit == edit(1, 8, 1, 10, ""))
       assert_edited(orig, final)
     end
 
@@ -189,7 +189,7 @@ defmodule Engine.CodeMod.DiffTest do
       final = ~S[🎸🎺🎸]
 
       assert [edit] = diff(orig, final)
-      assert_normalized(edit == edit(1, 5, 1, 5, "🎺"))
+      assert_normalized(edit == edit(1, 3, 1, 3, "🎺"))
       assert_edited(orig, final)
     end
 
@@ -198,7 +198,7 @@ defmodule Engine.CodeMod.DiffTest do
       final = ~S[🎸🎸]
 
       assert [edit] = diff(orig, final)
-      assert_normalized(edit == edit(1, 5, 1, 13, ""))
+      assert_normalized(edit == edit(1, 3, 1, 7, ""))
       assert_edited(orig, final)
     end
 

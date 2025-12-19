@@ -41,7 +41,7 @@ jobs:
       # Step: Define how to cache deps. Restores existing cache if present.
       - name: Cache deps
         id: cache-deps
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             apps/${{ matrix.project }}/deps
@@ -89,7 +89,7 @@ jobs:
       # Step: Define how to cache deps. Restores existing cache if present.
       - name: Cache deps
         id: cache-deps
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             apps/${{ matrix.project }}/deps
@@ -102,7 +102,7 @@ jobs:
       # Step: Create dialyzer .plt files if they're not present
       - name: Cache dialyzer plt files
         id: cache-plt
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           key: expert-plts-${{ env.DEFAULT_OTP }}-${{ env.DEFAULT_ELIXIR }}-${{ hashFiles('apps/${{ matrix.project }}/mix.lock' ) }}
           restore-keys: |
@@ -135,9 +135,9 @@ jobs:
         os:
           - name: ubuntu-latest
             target: linux_amd64
-          - name: macos-14
+          - name: macos-15
             target: darwin_arm64
-          - name: macos-13
+          - name: macos-14
             target: darwin_amd64
 
         include:
@@ -161,7 +161,7 @@ jobs:
 
       - name: Cache deps
         id: cache-deps
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             apps/**/deps
@@ -172,7 +172,7 @@ jobs:
             ${{ runner.os }}-mix-${{ matrix.elixir }}-${{ matrix.otp }}-
 
       - name: Build and release
-        run: just release-local
+        run: just burrito-local
 
   prep-matrix:
     runs-on: ubuntu-latest
@@ -186,12 +186,15 @@ jobs:
        run: echo "matrix=$(jq -c . < .github/matrix.json)" >> $GITHUB_OUTPUT
 
   test:
-    runs-on: ubuntu-latest
-    name: Test ${{ matrix.project }} on OTP ${{matrix.otp}} / Elixir ${{matrix.elixir}}
+    runs-on: ${{matrix.os}}
+    name: Test ${{ matrix.project }} on OTP ${{matrix.otp}} / Elixir ${{matrix.elixir}} / ${{matrix.os}}
     needs: prep-matrix
     strategy:
       matrix: ${{ fromJson(needs.prep-matrix.outputs.matrix) }}
     steps:
+      - name: Set git to use original line ending (Windows)
+        if: runner.os == 'Windows'
+        run: git config --global core.autocrlf false
       - name: Checkout code
         uses: actions/checkout@v6
 
@@ -204,7 +207,7 @@ jobs:
 
       - name: Cache deps
         id: cache-deps
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             apps/${{ matrix.project }}/deps

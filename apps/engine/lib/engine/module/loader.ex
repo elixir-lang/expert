@@ -23,7 +23,18 @@ defmodule Engine.Module.Loader do
 
       state ->
         result = Code.ensure_loaded(module_name)
-        {result, Map.put(state, module_name, result)}
+        # Note(doorgan): I'm not sure if it's just a timing issue, but on Windows it
+        # can sometimes take a little bit before this function returns {:module, name}
+        # so I figured not caching the error result here should work. This module is a
+        # cache and I think most of the time this is called the module will already
+        # have been loaded.
+        new_state =
+          case result do
+            {:module, ^module_name} -> Map.put(state, module_name, result)
+            _ -> state
+          end
+
+        {result, new_state}
     end)
   end
 

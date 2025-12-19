@@ -1,4 +1,5 @@
 defmodule Expert.Project.Supervisor do
+  alias Expert.ActiveProjects
   alias Expert.EngineSupervisor
   alias Expert.Project.Diagnostics
   alias Expert.Project.Intelligence
@@ -6,6 +7,8 @@ defmodule Expert.Project.Supervisor do
   alias Expert.Project.Progress
   alias Expert.Project.SearchListener
   alias Forge.Project
+
+  require Logger
 
   use Supervisor
 
@@ -41,5 +44,41 @@ defmodule Expert.Project.Supervisor do
 
   def name(%Project{} = project) do
     :"#{Project.name(project)}::supervisor"
+  end
+
+  def ensure_node_started(%Project{} = project) do
+    case start(project) do
+      {:ok, pid} ->
+        ActiveProjects.set_ready(project, true)
+        Logger.info("Project node started for #{Project.name(project)}")
+
+        GenLSP.log(Expert.get_lsp(), "Started project node for #{Project.name(project)}")
+        {:ok, pid}
+
+      {:error, {reason, pid}} when reason in [:already_started, :already_present] ->
+        {:ok, pid}
+
+      {:error, reason} ->
+        Logger.error(
+          "Failed to start project node for #{Project.name(project)}: #{inspect(reason, pretty: true)}"
+        )
+
+        GenLSP.error(
+          Expert.get_lsp(),
+          "Failed to start project node for #{Project.name(project)}: #{inspect(reason, pretty: true)}"
+        )
+
+        {:error, reason}
+    end
+  end
+
+  def stop_node(%Project{} = project) do
+    stop(project)
+    ActiveProjects.set_ready(project, false)
+
+    GenLSP.log(
+      Expert.get_lsp(),
+      "Stopping project node for #{Project.name(project)}"
+    )
   end
 end

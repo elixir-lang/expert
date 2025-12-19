@@ -40,7 +40,6 @@ defmodule Expert.Configuration do
   end
 
   defp set(%__MODULE__{} = config) do
-    # FIXME(mhanberg): I don't think this will work once we have workspace support
     :persistent_term.put(__MODULE__, config)
   end
 
@@ -49,12 +48,12 @@ defmodule Expert.Configuration do
     :persistent_term.get(__MODULE__, false) || new()
   end
 
-  @spec client_supports?(atom()) :: boolean()
-  def client_supports?(key) when is_atom(key) do
-    client_supports?(get().support, key)
+  @spec client_support(atom()) :: term()
+  def client_support(key) when is_atom(key) do
+    client_support(get().support, key)
   end
 
-  defp client_supports?(%Support{} = client_support, key) do
+  defp client_support(%Support{} = client_support, key) do
     case Map.fetch(client_support, key) do
       {:ok, value} -> value
       :error -> raise ArgumentError, "unknown key: #{inspect(key)}"

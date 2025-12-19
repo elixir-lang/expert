@@ -15,6 +15,8 @@ defmodule Expert.Port do
 
   @type open_opts :: [open_opt]
 
+  @path_marker "__EXPERT_PATH__"
+
   @doc """
   Launches elixir in a port.
 
@@ -27,8 +29,8 @@ defmodule Expert.Port do
       opts =
         opts
         |> Keyword.put_new_lazy(:cd, fn -> Project.root_path(project) end)
-        |> Keyword.update(:env, environment_variables, fn old_env ->
-          old_env ++ environment_variables
+        |> Keyword.update(:env, environment_variables, fn env ->
+          environment_variables ++ env
         end)
 
       open(project, elixir_executable, opts)
@@ -36,24 +38,47 @@ defmodule Expert.Port do
   end
 
   def elixir_executable(%Project{} = project) do
-    root_path = Project.root_path(project)
+    if Forge.OS.windows?() do
+      # Remove the burrito binaries from PATH
+      path =
+        "PATH"
+        |> System.get_env()
+        |> String.split(";", parts: 2)
+        |> List.last()
 
-    shell = System.get_env("SHELL")
-    path = path_env_at_directory(root_path, shell)
+      case :os.find_executable(~c"elixir", to_charlist(path)) do
+        false ->
+          {:error, :no_elixir, "Couldn't find an elixir executable"}
 
-    case :os.find_executable(~c"elixir", to_charlist(path)) do
-      false ->
-        {:error, :no_elixir,
-         "Couldn't find an elixir executable for project at #{root_path}. Using shell at #{shell} with PATH=#{path}"}
+        elixir ->
+          env =
+            Enum.map(System.get_env(), fn
+              {"PATH", _path} -> {"PATH", path}
+              other -> other
+            end)
 
-      elixir ->
-        env =
-          Enum.map(System.get_env(), fn
-            {"PATH", _path} -> {"PATH", path}
-            other -> other
-          end)
+          {:ok, elixir, env}
+      end
+    else
+      root_path = Project.root_path(project)
 
-        {:ok, elixir, env}
+      shell = System.get_env("SHELL")
+      path = path_env_at_directory(root_path, shell)
+
+      case :os.find_executable(~c"elixir", to_charlist(path)) do
+        false ->
+          {:error, :no_elixir,
+           "Couldn't find an elixir executable for project at #{root_path}. Using shell at #{shell} with PATH=#{path}"}
+
+        elixir ->
+          env =
+            Enum.map(System.get_env(), fn
+              {"PATH", _path} -> {"PATH", path}
+              other -> other
+            end)
+
+          {:ok, elixir, env}
+      end
     end
   end
 
@@ -64,9 +89,10 @@ defmodule Expert.Port do
     # or we get an incomplete PATH not including erl or any other version manager
     # managed programs.
 
+    # Disable shell session history to reduce noise
     env = [{"SHELL_SESSIONS_DISABLE", "1"}]
 
-    path =
+    args =
       case Path.basename(shell) do
         # Ideally, it should contain the path to shell (e.g. `/usr/bin/fish`),
         # but it might contain only the name of the shell (e.g. `fish`).
@@ -74,36 +100,38 @@ defmodule Expert.Port do
           # Fish uses space-separated PATH, so we use the built-in `string join` command
           # to join the entries with colons and have a standard colon-separated PATH output
           # as in bash, which is expected by `:os.find_executable/2`.
-          {path, 0} =
-            System.cmd(shell, ["-l", "-c", "cd #{directory} && string join ':' $PATH"], env: env)
+          # Also, no -i flag
+          cmd =
+            "cd #{directory}; printf \"#{@path_marker}:%s:#{@path_marker}\" (string join ':' $PATH)"
 
-          path
+          ["-l", "-c", cmd]
 
         _ ->
-          {path, 0} =
-            System.cmd(shell, ["-i", "-l", "-c", "cd #{directory} && echo $PATH"], env: env)
-
-          path
+          cmd = "cd #{directory} && printf \"#{@path_marker}:%s:#{@path_marker}\" \"$PATH\""
+          ["-i", "-l", "-c", cmd]
       end
 
-    path
-    |> String.trim()
-    |> String.split("\n")
-    |> List.last()
+    {output, _} = System.cmd(shell, args, env: env)
+
+    # This ignores banners (start) and logout garbage (end)
+    case Regex.run(~r/#{@path_marker}:(.*?):#{@path_marker}/s, output) do
+      [_, clean_path] ->
+        clean_path
+
+      nil ->
+        output |> String.trim() |> String.split("\n") |> List.last()
+    end
   end
 
   @doc """
   Launches an executable in the project context via a port.
   """
   def open(%Project{} = project, executable, opts) do
-    {launcher, opts} = Keyword.pop_lazy(opts, :path, &path/0)
+    {os_type, _} = Forge.OS.type()
 
     opts =
       opts
       |> Keyword.put_new_lazy(:cd, fn -> Project.root_path(project) end)
-      |> Keyword.update(:args, [executable], fn old_args ->
-        [executable | Enum.map(old_args, &to_string/1)]
-      end)
 
     opts =
       if Keyword.has_key?(opts, :env) do
@@ -112,14 +140,29 @@ defmodule Expert.Port do
         opts
       end
 
-    Port.open({:spawn_executable, launcher}, [:stderr_to_stdout | opts])
+    open_port(os_type, executable, opts)
+  end
+
+  defp open_port(:win32, executable, opts) do
+    Port.open({:spawn_executable, executable}, [:stderr_to_stdout, :exit_status | opts])
+  end
+
+  defp open_port(:unix, executable, opts) do
+    {launcher, opts} = Keyword.pop_lazy(opts, :path, &path/0)
+
+    opts =
+      Keyword.update(opts, :args, [executable], fn old_args ->
+        [executable | Enum.map(old_args, &to_string/1)]
+      end)
+
+    Port.open({:spawn_executable, launcher}, [:stderr_to_stdout, :exit_status | opts])
   end
 
   @doc """
   Provides the path of an executable to launch another erlang node via ports.
   """
   def path do
-    path(:os.type())
+    path(Forge.OS.type())
   end
 
   def path({:unix, _}) do

@@ -36,8 +36,6 @@ defmodule Expert.State do
     %__MODULE__{}
   end
 
-  # TODO: this function has a side effect (starting the project supervisor)
-  # that i think might be better off in the calling function
   def initialize(
         %__MODULE__{initialized?: false} = state,
         %Requests.Initialize{
@@ -61,30 +59,11 @@ defmodule Expert.State do
 
     response = initialize_result()
 
-    projects =
-      for %{uri: uri} <- event.workspace_folders || [],
-          project = Project.new(uri),
-          project.mix_project? do
-        project
-      end
-
-    ActiveProjects.set_projects(projects)
-
-    for project <- projects do
-      Task.Supervisor.start_child(:expert_task_queue, fn ->
-        ensure_project_node_started(project)
-      end)
-    end
-
     {:ok, response, new_state}
   end
 
   def initialize(%__MODULE__{initialized?: true}, %Requests.Initialize{}) do
     {:error, :already_initialized}
-  end
-
-  def default_configuration(%__MODULE__{configuration: config}) do
-    Configuration.default(config)
   end
 
   def apply(%__MODULE__{initialized?: false}, request) do
@@ -125,7 +104,7 @@ defmodule Expert.State do
       for %{uri: uri} <- removed do
         project = Project.new(uri)
 
-        stop_project_node(project)
+        Expert.Project.Supervisor.stop_node(project)
 
         project
       end
@@ -133,7 +112,7 @@ defmodule Expert.State do
     added_projects =
       for %{uri: uri} <- added do
         project = Project.new(uri)
-        ensure_project_node_started(project)
+        Expert.Project.Supervisor.ensure_node_started(project)
         project
       end
 
@@ -196,7 +175,7 @@ defmodule Expert.State do
 
     if project do
       Task.Supervisor.start_child(:expert_task_queue, fn ->
-        ensure_project_node_started(project)
+        Expert.Project.Supervisor.ensure_node_started(project)
       end)
 
       ActiveProjects.add_projects([project])
@@ -270,41 +249,6 @@ defmodule Expert.State do
   def apply(%__MODULE__{} = state, msg) do
     Logger.error("Ignoring unhandled message: #{inspect(msg)}")
     {:ok, state}
-  end
-
-  defp ensure_project_node_started(project) do
-    case Expert.Project.Supervisor.start(project) do
-      {:ok, _pid} ->
-        ActiveProjects.set_ready(project, true)
-        Logger.info("Project node started for #{Project.name(project)}")
-
-        GenLSP.log(Expert.get_lsp(), "Started project node for #{Project.name(project)}")
-
-      {:error, {reason, pid}} when reason in [:already_started, :already_present] ->
-        {:ok, pid}
-
-      {:error, reason} ->
-        Logger.error(
-          "Failed to start project node for #{Project.name(project)}: #{inspect(reason, pretty: true)}"
-        )
-
-        GenLSP.error(
-          Expert.get_lsp(),
-          "Failed to start project node for #{Project.name(project)}: #{inspect(reason, pretty: true)}"
-        )
-
-        {:error, reason}
-    end
-  end
-
-  defp stop_project_node(project) do
-    Expert.Project.Supervisor.stop(project)
-    ActiveProjects.set_ready(project, false)
-
-    GenLSP.log(
-      Expert.get_lsp(),
-      "Stopping project node for #{Project.name(project)}"
-    )
   end
 
   def initialize_result do
