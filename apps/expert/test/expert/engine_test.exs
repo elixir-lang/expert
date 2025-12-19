@@ -249,10 +249,23 @@ defmodule Expert.EngineTest do
   end
 
   describe "run/1 - help and unknown commands" do
-    test "prints help for unknown subcommand" do
+    test "prints error for unknown subcommand" do
+      output =
+        capture_io(:stderr, fn ->
+          capture_io(fn ->
+            exit_code = Engine.run(["unknown"])
+            assert exit_code == 1
+          end)
+        end)
+
+      assert output =~ "Error: Unknown subcommand 'unknown'"
+      assert output =~ "Run 'expert engine --help' for usage information"
+    end
+
+    test "prints help when no subcommand provided" do
       output =
         capture_io(fn ->
-          exit_code = Engine.run(["unknown"])
+          exit_code = Engine.run([])
           assert exit_code == 0
         end)
 
