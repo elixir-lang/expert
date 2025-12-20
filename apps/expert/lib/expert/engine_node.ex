@@ -285,7 +285,7 @@ defmodule Expert.EngineNode do
 
       project_name = Project.name(project)
 
-      Expert.Project.with_progress("Building engine for #{project_name}", fn ->
+      Expert.Progress.with_progress("Building engine for #{project_name}", fn _token ->
         result =
           fn ->
             Process.flag(:trap_exit, true)
