@@ -107,12 +107,12 @@ defmodule Expert.Port do
           ["-l", "-c", cmd]
 
         "nu" ->
-            # Nushell stores PATH as a list in $env.PATH, so we join with colons.
-            # Nushell doesn't support && operator, use ; instead.
-            cmd =
-              "cd #{directory}; print $\"#{@path_marker}:($env.PATH | str join \":\"):#{@path_marker}\""
+          # Nushell stores PATH as a list in $env.PATH, so we join with colons.
+          # Nushell doesn't support && operator, use ; instead.
+          cmd =
+            "cd #{directory}; print $\"#{@path_marker}:($env.PATH | str join \":\"):#{@path_marker}\""
 
-            ["-l", "-c", cmd]
+          ["-l", "-c", cmd]
 
         _ ->
           cmd = "cd #{directory} && printf \"#{@path_marker}:%s:#{@path_marker}\" \"$PATH\""
