@@ -47,7 +47,7 @@ jobs:
         with:
           version: "0.15.2"
       - uses: actions/checkout@v6
-      - run: just release-all
+      - run: just burrito
         env:
           MIX_ENV: prod
       - name: Create Checksum

@@ -29,31 +29,56 @@ defmodule Expert.Port do
       opts =
         opts
         |> Keyword.put_new_lazy(:cd, fn -> Project.root_path(project) end)
-        |> Keyword.put_new(:env, environment_variables)
+        |> Keyword.update(:env, environment_variables, fn env ->
+          environment_variables ++ env
+        end)
 
       open(project, elixir_executable, opts)
     end
   end
 
   def elixir_executable(%Project{} = project) do
-    root_path = Project.root_path(project)
+    if Forge.OS.windows?() do
+      # Remove the burrito binaries from PATH
+      path =
+        "PATH"
+        |> System.get_env()
+        |> String.split(";", parts: 2)
+        |> List.last()
 
-    shell = System.get_env("SHELL")
-    path = path_env_at_directory(root_path, shell)
+      case :os.find_executable(~c"elixir", to_charlist(path)) do
+        false ->
+          {:error, :no_elixir, "Couldn't find an elixir executable"}
 
-    case :os.find_executable(~c"elixir", to_charlist(path)) do
-      false ->
-        {:error, :no_elixir,
-         "Couldn't find an elixir executable for project at #{root_path}. Using shell at #{shell} with PATH=#{path}"}
+        elixir ->
+          env =
+            Enum.map(System.get_env(), fn
+              {"PATH", _path} -> {"PATH", path}
+              other -> other
+            end)
 
-      elixir ->
-        env =
-          Enum.map(System.get_env(), fn
-            {"PATH", _path} -> {"PATH", path}
-            other -> other
-          end)
+          {:ok, elixir, env}
+      end
+    else
+      root_path = Project.root_path(project)
 
-        {:ok, elixir, env}
+      shell = System.get_env("SHELL")
+      path = path_env_at_directory(root_path, shell)
+
+      case :os.find_executable(~c"elixir", to_charlist(path)) do
+        false ->
+          {:error, :no_elixir,
+           "Couldn't find an elixir executable for project at #{root_path}. Using shell at #{shell} with PATH=#{path}"}
+
+        elixir ->
+          env =
+            Enum.map(System.get_env(), fn
+              {"PATH", _path} -> {"PATH", path}
+              other -> other
+            end)
+
+          {:ok, elixir, env}
+      end
     end
   end
 
@@ -81,6 +106,14 @@ defmodule Expert.Port do
 
           ["-l", "-c", cmd]
 
+        "nu" ->
+          # Nushell stores PATH as a list in $env.PATH, so we join with colons.
+          # Nushell doesn't support && operator, use ; instead.
+          cmd =
+            "cd #{directory}; print $\"#{@path_marker}:($env.PATH | str join \":\"):#{@path_marker}\""
+
+          ["-l", "-c", cmd]
+
         _ ->
           cmd = "cd #{directory} && printf \"#{@path_marker}:%s:#{@path_marker}\" \"$PATH\""
           ["-i", "-l", "-c", cmd]
@@ -102,14 +135,11 @@ defmodule Expert.Port do
   Launches an executable in the project context via a port.
   """
   def open(%Project{} = project, executable, opts) do
-    {launcher, opts} = Keyword.pop_lazy(opts, :path, &path/0)
+    {os_type, _} = Forge.OS.type()
 
     opts =
       opts
       |> Keyword.put_new_lazy(:cd, fn -> Project.root_path(project) end)
-      |> Keyword.update(:args, [executable], fn old_args ->
-        [executable | Enum.map(old_args, &to_string/1)]
-      end)
 
     opts =
       if Keyword.has_key?(opts, :env) do
@@ -118,14 +148,29 @@ defmodule Expert.Port do
         opts
       end
 
-    Port.open({:spawn_executable, launcher}, [:stderr_to_stdout, :exit_status] ++ opts)
+    open_port(os_type, executable, opts)
+  end
+
+  defp open_port(:win32, executable, opts) do
+    Port.open({:spawn_executable, executable}, [:stderr_to_stdout, :exit_status | opts])
+  end
+
+  defp open_port(:unix, executable, opts) do
+    {launcher, opts} = Keyword.pop_lazy(opts, :path, &path/0)
+
+    opts =
+      Keyword.update(opts, :args, [executable], fn old_args ->
+        [executable | Enum.map(old_args, &to_string/1)]
+      end)
+
+    Port.open({:spawn_executable, launcher}, [:stderr_to_stdout, :exit_status | opts])
   end
 
   @doc """
   Provides the path of an executable to launch another erlang node via ports.
   """
   def path do
-    path(:os.type())
+    path(Forge.OS.type())
   end
 
   def path({:unix, _}) do

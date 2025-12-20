@@ -336,6 +336,50 @@ defmodule Expert.Engine.CodeIntelligence.DefinitionTest do
       assert referenced_uri == subject_uri
     end
 
+    test "find the function definition when referenced via __MODULE__", %{
+      project: project,
+      subject_uri: subject_uri
+    } do
+      subject_module = ~q[
+        defmodule UsesOwnFunction do
+          def greet do
+          end
+
+          def uses_greet do
+            __MODULE__.gree|t()
+          end
+        end
+      ]
+
+      {:ok, referenced_uri, definition_line} = definition(project, subject_module, subject_uri)
+
+      assert definition_line == ~S[  def «greet» do]
+      assert referenced_uri =~ "navigations/lib/my_module.ex"
+    end
+
+    test "find the function definition when alias __MODULE__ is used", %{
+      project: project,
+      subject_uri: subject_uri
+    } do
+      subject_module = ~q[
+        defmodule MyApp.UsesOwnFunction do
+          alias __MODULE__
+
+          def greet do
+          end
+
+          def uses_greet do
+            UsesOwnFunction.gree|t()
+          end
+        end
+      ]
+
+      {:ok, referenced_uri, definition_line} = definition(project, subject_module, subject_uri)
+
+      assert definition_line == ~S[  def «greet» do]
+      assert referenced_uri =~ "navigations/lib/my_module.ex"
+    end
+
     test "find the attribute", %{project: project, subject_uri: subject_uri} do
       subject_module = ~q[
         defmodule UsesAttribute do

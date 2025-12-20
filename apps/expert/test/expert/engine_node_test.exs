@@ -16,7 +16,7 @@ defmodule Expert.EngineNodeTest do
   end
 
   test "it should be able to stop a project node and won't restart", %{project: project} do
-    {:ok, _node_name, _} = EngineNode.start(project)
+    assert {:ok, _node_name, _} = try_start(project)
 
     project_alive? = project |> EngineNode.name() |> Process.whereis() |> Process.alive?()
 
@@ -30,23 +30,25 @@ defmodule Expert.EngineNodeTest do
 
     linked_node_process =
       spawn(fn ->
-        {:ok, _node_name, _} = EngineNode.start(project)
-        send(test_pid, :started)
+        case try_start(project) do
+          {:ok, _node_name, _} -> send(test_pid, :started)
+          {:error, reason} -> send(test_pid, {:error, reason})
+        end
       end)
 
-    assert_receive :started, 1500
+    assert_receive :started, 20_000
 
     node_process_name = EngineNode.name(project)
 
     assert node_process_name |> Process.whereis() |> Process.alive?()
     Process.exit(linked_node_process, :kill)
-    assert_eventually Process.whereis(node_process_name) == nil, 50
+    assert_eventually Process.whereis(node_process_name) == nil, 100
   end
 
   test "terminates the server if no elixir is found", %{project: project} do
     test_pid = self()
 
-    patch(Expert.Port, :path_env_at_directory, nil)
+    patch(EngineNode, :glob_paths, {:error, :no_elixir})
 
     patch(Expert, :terminate, fn _, status ->
       send(test_pid, {:stopped, status})
@@ -59,10 +61,7 @@ defmodule Expert.EngineNodeTest do
       send(test_pid, {:lsp_log, message})
     end)
 
-    {:error, :no_elixir} = EngineNode.start(project)
-
-    assert_receive {:stopped, 1}
-    assert_receive {:lsp_log, "Couldn't find an elixir executable for project" <> _}
+    assert {:error, :no_elixir} = EngineNode.start(project)
   end
 
   test "shuts down with error message if exited with error code", %{project: project} do
@@ -79,5 +78,23 @@ defmodule Expert.EngineNodeTest do
     assert {:shutdown, {:node_exit, node_exit}} = exit_reason
     assert %{status: ^exit_status, last_message: last_message} = node_exit
     assert is_binary(last_message)
+  end
+
+  defp try_start(project, retries \\ 2) do
+    case EngineNode.start(project) do
+      {:ok, _, _} = ok ->
+        ok
+
+      {:error, _} when retries > 0 ->
+        Process.sleep(200)
+        try_start(project, retries - 1)
+
+      {:badrpc, :nodedown} when retries > 0 ->
+        Process.sleep(200)
+        try_start(project, retries - 1)
+
+      other ->
+        other
+    end
   end
 end

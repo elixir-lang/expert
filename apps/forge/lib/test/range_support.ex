@@ -40,13 +40,18 @@ defmodule Forge.Test.RangeSupport do
   def decorate(%Document{} = document, %Range{} = range) do
     index_range = (range.start.line - 1)..(range.end.line - 1)
 
-    document.lines
-    |> Enum.slice(index_range)
-    |> Enum.map(fn line(text: text, ending: ending) -> text <> ending end)
-    |> update_in([Access.at(-1)], &insert_marker(&1, @range_end_marker, range.end.character))
-    |> update_in([Access.at(0)], &insert_marker(&1, @range_start_marker, range.start.character))
-    |> IO.iodata_to_binary()
-    |> String.trim_trailing()
+    result =
+      document.lines
+      |> Enum.slice(index_range)
+      |> Enum.map(fn line(text: text, ending: ending) -> text <> ending end)
+      |> update_in([Access.at(-1)], &insert_marker(&1, @range_end_marker, range.end.character))
+      |> update_in([Access.at(0)], &insert_marker(&1, @range_start_marker, range.start.character))
+      |> IO.iodata_to_binary()
+      |> String.trim_trailing()
+
+    result
+    |> String.replace("\r\n", "\n")
+    |> String.trim_trailing("\r")
   end
 
   def decorate(document_text, path \\ "/file.ex", range)

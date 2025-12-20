@@ -34,15 +34,21 @@ defmodule Forge.Document.Path do
 
   def from_uri(%URI{scheme: @file_scheme, path: path, authority: authority})
       when path != "" and authority not in ["", nil] do
-    # UNC path
-    convert_separators_to_native("//#{URI.decode(authority)}#{URI.decode(path)}")
+    decoded_authority = URI.decode(authority)
+    decoded_path = URI.decode(path)
+
+    if Forge.OS.windows?() and String.match?(decoded_authority, ~r/^[a-zA-Z]:$/) do
+      convert_separators_to_native("#{decoded_authority}#{decoded_path}")
+    else
+      convert_separators_to_native("//#{decoded_authority}#{decoded_path}")
+    end
   end
 
   def from_uri(%URI{scheme: @file_scheme, path: path}) do
     decoded_path = URI.decode(path)
 
     path =
-      if windows?() and String.match?(decoded_path, ~r/^\/[a-zA-Z]:/) do
+      if Forge.OS.windows?() and String.match?(decoded_path, ~r/^\/[a-zA-Z]:/) do
         # Windows drive letter path
         # drop leading `/` and downcase drive letter
         <<"/", letter::binary-size(1), path_rest::binary>> = decoded_path
@@ -117,7 +123,7 @@ defmodule Forge.Document.Path do
   end
 
   defp convert_separators_to_native(path) do
-    if windows?() do
+    if Forge.OS.windows?() do
       # convert path separators from URI to Windows
       String.replace(path, ~r/\//, "\\")
     else
@@ -126,23 +132,11 @@ defmodule Forge.Document.Path do
   end
 
   defp convert_separators_to_universal(path) do
-    if windows?() do
+    if Forge.OS.windows?() do
       # convert path separators from Windows to URI
       String.replace(path, ~r/\\/, "/")
     else
       path
     end
-  end
-
-  defp windows? do
-    case os_type() do
-      {:win32, _} -> true
-      _ -> false
-    end
-  end
-
-  # this is here to be mocked in tests
-  defp os_type do
-    :os.type()
   end
 end
