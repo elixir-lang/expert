@@ -109,7 +109,6 @@ defmodule Expert.Port do
         "nu" ->
             # Nushell stores PATH as a list in $env.PATH, so we join with colons.
             # Nushell doesn't support && operator, use ; instead.
-            # No -i flag as it causes issues similar to fish.
             cmd =
               "cd #{directory}; print (\"#{@path_marker}\" + \":\" + ($env.PATH | str join \":\") + \":\" + \"#{@path_marker}\")"
 
