@@ -319,12 +319,11 @@ defmodule Expert do
 
   defp node_initialization_message(name, reason) do
     case reason do
-      # NOTE: {:error, :normal, ~c"could not compile dependency :elixir_sense..."}
+      # NOTE: ~c"could not compile dependency :elixir_sense..."
       {:error, :normal, message} ->
         "Engine #{name} initialization failed with error:\n\n#{message}"
 
-      # NOTE:
-      # ** (Mix.Error) httpc request failed with: ... Could not install Hex because Mix could not download metadata ...
+      # NOTE: ** (Mix.Error) httpc request failed with: ... Could not install Hex because Mix could not download metadata ...
       {{:shutdown, {:error, :normal, message}}, _} ->
         "Engine #{name} shut down with error:\n\n#{message}"
 
