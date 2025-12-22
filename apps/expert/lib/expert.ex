@@ -303,7 +303,7 @@ defmodule Expert do
     }
   end
 
-  defp initialization_error_message({:shutdown, {:failed_to_start_child, child, {reason, _}}}) do
+  defp initialization_error_message({:shutdown, {:failed_to_start_child, child, reason}}) do
     case child do
       {Project.Node, node_name} ->
         node_initialization_message(node_name, reason)
@@ -319,12 +319,16 @@ defmodule Expert do
 
   defp node_initialization_message(name, reason) do
     case reason do
+      # NOTE: {:error, :normal, ~c"could not compile dependency :elixir_sense..."}
+      {:error, :normal, message} ->
+        "Engine #{name} initialization failed with error:\n\n#{message}"
+
       # NOTE:
       # ** (Mix.Error) httpc request failed with: ... Could not install Hex because Mix could not download metadata ...
-      {:shutdown, {:error, :normal, message}} ->
-        "Engine #{name} shutdown with error:\n\n#{message}"
+      {{:shutdown, {:error, :normal, message}}, _} ->
+        "Engine #{name} shut down with error:\n\n#{message}"
 
-      {:shutdown, {:node_exit, node_exit}} ->
+      {{:shutdown, {:node_exit, node_exit}}, _} ->
         "Engine #{name} exit with status #{node_exit.status}, last message:\n\n#{node_exit.last_message}"
 
       reason ->
