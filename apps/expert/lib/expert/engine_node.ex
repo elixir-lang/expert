@@ -88,7 +88,7 @@ defmodule Expert.EngineNode do
               IO.puts("ok")
 
             {:error, reason} ->
-              IO.puts("error starting node:\n \#{inspect(reason)}")
+              IO.puts("error starting node: #{inspect(reason)}")
           end
         end
 
