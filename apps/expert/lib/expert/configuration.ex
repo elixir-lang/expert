@@ -6,19 +6,16 @@ defmodule Expert.Configuration do
   alias Expert.Configuration.Support
   alias Expert.Dialyzer
   alias Expert.Protocol.Id
-  alias Forge.Project
   alias GenLSP.Notifications.WorkspaceDidChangeConfiguration
   alias GenLSP.Requests
   alias GenLSP.Structures
 
-  defstruct project: nil,
-            support: nil,
+  defstruct support: nil,
             client_name: nil,
             additional_watched_extensions: nil,
             dialyzer_enabled?: false
 
   @type t :: %__MODULE__{
-          project: Project.t() | nil,
           support: support | nil,
           client_name: String.t() | nil,
           additional_watched_extensions: [String.t()] | nil,
@@ -29,12 +26,11 @@ defmodule Expert.Configuration do
 
   @dialyzer {:nowarn_function, set_dialyzer_enabled: 2}
 
-  @spec new(Forge.uri(), map(), String.t() | nil) :: t
-  def new(root_uri, %Structures.ClientCapabilities{} = client_capabilities, client_name) do
+  @spec new(Structures.ClientCapabilities.t(), String.t() | nil) :: t
+  def new(%Structures.ClientCapabilities{} = client_capabilities, client_name) do
     support = Support.new(client_capabilities)
-    project = Project.new(root_uri)
 
-    %__MODULE__{support: support, project: project, client_name: client_name}
+    %__MODULE__{support: support, client_name: client_name}
     |> tap(&set/1)
   end
 
@@ -44,7 +40,6 @@ defmodule Expert.Configuration do
   end
 
   defp set(%__MODULE__{} = config) do
-    # FIXME(mhanberg): I don't think this will work once we have workspace support
     :persistent_term.put(__MODULE__, config)
   end
 

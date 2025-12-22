@@ -84,11 +84,11 @@ defmodule Expert.EngineNode do
 
           case node_start do
             {:ok, _} ->
-              unquote(port_mapper).register()
+              :ok = unquote(port_mapper).register()
               IO.puts("ok")
 
             {:error, reason} ->
-              IO.puts("error starting node:\n \#{inspect(reason)}")
+              IO.puts("error starting node:\n #{inspect(reason)}")
           end
         end
 

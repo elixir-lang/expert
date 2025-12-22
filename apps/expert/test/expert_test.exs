@@ -15,7 +15,8 @@ defmodule Expert.ExpertTest do
 
     reason = :something_bad
 
-    assert {:noreply, ^lsp} = Expert.handle_info({:engine_initialized, {:error, reason}}, lsp)
+    assert {:noreply, ^lsp} =
+             Expert.handle_info({:engine_initialized, project, {:error, reason}}, lsp)
 
     error_message = "[Project #{project.root_uri}] Failed to initialize: #{inspect(reason)}"
     error_message_type = GenLSP.Enumerations.MessageType.error()

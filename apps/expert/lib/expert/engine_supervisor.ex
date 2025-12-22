@@ -14,11 +14,15 @@ defmodule Expert.EngineSupervisor do
   end
 
   def start_link(%Project{} = project) do
-    DynamicSupervisor.start_link(__MODULE__, project, name: __MODULE__, strategy: :one_for_one)
+    DynamicSupervisor.start_link(__MODULE__, project, name: name(project), strategy: :one_for_one)
+  end
+
+  defp name(%Project{} = project) do
+    :"#{Project.name(project)}::project_node_supervisor"
   end
 
   def start_project_node(%Project{} = project) do
-    DynamicSupervisor.start_child(__MODULE__, EngineNode.child_spec(project))
+    DynamicSupervisor.start_child(name(project), EngineNode.child_spec(project))
   end
 
   @impl true

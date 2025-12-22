@@ -1,3 +1,5 @@
+Mix.install([:benchee])
+
 alias Engine.Search.Indexer
 
 path =

@@ -1,10 +1,12 @@
 defmodule Expert.State do
+  alias Expert.ActiveProjects
   alias Expert.CodeIntelligence
   alias Expert.Configuration
   alias Expert.EngineApi
   alias Expert.Project
   alias Expert.Provider.Handlers
   alias Forge.Document
+  alias Forge.Project
   alias GenLSP.Enumerations
   alias GenLSP.Notifications
   alias GenLSP.Requests
@@ -16,7 +18,6 @@ defmodule Expert.State do
 
   defstruct configuration: nil,
             initialized?: false,
-            engine_initialized?: false,
             shutdown_received?: false,
             in_flight_requests: %{}
 
@@ -47,10 +48,16 @@ defmodule Expert.State do
         _ -> nil
       end
 
-    config = Configuration.new(event.root_uri, event.capabilities, client_name)
+    root_path = Document.Path.from_uri(event.root_uri)
+
+    root_path
+    |> Forge.Workspace.new()
+    |> Forge.Workspace.set_workspace()
+
+    config = Configuration.new(event.capabilities, client_name)
+    new_state = %__MODULE__{state | configuration: config, initialized?: true}
 
     response = initialize_result()
-    new_state = %__MODULE__{state | configuration: config, initialized?: true}
 
     {:ok, response, new_state}
   end
@@ -88,27 +95,64 @@ defmodule Expert.State do
     {:ok, state}
   end
 
+  def apply(%__MODULE__{} = state, %Notifications.WorkspaceDidChangeWorkspaceFolders{
+        params: %Structures.DidChangeWorkspaceFoldersParams{
+          event: %Structures.WorkspaceFoldersChangeEvent{added: added, removed: removed}
+        }
+      }) do
+    removed_projects =
+      for %{uri: uri} <- removed do
+        project = Project.new(uri)
+
+        Expert.Project.Supervisor.stop_node(project)
+
+        project
+      end
+
+    added_projects =
+      for %{uri: uri} <- added do
+        project = Project.new(uri)
+        Expert.Project.Supervisor.ensure_node_started(project)
+        project
+      end
+
+    ActiveProjects.add_projects(added_projects)
+    ActiveProjects.remove_projects(removed_projects)
+
+    {:ok, state}
+  end
+
   def apply(%__MODULE__{} = state, %GenLSP.Notifications.TextDocumentDidChange{params: params}) do
     uri = params.text_document.uri
     version = params.text_document.version
-    project = state.configuration.project
+    projects = ActiveProjects.projects()
+    project = Project.project_for_uri(projects, uri)
 
-    case Document.Store.get_and_update(
-           uri,
-           # TODO: this function needs to accept the GenLSP data structure
-           &Document.apply_content_changes(&1, version, params.content_changes)
-         ) do
-      {:ok, updated_source} ->
-        updated_message =
-          file_changed(
-            uri: updated_source.uri,
-            open?: true,
-            from_version: version,
-            to_version: updated_source.version
-          )
+    with true <- ActiveProjects.active?(project),
+         {:ok, updated_source} <-
+           Document.Store.get_and_update(
+             uri,
+             # TODO: this function needs to accept the GenLSP data structure
+             &Document.apply_content_changes(&1, version, params.content_changes)
+           ) do
+      updated_message =
+        file_changed(
+          uri: updated_source.uri,
+          open?: true,
+          from_version: version,
+          to_version: updated_source.version
+        )
 
-        EngineApi.broadcast(project, updated_message)
-        EngineApi.compile_document(state.configuration.project, updated_source)
+      EngineApi.broadcast(project, updated_message)
+      EngineApi.compile_document(project, updated_source)
+      {:ok, state}
+    else
+      false ->
+        GenLSP.info(
+          Expert.get_lsp(),
+          "Received request textDocument/didChange before engine for #{Project.name(project)} was initialized. Ignoring."
+        )
+
         {:ok, state}
 
       error ->
@@ -123,6 +167,19 @@ defmodule Expert.State do
       version: version,
       language_id: language_id
     } = did_open.params.text_document
+
+    project =
+      with nil <- Enum.find(ActiveProjects.projects(), &Project.within_project?(&1, uri)) do
+        Project.find_project(uri)
+      end
+
+    if project do
+      Task.Supervisor.start_child(:expert_task_queue, fn ->
+        Expert.Project.Supervisor.ensure_node_started(project)
+      end)
+
+      ActiveProjects.add_projects([project])
+    end
 
     case Document.Store.open(uri, text, version, language_id) do
       :ok ->
@@ -155,10 +212,11 @@ defmodule Expert.State do
 
   def apply(%__MODULE__{} = state, %GenLSP.Notifications.TextDocumentDidSave{params: params}) do
     uri = params.text_document.uri
+    project = Forge.Project.project_for_uri(ActiveProjects.projects(), uri)
 
     case Document.Store.save(uri) do
       :ok ->
-        EngineApi.schedule_compile(state.configuration.project, false)
+        EngineApi.schedule_compile(project, false)
         {:ok, state}
 
       error ->
@@ -178,15 +236,12 @@ defmodule Expert.State do
     {:ok, nil, %__MODULE__{state | shutdown_received?: true}}
   end
 
-  def apply(%__MODULE__{} = state, %GenLSP.Notifications.WorkspaceDidChangeWatchedFiles{
-        params: params
-      }) do
-    project = state.configuration.project
-
-    Enum.each(params.changes, fn %GenLSP.Structures.FileEvent{} = change ->
-      event = filesystem_event(project: Project, uri: change.uri, event_type: change.type)
-      EngineApi.broadcast(project, event)
-    end)
+  def apply(%__MODULE__{} = state, %Notifications.WorkspaceDidChangeWatchedFiles{params: params}) do
+    for project <- ActiveProjects.projects(),
+        change <- params.changes do
+      params = filesystem_event(project: Project, uri: change.uri, event_type: change.type)
+      EngineApi.broadcast(project, params)
+    end
 
     {:ok, state}
   end
@@ -233,7 +288,13 @@ defmodule Expert.State do
         hover_provider: true,
         references_provider: true,
         text_document_sync: sync_options,
-        workspace_symbol_provider: true
+        workspace_symbol_provider: true,
+        workspace: %{
+          workspace_folders: %Structures.WorkspaceFoldersServerCapabilities{
+            supported: true,
+            change_notifications: true
+          }
+        }
       }
 
     %GenLSP.Structures.InitializeResult{

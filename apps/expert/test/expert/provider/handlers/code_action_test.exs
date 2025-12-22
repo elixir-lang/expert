@@ -18,6 +18,9 @@ defmodule Expert.Provider.Handlers.CodeActionTest do
 
     start_supervised!({DynamicSupervisor, Expert.Project.DynamicSupervisor.options()})
     start_supervised!({Expert.Project.Supervisor, project})
+    start_supervised!({Expert.ActiveProjects, []})
+
+    Expert.ActiveProjects.set_projects([project])
 
     EngineApi.register_listener(project, self(), [project_compiled()])
     EngineApi.schedule_compile(project, true)
@@ -61,8 +64,8 @@ defmodule Expert.Provider.Handlers.CodeActionTest do
     end
   end
 
-  def handle(request, project) do
-    config = Expert.Configuration.new(project: project)
+  def handle(request, _project) do
+    config = Expert.Configuration.new()
     Handlers.CodeAction.handle(request, config)
   end
 

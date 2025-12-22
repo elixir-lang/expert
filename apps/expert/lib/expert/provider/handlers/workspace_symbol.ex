@@ -1,7 +1,9 @@
 defmodule Expert.Provider.Handlers.WorkspaceSymbol do
+  alias Expert.ActiveProjects
   alias Expert.Configuration
   alias Expert.EngineApi
   alias Forge.CodeIntelligence.Symbols
+  alias Forge.Project
   alias GenLSP.Enumerations.SymbolKind
   alias GenLSP.Requests
   alias GenLSP.Structures
@@ -9,15 +11,14 @@ defmodule Expert.Provider.Handlers.WorkspaceSymbol do
   require Logger
 
   def handle(
-        %Requests.WorkspaceSymbol{params: %Structures.WorkspaceSymbolParams{} = params},
-        %Configuration{} = config
+        %Requests.WorkspaceSymbol{params: %Structures.WorkspaceSymbolParams{} = params} = request,
+        %Configuration{}
       ) do
+    projects = ActiveProjects.projects()
+
     symbols =
       if String.length(params.query) > 1 do
-        config.project
-        |> EngineApi.workspace_symbols(params.query)
-        |> tap(fn symbols -> Logger.info("syms #{inspect(Enum.take(symbols, 5))}") end)
-        |> Enum.map(&to_response/1)
+        Enum.flat_map(projects, &gather_symbols(&1, request))
       else
         []
       end
@@ -27,7 +28,19 @@ defmodule Expert.Provider.Handlers.WorkspaceSymbol do
     {:ok, symbols}
   end
 
-  def to_response(%Symbols.Workspace{} = root) do
+  defp gather_symbols(
+         %Project{} = project,
+         %Requests.WorkspaceSymbol{
+           params: %Structures.WorkspaceSymbolParams{} = params
+         }
+       ) do
+    project
+    |> EngineApi.workspace_symbols(params.query)
+    |> tap(fn symbols -> Logger.info("syms #{inspect(Enum.take(symbols, 5))}") end)
+    |> Enum.map(&to_lsp_symbol/1)
+  end
+
+  def to_lsp_symbol(%Symbols.Workspace{} = root) do
     %Structures.WorkspaceSymbol{
       kind: to_kind(root.type),
       location: to_location(root.link),

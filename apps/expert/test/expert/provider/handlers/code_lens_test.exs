@@ -22,6 +22,7 @@ defmodule Expert.Provider.Handlers.CodeLensTest do
 
     start_supervised!({DynamicSupervisor, Expert.Project.DynamicSupervisor.options()})
     start_supervised!({Expert.Project.Supervisor, project})
+    start_supervised!({Expert.ActiveProjects, []})
 
     EngineApi.register_listener(project, self(), [project_compiled()])
     EngineApi.schedule_compile(project, true)
@@ -58,7 +59,8 @@ defmodule Expert.Provider.Handlers.CodeLensTest do
   end
 
   def handle(request, project) do
-    config = Expert.Configuration.new(project: project)
+    Expert.ActiveProjects.add_projects([project])
+    config = Expert.Configuration.new()
     Handlers.CodeLens.handle(request, config)
   end
 
