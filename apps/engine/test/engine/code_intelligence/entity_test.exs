@@ -959,6 +959,31 @@ defmodule Engine.CodeIntelligence.EntityTest do
     end
   end
 
+  describe "resolve/2 within ~H sigil when phoenix_live_view is NOT available" do
+    setup do
+      patch(Engine.CodeIntelligence.HeexNormalizer, :phoenix_component_available?, false)
+      :ok
+    end
+
+    test "shorthand component notation does not resolve" do
+      code = ~q[
+        defmodule MyLiveView do
+          use Phoenix.Component
+
+          def render(assigns) do
+            ~H"""
+            <.but|ton>Click</.button>
+            """
+          end
+
+          def button(assigns), do: nil
+        end
+      ]
+
+      assert {:error, :not_found} = resolve(code)
+    end
+  end
+
   defp subject_module_uri do
     project()
     |> file_path(Path.join("lib", "my_module.ex"))

@@ -578,6 +578,29 @@ defmodule Expert.Engine.CodeIntelligence.DefinitionTest do
       assert file == uri
       assert fragment == "  def «button»(_assigns) do"
     end
+
+    test "find the definition when shorthand notation used on self-closing tag", %{
+      project: project,
+      uri: uri,
+      subject_uri: subject_uri
+    } do
+      subject_module = ~q[
+        defmodule MyLiveView do
+          use Phoenix.Component
+          import MyDefinition
+
+          def render(assigns) do
+            ~H"""
+            <.but|ton />
+            """
+          end
+        end
+      ]
+
+      result = definition(project, subject_module, [uri, subject_uri])
+      assert {:ok, ^uri, fragment} = result
+      assert fragment == "  def «button»(_assigns) do"
+    end
   end
 
   describe "edge cases" do
