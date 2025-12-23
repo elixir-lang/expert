@@ -22,11 +22,22 @@ defmodule Engine.CodeIntelligence.HeexNormalizer do
   #
   # This allows ElixirSense to understand the shorthand HEEX notation as a local function
   # (be it imported or not) and return correct location for go-to-definition and hover.
+  #
+  # This normalization is only performed when Phoenix.Component is available in the project
+  # (i.e., phoenix_live_view is in the dependencies).
   @spec call(Analysis.t(), Position.t()) :: Analysis.t()
   def call(analysis, position) do
-    new_ast = normalize_ast(analysis, position)
-    new_document = normalize_document(analysis, position)
-    %{analysis | ast: new_ast, document: new_document}
+    if phoenix_component_available?() do
+      new_ast = normalize_ast(analysis, position)
+      new_document = normalize_document(analysis, position)
+      %{analysis | ast: new_ast, document: new_document}
+    else
+      analysis
+    end
+  end
+
+  defp phoenix_component_available? do
+    Code.ensure_loaded?(Phoenix.Component)
   end
 
   defp normalize_ast(analysis, position) do

@@ -178,7 +178,7 @@ defmodule Expert.Engine.CodeIntelligence.DefinitionTest do
       assert {:ok, ^referenced_uri, definition_line} =
                definition(project, subject_module, referenced_uri)
 
-      assert definition_line == ~S[  def «greet»(name) do]
+      assert definition_line == ~S[  def «greet(name)» do]
     end
 
     test "find the definition of a remote macro call",
@@ -489,6 +489,8 @@ defmodule Expert.Engine.CodeIntelligence.DefinitionTest do
     } do
       subject_module = ~q[
         defmodule MyLiveView do
+          use Phoenix.Component
+
           def render(assigns) do
             ~H"""
             <MyDefinition.but|ton navigate="/home">Home</MyDefinition.button>
@@ -511,6 +513,8 @@ defmodule Expert.Engine.CodeIntelligence.DefinitionTest do
     } do
       subject_module = ~q[
         defmodule MyLiveView do
+          use Phoenix.Component
+
           def render(assigns) do
             ~H"""
             <.but|ton navigate="/home">Home</.button>
@@ -534,6 +538,7 @@ defmodule Expert.Engine.CodeIntelligence.DefinitionTest do
     } do
       subject_module = ~q[
         defmodule MyLiveView do
+          use Phoenix.Component
           import MyDefinition
 
           def render(assigns) do
@@ -557,6 +562,7 @@ defmodule Expert.Engine.CodeIntelligence.DefinitionTest do
     } do
       subject_module = ~q[
         defmodule MyLiveView do
+          use Phoenix.Component
           import MyDefinition
 
           def render(assigns) do
