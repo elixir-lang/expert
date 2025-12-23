@@ -33,7 +33,7 @@ defmodule Engine.CodeIntelligence.Entity do
     analysis =
       analysis
       |> Ast.reanalyze_to(position)
-      |> Engine.CodeIntelligence.HeexNormalizer.call(position)
+      |> Engine.CodeIntelligence.HeexNormalizer.maybe_normalize(position)
 
     with :ok <- check_commented(analysis, position),
          {:ok, surround_context} <- Ast.surround_context(analysis, position),

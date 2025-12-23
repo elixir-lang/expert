@@ -25,8 +25,8 @@ defmodule Engine.CodeIntelligence.HeexNormalizer do
   #
   # This normalization is only performed when Phoenix.Component is available in the project
   # (i.e., phoenix_live_view is in the dependencies).
-  @spec call(Analysis.t(), Position.t()) :: Analysis.t()
-  def call(analysis, position) do
+  @spec maybe_normalize(Analysis.t(), Position.t()) :: Analysis.t()
+  def maybe_normalize(analysis, position) do
     if phoenix_component_available?() do
       new_ast = normalize_ast(analysis, position)
       new_document = normalize_document(analysis, position)

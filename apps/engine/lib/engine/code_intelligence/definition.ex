@@ -85,7 +85,7 @@ defmodule Engine.CodeIntelligence.Definition do
       [] ->
         Logger.info("No definition found for #{inspect(resolved)} with Indexer.")
 
-        analysis = Engine.CodeIntelligence.HeexNormalizer.call(analysis, position)
+        analysis = Engine.CodeIntelligence.HeexNormalizer.maybe_normalize(analysis, position)
         elixir_sense_definition(analysis, position)
 
       [location] ->
