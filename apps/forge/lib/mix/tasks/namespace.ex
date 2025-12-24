@@ -33,10 +33,11 @@ defmodule Mix.Tasks.Namespace do
   def run([base_directory, output_directory | opts]) do
     {args, _, _} =
       OptionParser.parse(opts,
-        strict: [cwd: :string]
+        strict: [cwd: :string, no_progress: :boolean]
       )
 
     cwd = Keyword.get(args, :cwd, File.cwd!())
+    no_progress = Keyword.get(args, :no_progress, false)
 
     :persistent_term.put(:forge_namespace_cwd, cwd)
 
@@ -46,16 +47,18 @@ defmodule Mix.Tasks.Namespace do
 
     File.mkdir_p!(output_directory)
 
+    opts = [no_progress: no_progress]
+
     if base_directory == output_directory do
-      apply_transforms(base_directory)
+      apply_transforms(base_directory, opts)
     else
-      incremental_transforms(base_directory, output_directory)
+      incremental_transforms(base_directory, output_directory, opts)
     end
   end
 
-  defp apply_transforms(directory) do
+  defp apply_transforms(directory, opts) do
     Transform.Apps.apply_to_all(directory)
-    Transform.Beams.apply_to_all(directory)
+    Transform.Beams.apply_to_all(directory, opts)
     Transform.Scripts.apply_to_all(directory)
     # The boot file transform just turns script files into boot files
     # so it must come after the script file transform
@@ -64,7 +67,7 @@ defmodule Mix.Tasks.Namespace do
     Transform.AppDirectories.apply_to_all(directory)
   end
 
-  defp incremental_transforms(base_directory, output_directory) do
+  defp incremental_transforms(base_directory, output_directory, opts) do
     Application.ensure_all_started(:briefly)
 
     classification =
@@ -98,7 +101,7 @@ defmodule Mix.Tasks.Namespace do
     end)
 
     # Apply transforms to temp directory
-    apply_transforms(tmp_dir)
+    apply_transforms(tmp_dir, opts)
 
     # Copy temp directory back to output directory
     File.cp_r!(tmp_dir, output_directory)
