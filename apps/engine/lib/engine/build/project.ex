@@ -1,9 +1,9 @@
 defmodule Engine.Build.Project do
-  alias Forge.Project
   alias Engine.Build
+  alias Engine.Build.Isolation
   alias Engine.Plugin
   alias Engine.Progress
-  alias Engine.Build.Isolation
+  alias Forge.Project
   alias Mix.Task.Compiler.Diagnostic
 
   require Logger
