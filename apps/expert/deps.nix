@@ -145,6 +145,23 @@ let
     with self;
     {
 
+      briefly =
+        let
+          version = "0.5.1";
+          drv = buildMix {
+            inherit version;
+            name = "briefly";
+            appConfigPath = ./config;
+
+            src = fetchHex {
+              inherit version;
+              pkg = "briefly";
+              sha256 = "bd684aa92ad8b7b4e0d92c31200993c4bc1469fc68cd6d5f15144041bd15cb57";
+            };
+          };
+        in
+        drv;
+
       burrito =
         let
           version = "1.5.0";
@@ -195,7 +212,7 @@ let
 
       gen_lsp =
         let
-          version = "0.11.1";
+          version = "0.11.2";
           drv = buildMix {
             inherit version;
             name = "gen_lsp";
@@ -204,7 +221,7 @@ let
             src = fetchHex {
               inherit version;
               pkg = "gen_lsp";
-              sha256 = "78cd7994c0e46399c71e727fe29cfb8ff41e32711c1a30ad4b92203ee0d7920d";
+              sha256 = "7a5ccf2403d368a82ffa968ec3993f30d41f4bc2837c69c068ed08c598340a4d";
             };
 
             beamDeps = [
