@@ -7,12 +7,17 @@ defmodule Forge.Namespace.FileSync do
 
   alias __MODULE__.Classification
 
+  @type classification :: %Classification{
+          changed: list({String.t(), String.t()}),
+          new: list({String.t(), String.t()}),
+          deleted: list(String.t())
+        }
+
   @doc """
   Classifies files into changed, new, and deleted categories.
 
-  It looks at `**/ebin/*` files in both the base directory and output directory,
+  It looks at files in both the base directory and output directory,
   applying namespacing to the file names in the output directory.
-  Files can be `.beam` or `.app` files.
 
   Then compares the mtimes of the files to determine their classification.
 
@@ -26,20 +31,6 @@ defmodule Forge.Namespace.FileSync do
     }
 
   def classify_files(base_directory, output_directory) do
-    # Files in base directory are not namespaced, eg:
-    # lib/foo/ebin/Elixir.Foo.Bar.beam
-    # lib/foo/ebin/foo.app
-    #
-    # Files in output directory are namespaced, eg:
-    # lib/xp_foo/ebin/Elixir.XPFoo.Bar.beam
-    # lib/xp_foo/ebin/xp_foo.app
-    #
-    # We need to compare the files by applying namespacing to the base directory paths,
-    # then comparing mtimes.
-    #
-    # For any files in output_directory that don't have a corresponding file in base_directory,
-    # we classify them as deleted.
-
     base_files = find_files(Path.join(base_directory, "lib"))
     output_files = find_files(Path.join(output_directory, "lib"))
 
@@ -81,6 +72,35 @@ defmodule Forge.Namespace.FileSync do
       |> MapSet.to_list()
 
     %{classification | deleted: deleted_files}
+  end
+
+  @doc """
+  Copy new and changed files into a destination root (e.g., tmp dir) while
+  preserving relative paths and namespacing.
+  """
+  def copy_new_and_changed(%Classification{} = classification, base_directory, destination_root) do
+    Enum.each(classification.new ++ classification.changed, fn {src, _dest} ->
+      relative_path = Path.relative_to(src, base_directory)
+      destination_path = Path.join(destination_root, relative_path)
+
+      File.mkdir_p!(Path.dirname(destination_path))
+      File.cp!(src, destination_path)
+    end)
+
+    :ok
+  end
+
+  @doc """
+  Delete files listed in the classification from the given root.
+  """
+  def delete_removed(%Classification{} = classification) do
+    Enum.each(classification.deleted, fn dest ->
+      if File.exists?(dest) do
+        File.rm!(dest)
+      end
+    end)
+
+    :ok
   end
 
   defp find_files(directory) do
