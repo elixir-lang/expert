@@ -1,7 +1,8 @@
 defmodule Engine.Build do
   alias Engine.Build.Document.Compilers.HEEx
   alias Engine.Build.State
-  alias Forge.{Document, Project}
+  alias Forge.Document
+  alias Forge.Project
 
   require Logger
   use GenServer

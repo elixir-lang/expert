@@ -7,7 +7,9 @@ defmodule Expert.Progress do
 
   alias Expert.Configuration
   alias Expert.Protocol.Id
-  alias GenLSP.{Notifications, Requests, Structures}
+  alias GenLSP.Notifications
+  alias GenLSP.Requests
+  alias GenLSP.Structures
 
   require Logger
 

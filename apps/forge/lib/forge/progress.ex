@@ -92,13 +92,11 @@ defmodule Forge.Progress do
       end
 
       defp execute_work(token, work_fn) do
-        try do
-          token |> work_fn.() |> complete_with(token)
-        rescue
-          e ->
-            complete(token, message: "Error: #{Exception.message(e)}")
-            reraise e, __STACKTRACE__
-        end
+        token |> work_fn.() |> complete_with(token)
+      rescue
+        e ->
+          complete(token, message: "Error: #{Exception.message(e)}")
+          reraise e, __STACKTRACE__
       end
 
       defp complete_with({:done, result}, token) do

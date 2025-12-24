@@ -1,6 +1,8 @@
 defmodule Engine.Build.Project do
   alias Forge.Project
-  alias Engine.{Build, Plugin, Progress}
+  alias Engine.Build
+  alias Engine.Plugin
+  alias Engine.Progress
   alias Engine.Build.Isolation
   alias Mix.Task.Compiler.Diagnostic
 
