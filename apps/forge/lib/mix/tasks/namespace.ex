@@ -85,20 +85,8 @@ defmodule Mix.Tasks.Namespace do
       Deleted: #{length(classification.deleted)}
     """)
 
-    # Copy new and changed files to a temp directory
-    Enum.each(entries_to_namespace, fn {src, _dest} ->
-      relative_path = Path.relative_to(src, base_directory)
-      tmp_dest = Path.join(tmp_dir, relative_path)
-      File.mkdir_p!(Path.dirname(tmp_dest))
-      File.cp!(src, tmp_dest)
-    end)
-
-    # Delete removed files from output directory
-    Enum.each(classification.deleted, fn dest ->
-      if File.exists?(dest) do
-        File.rm!(dest)
-      end
-    end)
+    Forge.Namespace.FileSync.copy_new_and_changed(classification, base_directory, tmp_dir)
+    Forge.Namespace.FileSync.delete_removed(classification)
 
     # Apply transforms to temp directory
     apply_transforms(tmp_dir, opts)
