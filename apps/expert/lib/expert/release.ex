@@ -1,6 +1,7 @@
 defmodule Expert.Release do
   def assemble(release) do
-    Mix.Task.run(:namespace, [release.path])
+    # In-place namespacing: both source and output are the same path
+    Mix.Task.run(:namespace, [release.path, release.path])
 
     expert_root = Path.expand("../../../..", __DIR__)
     engine_path = Path.join([expert_root, "apps", "engine"])

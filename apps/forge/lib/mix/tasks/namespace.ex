@@ -30,7 +30,7 @@ defmodule Mix.Tasks.Namespace do
 
   require Logger
 
-  def run([base_directory | opts]) do
+  def run([base_directory, output_directory | opts]) do
     {args, _, _} =
       OptionParser.parse(opts,
         strict: [cwd: :string]
@@ -44,14 +44,64 @@ defmodule Mix.Tasks.Namespace do
     # Otherwise only the @extra_apps will be cached
     init()
 
-    Transform.Apps.apply_to_all(base_directory)
-    Transform.Beams.apply_to_all(base_directory)
-    Transform.Scripts.apply_to_all(base_directory)
+    File.mkdir_p!(output_directory)
+
+    if base_directory == output_directory do
+      apply_transforms(base_directory)
+    else
+      incremental_transforms(base_directory, output_directory)
+    end
+  end
+
+  defp apply_transforms(directory) do
+    Transform.Apps.apply_to_all(directory)
+    Transform.Beams.apply_to_all(directory)
+    Transform.Scripts.apply_to_all(directory)
     # The boot file transform just turns script files into boot files
     # so it must come after the script file transform
-    Transform.Boots.apply_to_all(base_directory)
-    Transform.Configs.apply_to_all(base_directory)
-    Transform.AppDirectories.apply_to_all(base_directory)
+    Transform.Boots.apply_to_all(directory)
+    Transform.Configs.apply_to_all(directory)
+    Transform.AppDirectories.apply_to_all(directory)
+  end
+
+  defp incremental_transforms(base_directory, output_directory) do
+    Application.ensure_all_started(:briefly)
+
+    classification =
+      Forge.Namespace.FileSync.classify_files(base_directory, output_directory)
+
+    tmp_dir = Briefly.create!(directory: true)
+
+    entries_to_namespace =
+      classification.new ++ classification.changed
+
+    Mix.Shell.IO.info("""
+    Namespacing #{length(entries_to_namespace)} files:
+      New: #{length(classification.new)}
+      Changed: #{length(classification.changed)}
+      Deleted: #{length(classification.deleted)}
+    """)
+
+    # Copy new and changed files to a temp directory
+    Enum.each(entries_to_namespace, fn {src, _dest} ->
+      relative_path = Path.relative_to(src, base_directory)
+      tmp_dest = Path.join(tmp_dir, relative_path)
+      File.mkdir_p!(Path.dirname(tmp_dest))
+      File.cp!(src, tmp_dest)
+    end)
+
+    # Delete removed files from output directory
+    Enum.each(classification.deleted, fn dest ->
+      if File.exists?(dest) do
+        File.rm!(dest)
+      end
+    end)
+
+    # Apply transforms to temp directory
+    apply_transforms(tmp_dir)
+
+    # Copy temp directory back to output directory
+    File.cp_r!(tmp_dir, output_directory)
   end
 
   def app_names do

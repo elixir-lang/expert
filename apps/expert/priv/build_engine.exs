@@ -31,9 +31,6 @@ install_path = Mix.install_project_dir()
 dev_build_path = Path.join([install_path, "_build", "dev"])
 ns_build_path = Path.join([install_path, "_build", "dev_ns"])
 
-File.rm_rf!(ns_build_path)
-File.cp_r!(dev_build_path, ns_build_path)
-
-Mix.Task.run("namespace", [ns_build_path, "--cwd", install_path])
+Mix.Task.run("namespace", [dev_build_path, ns_build_path, "--cwd", install_path])
 
 IO.puts("engine_path:" <> ns_build_path)
