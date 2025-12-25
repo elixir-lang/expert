@@ -91,6 +91,7 @@ defmodule Expert.MixProject do
       {:logger_file_backend, "~> 0.0", only: [:dev, :prod]},
       {:patch, "~> 0.15", runtime: false, only: [:dev, :test]},
       {:path_glob, "~> 0.2"},
+      {:phoenix_live_view, "~> 1.0", only: [:test], runtime: false},
       {:schematic, "~> 0.2"},
       {:sourceror, "~> 1.9"}
     ]
