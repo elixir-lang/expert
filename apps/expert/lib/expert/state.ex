@@ -233,7 +233,8 @@ defmodule Expert.State do
         hover_provider: true,
         references_provider: true,
         text_document_sync: sync_options,
-        workspace_symbol_provider: true
+        workspace_symbol_provider: true,
+        folding_range_provider: true,
       }
 
     %GenLSP.Structures.InitializeResult{
