@@ -59,6 +59,11 @@ defmodule Expert.Application do
           [communication: {GenLSP.Communication.TCP, [port: opts[:port]]}]
 
         true ->
+          IO.puts(
+            :stderr,
+            "ERROR: A transport argument (--stdio|--port PORT) must be provided, expert won't initialize."
+          )
+
           IO.puts(help_text)
 
           System.halt(1)
