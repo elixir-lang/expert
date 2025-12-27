@@ -61,7 +61,7 @@ defmodule Expert.Application do
         true ->
           IO.puts(
             :stderr,
-            "ERROR: A transport argument (--stdio|--port <port>) must be provided, expert won't initialize."
+            "FATAL: A transport argument (--stdio|--port <port>) must be provided, expert won't initialize."
           )
 
           IO.puts(help_text)
