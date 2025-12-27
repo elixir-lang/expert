@@ -84,6 +84,7 @@ defmodule Engine.Search.Indexer do
 
   # 128 K blocks indexed expert in 5.3 seconds
   @bytes_per_block 1024 * 128
+
   defp async_chunks(file_paths, processor, timeout \\ :infinity) do
     # this function tries to even out the amount of data processed by
     # async stream by making each chunk emitted by the initial stream to
@@ -96,66 +97,60 @@ defmodule Engine.Search.Indexer do
       |> path_to_sizes()
       |> Enum.shuffle()
 
-    path_to_size_map = Map.new(paths_to_sizes)
-
     total_bytes = paths_to_sizes |> Enum.map(&elem(&1, 1)) |> Enum.sum()
 
     if total_bytes > 0 do
-      {on_update_progress, on_complete} =
-        Progress.begin_percent("Indexing source code", total_bytes)
-
-      initial_state = {0, []}
-
-      chunk_fn = fn {path, file_size}, {block_size, paths} ->
-        new_block_size = file_size + block_size
-        new_paths = [path | paths]
-
-        if new_block_size >= @bytes_per_block do
-          {:cont, new_paths, initial_state}
-        else
-          {:cont, {new_block_size, new_paths}}
-        end
-      end
-
-      after_fn = fn
-        {_, []} ->
-          {:cont, []}
-
-        {_, paths} ->
-          {:cont, paths, []}
-      end
-
-      paths_to_sizes
-      |> Stream.chunk_while(initial_state, chunk_fn, after_fn)
-      |> Task.async_stream(
-        fn chunk ->
-          block_bytes = chunk |> Enum.map(&Map.get(path_to_size_map, &1)) |> Enum.sum()
-          result = Enum.map(chunk, processor)
-          on_update_progress.(block_bytes, "Indexing")
-          result
-        end,
-        timeout: timeout
-      )
-      |> Stream.flat_map(fn
-        {:ok, entry_chunks} -> entry_chunks
-        _ -> []
-      end)
-      # The next bit is the only way i could figure out how to
-      # call complete once the stream was realized
-      |> Stream.transform(
-        fn -> nil end,
-        fn chunk_items, acc ->
-          # By the chunk items list directly, each transformation
-          # will flatten the resulting steam
-          {chunk_items, acc}
-        end,
-        fn _acc ->
-          on_complete.()
-        end
-      )
+      process_chunks(paths_to_sizes, total_bytes, processor, timeout)
     else
       []
     end
+  end
+
+  defp process_chunks(paths_to_sizes, total_bytes, processor, timeout) do
+    path_to_size_map = Map.new(paths_to_sizes)
+
+    Progress.with_tracked_progress("Indexing source code", total_bytes, fn report ->
+      result = do_process_chunks(paths_to_sizes, path_to_size_map, processor, timeout, report)
+      {:done, result}
+    end)
+  end
+
+  defp do_process_chunks(paths_to_sizes, path_to_size_map, processor, timeout, report) do
+    initial_state = {0, []}
+
+    chunk_fn = fn {path, file_size}, {block_size, paths} ->
+      new_block_size = file_size + block_size
+      new_paths = [path | paths]
+
+      if new_block_size >= @bytes_per_block do
+        {:cont, new_paths, initial_state}
+      else
+        {:cont, {new_block_size, new_paths}}
+      end
+    end
+
+    after_fn = fn
+      {_, []} -> {:cont, []}
+      {_, paths} -> {:cont, paths, []}
+    end
+
+    paths_to_sizes
+    |> Stream.chunk_while(initial_state, chunk_fn, after_fn)
+    |> Task.async_stream(
+      fn chunk ->
+        block_bytes = chunk |> Enum.map(&Map.get(path_to_size_map, &1)) |> Enum.sum()
+
+        report.(message: "Indexing", add: block_bytes)
+
+        Enum.flat_map(chunk, processor)
+      end,
+      timeout: timeout
+    )
+    |> Stream.flat_map(fn
+      {:ok, entries} -> entries
+      _ -> []
+    end)
+    |> Enum.to_list()
   end
 
   defp path_to_sizes(paths) do

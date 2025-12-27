@@ -1,49 +1,60 @@
 defmodule Engine.Build.Project do
-  alias Forge.Project
-
   alias Engine.Build
   alias Engine.Build.Isolation
   alias Engine.Plugin
+  alias Engine.Progress
+  alias Forge.Project
   alias Mix.Task.Compiler.Diagnostic
 
-  use Engine.Progress
   require Logger
 
   def compile(%Project{} = project, initial?) do
     Engine.Mix.in_project(fn _ ->
-      Mix.Task.clear()
+      Logger.info("Building #{Project.display_name(project)}")
 
-      prepare_for_project_build(initial?)
+      Progress.with_progress("Building #{Project.display_name(project)}", fn token ->
+        Build.set_progress_token(token)
 
-      compile_fun = fn ->
-        Mix.Task.clear()
-
-        with_progress building_label(project), fn ->
-          result = compile_in_isolation()
-          Mix.Task.run(:loadpaths)
-          result
+        try do
+          {:done, do_compile(project, initial?, token)}
+        after
+          Build.clear_progress_token()
         end
-      end
-
-      case compile_fun.() do
-        {:error, diagnostics} ->
-          diagnostics =
-            diagnostics
-            |> List.wrap()
-            |> Build.Error.refine_diagnostics()
-
-          {:error, diagnostics}
-
-        {status, diagnostics} when status in [:ok, :noop] ->
-          Logger.info(
-            "Compile completed with status #{status} " <>
-              "Produced #{length(diagnostics)} diagnostics " <>
-              inspect(diagnostics)
-          )
-
-          Build.Error.refine_diagnostics(diagnostics)
-      end
+      end)
     end)
+  end
+
+  defp do_compile(project, initial?, token) do
+    Mix.Task.clear()
+
+    if initial?, do: prepare_for_project_build(token)
+
+    compile_fun = fn ->
+      Mix.Task.clear()
+      Progress.report(token, message: "Compiling #{Project.display_name(project)}")
+      result = compile_in_isolation()
+      Mix.Task.run(:loadpaths)
+      result
+    end
+
+    case compile_fun.() do
+      {:error, diagnostics} ->
+        diagnostics =
+          diagnostics
+          |> List.wrap()
+          |> Build.Error.refine_diagnostics()
+
+        {:error, diagnostics}
+
+      {status, diagnostics} when status in [:ok, :noop] ->
+        Logger.info(
+          "Compile completed with status #{status} " <>
+            "Produced #{length(diagnostics)} diagnostics " <>
+            inspect(diagnostics)
+        )
+
+        Build.Error.refine_diagnostics(diagnostics)
+    end
   end
 
   defp compile_in_isolation do
@@ -66,40 +77,30 @@ defmodule Engine.Build.Project do
     end
   end
 
-  defp prepare_for_project_build(false = _initial?) do
-    :ok
-  end
-
-  defp prepare_for_project_build(true = _initial?) do
+  defp prepare_for_project_build(token) do
     if connected_to_internet?() do
-      with_progress "mix local.hex", fn ->
-        Mix.Task.run("local.hex", ~w(--force))
-      end
+      Progress.report(token, message: "mix local.hex")
+      Mix.Task.run("local.hex", ~w(--force))
 
-      with_progress "mix local.rebar", fn ->
-        Mix.Task.run("local.rebar", ~w(--force))
-      end
+      Progress.report(token, message: "mix local.rebar")
+      Mix.Task.run("local.rebar", ~w(--force))
 
-      with_progress "mix deps.get", fn ->
-        Mix.Task.run("deps.get")
-      end
+      Progress.report(token, message: "mix deps.get")
+      Mix.Task.run("deps.get")
     else
       Logger.warning("Could not connect to hex.pm, dependencies will not be fetched")
     end
 
-    with_progress "mix loadconfig", fn ->
-      Mix.Task.run(:loadconfig)
+    Progress.report(token, message: "mix loadconfig")
+    Mix.Task.run(:loadconfig)
+
+    if not Elixir.Features.compile_keeps_current_directory?() do
+      Progress.report(token, message: "mix deps.compile")
+      Mix.Task.run("deps.safe_compile", ~w(--skip-umbrella-children))
     end
 
-    unless Elixir.Features.compile_keeps_current_directory?() do
-      with_progress "mix deps.compile", fn ->
-        Mix.Task.run("deps.safe_compile", ~w(--skip-umbrella-children))
-      end
-    end
-
-    with_progress "loading plugins", fn ->
-      Plugin.Discovery.run()
-    end
+    Progress.report(token, message: "Loading plugins")
+    Plugin.Discovery.run()
   end
 
   defp connected_to_internet? do
@@ -111,10 +112,6 @@ defmodule Engine.Build.Project do
       {:ok, _} -> true
       _ -> false
     end
-  end
-
-  def building_label(%Project{} = project) do
-    "Building #{Project.display_name(project)}"
   end
 
   defp mix_compile_opts do

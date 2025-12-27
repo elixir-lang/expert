@@ -2,7 +2,6 @@ defmodule Engine.Application do
   @moduledoc false
 
   use Application
-  require Logger
 
   @impl true
   def start(_type, _args) do
@@ -12,7 +11,7 @@ defmodule Engine.Application do
           Engine.Api.Proxy,
           Engine.Commands.Reindex,
           Engine.Module.Loader,
-          {Engine.Dispatch, progress: true},
+          Engine.Dispatch,
           Engine.ModuleMappings,
           Engine.Build,
           Engine.Build.CaptureServer,

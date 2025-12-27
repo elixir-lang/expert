@@ -9,8 +9,6 @@ defmodule Engine.Dispatch do
 
   alias Engine.Dispatch.Handlers
   alias Engine.Dispatch.PubSub
-  alias Forge.Project
-  import Forge.EngineApi.Messages
 
   @handlers [PubSub, Handlers.Indexing]
 
@@ -44,17 +42,22 @@ defmodule Engine.Dispatch do
     :gen_event.notify(__MODULE__, message)
   end
 
+  # bypass via rpc, primarily for progress reporting.
+
+  def erpc_call(module, function, args) do
+    :erpc.call(Engine.get_manager_node(), module, function, args, 1_000)
+  end
+
+  def erpc_cast(module, function, args) do
+    :erpc.cast(Engine.get_manager_node(), module, function, args)
+  end
+
   # GenServer callbacks
 
-  def start_link(opts) do
+  def start_link(_opts) do
     case :gen_event.start_link(name()) do
       {:ok, pid} = success ->
         Enum.each(@handlers, &:gen_event.add_handler(pid, &1, []))
-
-        if opts[:progress] do
-          register_progress_listener()
-        end
-
         success
 
       error ->
@@ -69,17 +72,5 @@ defmodule Engine.Dispatch do
     }
   end
 
-  defp name do
-    {:local, __MODULE__}
-  end
-
-  defp register_progress_listener do
-    register_listener(progress_pid(), [project_progress(), percent_progress()])
-  end
-
-  defp progress_pid do
-    project = Engine.get_project()
-    manager_node_name = Project.manager_node_name(project)
-    :rpc.call(manager_node_name, Expert.Project.Progress, :whereis, [project])
-  end
+  defp name, do: {:local, __MODULE__}
 end

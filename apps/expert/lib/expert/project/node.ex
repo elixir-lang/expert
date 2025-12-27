@@ -15,12 +15,11 @@ defmodule Expert.Project.Node do
 
   alias Expert.EngineApi
   alias Expert.EngineNode
-  alias Expert.Project.Progress
+  alias Expert.Progress
 
   require Logger
 
   use GenServer
-  use Progress.Support
 
   def start_link(%Project{} = project) do
     GenServer.start_link(__MODULE__, project, name: name(project))
@@ -51,12 +50,16 @@ defmodule Expert.Project.Node do
 
   @impl GenServer
   def init(%Project{} = project) do
-    case with_progress(project, "Project Node", fn -> start_node(project) end) do
-      {:ok, state} ->
-        {:ok, state, {:continue, :trigger_build}}
+    result =
+      Progress.with_progress("Starting project node", fn token ->
+        result = start_node(project, token)
 
-      error ->
-        {:stop, error}
+        {:done, result, "Project node started"}
+      end)
+
+    case result do
+      {:ok, state} -> {:ok, state, {:continue, :trigger_build}}
+      error -> {:stop, error}
     end
   end
 
@@ -92,8 +95,8 @@ defmodule Expert.Project.Node do
 
   # private api
 
-  defp start_node(%Project{} = project) do
-    with {:ok, node, node_pid} <- EngineNode.start(project) do
+  defp start_node(%Project{} = project, token \\ Progress.noop_token()) do
+    with {:ok, node, node_pid} <- EngineNode.start(project, token) do
       Node.monitor(node, true)
       {:ok, State.new(project, node, node_pid)}
     end

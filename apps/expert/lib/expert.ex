@@ -57,6 +57,8 @@ defmodule Expert do
     with {:ok, response, state} <- State.initialize(state, request),
          {:ok, response} <- Expert.Protocol.Convert.to_lsp(response) do
       Task.Supervisor.start_child(:expert_task_queue, fn ->
+        # dirty sleep to allow initialize response to return before progress reports
+        Process.sleep(50)
         config = state.configuration
 
         log_info(lsp, "Starting project")

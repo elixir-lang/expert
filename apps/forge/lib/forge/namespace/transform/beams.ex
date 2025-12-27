@@ -46,21 +46,40 @@ defmodule Forge.Namespace.Transform.Beams do
   defp changed?(same, same), do: false
   defp changed?(_, _), do: true
 
-  defp block_until_done(same, same) do
-    Mix.Shell.IO.info("\n done")
-  end
+  defp block_until_done(same, same, last_write_time \\ nil)
 
-  defp block_until_done(current, max) do
+  defp block_until_done(same, same, _last_write_time), do: Mix.Shell.IO.info("\n done")
+
+  defp block_until_done(current, max, last_write_time) do
     receive do
       :progress -> :ok
     end
 
     current = current + 1
-    IO.write("\r")
-    percent_complete = format_percent(current, max)
 
-    IO.write(" Applying namespace: #{percent_complete} complete")
-    block_until_done(current, max)
+    last_write_time = log_completion_debounced(current, max, last_write_time)
+
+    block_until_done(current, max, last_write_time)
+  end
+
+  defp log_completion_debounced(current, max, last_write_time) when is_integer(last_write_time) do
+    now = :erlang.monotonic_time(:millisecond)
+
+    if now - last_write_time >= 66 do
+      IO.write("\r")
+      IO.write("Applying namespace: #{format_percent(current, max)} complete")
+
+      now
+    else
+      last_write_time
+    end
+  end
+
+  defp log_completion_debounced(current, max, _last_write_time) do
+    IO.write("\r")
+    IO.write("Applying namespace: #{format_percent(current, max)} complete")
+
+    :erlang.monotonic_time(:millisecond)
   end
 
   defp apply_and_update_progress(beam_file, caller) do
@@ -109,7 +128,7 @@ defmodule Forge.Namespace.Transform.Beams do
   defp format_percent(current, max) do
     int_val =
       (current / max * 100)
-      |> round()
+      |> floor()
       |> Integer.to_string()
 
     String.pad_leading("#{int_val}%", 4)
