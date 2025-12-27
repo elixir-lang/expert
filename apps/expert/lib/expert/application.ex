@@ -61,12 +61,13 @@ defmodule Expert.Application do
         true ->
           IO.puts(
             :stderr,
-            "ERROR: A transport argument (--stdio|--port PORT) must be provided, expert won't initialize."
+            "ERROR: A transport argument (--stdio|--port <port>) must be provided, expert won't initialize."
           )
 
           IO.puts(help_text)
 
-          System.halt(1)
+          # Status code 2 is often used for invalid CLI argument
+          System.halt(2)
       end
 
     ensure_epmd_module!()
