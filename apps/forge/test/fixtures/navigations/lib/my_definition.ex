@@ -23,4 +23,9 @@ defmodule MyDefinition do
       IO.puts("Hello, world!")
     end
   end
+
+  # This simulates Phoenix component, but ~H is not available here, so it would not compile
+  def button(_assigns) do
+    nil
+  end
 end
