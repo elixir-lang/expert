@@ -7,6 +7,32 @@ defmodule Expert.ExpertTest do
 
   import Expert.Test.Protocol.TransportSupport
 
+  describe "workspace/didChangeConfiguration" do
+    test "updates configuration when settings change" do
+      with_patched_transport()
+
+      patch(Expert.Dialyzer, :check_support, :ok)
+
+      project = Fixtures.project()
+      lsp = initialize_lsp(project)
+
+      # dialyzer_enabled? defaults to false
+      assert GenLSP.Assigns.get(lsp.assigns).state.configuration.dialyzer_enabled? == false
+
+      did_change_config = %GenLSP.Notifications.WorkspaceDidChangeConfiguration{
+        jsonrpc: "2.0",
+        method: "workspace/didChangeConfiguration",
+        params: %GenLSP.Structures.DidChangeConfigurationParams{
+          settings: %{"dialyzerEnabled" => true}
+        }
+      }
+
+      assert {:noreply, updated_lsp} = Expert.handle_notification(did_change_config, lsp)
+
+      assert GenLSP.Assigns.get(updated_lsp.assigns).state.configuration.dialyzer_enabled? == true
+    end
+  end
+
   test "sends an error message on engine initialization error" do
     with_patched_transport()
 

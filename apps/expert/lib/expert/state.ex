@@ -84,8 +84,6 @@ defmodule Expert.State do
         GenLSP.request(Expert.get_lsp(), request)
         {:ok, %__MODULE__{state | configuration: config}}
     end
-
-    {:ok, state}
   end
 
   def apply(%__MODULE__{} = state, %GenLSP.Notifications.TextDocumentDidChange{params: params}) do
