@@ -25,7 +25,8 @@ defmodule Expert do
 
   @dialyzer {:nowarn_function, apply_to_state: 2}
 
-  @version Mix.Project.config()[:version]
+  @external_resource "../../version.txt"
+  @version "../../version.txt" |> File.read!() |> String.trim()
 
   def vsn, do: @version
 
