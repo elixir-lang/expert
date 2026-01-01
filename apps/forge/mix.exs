@@ -36,6 +36,7 @@ defmodule Forge.MixProject do
   defp deps do
     [
       {:benchee, "~> 1.3", only: :test},
+      {:briefly, "~> 0.5"},
       Mix.Credo.dependency(),
       Mix.Dialyzer.dependency(),
       {:deps_nix, "~> 2.4", only: :dev},

@@ -30,13 +30,14 @@ defmodule Mix.Tasks.Namespace do
 
   require Logger
 
-  def run([base_directory | opts]) do
+  def run([base_directory, output_directory | opts]) do
     {args, _, _} =
       OptionParser.parse(opts,
-        strict: [cwd: :string]
+        strict: [cwd: :string, no_progress: :boolean]
       )
 
     cwd = Keyword.get(args, :cwd, File.cwd!())
+    no_progress = Keyword.get(args, :no_progress, false)
 
     :persistent_term.put(:forge_namespace_cwd, cwd)
 
@@ -44,14 +45,54 @@ defmodule Mix.Tasks.Namespace do
     # Otherwise only the @extra_apps will be cached
     init()
 
-    Transform.Apps.apply_to_all(base_directory)
-    Transform.Beams.apply_to_all(base_directory)
-    Transform.Scripts.apply_to_all(base_directory)
+    File.mkdir_p!(output_directory)
+
+    opts = [no_progress: no_progress]
+
+    if base_directory == output_directory do
+      apply_transforms(base_directory, opts)
+    else
+      incremental_transforms(base_directory, output_directory, opts)
+    end
+  end
+
+  defp apply_transforms(directory, opts) do
+    Transform.Apps.apply_to_all(directory)
+    Transform.Beams.apply_to_all(directory, opts)
+    Transform.Scripts.apply_to_all(directory)
     # The boot file transform just turns script files into boot files
     # so it must come after the script file transform
-    Transform.Boots.apply_to_all(base_directory)
-    Transform.Configs.apply_to_all(base_directory)
-    Transform.AppDirectories.apply_to_all(base_directory)
+    Transform.Boots.apply_to_all(directory)
+    Transform.Configs.apply_to_all(directory)
+    Transform.AppDirectories.apply_to_all(directory)
+  end
+
+  defp incremental_transforms(base_directory, output_directory, opts) do
+    Application.ensure_all_started(:briefly)
+
+    classification =
+      Forge.Namespace.FileSync.classify_files(base_directory, output_directory)
+
+    tmp_dir = Briefly.create!(directory: true)
+
+    entries_to_namespace =
+      classification.new ++ classification.changed
+
+    Mix.Shell.IO.info("""
+    Namespacing #{length(entries_to_namespace)} files:
+      New: #{length(classification.new)}
+      Changed: #{length(classification.changed)}
+      Deleted: #{length(classification.deleted)}
+    """)
+
+    Forge.Namespace.FileSync.copy_new_and_changed(classification, base_directory, tmp_dir)
+    Forge.Namespace.FileSync.delete_removed(classification)
+
+    # Apply transforms to temp directory
+    apply_transforms(tmp_dir, opts)
+
+    # Copy temp directory back to output directory
+    File.cp_r!(tmp_dir, output_directory)
   end
 
   def app_names do
