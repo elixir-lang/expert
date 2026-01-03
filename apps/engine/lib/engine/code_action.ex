@@ -9,6 +9,7 @@ defmodule Engine.CodeAction do
     Handlers.ReplaceWithUnderscore,
     Handlers.OrganizeAliases,
     Handlers.AddAlias,
+    Handlers.Require,
     Handlers.RemoveUnusedAlias,
     Handlers.Refactorex
   ]
