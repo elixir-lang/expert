@@ -71,6 +71,10 @@ defmodule Engine do
 
   defdelegate runtime_versions, to: Forge.VM.Versions, as: :current
 
+  defdelegate prepare_rename(analysis, position), to: Engine.CodeMod.Rename, as: :prepare
+
+  defdelegate rename(analysis, position, new_name, client_name), to: Engine.CodeMod.Rename
+
   def list_apps do
     for {app, _, _} <- :application.loaded_applications(),
         not Forge.Namespace.Module.prefixed?(app),
