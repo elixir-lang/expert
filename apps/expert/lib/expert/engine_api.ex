@@ -151,5 +151,24 @@ defmodule Expert.EngineApi do
     call(project, Engine, :workspace_symbols, [query])
   end
 
+  def prepare_rename(%Project{} = project, %Analysis{} = analysis, %Position{} = position) do
+    call(project, Engine, :prepare_rename, [analysis, position])
+  end
+
+  def rename(
+        %Project{} = project,
+        %Analysis{} = analysis,
+        %Position{} = position,
+        new_name,
+        client_name
+      ) do
+    call(project, Engine, :rename, [
+      analysis,
+      position,
+      new_name,
+      client_name
+    ])
+  end
+
   defdelegate stop(project), to: EngineNode
 end
