@@ -145,6 +145,11 @@ defmodule Engine.Commands.Rename do
         on_update_progress,
         on_complete
       ) do
+    Logger.info(
+      "Starting rename tracking: #{map_size(uri_to_expected_operation)} operations, " <>
+        "#{length(paths_to_reindex)} to reindex, #{length(paths_to_delete)} to delete"
+    )
+
     state =
       State.new(
         uri_to_expected_operation,
