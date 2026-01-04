@@ -51,7 +51,7 @@ defmodule Engine.CodeMod.Rename do
 
   defp set_rename_progress(document_changes_list, client_name) do
     # Progress tracking is optional - if the infrastructure isn't running
-    # (e.g., in tests), we just skip it
+    # (e.g., in tests), we just skip it silently
     try do
       do_set_rename_progress(document_changes_list, client_name)
     rescue
