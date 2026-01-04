@@ -144,8 +144,8 @@ defmodule Expert.State do
         if ActiveProjects.active?(project) do
           EngineApi.broadcast(project, updated_message)
           EngineApi.compile_document(project, updated_source)
+          EngineApi.maybe_update_rename_progress(project, updated_message)
         end
-
         {:ok, state}
 
       error ->
@@ -210,6 +210,7 @@ defmodule Expert.State do
     case Document.Store.save(uri) do
       :ok ->
         EngineApi.schedule_compile(project, false)
+        EngineApi.maybe_update_rename_progress(project, file_saved(uri: uri))
         {:ok, state}
 
       error ->

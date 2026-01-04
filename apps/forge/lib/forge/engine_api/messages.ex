@@ -45,6 +45,9 @@ defmodule Forge.EngineApi.Messages do
 
   defrecord :search_store_loading, project: nil
 
+  defrecord :project_progress, label: nil, stage: :begin
+
+  defrecord :percent_progress, label: nil, message: nil, delta: 0, max: 0, stage: :begin
   @type compile_status :: :successful | :error
   @type name_and_arity :: {atom, non_neg_integer}
   @type field_list :: Keyword.t() | [atom]
@@ -134,4 +137,21 @@ defmodule Forge.EngineApi.Messages do
 
   @type search_store_loading ::
           record(:search_store_loading, project: Forge.Project.t())
+
+  @type progress_stage :: :begin | :report | :complete
+
+  @type project_progress ::
+          record(:project_progress,
+            label: String.t(),
+            stage: progress_stage()
+          )
+
+  @type percent_progress ::
+          record(:percent_progress,
+            label: String.t(),
+            message: String.t() | nil,
+            delta: non_neg_integer(),
+            max: non_neg_integer(),
+            stage: progress_stage()
+          )
 end

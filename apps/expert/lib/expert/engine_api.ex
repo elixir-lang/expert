@@ -170,5 +170,15 @@ defmodule Expert.EngineApi do
     ])
   end
 
+  @doc """
+  Updates the rename progress with a triggered message.
+
+  This should be called when files are changed or saved during a rename operation.
+  The message is used to track which file operations have been completed.
+  """
+  def maybe_update_rename_progress(%Project{} = project, message) do
+    call(project, Engine, :maybe_update_rename_progress, [message])
+  end
+
   defdelegate stop(project), to: EngineNode
 end
