@@ -27,6 +27,8 @@ defmodule Forge.EngineApi.Messages do
 
   defrecord :file_deleted, project: nil, uri: nil
 
+  defrecord :file_saved, uri: nil
+
   defrecord :module_updated, file: nil, name: nil, functions: [], macros: [], struct: nil
 
   defrecord :project_diagnostics, project: nil, build_number: 0, diagnostics: []
@@ -40,6 +42,10 @@ defmodule Forge.EngineApi.Messages do
   defrecord :project_reindex_requested, project: nil
 
   defrecord :project_reindexed, project: nil, elapsed_ms: 0, status: :success
+
+  defrecord :project_progress, label: nil, stage: :begin
+
+  defrecord :percent_progress, label: nil, message: nil, delta: 0, max: 0, stage: :begin
 
   @type compile_status :: :successful | :error
   @type name_and_arity :: {atom, non_neg_integer}
@@ -91,6 +97,8 @@ defmodule Forge.EngineApi.Messages do
             elapsed_ms: non_neg_integer
           )
 
+  @type file_saved :: record(:file_saved, uri: Forge.uri())
+
   @type module_updated ::
           record(:module_updated,
             name: module(),
@@ -124,5 +132,22 @@ defmodule Forge.EngineApi.Messages do
             project: Forge.Project.t(),
             elapsed_ms: non_neg_integer(),
             status: :success | {:error, term()}
+          )
+
+  @type progress_stage :: :begin | :report | :complete
+
+  @type project_progress ::
+          record(:project_progress,
+            label: String.t(),
+            stage: progress_stage()
+          )
+
+  @type percent_progress ::
+          record(:percent_progress,
+            label: String.t(),
+            message: String.t() | nil,
+            delta: non_neg_integer(),
+            max: non_neg_integer(),
+            stage: progress_stage()
           )
 end
