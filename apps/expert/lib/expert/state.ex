@@ -192,8 +192,9 @@ defmodule Expert.State do
           if Configuration.compile_on_type?() do
             EngineApi.compile_document(context.project, updated_source)
           end
-        end
 
+          EngineApi.maybe_update_rename_progress(context.project, updated_message)
+        end
         {:ok, state}
 
       error ->
@@ -254,6 +255,10 @@ defmodule Expert.State do
 
           %Context{project: %Project{kind: :bare}} ->
             :ok
+        end
+
+        if Store.ready?(context.project) do
+          EngineApi.maybe_update_rename_progress(context.project, file_saved(uri: uri))
         end
 
         {:ok, state}
