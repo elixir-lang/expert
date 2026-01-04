@@ -109,6 +109,7 @@ defmodule Expert.State do
 
         EngineApi.broadcast(project, updated_message)
         EngineApi.compile_document(state.configuration.project, updated_source)
+        EngineApi.maybe_update_rename_progress(project, updated_message)
         {:ok, state}
 
       error ->
@@ -155,10 +156,12 @@ defmodule Expert.State do
 
   def apply(%__MODULE__{} = state, %GenLSP.Notifications.TextDocumentDidSave{params: params}) do
     uri = params.text_document.uri
+    project = state.configuration.project
 
     case Document.Store.save(uri) do
       :ok ->
-        EngineApi.schedule_compile(state.configuration.project, false)
+        EngineApi.schedule_compile(project, false)
+        EngineApi.maybe_update_rename_progress(project, file_saved(uri: uri))
         {:ok, state}
 
       error ->
