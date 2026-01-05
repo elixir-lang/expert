@@ -499,10 +499,7 @@ defmodule Expert.Engine.CodeIntelligence.DefinitionTest do
         end
       ]
 
-      result = definition(project, subject_module, [uri, subject_uri])
-      assert {:ok, file, definition} = result
-
-      assert file == uri
+      assert {:ok, ^uri, definition} = definition(project, subject_module, [uri, subject_uri])
       assert definition == "  def «button»(_assigns) do"
     end
 
@@ -525,9 +522,9 @@ defmodule Expert.Engine.CodeIntelligence.DefinitionTest do
         end
       ]
 
-      result = definition(project, subject_module, [uri, subject_uri])
-      assert {:ok, file, fragment} = result
-      assert file == subject_uri
+      assert {:ok, ^subject_uri, fragment} =
+               definition(project, subject_module, [uri, subject_uri])
+
       assert fragment == "  def «button»(_assigns), do: nil"
     end
 
@@ -549,9 +546,7 @@ defmodule Expert.Engine.CodeIntelligence.DefinitionTest do
         end
       ]
 
-      result = definition(project, subject_module, [uri, subject_uri])
-      assert {:ok, file, fragment} = result
-      assert file == uri
+      assert {:ok, ^uri, fragment} = definition(project, subject_module, [uri, subject_uri])
       assert fragment == "  def «button»(_assigns) do"
     end
 
@@ -573,9 +568,7 @@ defmodule Expert.Engine.CodeIntelligence.DefinitionTest do
         end
       ]
 
-      result = definition(project, subject_module, [uri, subject_uri])
-      assert {:ok, file, fragment} = result
-      assert file == uri
+      assert {:ok, ^uri, fragment} = definition(project, subject_module, [uri, subject_uri])
       assert fragment == "  def «button»(_assigns) do"
     end
 
@@ -597,8 +590,7 @@ defmodule Expert.Engine.CodeIntelligence.DefinitionTest do
         end
       ]
 
-      result = definition(project, subject_module, [uri, subject_uri])
-      assert {:ok, ^uri, fragment} = result
+      assert {:ok, ^uri, fragment} = definition(project, subject_module, [uri, subject_uri])
       assert fragment == "  def «button»(_assigns) do"
     end
   end
@@ -624,15 +616,10 @@ defmodule Expert.Engine.CodeIntelligence.DefinitionTest do
          :ok <- index(project, referenced_uri),
          {:ok, location} <-
            EngineApi.definition(project, document, position) do
-      cond do
-        is_list(location) ->
-          {:ok, Enum.map(location, &{&1.document.uri, decorate(&1.document, &1.range)})}
-
-        location == nil ->
-          {:ok, nil}
-
-        true ->
-          {:ok, location.document.uri, decorate(location.document, location.range)}
+      if is_list(location) do
+        {:ok, Enum.map(location, &{&1.document.uri, decorate(&1.document, &1.range)})}
+      else
+        {:ok, location.document.uri, decorate(location.document, location.range)}
       end
     end
   end
