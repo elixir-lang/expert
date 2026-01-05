@@ -37,7 +37,7 @@ defmodule Engine.CodeIntelligence.HeexNormalizer do
   end
 
   defp phoenix_component_available? do
-    Code.ensure_loaded?(Phoenix.Component)
+    Engine.Module.Loader.ensure_loaded?(Phoenix.Component)
   end
 
   defp normalize_ast(analysis, position) do
