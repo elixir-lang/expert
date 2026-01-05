@@ -6,7 +6,7 @@ defmodule Engine.CodeIntelligence.HeexNormalizer do
   alias Forge.Document
   alias Forge.Document.Position
   alias Forge.Document.Range
-  alias Sourceror.Zipper
+  alias Sourceror.FastZipper
 
   # Matches both opening and closing shorthand components (used for cursor detection)
   @component_regex ~r/<\/?\.([a-zA-Z0-9_!?.]+)/
@@ -46,11 +46,11 @@ defmodule Engine.CodeIntelligence.HeexNormalizer do
       new_sigil = normalize_heex_node(sigil)
 
       analysis.ast
-      |> Zipper.zip()
-      |> Zipper.find(&(&1 == sigil))
+      |> FastZipper.zip()
+      |> FastZipper.find(&(&1 == sigil))
       |> case do
         nil -> analysis.ast
-        zipper -> zipper |> Zipper.replace(new_sigil) |> Zipper.root()
+        zipper -> zipper |> FastZipper.replace(new_sigil) |> FastZipper.root()
       end
     else
       _ -> analysis.ast
