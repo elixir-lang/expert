@@ -10,7 +10,8 @@ defmodule Engine.CodeAction do
     Handlers.OrganizeAliases,
     Handlers.AddAlias,
     Handlers.RemoveUnusedAlias,
-    Handlers.Refactorex
+    Handlers.Refactorex,
+    Handlers.CreateUndefinedFunction
   ]
 
   @spec for_range(
