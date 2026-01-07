@@ -15,10 +15,22 @@ defmodule Expert.Application do
     argv = Burrito.Util.Args.argv()
 
     # Handle engine subcommand first (before starting the LSP server)
-    with ["engine" | engine_args] <- argv do
-      engine_args
-      |> Expert.Engine.run()
-      |> System.halt()
+    case argv do
+      ["engine" | engine_args] ->
+        engine_args
+        |> Expert.Engine.run()
+        |> System.halt()
+
+      [subcommand | _] ->
+        if not String.starts_with?(subcommand, "-") do
+          IO.puts(:stderr, """
+          Error: Unknown subcommand '#{subcommand}'
+
+          Run 'expert --help' for usage information.
+          """)
+
+          System.halt(1)
+        end
     end
 
     {opts, _argv, _invalid} =
