@@ -29,14 +29,35 @@ defmodule Expert.Configuration do
 
   @dialyzer {:nowarn_function, set_dialyzer_enabled: 2}
 
-  @spec new(Forge.uri(), map(), String.t() | nil) :: t
-  def new(root_uri, %Structures.ClientCapabilities{} = client_capabilities, client_name) do
+  @spec new(Forge.uri(), map(), String.t() | nil, map()) :: t
+  def new(
+        root_uri,
+        %Structures.ClientCapabilities{} = client_capabilities,
+        client_name,
+        init_options \\ %{}
+      ) do
     support = Support.new(client_capabilities)
-    project = Project.new(root_uri)
+    effective_root_uri = resolve_project_dir(root_uri, init_options)
+    project = Project.new(effective_root_uri)
 
     %__MODULE__{support: support, project: project, client_name: client_name}
     |> tap(&set/1)
   end
+
+  defp resolve_project_dir(root_uri, %{"projectDir" => project_dir})
+       when is_binary(project_dir) and project_dir != "" do
+    project_path =
+      if Path.type(project_dir) == :absolute do
+        project_dir
+      else
+        root_path = Forge.Document.Path.absolute_from_uri(root_uri)
+        Path.join(root_path, project_dir) |> Path.expand()
+      end
+
+    Forge.Document.Path.to_uri(project_path)
+  end
+
+  defp resolve_project_dir(root_uri, _init_options), do: root_uri
 
   @spec new(keyword()) :: t
   def new(attrs \\ []) do

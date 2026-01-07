@@ -47,7 +47,10 @@ defmodule Expert.State do
         _ -> nil
       end
 
-    config = Configuration.new(event.root_uri, event.capabilities, client_name)
+    init_options = event.initialization_options || %{}
+
+    config =
+      Configuration.new(event.root_uri, event.capabilities, client_name, init_options)
 
     response = initialize_result()
     new_state = %__MODULE__{state | configuration: config, initialized?: true}
