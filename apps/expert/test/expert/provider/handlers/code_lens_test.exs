@@ -90,11 +90,27 @@ defmodule Expert.Provider.Handlers.CodeLensTest do
       assert {:ok, []} = handle(request, project)
     end
 
-    test "does not emite a code lens for an umbrella app's mix.exs", %{project: project} do
+    test "does not emit a code lens for an umbrella app's mix.exs", %{project: project} do
       {:ok, request} =
         project
         |> Project.project_path()
         |> Path.join("apps/first/mix.exs")
+        |> build_request()
+
+      assert {:ok, []} = handle(request, project)
+    end
+  end
+
+  describe "code lens when mix.exs path is nil" do
+    setup [:with_indexing_enabled]
+
+    test "returns empty lenses when project has no mix.exs", %{project: project} do
+      patch(Project, :mix_exs_path, nil)
+
+      {:ok, request} =
+        project
+        |> Project.project_path()
+        |> Path.join("apps/first/lib/umbrella/first.ex")
         |> build_request()
 
       assert {:ok, []} = handle(request, project)

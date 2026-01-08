@@ -1,8 +1,8 @@
 defmodule Expert.EngineNode do
+  alias Expert.Progress
   alias Forge.Project
-  require Logger
 
-  use Expert.Project.Progress.Support
+  require Logger
 
   defmodule State do
     require Logger
@@ -88,7 +88,7 @@ defmodule Expert.EngineNode do
               IO.puts("ok")
 
             {:error, reason} ->
-              IO.puts("error starting node:\n #{inspect(reason)}")
+              IO.puts("error starting node: #{inspect(reason)}")
           end
         end
 
@@ -182,17 +182,19 @@ defmodule Expert.EngineNode do
   alias Forge.Document
   use GenServer
 
-  def start(project) do
+  def start(project, token \\ Progress.noop_token()) do
     start_net_kernel(project)
 
     node_name = Project.node_name(project)
-    bootstrap_args = [project, Document.Store.entropy(), all_app_configs()]
+    bootstrap_args = [project, Document.Store.entropy(), all_app_configs(), Node.self()]
 
     with {:ok, node_pid} <- EngineSupervisor.start_project_node(project),
          {:ok, glob_paths} <- glob_paths(project),
+         :ok <- Progress.report(token, message: "Starting Erlang node..."),
          :ok <- start_node(project, glob_paths),
+         :ok <- Progress.report(token, message: "Bootstrapping engine..."),
          :ok <- :rpc.call(node_name, Engine.Bootstrap, :init, bootstrap_args),
-         :ok <- ensure_apps_started(node_name) do
+         :ok <- ensure_apps_started(node_name, token) do
       {:ok, node_name, node_pid}
     end
   end
@@ -202,8 +204,8 @@ defmodule Expert.EngineNode do
     Node.start(manager, :longnames)
   end
 
-  defp ensure_apps_started(node) do
-    :rpc.call(node, Engine, :ensure_apps_started, [])
+  defp ensure_apps_started(node, token) do
+    :rpc.call(node, Engine, :ensure_apps_started, [token])
   end
 
   if Mix.env() == :test do
@@ -240,9 +242,7 @@ defmodule Expert.EngineNode do
     defp launch_engine_builder(project, elixir, env) do
       lsp = Expert.get_lsp()
 
-      project_name = Project.name(project)
-      Logger.info("Found elixir for #{project_name} at #{elixir}")
-      GenLSP.info(lsp, "Found elixir for #{project_name} at #{elixir}")
+      Expert.log_info(lsp, project, "Found elixir executable at #{elixir}")
 
       expert_priv = :code.priv_dir(:expert)
       packaged_engine_source = Path.join([expert_priv, "engine_source", "apps", "engine"])
@@ -281,18 +281,23 @@ defmodule Expert.EngineNode do
           {launcher, opts}
         end
 
-      GenLSP.info(lsp, "Finding or building engine for project #{project_name}")
+      Expert.log_info(lsp, project, "Finding or building engine")
 
-      with_progress(project, "Building engine for #{project_name}", fn ->
-        fn ->
-          Process.flag(:trap_exit, true)
+      project_name = Project.name(project)
 
-          {:spawn_executable, launcher}
-          |> Port.open([:stderr_to_stdout | opts])
-          |> wait_for_engine()
-        end
-        |> Task.async()
-        |> Task.await(:infinity)
+      Expert.Progress.with_progress("Building engine for #{project_name}", fn _token ->
+        result =
+          fn ->
+            Process.flag(:trap_exit, true)
+
+            {:spawn_executable, launcher}
+            |> Port.open([:stderr_to_stdout | opts])
+            |> wait_for_engine()
+          end
+          |> Task.async()
+          |> Task.await(:infinity)
+
+        {:done, result, "Engine node built for #{project_name}."}
       end)
     end
 

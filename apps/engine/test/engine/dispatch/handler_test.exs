@@ -69,7 +69,7 @@ defmodule Engine.Dispatch.HandlerTest do
       Dispatch.broadcast(file_changed())
       refute_receive {SelectiveForwarder, _}
 
-      Dispatch.broadcast(project_progress())
+      Dispatch.broadcast(project_compiled())
       refute_receive {SelectiveForwarder, _}
     end
   end

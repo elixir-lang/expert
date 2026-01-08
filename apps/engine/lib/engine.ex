@@ -8,6 +8,7 @@ defmodule Engine do
   alias Engine.Api.Proxy
   alias Engine.CodeAction
   alias Engine.CodeIntelligence
+  alias Engine.Progress
   alias Forge.Project
 
   require Logger
@@ -68,10 +69,12 @@ defmodule Engine do
         do: app
   end
 
-  def ensure_apps_started do
+  def ensure_apps_started(token \\ Progress.noop_token()) do
     apps_to_start = [:elixir, :runtime_tools | @allowed_apps]
 
     Enum.reduce_while(apps_to_start, :ok, fn app_name, _ ->
+      Progress.report(token, message: "Starting #{app_name}...")
+
       case :application.ensure_all_started(app_name) do
         {:ok, _} -> {:cont, :ok}
         error -> {:halt, error}
@@ -110,5 +113,13 @@ defmodule Engine do
 
   def set_project(%Project{} = project) do
     :persistent_term.put({__MODULE__, :project}, project)
+  end
+
+  def get_manager_node do
+    :persistent_term.get({__MODULE__, :manager_node}, nil)
+  end
+
+  def set_manager_node(node) when is_atom(node) do
+    :persistent_term.put({__MODULE__, :manager_node}, node)
   end
 end

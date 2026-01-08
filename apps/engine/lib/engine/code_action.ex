@@ -9,8 +9,10 @@ defmodule Engine.CodeAction do
     Handlers.ReplaceWithUnderscore,
     Handlers.OrganizeAliases,
     Handlers.AddAlias,
+    Handlers.Require,
     Handlers.RemoveUnusedAlias,
-    Handlers.Refactorex
+    Handlers.Refactorex,
+    Handlers.CreateUndefinedFunction
   ]
 
   @spec for_range(

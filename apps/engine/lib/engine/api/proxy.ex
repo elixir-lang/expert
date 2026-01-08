@@ -12,8 +12,7 @@ defmodule Engine.Api.Proxy do
 
   The logic follows below
     `broadcast` - Buffered - Though, those related to other events, like compilation are subject to
-                  the rules that govern their source events. Progress messages are sent regardless of
-                  buffering.
+                  the rules that govern their source events.
     `schedule_compile` - Buffered - Only one call is kept
     `compile_document` - Buffered, though only one call per URI is kept, and if a `schedule_compile` call
                          was buffered, all `compile_document` calls are dropped
@@ -39,9 +38,7 @@ defmodule Engine.Api.Proxy do
   alias Engine.Api.Proxy.Records
   alias Engine.CodeMod
   alias Engine.Commands
-  alias Forge.EngineApi.Messages
 
-  import Messages
   import Record
   import Records, only: :macros
 
@@ -61,10 +58,6 @@ defmodule Engine.Api.Proxy do
   end
 
   # proxied functions
-
-  def broadcast(percent_progress() = message) do
-    Engine.Dispatch.broadcast(message)
-  end
 
   def broadcast(message) do
     mfa = to_mfa(Engine.Dispatch.broadcast(message))

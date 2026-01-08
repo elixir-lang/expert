@@ -32,13 +32,6 @@ defmodule Engine.Api.ProxyTest do
       assert_called(Dispatch.broadcast(:hello))
     end
 
-    test "proxies broadcasts of progress messages" do
-      patch(Dispatch, :broadcast, :ok)
-      assert :ok = Proxy.broadcast(percent_progress())
-
-      assert_called(Dispatch.broadcast(percent_progress()))
-    end
-
     test "schedule compile is proxied", %{project: project} do
       patch(Build, :schedule_compile, :ok)
       assert :ok = Proxy.schedule_compile(true)
@@ -148,13 +141,6 @@ defmodule Engine.Api.ProxyTest do
 
     test "start_buffering can't be called twice" do
       assert {:error, {:already_buffering, _}} = Proxy.start_buffering()
-    end
-
-    test "proxies broadcasts of progress messages" do
-      patch(Dispatch, :broadcast, :ok)
-      assert :ok = Proxy.broadcast(percent_progress())
-
-      assert_called(Dispatch.broadcast(percent_progress()))
     end
 
     test "buffers broadcasts" do

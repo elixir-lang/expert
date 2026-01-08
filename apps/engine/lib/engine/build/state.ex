@@ -11,8 +11,6 @@ defmodule Engine.Build.State do
 
   import Messages
 
-  use Engine.Progress
-
   defstruct project: nil,
             build_number: 0,
             uri_to_document: %{},
@@ -205,10 +203,6 @@ defmodule Engine.Build.State do
     else
       opts
     end
-  end
-
-  def building_label(%Project{} = project) do
-    "Building #{Project.display_name(project)}"
   end
 
   defp to_ms(microseconds) do

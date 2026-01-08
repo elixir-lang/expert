@@ -57,7 +57,7 @@ just deps expert
 just burrito-local
 ```
 
-> ![NOTE]
+> [!NOTE]
 > If you want to skip burrito and build Expert only for your own system, you can
 > build a "plain" release instead by running:
 >
@@ -164,15 +164,32 @@ for Eglot:
 
 ### Visual Studio Code
 
-Click on the extensions button on the sidebar, then search for
-`lexical`, then click `install`.
+> [!NOTE]
+> Support for VS Code is a work in progress.
 
-This is a stop gap until we create a dedicated Expert extension, so you'll need to configure it to
-use the Expert executable instead. 
+Clone and build the [Expert VS Code extension](https://github.com/expert-lsp/vscode-expert).
+Once you have the `.vsix` file, you can install it by using the `Extensions: Install from VSIX...` command in the command palette.
 
-To change to a local executable, go to `Settings -> Extensions -> Lexical` and
+
+To change to a local executable, go to `Settings -> Extensions -> Expert` and
 type `/my/home/projects/expert/apps/expert/burrito_out/expert_linux_amd64` into the text box in
 the `Server: Release path override` section.
+
+To run in TCP mode, you can add `--port PORT` in the `Server: Startup Flags Override` section.
+
+
+> [!TIP]
+> If you are using the Lexical extension for VS Code, you will need to wrap the
+> expert executable with a script that passes the `--stdio` flag, as Lexical
+> does not currently support passing additional arguments to language servers.
+>
+> For example, create a file called `expert_wrapper.sh` with the following content:
+> ```bash
+> #!/bin/bash
+> ~/.local/bin/expert_linux_amd64 --stdio
+> ```
+> Make the script executable with `chmod +x expert_wrapper.sh`, and then
+> set the `Server: Release path override` to the path of the script.
 
 ### Neovim
 
@@ -250,7 +267,8 @@ For more config, debugging help, or getting vim-lsp to work with ALE, see
 
 ### Helix
 
-*Note: This configuration is applicable for Helix version 23.09 and above.*
+> [!NOTE]
+> This co!nfiguration is applicable for Helix version 23.09 and above.*
 
 Add the language server to your `~/.config/helix/languages.toml` config.
 In the case that the file doesn't exist yet, you can create a new file at this location.

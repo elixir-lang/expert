@@ -1,66 +1,32 @@
 defmodule Engine.Progress do
-  import Forge.EngineApi.Messages
+  @moduledoc """
+  LSP progress reporting for engine operations.
+  """
 
-  @type label :: String.t()
-  @type message :: String.t()
+  use Forge.Progress
 
-  @type delta :: pos_integer()
-  @type on_complete_callback :: (-> any())
-  @type report_progress_callback :: (delta(), message() -> any())
+  alias Engine.Dispatch
 
-  defmacro __using__(_) do
-    quote do
-      import unquote(__MODULE__), only: [with_progress: 2]
-    end
+  @impl true
+  def begin(title, opts \\ []) when is_list(opts) do
+    Dispatch.erpc_call(Expert.Progress, :begin, [title, opts])
   end
 
-  @spec with_progress(label(), (-> any())) :: any()
-  def with_progress(label, func) when is_function(func, 0) do
-    on_complete = begin_progress(label)
+  @impl true
+  def report(@noop_token, _opts), do: :ok
 
-    try do
-      func.()
-    after
-      on_complete.()
-    end
+  def report(token, [_ | _] = opts) when is_token(token) do
+    Dispatch.erpc_cast(Expert.Progress, :report, [token, opts])
+    :ok
   end
 
-  @spec with_percent_progress(label(), pos_integer(), (report_progress_callback() -> any())) ::
-          any()
-  def with_percent_progress(label, max, func) when is_function(func, 1) do
-    {report_progress, on_complete} = begin_percent(label, max)
+  @impl true
+  def complete(token, opts \\ [])
 
-    try do
-      func.(report_progress)
-    after
-      on_complete.()
-    end
-  end
+  def complete(@noop_token, _opts), do: :ok
 
-  @spec begin_progress(label :: label()) :: on_complete_callback()
-  def begin_progress(label) do
-    Engine.broadcast(project_progress(label: label, stage: :begin))
-
-    fn ->
-      Engine.broadcast(project_progress(label: label, stage: :complete))
-    end
-  end
-
-  @spec begin_percent(label(), pos_integer()) ::
-          {report_progress_callback(), on_complete_callback()}
-  def begin_percent(label, max) do
-    Engine.broadcast(percent_progress(label: label, max: max, stage: :begin))
-
-    report_progress = fn delta, message ->
-      Engine.broadcast(
-        percent_progress(label: label, message: message, delta: delta, stage: :report)
-      )
-    end
-
-    complete = fn ->
-      Engine.broadcast(percent_progress(label: label, stage: :complete))
-    end
-
-    {report_progress, complete}
+  def complete(token, opts) when is_token(token) and is_list(opts) do
+    Dispatch.erpc_cast(Expert.Progress, :complete, [token, opts])
+    :ok
   end
 end
