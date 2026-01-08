@@ -25,10 +25,7 @@ defmodule Expert do
 
   @dialyzer {:nowarn_function, apply_to_state: 2}
 
-  @external_resource "../../version.txt"
-  @version "../../version.txt" |> File.read!() |> String.trim()
-
-  def vsn, do: @version
+  def vsn, do: :expert |> Application.spec(:vsn) |> to_string()
 
   def get_lsp, do: :persistent_term.get(:expert_lsp, nil)
 
