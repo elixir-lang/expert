@@ -28,7 +28,27 @@ defmodule ExpertTest do
       |> Document.Path.to_uri()
       |> Project.new()
 
-    [project_root: project_root, main_project: main_project, secondary_project: secondary_project]
+    nested_root_path = fixtures_path() |> Path.join("nested_projects")
+
+    nested_root_project =
+      nested_root_path
+      |> Document.Path.to_uri()
+      |> Project.new()
+
+    nested_subproject =
+      nested_root_path
+      |> Path.join("subproject")
+      |> Document.Path.to_uri()
+      |> Project.new()
+
+    [
+      project_root: project_root,
+      main_project: main_project,
+      secondary_project: secondary_project,
+      nested_root_path: nested_root_path,
+      nested_root_project: nested_root_project,
+      nested_subproject: nested_subproject
+    ]
   end
 
   setup do
@@ -310,6 +330,203 @@ defmodule ExpertTest do
         assert project.root_uri in [main_project.root_uri, secondary_project.root_uri]
         assert_project_alive?(project)
       end
+    end
+  end
+
+  describe "opening files in nested projects" do
+    test "starts the subproject node when opening a file in a nested subproject", %{
+      client: client,
+      nested_root_path: nested_root_path,
+      nested_root_project: nested_root_project,
+      nested_subproject: nested_subproject
+    } do
+      assert :ok =
+               request(
+                 client,
+                 initialize_request(nested_root_path, id: 1, projects: [])
+               )
+
+      assert_result(1, _)
+
+      file_uri = Path.join([nested_subproject.root_uri, "lib", "subproject.ex"])
+
+      assert :ok =
+               notify(
+                 client,
+                 %{
+                   method: "textDocument/didOpen",
+                   jsonrpc: "2.0",
+                   params: %{
+                     textDocument: %{
+                       uri: file_uri,
+                       languageId: "elixir",
+                       version: 1,
+                       text: ""
+                     }
+                   }
+                 }
+               )
+
+      expected_message = "Started project node for #{Project.name(nested_subproject)}"
+
+      assert_notification(
+        "window/logMessage",
+        %{"message" => ^expected_message}
+      )
+
+      assert [project] = Expert.ActiveProjects.projects()
+      assert project.root_uri == nested_subproject.root_uri
+      refute project.root_uri == nested_root_project.root_uri
+
+      assert_project_alive?(nested_subproject)
+    end
+
+    test "starts the root project node when opening a file outside nested subprojects", %{
+      client: client,
+      nested_root_path: nested_root_path,
+      nested_root_project: nested_root_project
+    } do
+      assert :ok =
+               request(
+                 client,
+                 initialize_request(nested_root_path, id: 1, projects: [])
+               )
+
+      assert_result(1, _)
+
+      file_uri = Path.join([nested_root_project.root_uri, "lib", "nested_projects.ex"])
+
+      assert :ok =
+               notify(
+                 client,
+                 %{
+                   method: "textDocument/didOpen",
+                   jsonrpc: "2.0",
+                   params: %{
+                     textDocument: %{
+                       uri: file_uri,
+                       languageId: "elixir",
+                       version: 1,
+                       text: ""
+                     }
+                   }
+                 }
+               )
+
+      expected_message = "Started project node for #{Project.name(nested_root_project)}"
+
+      assert_notification(
+        "window/logMessage",
+        %{"message" => ^expected_message}
+      )
+
+      assert [project] = Expert.ActiveProjects.projects()
+      assert project.root_uri == nested_root_project.root_uri
+
+      assert_project_alive?(nested_root_project)
+    end
+
+    test "uses the subproject when both root and subproject are active", %{
+      client: client,
+      nested_root_path: nested_root_path,
+      nested_root_project: nested_root_project,
+      nested_subproject: nested_subproject
+    } do
+      assert :ok =
+               request(
+                 client,
+                 initialize_request(nested_root_path,
+                   id: 1,
+                   projects: [nested_root_project, nested_subproject]
+                 )
+               )
+
+      assert_result(1, _)
+
+      assert length(Expert.ActiveProjects.projects()) == 2
+
+      file_uri = Path.join([nested_subproject.root_uri, "lib", "subproject.ex"])
+
+      assert :ok =
+               notify(
+                 client,
+                 %{
+                   method: "textDocument/didOpen",
+                   jsonrpc: "2.0",
+                   params: %{
+                     textDocument: %{
+                       uri: file_uri,
+                       languageId: "elixir",
+                       version: 1,
+                       text: ""
+                     }
+                   }
+                 }
+               )
+
+      assert length(Expert.ActiveProjects.projects()) == 2
+    end
+
+    test "starts subproject when root is already active and file in subproject is opened", %{
+      client: client,
+      nested_root_path: nested_root_path,
+      nested_root_project: nested_root_project,
+      nested_subproject: nested_subproject
+    } do
+      assert :ok =
+               request(
+                 client,
+                 initialize_request(nested_root_path,
+                   id: 1,
+                   projects: [nested_root_project]
+                 )
+               )
+
+      assert_result(1, _)
+
+      expected_message = "Started project node for #{Project.name(nested_root_project)}"
+
+      assert_notification(
+        "window/logMessage",
+        %{"message" => ^expected_message}
+      )
+
+      assert [project] = Expert.ActiveProjects.projects()
+      assert project.root_uri == nested_root_project.root_uri
+
+      file_uri = Path.join([nested_subproject.root_uri, "lib", "subproject.ex"])
+
+      assert :ok =
+               notify(
+                 client,
+                 %{
+                   method: "textDocument/didOpen",
+                   jsonrpc: "2.0",
+                   params: %{
+                     textDocument: %{
+                       uri: file_uri,
+                       languageId: "elixir",
+                       version: 1,
+                       text: ""
+                     }
+                   }
+                 }
+               )
+
+      expected_message = "Started project node for #{Project.name(nested_subproject)}"
+
+      assert_notification(
+        "window/logMessage",
+        %{"message" => ^expected_message}
+      )
+
+      assert length(Expert.ActiveProjects.projects()) == 2
+
+      project_uris = Enum.map(Expert.ActiveProjects.projects(), & &1.root_uri)
+      assert nested_root_project.root_uri in project_uris
+      assert nested_subproject.root_uri in project_uris
+
+      assert_project_alive?(nested_subproject)
     end
   end
 end

@@ -35,6 +35,14 @@ defmodule Expert.ActiveProjects do
     |> Enum.map(fn {_, project} -> project end)
   end
 
+  @spec find_by_root_uri(Forge.uri()) :: Project.t() | nil
+  def find_by_root_uri(root_uri) do
+    case :ets.lookup(__MODULE__, root_uri) do
+      [{_, project}] -> project
+      [] -> nil
+    end
+  end
+
   def add_projects(new_projects) when is_list(new_projects) do
     for new_project <- new_projects do
       # We use `:ets.insert_new/2` to avoid overwriting the cached project's entropy

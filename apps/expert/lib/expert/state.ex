@@ -169,8 +169,8 @@ defmodule Expert.State do
     } = did_open.params.text_document
 
     project =
-      with nil <- Enum.find(ActiveProjects.projects(), &Project.within_project?(&1, uri)) do
-        Project.find_project(uri)
+      with %Project{} = closest <- Project.find_project(uri) do
+        ActiveProjects.find_by_root_uri(closest.root_uri) || closest
       end
 
     if project do

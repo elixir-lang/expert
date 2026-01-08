@@ -362,23 +362,27 @@ defmodule Forge.Project do
   end
 
   @doc """
-  Finds the project that contains the given path.
+  Finds the closest project that contains the given URI.
   """
   def project_for_uri(projects, uri) do
     path = Document.Path.from_uri(uri)
-
-    Enum.find(projects, fn project ->
-      Forge.Path.parent_path?(path, root_path(project))
-    end)
+    closest_project_for_path(projects, path)
   end
 
   @doc """
-  Finds the project that contains the given document.
+  Finds the closest project that contains the given document.
   """
   def project_for_document(projects, %Document{} = document) do
-    Enum.find(projects, fn project ->
-      Forge.Path.parent_path?(document.path, root_path(project))
+    closest_project_for_path(projects, document.path)
+  end
+
+  # Finds the most specific project containing the path (longest root path wins).
+  defp closest_project_for_path(projects, path) do
+    projects
+    |> Enum.filter(fn project ->
+      Forge.Path.parent_path?(path, root_path(project))
     end)
+    |> Enum.max_by(fn project -> byte_size(root_path(project)) end, fn -> nil end)
   end
 
   @doc """
