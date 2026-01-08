@@ -82,7 +82,10 @@ defmodule Forge.EPMD do
   end
 
   def port_please(~c"expert-project-" ++ _ = name, host, timeout) do
-    if port = Forge.NodePortMapper.get_port(List.to_atom(name)) do
+    host_string = format_host(host)
+    full_node = :"#{name}@#{host_string}"
+
+    if port = Forge.NodePortMapper.get_port(full_node) do
       {:port, port, @epmd_dist_version}
     else
       :erl_epmd.port_please(name, host, timeout)
@@ -92,6 +95,9 @@ defmodule Forge.EPMD do
   def port_please(name, host, timeout) do
     :erl_epmd.port_please(name, host, timeout)
   end
+
+  defp format_host({a, b, c, d}), do: "#{a}.#{b}.#{c}.#{d}"
+  defp format_host(host) when is_list(host), do: List.to_string(host)
 
   defdelegate start_link, to: :erl_epmd
   defdelegate listen_port_please(name, host), to: :erl_epmd
