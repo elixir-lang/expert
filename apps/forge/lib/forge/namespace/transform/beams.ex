@@ -6,7 +6,7 @@ defmodule Forge.Namespace.Transform.Beams do
   alias Forge.Namespace.Abstract
   alias Forge.Namespace.Code
 
-  def apply_to_all(base_directory) do
+  def apply_to_all(base_directory, opts) do
     Mix.Shell.IO.info("Rewriting .beam files")
     consolidated_beams = find_consolidated_beams(base_directory)
     app_beams = find_app_beams(base_directory)
@@ -29,7 +29,7 @@ defmodule Forge.Namespace.Transform.Beams do
       |> Stream.run()
     end)
 
-    block_until_done(0, total_files)
+    block_until_done(0, total_files, opts)
   end
 
   def apply(path) do
@@ -46,40 +46,29 @@ defmodule Forge.Namespace.Transform.Beams do
   defp changed?(same, same), do: false
   defp changed?(_, _), do: true
 
-  defp block_until_done(same, same, last_write_time \\ nil)
+  defp block_until_done(same, same, opts) do
+    if !opts[:no_progress] do
+      IO.write("\n")
+    end
 
-  defp block_until_done(same, same, _last_write_time), do: Mix.Shell.IO.info("\n done")
+    Mix.Shell.IO.info("Finished namespacing .beam files")
+  end
 
-  defp block_until_done(current, max, last_write_time) do
+  defp block_until_done(current, max, opts) do
     receive do
       :progress -> :ok
     end
 
     current = current + 1
 
-    last_write_time = log_completion_debounced(current, max, last_write_time)
-
-    block_until_done(current, max, last_write_time)
-  end
-
-  defp log_completion_debounced(current, max, last_write_time) when is_integer(last_write_time) do
-    now = :erlang.monotonic_time(:millisecond)
-
-    if now - last_write_time >= 66 do
+    if !opts[:no_progress] do
       IO.write("\r")
-      IO.write("Applying namespace: #{format_percent(current, max)} complete")
+      percent_complete = format_percent(current, max)
 
-      now
-    else
-      last_write_time
+      IO.write(" Applying namespace: #{percent_complete} complete")
     end
-  end
 
-  defp log_completion_debounced(current, max, _last_write_time) do
-    IO.write("\r")
-    IO.write("Applying namespace: #{format_percent(current, max)} complete")
-
-    :erlang.monotonic_time(:millisecond)
+    block_until_done(current, max, opts)
   end
 
   defp apply_and_update_progress(beam_file, caller) do

@@ -3,6 +3,7 @@ defmodule Forge.Namespace.Transform.Configs do
     base_directory
     |> Path.join("**/runtime.exs")
     |> Path.wildcard()
+    |> Enum.filter(&File.regular?/1)
     |> Enum.map(&Path.absname/1)
     |> tap(fn paths ->
       Mix.Shell.IO.info("Rewriting #{length(paths)} config scripts.")
