@@ -1,5 +1,5 @@
 defmodule Navigations.MyLiveView do
-  use Phoenix.Component
+  use Component
   import MyComponents
 
   def render(assigns) do

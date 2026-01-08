@@ -4,7 +4,7 @@ defmodule MyComponents do
   This module provides components that can be used with shorthand notation.
   """
 
-  use Phoenix.Component
+  use Component
 
   @doc """
   A simple button component.
