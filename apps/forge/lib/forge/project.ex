@@ -354,6 +354,13 @@ defmodule Forge.Project do
     |> Path.basename()
   end
 
+  def elixir_project?(%__MODULE__{} = project) do
+    ex_files = project |> root_path() |> Path.join("*.ex") |> Path.wildcard()
+    exs_files = project |> root_path() |> Path.join("*.exs") |> Path.wildcard()
+
+    ex_files != [] or exs_files != []
+  end
+
   @doc """
   Finds the project that contains the given path.
   """

@@ -66,7 +66,7 @@ defmodule Expert do
             project = Project.new(uri),
             # Only include Mix projects, or include single-folder workspaces with
             # bare elixir files.
-            project.mix_project? || length(workspace_folders) == 1 do
+            project.mix_project? || Project.elixir_project?(project) do
           project
         end
 
