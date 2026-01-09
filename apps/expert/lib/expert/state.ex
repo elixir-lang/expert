@@ -16,8 +16,7 @@ defmodule Expert.State do
 
   import Forge.EngineApi.Messages
 
-  defstruct configuration: nil,
-            initialized?: false,
+  defstruct initialized?: false,
             shutdown_received?: false,
             in_flight_requests: %{}
 
@@ -54,8 +53,11 @@ defmodule Expert.State do
     |> Forge.Workspace.new()
     |> Forge.Workspace.set_workspace()
 
-    config = Configuration.new(event.capabilities, client_name)
-    new_state = %__MODULE__{state | configuration: config, initialized?: true}
+    event.capabilities
+    |> Configuration.new(client_name)
+    |> Configuration.set()
+
+    new_state = %__MODULE__{state | initialized?: true}
 
     response = initialize_result()
 
@@ -83,13 +85,13 @@ defmodule Expert.State do
   end
 
   def apply(%__MODULE__{} = state, %Notifications.WorkspaceDidChangeConfiguration{} = event) do
-    case Configuration.on_change(state.configuration, event) do
-      {:ok, config} ->
-        {:ok, %__MODULE__{state | configuration: config}}
+    case Configuration.on_change(event) do
+      {:ok, _config} ->
+        {:ok, state}
 
-      {:ok, config, request} ->
+      {:ok, _config, request} ->
         GenLSP.request(Expert.get_lsp(), request)
-        {:ok, %__MODULE__{state | configuration: config}}
+        {:ok, state}
     end
   end
 

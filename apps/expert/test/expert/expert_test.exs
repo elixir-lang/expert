@@ -52,6 +52,9 @@ defmodule ExpertTest do
   end
 
   setup do
+    # Clear any leftover configuration from previous tests
+    :persistent_term.erase(Expert.Configuration)
+
     # NOTE(doorgan): repeatedly starting and stopping nodes in tests produces some
     # erratic behavior where sometimes some tests won't run. This somewhat mitigates
     # that.

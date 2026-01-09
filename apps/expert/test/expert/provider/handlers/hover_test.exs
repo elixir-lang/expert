@@ -26,10 +26,17 @@ defmodule Expert.Provider.Handlers.HoverTest do
     start_supervised!({Expert.Project.Supervisor, project})
     start_supervised!({Expert.ActiveProjects, []})
 
+    Expert.Configuration.new() |> Expert.Configuration.set()
+
     :ok = EngineApi.register_listener(project, self(), [Messages.project_compiled()])
     assert_receive Messages.project_compiled(), 5000
 
     {:ok, project: project}
+  end
+
+  setup do
+    :persistent_term.erase(Expert.Configuration)
+    :ok
   end
 
   # compiles and writes beam files in the given project

@@ -21,6 +21,8 @@ defmodule Expert.Provider.Handlers.GoToDefinitionTest do
     start_supervised!({Expert.Project.Supervisor, project})
     start_supervised!({Expert.ActiveProjects, []})
 
+    Expert.Configuration.new() |> Expert.Configuration.set()
+
     EngineApi.register_listener(project, self(), [
       project_compiled(),
       project_index_ready()
@@ -31,6 +33,11 @@ defmodule Expert.Provider.Handlers.GoToDefinitionTest do
     assert_receive project_index_ready(), 5000
 
     {:ok, project: project}
+  end
+
+  setup do
+    :persistent_term.erase(Expert.Configuration)
+    :ok
   end
 
   defp with_referenced_file(%{project: project}) do

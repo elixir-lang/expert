@@ -31,7 +31,6 @@ defmodule Expert.Configuration do
     support = Support.new(client_capabilities)
 
     %__MODULE__{support: support, client_name: client_name}
-    |> tap(&set/1)
   end
 
   @spec new(keyword()) :: t
@@ -39,13 +38,15 @@ defmodule Expert.Configuration do
     struct!(__MODULE__, [support: Support.new()] ++ attrs)
   end
 
-  defp set(%__MODULE__{} = config) do
+  @spec set(t) :: t
+  def set(%__MODULE__{} = config) do
     :persistent_term.put(__MODULE__, config)
+    config
   end
 
   @spec get() :: t
   def get do
-    :persistent_term.get(__MODULE__, false) || new()
+    :persistent_term.get(__MODULE__, nil) || struct!(__MODULE__, support: Support.new())
   end
 
   @spec client_support(atom()) :: term()
@@ -60,36 +61,29 @@ defmodule Expert.Configuration do
     end
   end
 
-  @spec default(t | nil) ::
+  @spec default() :: {:ok, t} | {:ok, t, Requests.ClientRegisterCapability.t()}
+  def default do
+    apply_config_change(get(), %{})
+  end
+
+  @spec on_change(WorkspaceDidChangeConfiguration.t() | :defaults) ::
           {:ok, t}
           | {:ok, t, Requests.ClientRegisterCapability.t()}
-  def default(nil) do
-    {:ok, default_config()}
+  def on_change(:defaults) do
+    apply_config_change(get(), %{})
   end
 
-  def default(%__MODULE__{} = config) do
-    apply_config_change(config, default_config())
-  end
-
-  @spec on_change(t, WorkspaceDidChangeConfiguration.t()) ::
-          {:ok, t}
-          | {:ok, t, Requests.ClientRegisterCapability.t()}
-  def on_change(%__MODULE__{} = old_config, :defaults) do
-    apply_config_change(old_config, default_config())
-  end
-
-  def on_change(%__MODULE__{} = old_config, %WorkspaceDidChangeConfiguration{} = change) do
-    apply_config_change(old_config, change.params.settings)
-  end
-
-  defp default_config do
-    %{}
+  def on_change(%WorkspaceDidChangeConfiguration{} = change) do
+    apply_config_change(get(), change.params.settings)
   end
 
   defp apply_config_change(%__MODULE__{} = old_config, %{} = settings) do
-    old_config
-    |> set_dialyzer_enabled(settings)
-    |> maybe_add_watched_extensions(settings)
+    new_config =
+      old_config
+      |> set_dialyzer_enabled(settings)
+      |> set()
+
+    maybe_watched_extensions_request(new_config, settings)
   end
 
   defp set_dialyzer_enabled(%__MODULE__{} = old_config, settings) do
@@ -103,15 +97,15 @@ defmodule Expert.Configuration do
     %__MODULE__{old_config | dialyzer_enabled?: enabled?}
   end
 
-  defp maybe_add_watched_extensions(
-         %__MODULE__{} = old_config,
+  defp maybe_watched_extensions_request(
+         %__MODULE__{} = config,
          %{"additionalWatchedExtensions" => []}
        ) do
-    {:ok, old_config}
+    {:ok, config}
   end
 
-  defp maybe_add_watched_extensions(
-         %__MODULE__{} = old_config,
+  defp maybe_watched_extensions_request(
+         %__MODULE__{} = config,
          %{"additionalWatchedExtensions" => extensions}
        )
        when is_list(extensions) do
@@ -132,10 +126,10 @@ defmodule Expert.Configuration do
       params: %Structures.RegistrationParams{registrations: [registration]}
     }
 
-    {:ok, old_config, request}
+    {:ok, config, request}
   end
 
-  defp maybe_add_watched_extensions(%__MODULE__{} = old_config, _) do
-    {:ok, old_config}
+  defp maybe_watched_extensions_request(%__MODULE__{} = config, _settings) do
+    {:ok, config}
   end
 end

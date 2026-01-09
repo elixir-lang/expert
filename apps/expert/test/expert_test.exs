@@ -2,10 +2,15 @@ defmodule Expert.ExpertTest do
   alias Expert.State
   alias Forge.Test.Fixtures
 
-  use ExUnit.Case, async: true
+  use ExUnit.Case, async: false
   use Patch
 
   import Expert.Test.Protocol.TransportSupport
+
+  setup do
+    :persistent_term.erase(Expert.Configuration)
+    :ok
+  end
 
   describe "workspace/didChangeConfiguration" do
     test "updates configuration when settings change" do
@@ -27,9 +32,9 @@ defmodule Expert.ExpertTest do
         }
       }
 
-      assert {:noreply, updated_lsp} = Expert.handle_notification(did_change_config, lsp)
+      assert {:noreply, _updated_lsp} = Expert.handle_notification(did_change_config, lsp)
 
-      assert GenLSP.Assigns.get(updated_lsp.assigns).state.configuration.dialyzer_enabled? == true
+      assert Configuration.get().dialyzer_enabled? == true
     end
   end
 
