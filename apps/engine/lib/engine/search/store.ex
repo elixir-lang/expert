@@ -77,6 +77,11 @@ defmodule Engine.Search.Store do
     call_or_default({:fuzzy, subject, constraints}, [])
   end
 
+  @spec all(Entry.constraints()) :: {:ok, [Entry.t()]} | {:error, term()}
+  def all(constraints \\ []) do
+    call_or_default({:all, constraints}, [])
+  end
+
   def clear(path) do
     GenServer.call(__MODULE__, {:update, path, []})
   end
@@ -199,6 +204,10 @@ defmodule Engine.Search.Store do
 
   def handle_call({:fuzzy, subject, constraints}, _from, {ref, %State{} = state}) do
     {:reply, State.fuzzy(state, subject, constraints), {ref, state}}
+  end
+
+  def handle_call({:all, constraints}, _from, {ref, %State{} = state}) do
+    {:reply, State.all(state, constraints), {ref, state}}
   end
 
   def handle_call({:update, path, entries}, _from, {ref, %State{} = state}) do

@@ -19,13 +19,14 @@ defmodule Expert.ConfigurationTest do
     test "creates configuration with default values" do
       config = Configuration.new()
 
+      assert config.workspace_symbols.min_query_length == 2
       assert config.dialyzer_enabled? == false
     end
 
     test "accepts keyword list of attributes" do
-      config = Configuration.new(dialyzer_enabled?: true)
+      config = Configuration.new(workspace_symbols: %WorkspaceSymbols{min_query_length: 0})
 
-      assert config.dialyzer_enabled? == true
+      assert config.workspace_symbols.min_query_length == 0
     end
 
     test "set/1 stores configuration in persistent_term" do

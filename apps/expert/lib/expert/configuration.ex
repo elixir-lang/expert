@@ -4,6 +4,7 @@ defmodule Expert.Configuration do
   """
 
   alias Expert.Configuration.Support
+  alias Expert.Configuration.WorkspaceSymbols
   alias Expert.Dialyzer
   alias Expert.Protocol.Id
   alias GenLSP.Notifications.WorkspaceDidChangeConfiguration
@@ -13,13 +14,15 @@ defmodule Expert.Configuration do
   defstruct support: nil,
             client_name: nil,
             additional_watched_extensions: nil,
-            dialyzer_enabled?: false
+            dialyzer_enabled?: false,
+            workspace_symbols: %WorkspaceSymbols{}
 
   @type t :: %__MODULE__{
           support: support | nil,
           client_name: String.t() | nil,
           additional_watched_extensions: [String.t()] | nil,
-          dialyzer_enabled?: boolean()
+          dialyzer_enabled?: boolean(),
+          workspace_symbols: WorkspaceSymbols.t()
         }
 
   @opaque support :: Support.t()
@@ -81,6 +84,7 @@ defmodule Expert.Configuration do
     new_config =
       old_config
       |> set_dialyzer_enabled(settings)
+      |> set_workspace_symbols(settings)
       |> set()
 
     maybe_watched_extensions_request(new_config, settings)
@@ -95,6 +99,10 @@ defmodule Expert.Configuration do
       end
 
     %__MODULE__{old_config | dialyzer_enabled?: enabled?}
+  end
+
+  defp set_workspace_symbols(%__MODULE__{} = config, settings) do
+    %__MODULE__{config | workspace_symbols: WorkspaceSymbols.new(settings)}
   end
 
   defp maybe_watched_extensions_request(

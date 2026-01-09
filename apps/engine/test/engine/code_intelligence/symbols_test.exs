@@ -30,7 +30,7 @@ defmodule Engine.CodeIntelligence.SymbolsTest do
       ])
 
     entries = Enum.reject(entries, &(&1.type == :metadata))
-    patch(Engine.Search.Store, :fuzzy, {:ok, entries})
+    patch(Engine.Search.Store, :all, {:ok, entries})
     symbols = Symbols.for_workspace("")
     {symbols, doc}
   end

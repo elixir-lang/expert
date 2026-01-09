@@ -30,6 +30,16 @@ defmodule Engine.CodeIntelligence.Symbols do
     to_symbols(document, definitions)
   end
 
+  def for_workspace("") do
+    case Search.Store.all(subtype: :definition) do
+      {:ok, entries} ->
+        Enum.map(entries, &Symbols.Workspace.from_entry/1)
+
+      _ ->
+        []
+    end
+  end
+
   def for_workspace(query) do
     case Search.Store.fuzzy(query, []) do
       {:ok, entries} ->

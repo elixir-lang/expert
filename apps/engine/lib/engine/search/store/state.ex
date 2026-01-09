@@ -122,6 +122,30 @@ defmodule Engine.Search.Store.State do
     end
   end
 
+  def all(%__MODULE__{} = state, constraints) do
+    type = Keyword.get(constraints, :type, :_)
+    subtype = Keyword.get(constraints, :subtype, :_)
+
+    entries =
+      state.backend.reduce([], fn
+        %Entry{} = entry, acc ->
+          if matches_constraints?(entry, type, subtype) do
+            [entry | acc]
+          else
+            acc
+          end
+
+        _, acc ->
+          acc
+      end)
+
+    {:ok, entries}
+  end
+
+  defp matches_constraints?(%Entry{type: t, subtype: st}, type, subtype) do
+    (type == :_ or t == type) and (subtype == :_ or st == subtype)
+  end
+
   def siblings(%__MODULE__{} = state, entry) do
     case state.backend.siblings(entry) do
       l when is_list(l) -> {:ok, l}
