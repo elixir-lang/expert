@@ -733,8 +733,7 @@ defmodule Expert.Provider.Handlers.HoverTest do
     with {position, hovered} <- pop_cursor(hovered),
          {:ok, document} <- document_with_content(project, hovered),
          {:ok, request} <- hover_request(document.uri, position) do
-      config = Expert.Configuration.new()
-      Handlers.Hover.handle(request, config)
+      Handlers.Hover.handle(request)
     end
   end
 

@@ -63,8 +63,7 @@ defmodule Expert.Provider.Handlers.GoToDefinitionTest do
 
   def handle(request, project) do
     Expert.ActiveProjects.add_projects([project])
-    config = Expert.Configuration.new()
-    Handlers.GoToDefinition.handle(request, config)
+    Handlers.GoToDefinition.handle(request)
   end
 
   describe "go to definition" do

@@ -1,6 +1,7 @@
 defmodule Expert.Provider.Handlers.Commands do
+  @behaviour Expert.Provider.Handler
+
   alias Expert.ActiveProjects
-  alias Expert.Configuration
   alias Expert.EngineApi
   alias Forge.Project
   alias GenLSP.Enumerations.ErrorCodes
@@ -24,10 +25,10 @@ defmodule Expert.Provider.Handlers.Commands do
     }
   end
 
-  def handle(
-        %Requests.WorkspaceExecuteCommand{params: %Structures.ExecuteCommandParams{} = params},
-        %Configuration{}
-      ) do
+  @impl Expert.Provider.Handler
+  def handle(%Requests.WorkspaceExecuteCommand{
+        params: %Structures.ExecuteCommandParams{} = params
+      }) do
     projects = ActiveProjects.projects()
 
     response =
@@ -42,7 +43,7 @@ defmodule Expert.Provider.Handlers.Commands do
           internal_error(message)
       end
 
-    {:reply, response}
+    {:ok, response}
   end
 
   defp reindex_all(projects) do

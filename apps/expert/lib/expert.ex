@@ -113,12 +113,10 @@ defmodule Expert do
   end
 
   def handle_request(request, lsp) do
-    state = assigns(lsp).state
-
     with {:ok, handler} <- fetch_handler(request),
          {:ok, request} <- Convert.to_native(request),
          :ok <- check_engine_initialized(request),
-         {:ok, response} <- handler.handle(request, state.configuration),
+         {:ok, response} <- handler.handle(request),
          {:ok, response} <- Expert.Protocol.Convert.to_lsp(response) do
       {:reply, response, lsp}
     else
@@ -203,9 +201,11 @@ defmodule Expert do
   end
 
   def handle_notification(%mod{} = notification, lsp) when mod in @server_specific_messages do
+    old_state = assigns(lsp).state
+
     with {:ok, notification} <- Convert.to_native(notification),
-         {:ok, state} <- apply_to_state(assigns(lsp).state, notification) do
-      {:noreply, assign(lsp, state: state)}
+         {:ok, new_state} <- apply_to_state(old_state, notification) do
+      {:noreply, assign(lsp, state: new_state)}
     else
       error ->
         message = "Failed to handle #{notification.method}, #{inspect(error)}"
@@ -216,11 +216,9 @@ defmodule Expert do
   end
 
   def handle_notification(notification, lsp) do
-    state = assigns(lsp).state
-
     with {:ok, handler} <- fetch_handler(notification),
          {:ok, notification} <- Convert.to_native(notification),
-         {:ok, _response} <- handler.handle(notification, state.configuration) do
+         {:ok, _response} <- handler.handle(notification) do
       {:noreply, lsp}
     else
       {:error, {:unhandled, _}} ->
@@ -277,10 +275,17 @@ defmodule Expert do
 
   defp apply_to_state(%State{} = state, %{} = request_or_notification) do
     case State.apply(state, request_or_notification) do
-      {:ok, response, new_state} -> {:ok, response, new_state}
-      {:ok, state} -> {:ok, state}
-      :ok -> {:ok, state}
-      error -> {error, state}
+      {:ok, response, new_state} ->
+        {:ok, response, new_state}
+
+      {:ok, new_state} ->
+        {:ok, new_state}
+
+      :ok ->
+        {:ok, state}
+
+      error ->
+        {error, state}
     end
   end
 

@@ -1,4 +1,5 @@
 defmodule Expert.ExpertTest do
+  alias Expert.Configuration
   alias Expert.State
   alias Forge.Test.Fixtures
 
@@ -22,7 +23,7 @@ defmodule Expert.ExpertTest do
       lsp = initialize_lsp(project)
 
       # dialyzer_enabled? defaults to false
-      assert GenLSP.Assigns.get(lsp.assigns).state.configuration.dialyzer_enabled? == false
+      assert Configuration.get().dialyzer_enabled? == false
 
       did_change_config = %GenLSP.Notifications.WorkspaceDidChangeConfiguration{
         jsonrpc: "2.0",

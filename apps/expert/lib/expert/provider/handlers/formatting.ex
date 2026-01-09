@@ -1,6 +1,7 @@
 defmodule Expert.Provider.Handlers.Formatting do
+  @behaviour Expert.Provider.Handler
+
   alias Expert.ActiveProjects
-  alias Expert.Configuration
   alias Expert.EngineApi
   alias Forge.Document.Changes
   alias Forge.Project
@@ -9,10 +10,10 @@ defmodule Expert.Provider.Handlers.Formatting do
 
   require Logger
 
-  def handle(
-        %Requests.TextDocumentFormatting{params: %Structures.DocumentFormattingParams{} = params},
-        %Configuration{}
-      ) do
+  @impl Expert.Provider.Handler
+  def handle(%Requests.TextDocumentFormatting{
+        params: %Structures.DocumentFormattingParams{} = params
+      }) do
     document = Forge.Document.Container.context_document(params, nil)
     projects = ActiveProjects.projects()
     project = Project.project_for_document(projects, document)

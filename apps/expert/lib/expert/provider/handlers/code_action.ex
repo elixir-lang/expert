@@ -1,16 +1,15 @@
 defmodule Expert.Provider.Handlers.CodeAction do
+  @behaviour Expert.Provider.Handler
+
   alias Expert.ActiveProjects
-  alias Expert.Configuration
   alias Expert.EngineApi
   alias Forge.CodeAction
   alias Forge.Project
   alias GenLSP.Requests
   alias GenLSP.Structures
 
-  def handle(
-        %Requests.TextDocumentCodeAction{params: %Structures.CodeActionParams{} = params},
-        %Configuration{}
-      ) do
+  @impl Expert.Provider.Handler
+  def handle(%Requests.TextDocumentCodeAction{params: %Structures.CodeActionParams{} = params}) do
     document = Forge.Document.Container.context_document(params, nil)
     projects = ActiveProjects.projects()
     project = Project.project_for_document(projects, document)

@@ -1,4 +1,6 @@
 defmodule Expert.Provider.Handlers.WorkspaceSymbol do
+  @behaviour Expert.Provider.Handler
+
   alias Expert.ActiveProjects
   alias Expert.Configuration
   alias Expert.Configuration.WorkspaceSymbols
@@ -9,9 +11,9 @@ defmodule Expert.Provider.Handlers.WorkspaceSymbol do
   alias GenLSP.Requests
   alias GenLSP.Structures
 
+  @impl Expert.Provider.Handler
   def handle(
-        %Requests.WorkspaceSymbol{params: %Structures.WorkspaceSymbolParams{} = params} = request,
-        %Configuration{}
+        %Requests.WorkspaceSymbol{params: %Structures.WorkspaceSymbolParams{} = params} = request
       ) do
     config = Configuration.get()
     projects = ActiveProjects.projects()

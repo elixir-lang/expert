@@ -71,8 +71,7 @@ defmodule Expert.Provider.Handlers.CodeActionTest do
   end
 
   def handle(request, _project) do
-    config = Expert.Configuration.new()
-    Handlers.CodeAction.handle(request, config)
+    Handlers.CodeAction.handle(request)
   end
 
   describe "handle code actions" do

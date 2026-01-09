@@ -49,8 +49,7 @@ defmodule Expert.Provider.Handlers.FindReferencesTest do
 
   def handle(request, project) do
     Expert.ActiveProjects.add_projects([project])
-    config = Expert.Configuration.new()
-    Handlers.FindReferences.handle(request, config)
+    Handlers.FindReferences.handle(request)
   end
 
   describe "find references" do

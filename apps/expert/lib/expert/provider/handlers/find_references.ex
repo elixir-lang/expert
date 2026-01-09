@@ -1,6 +1,7 @@
 defmodule Expert.Provider.Handlers.FindReferences do
+  @behaviour Expert.Provider.Handler
+
   alias Expert.ActiveProjects
-  alias Expert.Configuration
   alias Expert.EngineApi
   alias Forge.Ast
   alias Forge.Document
@@ -10,10 +11,8 @@ defmodule Expert.Provider.Handlers.FindReferences do
 
   require Logger
 
-  def handle(
-        %TextDocumentReferences{params: %Structures.ReferenceParams{} = params},
-        %Configuration{}
-      ) do
+  @impl Expert.Provider.Handler
+  def handle(%TextDocumentReferences{params: %Structures.ReferenceParams{} = params}) do
     document = Forge.Document.Container.context_document(params, nil)
     projects = ActiveProjects.projects()
     project = Project.project_for_document(projects, document)

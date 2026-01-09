@@ -67,8 +67,7 @@ defmodule Expert.Provider.Handlers.CodeLensTest do
 
   def handle(request, project) do
     Expert.ActiveProjects.add_projects([project])
-    config = Expert.Configuration.new()
-    Handlers.CodeLens.handle(request, config)
+    Handlers.CodeLens.handle(request)
   end
 
   describe "code lens for mix.exs" do

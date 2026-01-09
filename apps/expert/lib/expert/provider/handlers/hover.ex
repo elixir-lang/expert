@@ -1,6 +1,7 @@
 defmodule Expert.Provider.Handlers.Hover do
+  @behaviour Expert.Provider.Handler
+
   alias Expert.ActiveProjects
-  alias Expert.Configuration
   alias Expert.EngineApi
   alias Expert.Provider.Markdown
   alias Forge.Ast
@@ -14,12 +15,8 @@ defmodule Expert.Provider.Handlers.Hover do
 
   require Logger
 
-  def handle(
-        %Requests.TextDocumentHover{
-          params: %Structures.HoverParams{} = params
-        },
-        %Configuration{}
-      ) do
+  @impl Expert.Provider.Handler
+  def handle(%Requests.TextDocumentHover{params: %Structures.HoverParams{} = params}) do
     document = Document.Container.context_document(params, nil)
     projects = ActiveProjects.projects()
     project = Project.project_for_document(projects, document)
