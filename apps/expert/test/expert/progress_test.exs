@@ -56,12 +56,6 @@ defmodule Expert.ProgressTest do
       assert params.value.message == "Starting..."
       assert params.value.percentage == 0
     end
-
-    test "returns error when client rejects the token" do
-      patch(GenLSP, :request, fn _lsp, _request -> {:error, :rejected} end)
-
-      assert {:error, :rejected} = Progress.begin("Building")
-    end
   end
 
   describe "report/2" do

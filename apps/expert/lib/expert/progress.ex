@@ -41,15 +41,9 @@ defmodule Expert.Progress do
     token = opts[:token] || System.unique_integer([:positive])
 
     if Configuration.client_support(:work_done_progress) do
-      case request_work_done_progress(token) do
-        :ok ->
-          notify(token, progress_begin(title, opts))
-          {:ok, token}
-
-        {:error, reason} ->
-          Logger.warning("Client rejected progress token: #{inspect(reason)}")
-          {:error, :rejected}
-      end
+      request_work_done_progress(token)
+      notify(token, progress_begin(title, opts))
+      {:ok, token}
     else
       {:ok, @noop_token}
     end
@@ -106,10 +100,8 @@ defmodule Expert.Progress do
       id: Id.next(),
       params: %Structures.WorkDoneProgressCreateParams{token: token}
     })
-    |> case do
-      nil -> :ok
-      error -> {:error, error}
-    end
+
+    :ok
   end
 
   defp notify(token, value) do

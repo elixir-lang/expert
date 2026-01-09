@@ -72,6 +72,9 @@ defmodule Expert do
 
       for project <- projects do
         Task.Supervisor.start_child(:expert_task_queue, fn ->
+          # dirty sleep to allow initialize response to return before progress reports
+          Process.sleep(50)
+
           log_info(lsp, project, "Starting project")
 
           start_result = Expert.Project.Supervisor.ensure_node_started(project)
