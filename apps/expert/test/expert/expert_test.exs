@@ -110,6 +110,14 @@ defmodule ExpertTest do
     }
   end
 
+  def initialized_notification do
+    %{
+      method: "initialized",
+      jsonrpc: "2.0",
+      params: %{}
+    }
+  end
+
   def assert_project_alive?(project) do
     expected_uri = project.root_uri
     assert_receive {:project_alive, ^expected_uri}
@@ -135,6 +143,10 @@ defmodule ExpertTest do
       assert_result(1, %{
         "capabilities" => %{"workspace" => %{"workspaceFolders" => %{"supported" => true}}}
       })
+
+      assert :ok = notify(client, initialized_notification())
+
+      assert_request(client, "client/registerCapability", fn _params -> nil end)
 
       expected_message = "Started project node for #{Project.name(main_project)}"
 
@@ -164,6 +176,10 @@ defmodule ExpertTest do
                )
 
       assert_result(1, _)
+
+      assert :ok = notify(client, initialized_notification())
+
+      assert_request(client, "client/registerCapability", fn _params -> nil end)
 
       expected_message = "Started project node for #{Project.name(main_project)}"
 
@@ -218,6 +234,11 @@ defmodule ExpertTest do
                )
 
       assert_result(1, _)
+
+      assert :ok = notify(client, initialized_notification())
+
+      assert_request(client, "client/registerCapability", fn _params -> nil end)
+
       expected_message = "Started project node for #{Project.name(main_project)}"
 
       assert_notification(
@@ -290,6 +311,10 @@ defmodule ExpertTest do
                )
 
       assert_result(1, _)
+
+      assert :ok = notify(client, initialized_notification())
+
+      assert_request(client, "client/registerCapability", fn _params -> nil end)
 
       expected_message = "Started project node for #{Project.name(main_project)}"
 
@@ -483,6 +508,10 @@ defmodule ExpertTest do
                )
 
       assert_result(1, _)
+
+      assert :ok = notify(client, initialized_notification())
+
+      assert_request(client, "client/registerCapability", fn _params -> nil end)
 
       expected_message = "Started project node for #{Project.name(nested_root_project)}"
 

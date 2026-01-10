@@ -70,15 +70,7 @@ defmodule Expert do
 
       ActiveProjects.set_projects(projects)
 
-      for project <- projects do
-        Task.Supervisor.start_child(:expert_task_queue, fn ->
-          log_info(lsp, project, "Starting project")
-
-          start_result = Expert.Project.Supervisor.ensure_node_started(project)
-
-          send(Expert, {:engine_initialized, project, start_result})
-        end)
-      end
+      # Projects will be started when we receive the initialized notification
 
       {:reply, response, assign(lsp, state: state)}
     else
@@ -195,6 +187,16 @@ defmodule Expert do
 
     if nil != GenLSP.request(lsp, registrations) do
       Logger.error("Failed to register capability")
+    end
+
+    for project <- ActiveProjects.projects() do
+      Task.Supervisor.start_child(:expert_task_queue, fn ->
+        log_info(lsp, project, "Starting project")
+
+        start_result = Expert.Project.Supervisor.ensure_node_started(project)
+
+        send(Expert, {:engine_initialized, project, start_result})
+      end)
     end
 
     {:noreply, lsp}
