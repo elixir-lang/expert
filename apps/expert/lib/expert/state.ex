@@ -213,9 +213,13 @@ defmodule Expert.State do
         EngineApi.maybe_update_rename_progress(project, file_saved(uri: uri))
         {:ok, state}
 
-      error ->
-        Logger.error("Save failed for uri #{uri} error was #{inspect(error)}")
-        error
+      {:error, :not_open} ->
+        # File was closed before save notification was processed.
+        # This can happen during batch renames when didClose and didSave
+        # arrive nearly simultaneously. Still update rename progress tracking.
+        Logger.debug("Save received for already-closed file: #{uri}")
+        EngineApi.maybe_update_rename_progress(project, file_saved(uri: uri))
+        {:ok, state}
     end
   end
 
