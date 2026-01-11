@@ -38,6 +38,18 @@ defmodule Expert.Port do
   end
 
   def elixir_executable(%Project{} = project) do
+    {path, error_context} = resolve_path(project)
+
+    case :os.find_executable(~c"elixir", to_charlist(path)) do
+      false ->
+        {:error, :no_elixir, "Couldn't find an elixir executable#{error_context}"}
+
+      elixir ->
+        {:ok, elixir, sanitized_env(path)}
+    end
+  end
+
+  defp resolve_path(%Project{} = project) do
     if Forge.OS.windows?() do
       # Remove the burrito binaries from PATH
       path =
@@ -46,40 +58,55 @@ defmodule Expert.Port do
         |> String.split(";", parts: 2)
         |> List.last()
 
-      case :os.find_executable(~c"elixir", to_charlist(path)) do
-        false ->
-          {:error, :no_elixir, "Couldn't find an elixir executable"}
-
-        elixir ->
-          env =
-            Enum.map(System.get_env(), fn
-              {"PATH", _path} -> {"PATH", path}
-              other -> other
-            end)
-
-          {:ok, elixir, env}
-      end
+      {path, ""}
     else
       root_path = Project.root_path(project)
-
       shell = System.get_env("SHELL")
       path = path_env_at_directory(root_path, shell)
 
-      case :os.find_executable(~c"elixir", to_charlist(path)) do
-        false ->
-          {:error, :no_elixir,
-           "Couldn't find an elixir executable for project at #{root_path}. Using shell at #{shell} with PATH=#{path}"}
-
-        elixir ->
-          env =
-            Enum.map(System.get_env(), fn
-              {"PATH", _path} -> {"PATH", path}
-              other -> other
-            end)
-
-          {:ok, elixir, env}
-      end
+      {path, " for project at #{root_path}. Using shell at #{shell} with PATH=#{path}"}
     end
+  end
+
+  # Builds a sanitized environment for subprocess execution.
+  # Removes RELEASE_* variables and cleans PATH from release directories
+  # to prevent Elixir Release pollution in child processes.
+  defp sanitized_env(path) do
+    release_root = System.get_env("RELEASE_ROOT", "")
+    clean_path = remove_release_paths(path, release_root)
+
+    vars_to_unset = unset_release_vars()
+    clean_vars = build_clean_env(clean_path)
+
+    vars_to_unset ++ clean_vars
+  end
+
+  defp unset_release_vars do
+    System.get_env()
+    |> Enum.filter(&release_var?/1)
+    |> Enum.map(fn {key, _} -> {key, false} end)
+  end
+
+  defp build_clean_env(clean_path) do
+    System.get_env()
+    |> Enum.reject(&release_var?/1)
+    |> Enum.map(fn
+      {"PATH", _} -> {"PATH", clean_path}
+      other -> other
+    end)
+  end
+
+  defp release_var?({key, _}), do: String.starts_with?(key, "RELEASE_")
+
+  defp remove_release_paths(path, ""), do: path
+
+  defp remove_release_paths(path, release_root) do
+    separator = if Forge.OS.windows?(), do: ";", else: ":"
+
+    path
+    |> String.split(separator)
+    |> Enum.reject(&String.starts_with?(&1, release_root))
+    |> Enum.join(separator)
   end
 
   defp path_env_at_directory(directory, shell) do
@@ -188,11 +215,17 @@ defmodule Expert.Port do
   end
 
   def ensure_charlists(environment_variables) do
-    Enum.map(environment_variables, fn {key, value} ->
-      # using to_string ensures nil values won't blow things up
-      erl_key = key |> to_string() |> String.to_charlist()
-      erl_value = value |> to_string() |> String.to_charlist()
-      {erl_key, erl_value}
+    Enum.map(environment_variables, fn
+      # Preserve `false` as-is - Erlang Port uses {Name, false} to unset env vars
+      {key, false} ->
+        erl_key = key |> to_string() |> String.to_charlist()
+        {erl_key, false}
+
+      {key, value} ->
+        # using to_string ensures nil values won't blow things up
+        erl_key = key |> to_string() |> String.to_charlist()
+        erl_value = value |> to_string() |> String.to_charlist()
+        {erl_key, erl_value}
     end)
   end
 end
