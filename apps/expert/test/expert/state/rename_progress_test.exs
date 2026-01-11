@@ -53,6 +53,24 @@ defmodule Expert.State.RenameProgressTest do
     end
   end
 
+  describe "race condition - didClose before didSave" do
+    test "rename progress is updated even when file is already closed" do
+      # This can happen during batch renames when didClose and didSave
+      # arrive nearly simultaneously and didClose is processed first
+      uri = "file:///test/lib/race.ex"
+      editor = vscode_editor()
+      open_document(uri, "defmodule Race do\nend")
+      expect_events_before_reindex(%{uri => file_saved(uri: uri)}, reindex: [uri])
+
+      # Simulate didClose being processed before didSave
+      :ok = Document.Store.close(uri)
+
+      # didSave should still succeed and update rename progress
+      simulate_did_save(editor, uri)
+      assert_reindex_triggered(reindex: [uri], delete: [])
+    end
+  end
+
   describe "Neovim editor - non-file-rename (edits only)" do
     test "reindex triggers after file_changed only (Neovim doesn't auto-save)" do
       uri = "file:///test/lib/foo.ex"
