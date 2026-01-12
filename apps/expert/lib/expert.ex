@@ -158,7 +158,7 @@ defmodule Expert do
           projects = ActiveProjects.projects()
           project = Project.project_for_document(projects, document)
 
-          if ActiveProjects.active?(project) do
+          if project && ActiveProjects.active?(project) do
             :ok
           else
             {:error, :engine_not_initialized, project}
