@@ -89,8 +89,12 @@ defmodule Expert.Port do
     # or we get an incomplete PATH not including erl or any other version manager
     # managed programs.
 
-    # Disable shell session history to reduce noise
-    env = [{"SHELL_SESSIONS_DISABLE", "1"}]
+    env = [
+      # Disable shell session history to reduce noise
+      {"SHELL_SESSIONS_DISABLE", "1"},
+      # Start with a clean PATH to get the correct new value
+      {"PATH", nil}
+    ]
 
     args =
       case Path.basename(shell) do
