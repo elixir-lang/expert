@@ -105,10 +105,12 @@ defmodule Expert.Engine do
     base = base_dir()
 
     if File.exists?(base) do
-      base
-      |> File.ls!()
-      |> Enum.map(&Path.join(base, &1))
-      |> Enum.filter(&File.dir?/1)
+      for expert_ver_dir <- File.ls!(base),
+          tool_ver_dir <- File.ls!(Path.join(base, expert_ver_dir)),
+          path = Path.join([base, expert_ver_dir, tool_ver_dir]),
+          File.dir?(path) do
+        path
+      end
       |> Enum.sort()
     else
       []
@@ -166,7 +168,7 @@ defmodule Expert.Engine do
 
   @spec prompt_delete(dir :: [String.t()]) :: boolean()
   defp prompt_delete(dir) do
-    IO.puts(["Delete #{dir}", IO.ANSI.red(), "?", IO.ANSI.reset(), " [Yn] "])
+    IO.write(["Delete #{dir}? [Yn]"])
 
     input =
       ""
