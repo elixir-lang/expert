@@ -38,6 +38,20 @@ defmodule Expert.Port do
   end
 
   def elixir_executable(%Project{} = project) do
+    case find_project_elixir(project) do
+      {:ok, _, _} = success ->
+        success
+
+      {:error, :no_elixir, reason} ->
+        Logger.warning(
+          "Failed to find elixir for project, falling back to packaged elixir: #{reason}"
+        )
+
+        fallback_elixir()
+    end
+  end
+
+  defp find_project_elixir(%Project{} = project) do
     if Forge.OS.windows?() do
       # Remove the burrito binaries from PATH
       path =
@@ -79,6 +93,17 @@ defmodule Expert.Port do
 
           {:ok, elixir, env}
       end
+    end
+  end
+
+  # Fallback to using whatever elixir Expert was packaged with.
+  defp fallback_elixir do
+    case System.find_executable("elixir") do
+      nil ->
+        {:error, :no_elixir, "Couldn't find any elixir executable"}
+
+      elixir ->
+        {:ok, to_charlist(elixir), []}
     end
   end
 
