@@ -1,6 +1,6 @@
 defmodule Expert.Port do
   @moduledoc """
-  Utilities for launching ports in the context of a project
+  Utilities for launching ports in the context of a project.
   """
 
   alias Forge.Project
@@ -33,10 +33,21 @@ defmodule Expert.Port do
           environment_variables ++ env
         end)
 
-      open(project, elixir_executable, opts)
+      open_executable(elixir_executable, opts)
     end
   end
 
+  @doc """
+  Returns the elixir executable path and environment for a project.
+
+  Returns `{:ok, elixir_path, env}` where:
+  - `elixir_path` is a charlist path to the elixir executable
+  - `env` is a list of `{key, value}` tuples for the environment
+
+  Returns `{:error, :no_elixir, reason}` if no elixir executable can be found.
+  """
+  @spec elixir_executable(Project.t()) ::
+          {:ok, charlist(), list()} | {:error, :no_elixir, String.t()}
   def elixir_executable(%Project{} = project) do
     case find_project_elixir(project) do
       {:ok, _, _} = success ->
@@ -51,63 +62,94 @@ defmodule Expert.Port do
     end
   end
 
+  @doc """
+  Opens a port for elixir with the given executable and environment.
+
+  Use this when you already have the elixir path and env from `elixir_executable/1`
+  and need to customize the port options.
+
+  ## Options
+
+    * `:args` - List of arguments to pass to the elixir executable
+    * `:cd` - Working directory for the port
+    * `:env` - Additional environment variables (merged with the provided env)
+
+  """
+  @spec open_elixir_with_env(charlist(), list(), open_opts()) :: port()
+  def open_elixir_with_env(elixir_executable, env, opts) do
+    opts =
+      opts
+      |> Keyword.update(:env, env, fn additional_env -> env ++ additional_env end)
+
+    open_executable(elixir_executable, opts)
+  end
+
+  # --- Private Functions ---
+
   defp find_project_elixir(%Project{} = project) do
     if Forge.OS.windows?() do
-      release_root =
-        :code.root_dir()
-        |> to_string()
-        |> String.downcase()
-        |> String.replace("/", "\\")
-
-      path =
-        "PATH"
-        |> System.get_env("")
-        |> String.split(";")
-        |> Enum.reject(fn entry ->
-          normalized = entry |> String.downcase() |> String.replace("/", "\\")
-          String.contains?(normalized, release_root)
-        end)
-        |> Enum.join(";")
-
-      case :os.find_executable(~c"elixir", to_charlist(path)) do
-        false ->
-          {:error, :no_elixir, "Couldn't find an elixir executable"}
-
-        elixir ->
-          env =
-            System.get_env()
-            |> Enum.reject(fn {key, _} -> key == "ERLEXEC_DIR" end)
-            |> Enum.map(fn
-              {key, _path} when key in ["PATH", "Path"] -> {key, path}
-              other -> other
-            end)
-
-          {:ok, elixir, env}
-      end
+      find_project_elixir_windows()
     else
-      root_path = Project.root_path(project)
-
-      shell = System.get_env("SHELL")
-      path = path_env_at_directory(root_path, shell)
-
-      case :os.find_executable(~c"elixir", to_charlist(path)) do
-        false ->
-          {:error, :no_elixir,
-           "Couldn't find an elixir executable for project at #{root_path}. Using shell at #{shell} with PATH=#{path}"}
-
-        elixir ->
-          env =
-            Enum.map(System.get_env(), fn
-              {"PATH", _path} -> {"PATH", path}
-              other -> other
-            end)
-
-          {:ok, elixir, env}
-      end
+      find_project_elixir_unix(project)
     end
   end
 
-  # Fallback to using whatever elixir Expert was packaged with.
+  defp find_project_elixir_windows do
+    release_root =
+      :code.root_dir()
+      |> to_string()
+      |> String.downcase()
+      |> String.replace("/", "\\")
+
+    path =
+      "PATH"
+      |> System.get_env("")
+      |> String.split(";")
+      |> Enum.reject(fn entry ->
+        normalized = entry |> String.downcase() |> String.replace("/", "\\")
+        String.contains?(normalized, release_root)
+      end)
+      |> Enum.join(";")
+
+    case :os.find_executable(~c"elixir", to_charlist(path)) do
+      false ->
+        {:error, :no_elixir, "Couldn't find an elixir executable"}
+
+      elixir ->
+        env =
+          System.get_env()
+          |> Enum.reject(fn {key, _} -> key == "ERLEXEC_DIR" end)
+          |> Enum.map(fn
+            {key, _path} when key in ["PATH", "Path"] -> {key, path}
+            other -> other
+          end)
+
+        {:ok, elixir, env}
+    end
+  end
+
+  defp find_project_elixir_unix(%Project{} = project) do
+    root_path = Project.root_path(project)
+
+    shell = System.get_env("SHELL")
+    path = path_env_at_directory(root_path, shell)
+
+    case :os.find_executable(~c"elixir", to_charlist(path)) do
+      false ->
+        {:error, :no_elixir,
+         "Couldn't find an elixir executable for project at #{root_path}. Using shell at #{shell} with PATH=#{path}"}
+
+      elixir ->
+        env =
+          Enum.map(System.get_env(), fn
+            {"PATH", _path} -> {"PATH", path}
+            other -> other
+          end)
+
+        {:ok, elixir, env}
+    end
+  end
+
   defp fallback_elixir do
     case System.find_executable("elixir") do
       nil ->
@@ -133,8 +175,6 @@ defmodule Expert.Port do
 
     args =
       case Path.basename(shell) do
-        # Ideally, it should contain the path to shell (e.g. `/usr/bin/fish`),
-        # but it might contain only the name of the shell (e.g. `fish`).
         "fish" ->
           # Fish uses space-separated PATH, so we use the built-in `string join` command
           # to join the entries with colons and have a standard colon-separated PATH output
@@ -170,15 +210,8 @@ defmodule Expert.Port do
     end
   end
 
-  @doc """
-  Launches an executable in the project context via a port.
-  """
-  def open(%Project{} = project, executable, opts) do
+  defp open_executable(executable, opts) do
     {os_type, _} = Forge.OS.type()
-
-    opts =
-      opts
-      |> Keyword.put_new_lazy(:cd, fn -> Project.root_path(project) end)
 
     opts =
       if Keyword.has_key?(opts, :env) do
@@ -195,7 +228,7 @@ defmodule Expert.Port do
 
     {launcher, opts} =
       if String.ends_with?(executable_str, ".cmd") or String.ends_with?(executable_str, ".bat") do
-        cmd_exe = System.find_executable("cmd") |> to_charlist()
+        cmd_exe = "cmd" |> System.find_executable() |> to_charlist()
 
         opts =
           Keyword.update(opts, :args, ["/c", executable_str], fn args ->
@@ -211,7 +244,7 @@ defmodule Expert.Port do
   end
 
   defp open_port(:unix, executable, opts) do
-    {launcher, opts} = Keyword.pop_lazy(opts, :path, &path/0)
+    launcher = port_wrapper_path()
 
     opts =
       Keyword.update(opts, :args, [executable], fn old_args ->
@@ -221,14 +254,7 @@ defmodule Expert.Port do
     Port.open({:spawn_executable, launcher}, [:stderr_to_stdout, :exit_status | opts])
   end
 
-  @doc """
-  Provides the path of an executable to launch another erlang node via ports.
-  """
-  def path do
-    path(Forge.OS.type())
-  end
-
-  def path({:unix, _}) do
+  defp port_wrapper_path do
     with :non_existing <- :code.where_is_file(~c"port_wrapper.sh") do
       :expert
       |> :code.priv_dir()
@@ -238,11 +264,7 @@ defmodule Expert.Port do
     |> to_string()
   end
 
-  def path(os_tuple) do
-    raise ArgumentError, "Operating system #{inspect(os_tuple)} is not currently supported"
-  end
-
-  def ensure_charlists(environment_variables) do
+  defp ensure_charlists(environment_variables) do
     Enum.map(environment_variables, fn {key, value} ->
       # using to_string ensures nil values won't blow things up
       erl_key = key |> to_string() |> String.to_charlist()

@@ -255,45 +255,13 @@ defmodule Expert.EngineNode do
 
       build_engine_script = Path.join(expert_priv, "build_engine.exs")
 
-      opts =
-        [
-          args: [
-            build_engine_script,
-            "--source-path",
-            engine_source,
-            "--vsn",
-            Expert.vsn()
-          ],
-          env: Expert.Port.ensure_charlists(env),
-          cd: Project.root_path(project)
-        ]
-
-      {launcher, opts} =
-        if Forge.OS.windows?() do
-          elixir_str = to_string(elixir)
-
-          if String.ends_with?(elixir_str, ".cmd") or String.ends_with?(elixir_str, ".bat") do
-            cmd_exe = System.find_executable("cmd") |> to_charlist()
-
-            opts =
-              opts
-              |> Keyword.update!(:args, fn args -> ["/c", elixir_str | args] end)
-              |> then(fn opts -> [:hide | opts] end)
-
-            {cmd_exe, opts}
-          else
-            {elixir, opts}
-          end
-        else
-          launcher = Expert.Port.path()
-
-          opts =
-            Keyword.update(opts, :args, [elixir], fn old_args ->
-              [elixir | Enum.map(old_args, &to_string/1)]
-            end)
-
-          {launcher, opts}
-        end
+      args = [
+        build_engine_script,
+        "--source-path",
+        engine_source,
+        "--vsn",
+        Expert.vsn()
+      ]
 
       Expert.log_info(lsp, project, "Finding or building engine")
 
@@ -304,8 +272,8 @@ defmodule Expert.EngineNode do
           fn ->
             Process.flag(:trap_exit, true)
 
-            {:spawn_executable, launcher}
-            |> Port.open([:stderr_to_stdout | opts])
+            elixir
+            |> Expert.Port.open_elixir_with_env(env, args: args, cd: Project.root_path(project))
             |> wait_for_engine()
           end
           |> Task.async()
