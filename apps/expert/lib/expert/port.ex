@@ -196,7 +196,12 @@ defmodule Expert.Port do
     {launcher, opts} =
       if String.ends_with?(executable_str, ".cmd") or String.ends_with?(executable_str, ".bat") do
         cmd_exe = System.find_executable("cmd") |> to_charlist()
-        opts = Keyword.update(opts, :args, ["/c", executable_str], fn args -> ["/c", executable_str | args] end)
+
+        opts =
+          Keyword.update(opts, :args, ["/c", executable_str], fn args ->
+            ["/c", executable_str | args]
+          end)
+
         {cmd_exe, [:hide | opts]}
       else
         {executable, opts}
