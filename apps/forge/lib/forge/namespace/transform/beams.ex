@@ -77,12 +77,15 @@ defmodule Forge.Namespace.Transform.Beams do
   end
 
   defp find_consolidated_beams(base_directory) do
+    base_directory = Forge.OS.normalize_path(base_directory)
+
     [base_directory, "releases", "**", "consolidated", "*.beam"]
     |> Path.join()
     |> Path.wildcard()
   end
 
   defp find_app_beams(base_directory) do
+    base_directory = Forge.OS.normalize_path(base_directory)
     namespaced_apps = Enum.join(Mix.Tasks.Namespace.app_names(), ",")
     apps_glob = "{#{namespaced_apps}}*"
 

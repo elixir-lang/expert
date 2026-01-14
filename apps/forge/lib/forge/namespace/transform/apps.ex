@@ -39,6 +39,7 @@ defmodule Forge.Namespace.Transform.Apps do
   end
 
   defp find_app_files(base_directory) do
+    base_directory = Forge.OS.normalize_path(base_directory)
     app_files_glob = Enum.join(Mix.Tasks.Namespace.app_names(), ",")
 
     [base_directory, "**", "{#{app_files_glob}}.app"]

@@ -21,6 +21,7 @@ defmodule Forge.Namespace.Transform.Scripts do
 
   @script_names ~w(start.script start_clean.script expert.rel)
   defp find_scripts(base_directory) do
+    base_directory = Forge.OS.normalize_path(base_directory)
     scripts_glob = "{" <> Enum.join(@script_names, ",") <> "}"
 
     [base_directory, "releases", "**", scripts_glob]

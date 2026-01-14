@@ -23,6 +23,7 @@ defmodule Forge.Namespace.Transform.AppDirectories do
   end
 
   defp find_app_directories(base_directory) do
+    base_directory = Forge.OS.normalize_path(base_directory)
     app_names = Mix.Tasks.Namespace.app_names()
     app_globs = Enum.join(app_names, "*,")
 

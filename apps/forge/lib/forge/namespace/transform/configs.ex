@@ -1,5 +1,7 @@
 defmodule Forge.Namespace.Transform.Configs do
   def apply_to_all(base_directory) do
+    base_directory = Forge.OS.normalize_path(base_directory)
+
     base_directory
     |> Path.join("**/runtime.exs")
     |> Path.wildcard()

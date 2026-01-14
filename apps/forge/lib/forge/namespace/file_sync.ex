@@ -104,6 +104,8 @@ defmodule Forge.Namespace.FileSync do
   end
 
   defp find_files(directory) do
+    directory = Forge.OS.normalize_path(directory)
+
     [directory, "**", "*"]
     |> Path.join()
     |> Path.wildcard()
