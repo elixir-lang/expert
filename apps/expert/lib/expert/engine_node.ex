@@ -270,7 +270,20 @@ defmodule Expert.EngineNode do
 
       {launcher, opts} =
         if Forge.OS.windows?() do
-          {elixir, opts}
+          elixir_str = to_string(elixir)
+
+          if String.ends_with?(elixir_str, ".cmd") or String.ends_with?(elixir_str, ".bat") do
+            cmd_exe = System.find_executable("cmd") |> to_charlist()
+
+            opts =
+              opts
+              |> Keyword.update!(:args, fn args -> ["/c", elixir_str | args] end)
+              |> then(fn opts -> [:hide | opts] end)
+
+            {cmd_exe, opts}
+          else
+            {elixir, opts}
+          end
         else
           launcher = Expert.Port.path()
 

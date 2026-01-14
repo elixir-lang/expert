@@ -191,7 +191,18 @@ defmodule Expert.Port do
   end
 
   defp open_port(:win32, executable, opts) do
-    Port.open({:spawn_executable, executable}, [:stderr_to_stdout, :exit_status | opts])
+    executable_str = to_string(executable)
+
+    {launcher, opts} =
+      if String.ends_with?(executable_str, ".cmd") or String.ends_with?(executable_str, ".bat") do
+        cmd_exe = System.find_executable("cmd") |> to_charlist()
+        opts = Keyword.update(opts, :args, ["/c", executable_str], fn args -> ["/c", executable_str | args] end)
+        {cmd_exe, [:hide | opts]}
+      else
+        {executable, opts}
+      end
+
+    Port.open({:spawn_executable, launcher}, [:stderr_to_stdout, :exit_status | opts])
   end
 
   defp open_port(:unix, executable, opts) do
