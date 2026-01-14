@@ -113,12 +113,11 @@ defmodule Expert.Port do
     # we use the wrong version if the user uses a version manager like asdf/mise,
     # or we get an incomplete PATH not including erl or any other version manager
     # managed programs.
-
     env = [
       # Disable shell session history to reduce noise
       {"SHELL_SESSIONS_DISABLE", "1"},
-      # Start with a clean PATH to get the correct new value
-      {"PATH", nil}
+      # Start with minimal system PATH, otherwise tools like `mv` won't be avaliable.
+      {"PATH", "/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"}
     ]
 
     args =
