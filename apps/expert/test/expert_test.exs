@@ -1,5 +1,4 @@
 defmodule Expert.ExpertTest do
-  alias Expert.Configuration
   alias Expert.State
   alias Forge.Test.Fixtures
 
@@ -11,32 +10,6 @@ defmodule Expert.ExpertTest do
   setup do
     :persistent_term.erase(Expert.Configuration)
     :ok
-  end
-
-  describe "workspace/didChangeConfiguration" do
-    test "updates configuration when settings change" do
-      with_patched_transport()
-
-      patch(Expert.Dialyzer, :check_support, :ok)
-
-      project = Fixtures.project()
-      lsp = initialize_lsp(project)
-
-      # dialyzer_enabled? defaults to false
-      assert Configuration.get().dialyzer_enabled? == false
-
-      did_change_config = %GenLSP.Notifications.WorkspaceDidChangeConfiguration{
-        jsonrpc: "2.0",
-        method: "workspace/didChangeConfiguration",
-        params: %GenLSP.Structures.DidChangeConfigurationParams{
-          settings: %{"dialyzerEnabled" => true}
-        }
-      }
-
-      assert {:noreply, _updated_lsp} = Expert.handle_notification(did_change_config, lsp)
-
-      assert Configuration.get().dialyzer_enabled? == true
-    end
   end
 
   test "sends an error message on engine initialization error" do

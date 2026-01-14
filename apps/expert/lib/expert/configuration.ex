@@ -5,7 +5,6 @@ defmodule Expert.Configuration do
 
   alias Expert.Configuration.Support
   alias Expert.Configuration.WorkspaceSymbols
-  alias Expert.Dialyzer
   alias Expert.Protocol.Id
   alias GenLSP.Notifications.WorkspaceDidChangeConfiguration
   alias GenLSP.Requests
@@ -14,20 +13,16 @@ defmodule Expert.Configuration do
   defstruct support: nil,
             client_name: nil,
             additional_watched_extensions: nil,
-            dialyzer_enabled?: false,
             workspace_symbols: %WorkspaceSymbols{}
 
   @type t :: %__MODULE__{
           support: support | nil,
           client_name: String.t() | nil,
           additional_watched_extensions: [String.t()] | nil,
-          dialyzer_enabled?: boolean(),
           workspace_symbols: WorkspaceSymbols.t()
         }
 
   @opaque support :: Support.t()
-
-  @dialyzer {:nowarn_function, set_dialyzer_enabled: 2}
 
   @spec new(Structures.ClientCapabilities.t(), String.t() | nil) :: t
   def new(%Structures.ClientCapabilities{} = client_capabilities, client_name) do
@@ -83,22 +78,10 @@ defmodule Expert.Configuration do
   defp apply_config_change(%__MODULE__{} = old_config, %{} = settings) do
     new_config =
       old_config
-      |> set_dialyzer_enabled(settings)
       |> set_workspace_symbols(settings)
       |> set()
 
     maybe_watched_extensions_request(new_config, settings)
-  end
-
-  defp set_dialyzer_enabled(%__MODULE__{} = old_config, settings) do
-    enabled? =
-      if Dialyzer.check_support() == :ok do
-        Map.get(settings, "dialyzerEnabled", true)
-      else
-        false
-      end
-
-    %__MODULE__{old_config | dialyzer_enabled?: enabled?}
   end
 
   defp set_workspace_symbols(%__MODULE__{} = config, settings) do

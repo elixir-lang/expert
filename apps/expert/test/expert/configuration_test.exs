@@ -20,7 +20,6 @@ defmodule Expert.ConfigurationTest do
       config = Configuration.new()
 
       assert config.workspace_symbols.min_query_length == 2
-      assert config.dialyzer_enabled? == false
     end
 
     test "accepts keyword list of attributes" do
