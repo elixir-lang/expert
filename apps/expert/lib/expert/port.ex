@@ -53,12 +53,21 @@ defmodule Expert.Port do
 
   defp find_project_elixir(%Project{} = project) do
     if Forge.OS.windows?() do
-      # Remove the burrito binaries from PATH
+      release_root =
+        :code.root_dir()
+        |> to_string()
+        |> String.downcase()
+        |> String.replace("/", "\\")
+
       path =
         "PATH"
-        |> System.get_env()
-        |> String.split(";", parts: 2)
-        |> List.last()
+        |> System.get_env("")
+        |> String.split(";")
+        |> Enum.reject(fn entry ->
+          normalized = entry |> String.downcase() |> String.replace("/", "\\")
+          String.contains?(normalized, release_root)
+        end)
+        |> Enum.join(";")
 
       case :os.find_executable(~c"elixir", to_charlist(path)) do
         false ->
@@ -66,8 +75,10 @@ defmodule Expert.Port do
 
         elixir ->
           env =
-            Enum.map(System.get_env(), fn
-              {"PATH", _path} -> {"PATH", path}
+            System.get_env()
+            |> Enum.reject(fn {key, _} -> key == "ERLEXEC_DIR" end)
+            |> Enum.map(fn
+              {key, _path} when key in ["PATH", "Path"] -> {key, path}
               other -> other
             end)
 
