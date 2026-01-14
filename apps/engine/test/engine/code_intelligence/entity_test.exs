@@ -959,9 +959,124 @@ defmodule Engine.CodeIntelligence.EntityTest do
     end
   end
 
+  describe "resolve/2 within ~H sigil" do
+    setup do
+      patch(Engine.CodeIntelligence.Heex, :phoenix_component_available?, true)
+      :ok
+    end
+
+    test "resolves shorthand component with correct arity" do
+      code = ~q[
+        defmodule MyLiveView do
+          use Phoenix.Component
+
+          def render(assigns) do
+            ~H"""
+            <.but|ton>Click</.button>
+            """
+          end
+
+          def button(assigns), do: nil
+        end
+      ]
+
+      assert {:ok, {:call, MyLiveView, :button, 1}, _} = resolve(code)
+    end
+
+    test "resolves EEx expression with arity 1" do
+      code = ~q[
+        defmodule MyLiveView do
+          use Phoenix.Component
+
+          def render(assigns) do
+            ~H"""
+            <%= my_he|lper(assigns) %>
+            """
+          end
+
+          def my_helper(assigns), do: nil
+        end
+      ]
+
+      assert {:ok, {:call, MyLiveView, :my_helper, 1}, _} = resolve(code)
+    end
+
+    test "resolves EEx expression with arity 2" do
+      code = ~q[
+        defmodule MyLiveView do
+          use Phoenix.Component
+
+          def render(assigns) do
+            ~H"""
+            <%= forma|t_value(assigns.value, "prefix") %>
+            """
+          end
+
+          def format_value(value, prefix), do: nil
+        end
+      ]
+
+      assert {:ok, {:call, MyLiveView, :format_value, 2}, _} = resolve(code)
+    end
+
+    test "resolves EEx expression with arity 3" do
+      code = ~q[
+        defmodule MyLiveView do
+          use Phoenix.Component
+
+          def render(assigns) do
+            ~H"""
+            <%= build_l|ink(assigns, "/path", "label") %>
+            """
+          end
+
+          def build_link(assigns, path, label), do: nil
+        end
+      ]
+
+      assert {:ok, {:call, MyLiveView, :build_link, 3}, _} = resolve(code)
+    end
+
+    test "resolves curly brace expression with correct arity" do
+      code = ~q[
+        defmodule MyLiveView do
+          use Phoenix.Component
+
+          def render(assigns) do
+            ~H"""
+            <div class={get_cl|ass(assigns, "default")}>Content</div>
+            """
+          end
+
+          def get_class(assigns, default), do: nil
+        end
+      ]
+
+      assert {:ok, {:call, MyLiveView, :get_class, 2}, _} = resolve(code)
+    end
+
+    test "resolves zero-arity function call" do
+      code = ~q[
+        defmodule MyLiveView do
+          use Phoenix.Component
+
+          def render(assigns) do
+            ~H"""
+            <%= get_ti|me() %>
+            """
+          end
+
+          def get_time(), do: nil
+        end
+      ]
+
+      assert {:ok, {:call, MyLiveView, :get_time, 0}, _} = resolve(code)
+    end
+  end
+
   describe "resolve/2 within ~H sigil when phoenix_live_view is NOT available" do
     setup do
-      patch(Engine.CodeIntelligence.HeexNormalizer, :phoenix_component_available?, false)
+      patch(Engine.CodeIntelligence.Heex, :phoenix_component_available?, false)
       :ok
     end
 
