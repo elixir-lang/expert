@@ -29,12 +29,12 @@ defmodule Expert.Protocol.Conversions do
     end
   end
 
-  def to_elixir(%LSPosition{} = position, %Document{} = document) do
-    to_elixir(position, document.lines)
-  end
-
   def to_elixir(%ElixirPosition{} = position, _) do
     {:ok, position}
+  end
+
+  def to_elixir(%LSPosition{} = position, %Document{} = document) do
+    to_elixir(position, document.lines)
   end
 
   def to_elixir(%LSPosition{line: line} = position, _) when line < 0 do
