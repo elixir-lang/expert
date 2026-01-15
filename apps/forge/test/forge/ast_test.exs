@@ -44,13 +44,15 @@ defmodule Forge.AstTest do
       assert path == [{:__cursor__, [closing: [line: 1, column: 12], line: 1, column: 1], []}]
     end
 
-    test "returns [] when can't parse the AST" do
+    test "returns cursor path even for incomplete code" do
       text = ~q[
         foo(bar do baz, [bat|
       ]
 
       path = cursor_path(text)
-      assert path == []
+      # Spitfire's fault-tolerant parsing produces a cursor path
+      assert length(path) > 0
+      assert Enum.any?(path, &match?({:__cursor__, _, _}, &1))
     end
   end
 
@@ -89,8 +91,9 @@ defmodule Forge.AstTest do
         defmodule |Foo do
       ]
 
-      assert {:error, {metadata, "missing terminator: end" <> _, ""}} = path_at(code)
-      assert end_location(metadata) == {2, 1}
+      assert {:error, {metadata, message}, _comments} = path_at(code)
+      assert is_list(metadata)
+      assert message =~ "missing" and message =~ "end"
     end
 
     test "returns a path to the innermost leaf at position" do
@@ -309,7 +312,7 @@ defmodule Forge.AstTest do
 
       assert %Analysis{} = analysis = analyze(code)
       refute analysis.ast
-      assert {:error, _} = analysis.parse_error
+      assert {:error, {_location, _message}, _comments} = analysis.parse_error
     end
 
     test "creates an analysis from a document with incomplete `as` section" do
