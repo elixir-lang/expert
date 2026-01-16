@@ -83,6 +83,10 @@ defmodule Engine.Search.Store.State do
     end
   end
 
+  def exact(%__MODULE__{loaded?: false}, _subject, _constraints) do
+    {:error, :loading}
+  end
+
   def exact(%__MODULE__{} = state, subject, constraints) do
     type = Keyword.get(constraints, :type, :_)
     subtype = Keyword.get(constraints, :subtype, :_)
@@ -91,6 +95,10 @@ defmodule Engine.Search.Store.State do
       l when is_list(l) -> {:ok, l}
       error -> error
     end
+  end
+
+  def prefix(%__MODULE__{loaded?: false}, _prefix, _constraints) do
+    {:error, :loading}
   end
 
   def prefix(%__MODULE__{} = state, prefix, constraints) do
@@ -104,6 +112,10 @@ defmodule Engine.Search.Store.State do
       error ->
         error
     end
+  end
+
+  def fuzzy(%__MODULE__{loaded?: false}, _subject, _constraints) do
+    {:error, :loading}
   end
 
   def fuzzy(%__MODULE__{} = state, subject, constraints) do
@@ -120,6 +132,10 @@ defmodule Engine.Search.Store.State do
           error -> error
         end
     end
+  end
+
+  def all(%__MODULE__{loaded?: false}, _) do
+    {:error, :loading}
   end
 
   def all(%__MODULE__{} = state, constraints) do
@@ -146,11 +162,19 @@ defmodule Engine.Search.Store.State do
     (type == :_ or t == type) and (subtype == :_ or st == subtype)
   end
 
+  def siblings(%__MODULE__{loaded?: false}, _entry) do
+    {:error, :loading}
+  end
+
   def siblings(%__MODULE__{} = state, entry) do
     case state.backend.siblings(entry) do
       l when is_list(l) -> {:ok, l}
       error -> error
     end
+  end
+
+  def parent(%__MODULE__{loaded?: false}, _entry) do
+    {:error, :loading}
   end
 
   def parent(%__MODULE__{} = state, entry) do
