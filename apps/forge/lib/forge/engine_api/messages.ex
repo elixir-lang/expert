@@ -41,6 +41,8 @@ defmodule Forge.EngineApi.Messages do
 
   defrecord :project_reindexed, project: nil, elapsed_ms: 0, status: :success
 
+  defrecord :search_store_loading, project: nil
+
   @type compile_status :: :successful | :error
   @type name_and_arity :: {atom, non_neg_integer}
   @type field_list :: Keyword.t() | [atom]
@@ -125,4 +127,7 @@ defmodule Forge.EngineApi.Messages do
             elapsed_ms: non_neg_integer(),
             status: :success | {:error, term()}
           )
+
+  @type search_store_loading ::
+          record(:search_store_loading, project: Forge.Project.t())
 end

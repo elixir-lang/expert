@@ -3,6 +3,7 @@ defmodule Engine.Search.Store do
   A persistent store for search entries
   """
 
+  alias Engine.Dispatch
   alias Engine.Search.Store
   alias Engine.Search.Store.State
 
@@ -195,19 +196,31 @@ defmodule Engine.Search.Store do
   end
 
   def handle_call({:exact, subject, constraints}, _from, {ref, %State{} = state}) do
-    {:reply, State.exact(state, subject, constraints), {ref, state}}
+    state
+    |> State.exact(subject, constraints)
+    |> maybe_broadcast_loading(state)
+    |> then(&{:reply, &1, {ref, state}})
   end
 
   def handle_call({:prefix, prefix, constraints}, _from, {ref, %State{} = state}) do
-    {:reply, State.prefix(state, prefix, constraints), {ref, state}}
+    state
+    |> State.prefix(prefix, constraints)
+    |> maybe_broadcast_loading(state)
+    |> then(&{:reply, &1, {ref, state}})
   end
 
   def handle_call({:fuzzy, subject, constraints}, _from, {ref, %State{} = state}) do
-    {:reply, State.fuzzy(state, subject, constraints), {ref, state}}
+    state
+    |> State.fuzzy(subject, constraints)
+    |> maybe_broadcast_loading(state)
+    |> then(&{:reply, &1, {ref, state}})
   end
 
   def handle_call({:all, constraints}, _from, {ref, %State{} = state}) do
-    {:reply, State.all(state, constraints), {ref, state}}
+    state
+    |> State.all(constraints)
+    |> maybe_broadcast_loading(state)
+    |> then(&{:reply, &1, {ref, state}})
   end
 
   def handle_call({:update, path, entries}, _from, {ref, %State{} = state}) do
@@ -217,13 +230,17 @@ defmodule Engine.Search.Store do
   end
 
   def handle_call({:parent, entry}, _from, {_, %State{} = state} = orig_state) do
-    parent = State.parent(state, entry)
-    {:reply, parent, orig_state}
+    state
+    |> State.parent(entry)
+    |> maybe_broadcast_loading(state)
+    |> then(&{:reply, &1, orig_state})
   end
 
   def handle_call({:siblings, entry}, _from, {_, %State{} = state} = orig_state) do
-    siblings = State.siblings(state, entry)
-    {:reply, siblings, orig_state}
+    state
+    |> State.siblings(entry)
+    |> maybe_broadcast_loading(state)
+    |> then(&{:reply, &1, orig_state})
   end
 
   def handle_call(:on_stop, _, {ref, %State{} = state}) do
@@ -300,4 +317,11 @@ defmodule Engine.Search.Store do
   defp enabled? do
     :persistent_term.get({__MODULE__, :enabled?}, false)
   end
+
+  defp maybe_broadcast_loading({:error, :loading} = result, %State{project: project}) do
+    Dispatch.broadcast(search_store_loading(project: project))
+    result
+  end
+
+  defp maybe_broadcast_loading(result, _state), do: result
 end
