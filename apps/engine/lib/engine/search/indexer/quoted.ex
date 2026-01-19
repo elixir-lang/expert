@@ -14,16 +14,20 @@ defmodule Engine.Search.Indexer.Quoted do
   def index(analysis, extractors \\ nil)
 
   def index(%Analysis{valid?: true} = analysis, extractors) do
+    {:ok, extract_entries(analysis, extractors)}
+  end
+
+  def index(%Analysis{valid?: false}, _extractors) do
+    {:ok, []}
+  end
+
+  def extract_entries(%Analysis{} = analysis, extractors) do
     {_, reducer} =
       Macro.prewalk(analysis.ast, Reducer.new(analysis, extractors), fn elem, reducer ->
         {reducer, elem} = Reducer.reduce(reducer, elem)
         {elem, reducer}
       end)
 
-    {:ok, Reducer.entries(reducer)}
-  end
-
-  def index(%Analysis{valid?: false}, _extractors) do
-    {:ok, []}
+    Reducer.entries(reducer)
   end
 end

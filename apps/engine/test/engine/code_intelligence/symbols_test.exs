@@ -528,6 +528,119 @@ defmodule Engine.CodeIntelligence.SymbolsTest do
       assert module.type == :module
       assert module.children == []
     end
+
+    test "returns symbols for invalid code with partial AST" do
+      {symbols, doc} =
+        ~q[
+        defmodule MyModule do
+          def valid_function do
+            :ok
+          end
+
+          def broken_function(arg do
+            :error
+          end
+        end
+        ]
+        |> document_symbols()
+
+      assert [%Document{} = module] = symbols
+      assert module.name == "MyModule"
+      assert module.type == :module
+      assert module.subject == MyModule
+      assert decorate(doc, module.detail_range) =~ "defmodule «MyModule» do"
+
+      assert [%Document{} = function] = module.children
+      assert function.name == "def valid_function"
+      assert function.type == {:function, :public}
+      assert function.subject == "MyModule.valid_function/0"
+      assert decorate(doc, function.detail_range) =~ "def «valid_function» do"
+      assert function.children == []
+    end
+
+    test "returns symbols for invalid code with module attributes" do
+      {symbols, doc} =
+        ~q[
+        defmodule PartialModule do
+          @my_attr 42
+
+          def complete_fn, do: :ok
+
+          def incomplete(
+        end
+        ]
+        |> document_symbols()
+
+      assert length(symbols) == 3
+
+      [module, attr, function] =
+        Enum.sort_by(symbols, fn s -> {s.range.start.line, s.range.start.character} end)
+
+      assert module.name == "PartialModule"
+      assert module.type == :module
+      assert module.subject == PartialModule
+      assert decorate(doc, module.detail_range) =~ "defmodule «PartialModule» do"
+      assert module.children == []
+
+      assert attr.name == "@my_attr"
+      assert attr.type == :module_attribute
+      assert attr.subject == "@my_attr"
+      assert decorate(doc, attr.detail_range) =~ "«@my_attr 42»"
+
+      assert function.name == "def complete_fn"
+      assert function.type == {:function, :public}
+      assert function.subject == "PartialModule.complete_fn/0"
+      assert decorate(doc, function.detail_range) =~ "def «complete_fn», do: :ok"
+    end
+
+    test "returns symbols for invalid code with missing end" do
+      {symbols, doc} =
+        ~q[
+        defmodule ModuleWithMissingEnd do
+          @config :value
+
+          def first_fn do
+            :first
+          end
+
+          def second_fn do
+            :second
+
+        end
+        ]
+        |> document_symbols()
+
+      assert [%Document{} = module] = symbols
+      assert module.name == "ModuleWithMissingEnd"
+      assert module.type == :module
+      assert decorate(doc, module.detail_range) =~ "defmodule «ModuleWithMissingEnd» do"
+      assert length(module.children) == 3
+
+      children_by_name = Map.new(module.children, &{&1.name, &1})
+
+      assert %Document{} = attr = children_by_name["@config"]
+      assert attr.type == :module_attribute
+      assert decorate(doc, attr.detail_range) =~ "«@config :value»"
+
+      assert %Document{} = first = children_by_name["def first_fn"]
+      assert first.type == {:function, :public}
+      assert first.subject == "ModuleWithMissingEnd.first_fn/0"
+      assert decorate(doc, first.detail_range) =~ "def «first_fn» do"
+
+      assert %Document{} = second = children_by_name["def second_fn"]
+      assert second.type == {:function, :public}
+      assert second.subject == "ModuleWithMissingEnd.second_fn/0"
+      assert decorate(doc, second.detail_range) =~ "def «second_fn» do"
+    end
+
+    test "returns empty symbols for completely unparseable code" do
+      {symbols, _doc} =
+        "}{]["
+        |> document_symbols()
+
+      assert is_list(symbols)
+      assert symbols == []
+    end
   end
 
   describe "workspace symbols" do

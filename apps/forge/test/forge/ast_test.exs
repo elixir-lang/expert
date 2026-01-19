@@ -62,20 +62,6 @@ defmodule Forge.AstTest do
       Ast.path_at(document, position)
     end
 
-    defp end_location({_, metadata, _}), do: end_location(metadata)
-
-    defp end_location(metadata) when is_list(metadata) do
-      case metadata do
-        [line: line, column: column] ->
-          {line, column}
-
-        metadata ->
-          [end_line: line, end_column: column] = Keyword.take(metadata, [:end_line, :end_column])
-
-          {line, column}
-      end
-    end
-
     test "returns an error if the cursor cannot be found in any node" do
       code = ~q[
         |
