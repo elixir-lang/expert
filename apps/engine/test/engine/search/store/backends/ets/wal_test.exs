@@ -1,4 +1,5 @@
 defmodule Engine.Search.Store.Backends.Ets.WalTest do
+  alias Engine.Dispatch
   alias Engine.Search.Store.Backends.Ets.Wal
 
   import Forge.Test.Fixtures
@@ -14,6 +15,12 @@ defmodule Engine.Search.Store.Backends.Ets.WalTest do
   setup do
     project = project()
     new_table()
+
+    patch(Dispatch, :erpc_call, fn Expert.Progress, :begin, [_title, _opts] ->
+      {:ok, System.unique_integer([:positive])}
+    end)
+
+    patch(Dispatch, :erpc_cast, fn Expert.Progress, _function, _args -> true end)
 
     on_exit(fn ->
       Wal.destroy(project, @schema_version)

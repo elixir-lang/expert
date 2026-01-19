@@ -1,4 +1,5 @@
 defmodule Engine.Search.Store.Backends.Ets.SchemaTest do
+  alias Engine.Dispatch
   alias Engine.Search.Store.Backends.Ets.Schema
   alias Engine.Search.Store.Backends.Ets.Wal
   alias Forge.Project
@@ -7,11 +8,18 @@ defmodule Engine.Search.Store.Backends.Ets.SchemaTest do
   import Wal, only: :macros
 
   use ExUnit.Case
+  use Patch
 
   setup do
     project = project()
 
     destroy_index_path(project)
+
+    patch(Dispatch, :erpc_call, fn Expert.Progress, :begin, [_title, _opts] ->
+      {:ok, System.unique_integer([:positive])}
+    end)
+
+    patch(Dispatch, :erpc_cast, fn Expert.Progress, _function, _args -> true end)
 
     on_exit(fn ->
       destroy_index_path(project)

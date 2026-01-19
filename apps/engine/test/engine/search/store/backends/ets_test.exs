@@ -8,6 +8,7 @@ defmodule Engine.Search.Store.Backend.EtsTest do
   alias Forge.Test.Fixtures
 
   use ExUnit.Case, async: false
+  use Patch
 
   import EventualAssertions
   import Entry.Builder
@@ -23,6 +24,12 @@ defmodule Engine.Search.Store.Backend.EtsTest do
     # start with a clean slate.
 
     Engine.set_project(project)
+
+    patch(Dispatch, :erpc_call, fn Expert.Progress, :begin, [_title, _opts] ->
+      {:ok, System.unique_integer([:positive])}
+    end)
+
+    patch(Dispatch, :erpc_cast, fn Expert.Progress, _function, _args -> true end)
 
     delete_indexes(project, backend)
 

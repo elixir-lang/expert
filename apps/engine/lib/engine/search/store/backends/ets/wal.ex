@@ -2,6 +2,7 @@ defmodule Engine.Search.Store.Backends.Ets.Wal do
   @moduledoc """
   A (hopefully) simple write-ahead log
   """
+  alias Engine.Progress
   alias Forge.Identifier
   alias Forge.Project
   alias Forge.VM.Versions
@@ -330,10 +331,10 @@ defmodule Engine.Search.Store.Backends.Ets.Wal do
 
     case :disk_log.open(name: log_name, file: String.to_charlist(checkpoint_file)) do
       {:ok, log} ->
-        stream_checkpoint(wal, log, :start)
+        stream_checkpoint_with_progress(wal, log)
 
       {:repaired, log, _recovered, _bad_bytes} ->
-        stream_checkpoint(wal, log, :start)
+        stream_checkpoint_with_progress(wal, log)
 
       error ->
         error
@@ -365,6 +366,13 @@ defmodule Engine.Search.Store.Backends.Ets.Wal do
 
   defp checkpoint_log_name(%Project{} = project) do
     :"checkpoint_log_#{Project.name(project)}"
+  end
+
+  defp stream_checkpoint_with_progress(%__MODULE__{} = wal, log) do
+    Progress.with_progress("Loading search index", fn _token ->
+      result = stream_checkpoint(wal, log, :start)
+      {:done, result}
+    end)
   end
 
   defp stream_checkpoint(%__MODULE__{} = wal, log, continuation) do
