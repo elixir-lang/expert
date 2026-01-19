@@ -50,7 +50,7 @@ defmodule Engine.MixProject do
       {:elixir_sense,
        github: "elixir-lsp/elixir_sense", ref: "e3ddc403554050221a2fd19a10a896fa7525bc02"},
       {:forge, path: "../forge"},
-      {:gen_lsp, "~> 0.11"},
+      {:gen_lsp, "~> 0.11.3"},
       {:patch, "~> 0.15", only: [:dev, :test], runtime: false},
       {:path_glob, "~> 0.2"},
       {:phoenix_live_view, "~> 1.0", only: [:test], runtime: false},

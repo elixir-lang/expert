@@ -86,7 +86,7 @@ defmodule Expert.MixProject do
       # assume a roundtrip to a project node is made.
       {:engine, path: "../engine", only: [:test]},
       {:forge, path: "../forge"},
-      {:gen_lsp, "~> 0.11"},
+      {:gen_lsp, "~> 0.11.3"},
       {:jason, "~> 1.4"},
       {:logger_file_backend, "~> 0.0", only: [:dev, :prod]},
       {:patch, "~> 0.15", runtime: false, only: [:dev, :test]},

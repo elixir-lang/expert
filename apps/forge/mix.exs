@@ -40,7 +40,7 @@ defmodule Forge.MixProject do
       Mix.Credo.dependency(),
       Mix.Dialyzer.dependency(),
       {:deps_nix, "~> 2.4", only: :dev},
-      {:gen_lsp, "~> 0.11"},
+      {:gen_lsp, "~> 0.11.3"},
       {:snowflake, "~> 1.0"},
       {:sourceror, "~> 1.9"},
       {:stream_data, "~> 1.1", only: [:test], runtime: false},
