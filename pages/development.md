@@ -18,6 +18,16 @@ in the generated release:
 <your-repo>/apps/expert/_build/prod/rel/plain/bin/start_expert --stdio
 ```
 
+## Parser Configuration
+
+Expert uses [Spitfire](https://github.com/elixir-tools/spitfire) as the default
+parser. To use the built-in Elixir parser instead, set the `EXPERT_PARSER` env
+variable to `elixir` when building the release:
+
+```sh
+EXPERT_PARSER=elixir just release
+```
+
 ## Logging
 
 When expert starts up, it creates a `.expert` directory in the root

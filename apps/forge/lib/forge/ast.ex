@@ -77,6 +77,11 @@ defmodule Forge.Ast do
   require Logger
   require Sourceror
 
+  @parser (case Application.compile_env(:forge, :parser, :spitfire) do
+             :spitfire -> Forge.Ast.Parser.Spitfire
+             :elixir -> Forge.Ast.Parser.Elixir
+           end)
+
   @typedoc "Return value from `Code.Fragment.cursor_context/2`"
   @type cursor_context :: any()
 
@@ -499,41 +504,11 @@ defmodule Forge.Ast do
   # private
 
   defp do_string_to_quoted(string) when is_binary(string) do
-    case Spitfire.parse_with_comments(string,
-           literal_encoder: &{:ok, {:__block__, &2, [&1]}},
-           token_metadata: true,
-           columns: true,
-           unescape: false
-         ) do
-      {:ok, quoted, comments} ->
-        {:ok, quoted, comments}
-
-      {:error, quoted, comments, errors} ->
-        first = hd(errors)
-        {:error, quoted, first, comments}
-
-      {:error, :no_fuel_remaining} ->
-        {:error, {[line: 1, column: 1], "parser exhausted fuel"}, []}
-    end
+    @parser.string_to_quoted(string)
   end
 
   defp do_container_cursor_to_quoted(fragment) when is_binary(fragment) do
-    case Spitfire.container_cursor_to_quoted(fragment,
-           literal_encoder: &{:ok, {:__block__, &2, [&1]}},
-           token_metadata: true,
-           columns: true,
-           unescape: false
-         ) do
-      {:ok, quoted} ->
-        {:ok, quoted}
-
-      {:error, quoted, errors} ->
-        first = hd(errors)
-        {:error, quoted, first}
-
-      {:error, :no_fuel_remaining} ->
-        {:error, {[line: 1, column: 1], "parser exhausted fuel"}}
-    end
+    @parser.container_cursor_to_quoted(fragment)
   end
 
   defp do_cursor_context(fragment) when is_binary(fragment) do
