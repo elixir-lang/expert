@@ -92,11 +92,11 @@ defmodule Engine.CodeMod.DirectivesTest do
           range: &range_of/1
         )
 
-      # expect old ranges removed (replaced/emptied) and new block inserted
-      assert length(edits) == 3
-      assert Enum.any?(edits, &(&1.text == "\n"))
-      assert Enum.any?(edits, &String.contains?(&1.text, "decl a"))
-      assert Enum.any?(edits, &String.contains?(&1.text, "decl b"))
+      assert length(edits) >= 2
+      [insert_edit | delete_edits] = edits
+      assert String.contains?(insert_edit.text, "decl a")
+      assert String.contains?(insert_edit.text, "decl b")
+      assert Enum.all?(delete_edits, &(&1.text == ""))
     end
   end
 end

@@ -43,7 +43,10 @@ defmodule Forge.Test.CodeMod.Case do
   def apply_edits(original, text_edits, opts) do
     document = Document.new("file:///file.ex", original, 0)
     utf8_edits = Enum.map(text_edits, &convert_edit_utf16_to_utf8(document, &1))
-    {:ok, edited_document} = Document.apply_content_changes(document, 1, utf8_edits)
+
+    sorted_edits = sort_edits_for_application(utf8_edits)
+
+    {:ok, edited_document} = Document.apply_content_changes(document, 1, sorted_edits)
     edited_document = Document.to_string(edited_document)
 
     if Keyword.get(opts, :trim, true) do
@@ -51,6 +54,21 @@ defmodule Forge.Test.CodeMod.Case do
     else
       edited_document
     end
+  end
+
+  defp sort_edits_for_application(edits) do
+    edits
+    |> Enum.with_index()
+    |> Enum.sort_by(fn {edit, original_index} ->
+      case edit.range do
+        nil ->
+          {0, 0, 0, original_index}
+
+        range ->
+          {-range.end.line, -range.end.character, -range.start.line, original_index}
+      end
+    end)
+    |> Enum.map(fn {edit, _index} -> edit end)
   end
 
   defp convert_edit_utf16_to_utf8(document, %Document.Edit{} = edit) do

@@ -54,7 +54,7 @@ defmodule Engine.CodeMod.Directives do
       |> String.trim_trailing()
 
     zeroed = put_in(insert_position.character, 1)
-    new_range = Range.new(zeroed, zeroed)
+    insert_range = Range.new(zeroed, zeroed)
 
     block_text =
       if is_binary(trailer) do
@@ -63,9 +63,21 @@ defmodule Engine.CodeMod.Directives do
         block_text
       end
 
-    edits = remove_old_directives(all_ranges)
+    delete_edits = remove_old_directives(all_ranges)
 
-    edits ++ [Edit.new(block_text, new_range)]
+    case delete_edits do
+      [] ->
+        insert_edit = Edit.new(block_text, insert_range)
+        [insert_edit]
+
+      _ ->
+        # When deleting existing directives, the delete edits remove entire lines
+        # including their newlines. So we need to add a trailing newline to the
+        # inserted block to maintain proper line structure.
+        insert_edit = Edit.new(block_text <> "\n", insert_range)
+
+        [insert_edit | delete_edits]
+    end
   end
 
   defp indent(text, spaces) do
@@ -73,31 +85,17 @@ defmodule Engine.CodeMod.Directives do
   end
 
   defp remove_old_directives(ranges) do
-    ranges =
-      ranges
-      |> Enum.sort_by(& &1.start.line, :desc)
-      |> Enum.uniq_by(& &1)
-      |> Enum.map(fn %Range{} = range ->
-        orig_range = range
-
-        orig_range
-        |> put_in([:start, :character], 1)
-        |> update_in([:end], fn %Position{} = pos ->
-          %Position{pos | character: 1, line: pos.line + 1}
-        end)
-      end)
-
-    first_index = length(ranges) - 1
-
     ranges
-    |> Enum.with_index()
-    |> Enum.map(fn
-      {range, ^first_index} ->
-        Edit.new("\n", range)
-
-      {range, _} ->
-        Edit.new("", range)
+    |> Enum.sort_by(& &1.start.line, :desc)
+    |> Enum.uniq_by(& &1)
+    |> Enum.map(fn %Range{} = range ->
+      range
+      |> put_in([:start, :character], 1)
+      |> update_in([:end], fn %Position{} = pos ->
+        %Position{pos | character: 1, line: pos.line + 1}
+      end)
     end)
+    |> Enum.map(&Edit.new("", &1))
     |> merge_adjacent_edits()
   end
 
@@ -106,12 +104,12 @@ defmodule Engine.CodeMod.Directives do
 
   defp merge_adjacent_edits([edit | rest]) do
     rest
-    |> Enum.reduce([edit], fn %Edit{} = current, [%Edit{} = last | rest] = edits ->
+    |> Enum.reduce([edit], fn %Edit{} = current, [%Edit{} = last | acc_rest] = edits ->
       with {same_text, same_text} <- {last.text, current.text},
            {same, same} <- {to_tuple(current.range.end), to_tuple(last.range.start)} do
         collapsed = put_in(current.range.end, last.range.end)
 
-        [collapsed | rest]
+        [collapsed | acc_rest]
       else
         _ ->
           [current | edits]

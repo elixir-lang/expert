@@ -132,6 +132,29 @@ defmodule Engine.CodeAction.Handlers.OrganizeAliasesTest do
       assert expected == organized
     end
 
+    test "aliases are sorted alphabetically" do
+      {:ok, organized} =
+        ~q[
+          defmodule SortAliases do
+            alias A|
+            alias C
+            alias D
+            alias B
+          end
+        ]
+        |> organize_aliases()
+
+      expected = ~q[
+      defmodule SortAliases do
+        alias A
+        alias B
+        alias C
+        alias D
+      end
+    ]t
+      assert expected == organized
+    end
+
     test "aliases are removed duplicate aliases" do
       {:ok, organized} =
         ~q[
