@@ -243,7 +243,7 @@ defmodule Engine.Modules do
   defp rebuild_cache do
     {amount, unit} = @cache_timeout
 
-    expires = DateTime.add(DateTime.utc_now(), amount, unit)
+    expires = DateTime.add(DateTime.utc_now(), amount, unit, Calendar.UTCOnlyTimeZoneDatabase)
 
     module_map =
       Map.new(:code.all_available(), fn {module_charlist, _path, already_loaded?} ->
