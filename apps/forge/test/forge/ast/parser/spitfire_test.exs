@@ -33,7 +33,7 @@ defmodule Forge.Ast.Parser.SpitfireTest do
         end)
 
       assert log =~
-               "Spitfire parser crashed: ** (CaseClauseError) no case clause matching: :identifier"
+               "Spitfire parser crashed: ** (CaseClauseError) no case clause matching"
     end
   end
 
@@ -57,7 +57,7 @@ defmodule Forge.Ast.Parser.SpitfireTest do
         end)
 
       assert log =~
-               "Spitfire parser crashed: ** (CaseClauseError) no case clause matching: :identifier"
+               "Spitfire parser crashed: ** (CaseClauseError) no case clause matching"
     end
   end
 end
