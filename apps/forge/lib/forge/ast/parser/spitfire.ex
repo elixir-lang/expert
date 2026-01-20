@@ -1,6 +1,8 @@
 defmodule Forge.Ast.Parser.Spitfire do
   @moduledoc false
 
+  require Logger
+
   defp opts do
     [
       literal_encoder: &{:ok, {:__block__, &2, [&1]}},
@@ -22,6 +24,11 @@ defmodule Forge.Ast.Parser.Spitfire do
       {:error, :no_fuel_remaining} ->
         {:error, {[line: 1, column: 1], "parser exhausted fuel"}, []}
     end
+  rescue
+    e ->
+      message = Exception.format(:error, e, __STACKTRACE__)
+      Logger.error("Spitfire parser crashed: #{message}")
+      {:error, {[line: 1, column: 1], "parser crashed: #{Exception.message(e)}"}, []}
   end
 
   def container_cursor_to_quoted(fragment) when is_binary(fragment) do
@@ -36,5 +43,10 @@ defmodule Forge.Ast.Parser.Spitfire do
       {:error, :no_fuel_remaining} ->
         {:error, {[line: 1, column: 1], "parser exhausted fuel"}}
     end
+  rescue
+    e ->
+      message = Exception.format(:error, e, __STACKTRACE__)
+      Logger.error("Spitfire parser crashed: #{message}")
+      {:error, {[line: 1, column: 1], "parser crashed: #{Exception.message(e)}"}}
   end
 end
