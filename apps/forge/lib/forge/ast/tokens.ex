@@ -154,6 +154,10 @@ defmodule Forge.Ast.Tokens do
           range = {{line, column}, end_pos}
           {end_pos, [{:literal, literal, range} | acc]}
 
+        {_, {end_line, end_column, _}, []}, {_, acc} ->
+          range = {{end_line, end_column}, {end_line, end_column}}
+          {{end_line, end_column}, [{:interpolation, [], range} | acc]}
+
         {_, {end_line, end_column, _}, interp}, {_, acc} ->
           start_pos = get_start_pos(interp)
           range = {start_pos, {end_line, end_column}}
