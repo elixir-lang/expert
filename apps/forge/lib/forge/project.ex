@@ -54,29 +54,15 @@ defmodule Forge.Project do
   @spec name(t) :: String.t()
 
   def name(%__MODULE__{} = project) do
-    sanitized =
-      project
-      |> folder_name()
-      |> String.replace(~r/[^a-zA-Z0-9_]/, "_")
-
-    # This might be a little verbose, but this code is hot.
-    case sanitized do
-      <<c::utf8, _rest::binary>> when c in ?a..?z ->
-        sanitized
-
-      <<c::utf8, rest::binary>> when c in ?A..?Z ->
-        String.downcase("#{[c]}") <> rest
-
-      other ->
-        "p_#{other}"
-    end
+    folder_name(project)
   end
 
   @doc """
   The project node's name
   """
   def node_name(%__MODULE__{} = project) do
-    :"expert-project-#{name(project)}-#{entropy(project)}@127.0.0.1"
+    sanitized = Forge.Node.sanitize(name(project))
+    :"expert-project-#{sanitized}-#{entropy(project)}@127.0.0.1"
   end
 
   def entropy(%__MODULE__{} = project) do
@@ -172,7 +158,8 @@ defmodule Forge.Project do
         _ -> Forge.Workspace.name(workspace)
       end
 
-    :"expert-manager-#{workspace_name}-#{entropy(project)}@127.0.0.1"
+    sanitized = Forge.Node.sanitize(workspace_name)
+    :"expert-manager-#{sanitized}-#{entropy(project)}@127.0.0.1"
   end
 
   @doc """

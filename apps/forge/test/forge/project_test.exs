@@ -1,6 +1,7 @@
 defmodule Forge.ProjectTest do
   alias Forge.Document
   alias Forge.Project
+  alias Forge.Workspace
 
   use ExUnit.Case, async: false
   use ExUnitProperties
@@ -173,26 +174,75 @@ defmodule Forge.ProjectTest do
   end
 
   describe "name/1" do
-    test "a project's name starts with a lowercase character and contains alphanumeric characters and _" do
-      check all(folder_name <- string(:ascii, min_length: 1)) do
-        patch(Project, :folder_name, folder_name)
-        assert Regex.match?(~r/[a-z][a-zA-Z_]*/, Project.name(test_project()))
-      end
+    test "returns the folder name unchanged" do
+      patch(Project, :folder_name, "my-project.org")
+      assert Project.name(test_project()) == "my-project.org"
     end
 
-    test "periods are repleaced with underscores" do
+    test "preserves special characters" do
       patch(Project, :folder_name, "foo.bar")
-      assert Project.name(test_project()) == "foo_bar"
+      assert Project.name(test_project()) == "foo.bar"
     end
 
-    test "leading capital letters are downcased" do
+    test "preserves capital letters" do
       patch(Project, :folder_name, "FooBar")
-      assert Project.name(test_project()) == "fooBar"
+      assert Project.name(test_project()) == "FooBar"
     end
 
-    test "leading numbers are replaced with p_" do
+    test "preserves leading numbers" do
       patch(Project, :folder_name, "3bar")
-      assert Project.name(test_project()) == "p_3bar"
+      assert Project.name(test_project()) == "3bar"
+    end
+  end
+
+  describe "manager_node_name/1" do
+    setup do
+      on_exit(fn ->
+        Workspace.set_workspace(nil)
+      end)
+
+      :ok
+    end
+
+    test "produces valid node name when workspace has dots in name" do
+      workspace = Workspace.new("/path/to/expert-lsp.org")
+      Workspace.set_workspace(workspace)
+
+      project = test_project()
+      node_name = Project.manager_node_name(project)
+
+      [name_part, _host] = String.split(Atom.to_string(node_name), "@")
+      refute String.contains?(name_part, ".")
+    end
+
+    test "produces valid node name when workspace has dashes in name" do
+      workspace = Workspace.new("/path/to/my-cool-project")
+      Workspace.set_workspace(workspace)
+
+      project = test_project()
+      node_name = Project.manager_node_name(project)
+
+      assert Atom.to_string(node_name) =~ "my_cool_project"
+    end
+
+    test "uses sanitized workspace name in node name" do
+      workspace = Workspace.new("/path/to/expert-lsp.org")
+      Workspace.set_workspace(workspace)
+
+      project = test_project()
+      node_name = Project.manager_node_name(project)
+
+      assert Atom.to_string(node_name) =~ "expert_lsp_org"
+    end
+
+    test "falls back to sanitized project name when no workspace is set" do
+      Workspace.set_workspace(nil)
+
+      project = test_project()
+      node_name = Project.manager_node_name(project)
+
+      sanitized_name = Forge.Node.sanitize(Project.name(project))
+      assert Atom.to_string(node_name) =~ sanitized_name
     end
   end
 end
