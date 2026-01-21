@@ -73,22 +73,25 @@ defmodule Forge.EPMD do
 
   def port_please(name, host), do: port_please(name, host, :infinity)
 
-  def port_please(~c"expert-manager-" ++ _ = name, host, timeout) do
+  def port_please(~c"expert-manager-" ++ _ = _name, _host, _timeout) do
+    # We only return the port if we have the parent port env var set.
+    # We must NOT fall back to :erl_epmd.port_please/3 because the system
+    # EPMD daemon may have stale entries with incorrect port numbers.
     if port = System.get_env("EXPERT_PARENT_PORT") do
       {:port, String.to_integer(port), @epmd_dist_version}
     else
-      :erl_epmd.port_please(name, host, timeout)
+      :noport
     end
   end
 
-  def port_please(~c"expert-project-" ++ _ = name, host, timeout) do
+  def port_please(~c"expert-project-" ++ _ = name, host, _timeout) do
     host_string = format_host(host)
     full_node = :"#{name}@#{host_string}"
 
     if port = Forge.NodePortMapper.get_port(full_node) do
       {:port, port, @epmd_dist_version}
     else
-      :erl_epmd.port_please(name, host, timeout)
+      :noport
     end
   end
 

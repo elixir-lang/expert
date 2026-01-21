@@ -107,7 +107,6 @@ defmodule Engine.Search.Store.Backends.Ets do
   @impl GenServer
   def init([%Project{} = project]) do
     Process.flag(:fullsweep_after, 5)
-    :ok = connect_to_project_nodes(project)
     {:ok, project, {:continue, :try_for_leader}}
   end
 
@@ -211,32 +210,6 @@ defmodule Engine.Search.Store.Backends.Ets do
 
   defp create_leader(%Project{} = project) do
     State.new_leader(project)
-  end
-
-  defp connect_to_project_nodes(%Project{} = project) do
-    case :erl_epmd.names() do
-      {:ok, node_names_and_ports} ->
-        project
-        |> project_nodes(node_names_and_ports)
-        |> Enum.each(&Node.connect/1)
-
-        :global.sync()
-
-      _ ->
-        :ok
-    end
-  end
-
-  defp project_nodes(%Project{} = project, node_and_port_list) do
-    project_name = Project.name(project)
-
-    project_substring = "project-#{project_name}-"
-
-    for {node_name_charlist, _port} <- node_and_port_list,
-        node_name_string = List.to_string(node_name_charlist),
-        String.contains?(node_name_string, project_substring) do
-      :"#{node_name_string}@127.0.0.1"
-    end
   end
 
   defp schedule_gc do
