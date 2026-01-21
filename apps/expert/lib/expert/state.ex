@@ -128,30 +128,23 @@ defmodule Expert.State do
     projects = ActiveProjects.projects()
     project = Project.project_for_uri(projects, uri)
 
-    with true <- ActiveProjects.active?(project),
-         {:ok, updated_source} <-
-           Document.Store.get_and_update(
-             uri,
-             # TODO: this function needs to accept the GenLSP data structure
-             &Document.apply_content_changes(&1, version, params.content_changes)
-           ) do
-      updated_message =
-        file_changed(
-          uri: updated_source.uri,
-          open?: true,
-          from_version: version,
-          to_version: updated_source.version
-        )
+    case Document.Store.get_and_update(
+           uri,
+           &Document.apply_content_changes(&1, version, params.content_changes)
+         ) do
+      {:ok, updated_source} ->
+        updated_message =
+          file_changed(
+            uri: updated_source.uri,
+            open?: true,
+            from_version: version,
+            to_version: updated_source.version
+          )
 
-      EngineApi.broadcast(project, updated_message)
-      EngineApi.compile_document(project, updated_source)
-      {:ok, state}
-    else
-      false ->
-        GenLSP.info(
-          Expert.get_lsp(),
-          "Received request textDocument/didChange before engine for #{Project.name(project)} was initialized. Ignoring."
-        )
+        if ActiveProjects.active?(project) do
+          EngineApi.broadcast(project, updated_message)
+          EngineApi.compile_document(project, updated_source)
+        end
 
         {:ok, state}
 
