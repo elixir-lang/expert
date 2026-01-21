@@ -561,4 +561,63 @@ defmodule ExpertTest do
       assert_project_alive?(nested_subproject)
     end
   end
+
+  describe "text document changes" do
+    test "updates document store even when project engine is not active", %{
+      client: client,
+      project_root: project_root
+    } do
+      spy(Expert.EngineApi)
+
+      patch(Expert.Project.Supervisor, :ensure_node_started, fn _project ->
+        {:ok, nil}
+      end)
+
+      assert :ok = request(client, initialize_request(project_root, id: 1, projects: []))
+      assert_result(1, _)
+
+      file_uri = Document.Path.to_uri(Path.join(project_root, "lib/test_file.ex"))
+      initial_text = "defmodule Test do\nend"
+
+      assert :ok =
+               notify(client, %{
+                 method: "textDocument/didOpen",
+                 jsonrpc: "2.0",
+                 params: %{
+                   textDocument: %{
+                     uri: file_uri,
+                     languageId: "elixir",
+                     version: 1,
+                     text: initial_text
+                   }
+                 }
+               })
+
+      Process.sleep(50)
+
+      assert {:ok, doc} = Document.Store.fetch(file_uri)
+      assert Document.to_string(doc) == initial_text
+
+      new_text = "defmodule Updated do\nend"
+
+      assert :ok =
+               notify(client, %{
+                 method: "textDocument/didChange",
+                 jsonrpc: "2.0",
+                 params: %{
+                   textDocument: %{uri: file_uri, version: 2},
+                   contentChanges: [%{text: new_text}]
+                 }
+               })
+
+      Process.sleep(50)
+
+      assert {:ok, updated_doc} = Document.Store.fetch(file_uri)
+      assert updated_doc.version == 2
+      assert Document.to_string(updated_doc) == new_text
+
+      refute_any_call(Expert.EngineApi.broadcast())
+      refute_any_call(Expert.EngineApi.compile_document())
+    end
+  end
 end
