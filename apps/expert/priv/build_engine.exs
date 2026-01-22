@@ -26,7 +26,18 @@ Mix.install([{:engine, path: engine_source_path, env: :dev}],
   lockfile: Path.join(engine_source_path, "mix.lock")
 )
 
-install_path = Mix.install_project_dir()
+install_path =
+  with false <- Version.match?(System.version(), ">= 1.16.2"),
+       false <- is_nil(Process.whereis(Mix.State)),
+       cache_id <- Mix.State.get(:installed) do
+    install_root =
+      System.get_env("MIX_INSTALL_DIR") || Path.join(Mix.Utils.mix_cache(), "installs")
+
+    version = "elixir-#{System.version()}-erts-#{:erlang.system_info(:version)}"
+    Path.join([install_root, version, cache_id])
+  else
+    _ -> Mix.install_project_dir()
+  end
 
 dev_build_path = Path.join([install_path, "_build", "dev"])
 ns_build_path = Path.join([install_path, "_build", "dev_ns"])
