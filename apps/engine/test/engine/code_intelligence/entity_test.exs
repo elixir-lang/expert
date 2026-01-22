@@ -983,6 +983,76 @@ defmodule Engine.CodeIntelligence.EntityTest do
       assert {:ok, {:call, MyLiveView, :button, 1}, _} = resolve(code)
     end
 
+    test "resolves shorthand component without closing tag with correct arity" do
+      code = ~q[
+        defmodule MyLiveView do
+          use Phoenix.Component
+
+          def render(assigns) do
+            ~H"""
+            <.but|ton label="Click" />
+            """
+          end
+
+          def button(assigns), do: nil
+        end
+      ]
+
+      assert {:ok, {:call, MyLiveView, :button, 1}, _} = resolve(code)
+    end
+
+    test "resolves shorthand component with curly braces with correct arity" do
+      code = ~q[
+        defmodule MyLiveView do
+          use Phoenix.Component
+
+          def render(assigns) do
+            ~H"""
+            <.but|ton label={label} />
+            """
+          end
+
+          def button(assigns), do: nil
+        end
+      ]
+
+      assert {:ok, {:call, MyLiveView, :button, 1}, _} = resolve(code)
+    end
+
+    test "resolves shorthand component with curly braces on the first line of sigil with correct arity" do
+      code = ~q[
+        defmodule MyLiveView do
+          use Phoenix.Component
+
+          def render(assigns) do
+            ~H"<.butto|n label={label} />"
+          end
+
+          def button(assigns), do: nil
+        end
+      ]
+
+      assert {:ok, {:call, MyLiveView, :button, 1}, _} = resolve(code)
+    end
+
+    test "resolves function called inside shorthand component with curly braces with correct arity" do
+      code = ~q[
+        defmodule MyLiveView do
+          use Phoenix.Component
+
+          def render(assigns) do
+            ~H"""
+            <.button label={LabelGenerator.for_bu|tton("label", in_live_view: true, language: :en)} />
+            """
+          end
+
+          def button(assigns), do: nil
+        end
+      ]
+
+      assert {:ok, {:call, LabelGenerator, :for_button, 2}, _} = resolve(code)
+    end
+
     test "resolves EEx expression with arity 1" do
       code = ~q[
         defmodule MyLiveView do
