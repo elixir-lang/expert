@@ -145,9 +145,26 @@ let
     with self;
     {
 
+      briefly =
+        let
+          version = "0.5.1";
+          drv = buildMix {
+            inherit version;
+            name = "briefly";
+            appConfigPath = ./config;
+
+            src = fetchHex {
+              inherit version;
+              pkg = "briefly";
+              sha256 = "bd684aa92ad8b7b4e0d92c31200993c4bc1469fc68cd6d5f15144041bd15cb57";
+            };
+          };
+        in
+        drv;
+
       gen_lsp =
         let
-          version = "0.11.0";
+          version = "0.11.3";
           drv = buildMix {
             inherit version;
             name = "gen_lsp";
@@ -156,7 +173,7 @@ let
             src = fetchHex {
               inherit version;
               pkg = "gen_lsp";
-              sha256 = "d67c20650a5290a02f7bac53083ac4487d3c6b461f35a8b14c5d2d7638c20d26";
+              sha256 = "a674de4b06cbc56311d13a0fdf69066837785ba9c90da54984e58f485fd019cb";
             };
 
             beamDeps = [
@@ -236,6 +253,23 @@ let
               inherit version;
               pkg = "snowflake";
               sha256 = "badb07ebb089a5cff737738297513db3962760b10fe2b158ae3bebf0b4d5be13";
+            };
+          };
+        in
+        drv;
+
+      spitfire =
+        let
+          version = "0.3.1";
+          drv = buildMix {
+            inherit version;
+            name = "spitfire";
+            appConfigPath = ./config;
+
+            src = fetchHex {
+              inherit version;
+              pkg = "spitfire";
+              sha256 = "72ff34d8f0096313a4b1a6505513c5ef4bbc0919bd8c181c07fc8d8dea8c9056";
             };
           };
         in
