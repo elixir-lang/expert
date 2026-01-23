@@ -111,7 +111,7 @@ defmodule Expert.EngineTest do
       assert output =~ "Error deleting"
       assert output =~ dir3
 
-      # Should only attempt dir1 and dir2, not dir3
+      # Sorted order is dir1, dir3, dir2; should only attempt dir1 and dir3
       attempted_dirs =
         agent_pid
         |> Agent.get(& &1)
@@ -119,7 +119,7 @@ defmodule Expert.EngineTest do
 
       assert length(attempted_dirs) == 2
       assert Enum.at(attempted_dirs, 0) =~ "0.1.0/foobar"
-      assert Enum.at(attempted_dirs, 1) =~ "0.2.0/foobar"
+      assert Enum.at(attempted_dirs, 1) =~ "0.2.0/bazbeau"
     end
   end
 
@@ -174,15 +174,15 @@ defmodule Expert.EngineTest do
       File.mkdir_p!(dir2)
       File.mkdir_p!(dir3)
 
-      # Answer yes to first, no to second, yes to third
+      # Answer yes to first, no to second, yes to third (sorted order)
       capture_io([input: "y\nn\nyes\n"], fn ->
         exit_code = Engine.run(["clean"])
         assert exit_code == 0
       end)
 
       refute File.exists?(dir1)
-      assert File.exists?(dir2)
-      refute File.exists?(dir3)
+      refute File.exists?(dir2)
+      assert File.exists?(dir3)
     end
 
     test "prints message when no engine builds exist" do
@@ -227,7 +227,7 @@ defmodule Expert.EngineTest do
 
       assert output =~ "Error deleting"
 
-      # Should only attempt dir1 and dir2, not dir3
+      # Sorted order is dir1, dir3, dir2; should only attempt dir1 and dir3
       attempted_dirs =
         agent_pid
         |> Agent.get(& &1)
