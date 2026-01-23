@@ -29,8 +29,14 @@ defmodule Expert.Provider.Handlers.HoverTest do
 
     Expert.Configuration.new() |> Expert.Configuration.set()
 
-    :ok = EngineApi.register_listener(project, self(), [Messages.project_compiled()])
+    :ok =
+      EngineApi.register_listener(project, self(), [
+        Messages.project_compiled(),
+        Messages.project_index_ready()
+      ])
+
     assert_receive Messages.project_compiled(), 5000
+    assert_receive Messages.project_index_ready(), 5000
 
     {:ok, project: project}
   end
@@ -808,8 +814,6 @@ defmodule Expert.Provider.Handlers.HoverTest do
     File.mkdir_p!(tmp_dir)
 
     with_tmp_file(tmp_path, code, fn ->
-      wait_for_store_ready(project)
-
       uri = Document.Path.ensure_uri(tmp_path)
       {:ok, _document} = Document.Store.open_temporary(uri)
 
@@ -820,19 +824,6 @@ defmodule Expert.Provider.Handlers.HoverTest do
         fun.()
       after
         Document.Store.close(uri)
-      end
-    end)
-  end
-
-  defp wait_for_store_ready(project) do
-    Enum.reduce_while(1..50, :not_ready, fn _, _ ->
-      case EngineApi.call(project, Search.Store, :loaded?, []) do
-        true ->
-          {:halt, :ok}
-
-        _ ->
-          Process.sleep(100)
-          {:cont, :not_ready}
       end
     end)
   end
