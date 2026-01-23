@@ -1,4 +1,5 @@
 defmodule Expert.Provider.Handlers.HoverTest do
+  alias Engine.Search
   alias Expert.EngineApi
   alias Expert.Protocol.Convert
   alias Expert.Provider.Handlers
@@ -28,8 +29,14 @@ defmodule Expert.Provider.Handlers.HoverTest do
 
     Expert.Configuration.new() |> Expert.Configuration.set()
 
-    :ok = EngineApi.register_listener(project, self(), [Messages.project_compiled()])
+    :ok =
+      EngineApi.register_listener(project, self(), [
+        Messages.project_compiled(),
+        Messages.project_index_ready()
+      ])
+
     assert_receive Messages.project_compiled(), 5000
+    assert_receive Messages.project_index_ready(), 5000
 
     {:ok, project: project}
   end
@@ -725,6 +732,100 @@ defmodule Expert.Provider.Handlers.HoverTest do
         assert result.contents.value == expected
       end)
     end
+  end
+
+  describe "module attribute hover" do
+    test "shows attribute definition", %{project: project} do
+      code = ~q[
+        defmodule AttrHover do
+          @my_attr "hello"
+
+          def foo, do: @my_attr
+        end
+      ]
+
+      hovered = ~q[
+        defmodule AttrHover do
+          @my_attr "hello"
+
+          def foo, do: |@my_attr
+        end
+      ]
+
+      with_indexed(project, code, fn ->
+        assert {:ok, %Structures.Hover{} = result} = hover(project, hovered)
+        assert result.contents.kind == "markdown"
+        assert String.contains?(result.contents.value, "@my_attr")
+        assert String.contains?(result.contents.value, ~s[@my_attr "hello"])
+      end)
+    end
+
+    test "shows multiline attribute definition", %{project: project} do
+      code = """
+      defmodule AttrHover do
+        @config [
+          name: "test",
+          value: 42
+        ]
+
+        def get_config, do: @config
+      end
+      """
+
+      hovered = """
+      defmodule AttrHover do
+        @config [
+          name: "test",
+          value: 42
+        ]
+
+        def get_config, do: |@config
+      end
+      """
+
+      with_indexed(project, code, fn ->
+        assert {:ok, %Structures.Hover{} = result} = hover(project, hovered)
+        assert result.contents.kind == "markdown"
+        assert String.contains?(result.contents.value, "@config")
+        assert String.contains?(result.contents.value, "name:")
+      end)
+    end
+
+    test "shows fallback when no definition found", %{project: project} do
+      hovered = ~q[
+        defmodule AttrHoverFallback do
+          def foo, do: |@unknown_attr
+        end
+      ]
+
+      assert {:ok, %Structures.Hover{} = result} = hover(project, hovered)
+      assert result.contents.kind == "markdown"
+      assert String.contains?(result.contents.value, "@unknown_attr")
+    end
+  end
+
+  defp with_indexed(project, code, fun) do
+    tmp_dir = Fixtures.file_path(project, "lib/tmp")
+
+    tmp_path =
+      tmp_dir
+      |> Path.join("tmp_indexed_#{rand_hex(10)}.ex")
+
+    File.mkdir_p!(tmp_dir)
+
+    with_tmp_file(tmp_path, code, fn ->
+      uri = Document.Path.ensure_uri(tmp_path)
+      {:ok, _document} = Document.Store.open_temporary(uri)
+
+      {:ok, entries} = Search.Indexer.Source.index(tmp_path, code)
+      :ok = EngineApi.call(project, Search.Store, :replace, [entries])
+
+      try do
+        fun.()
+      after
+        Document.Store.close(uri)
+      end
+    end)
   end
 
   defp hover(project, hovered) do

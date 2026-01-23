@@ -1,6 +1,7 @@
 defmodule Expert.Provider.Handlers.Hover do
   @behaviour Expert.Provider.Handler
 
+  alias Engine.Search.Store
   alias Expert.ActiveProjects
   alias Expert.EngineApi
   alias Expert.Provider.Markdown
@@ -10,6 +11,7 @@ defmodule Expert.Provider.Handlers.Hover do
   alias Forge.Document
   alias Forge.Document.Position
   alias Forge.Project
+  alias Forge.Search.Indexer.Entry
   alias GenLSP.Requests
   alias GenLSP.Structures
 
@@ -90,6 +92,17 @@ defmodule Expert.Provider.Handlers.Hover do
     end
   end
 
+  defp hover_content({:module_attribute, module, attribute_name}, %Project{} = project) do
+    case module_attribute_definition_text(project, module, attribute_name) do
+      {:ok, definition_text} ->
+        {:ok, Markdown.code_block(definition_text)}
+
+      {:error, _} ->
+        # Fall back to just showing the attribute name
+        {:ok, Markdown.code_block("@#{attribute_name}")}
+    end
+  end
+
   defp hover_content(type, _) do
     {:error, {:unsupported, type}}
   end
@@ -148,6 +161,52 @@ defmodule Expert.Provider.Handlers.Hover do
       """)
 
     Markdown.join_sections([header, entry_doc_content(entry.doc)])
+  end
+
+  defp module_attribute_definition_text(%Project{} = project, module, attribute_name) do
+    case EngineApi.call(project, Store, :exact, [
+           "@#{attribute_name}",
+           [type: :module_attribute, subtype: :definition]
+         ]) do
+      {:ok, []} ->
+        {:error, :no_definition}
+
+      {:ok, entries} ->
+        entries
+        |> filter_entries_by_module(module)
+        |> fetch_first_definition_text(project)
+
+      error ->
+        error
+    end
+  end
+
+  defp filter_entries_by_module(entries, nil), do: entries
+
+  defp filter_entries_by_module(entries, module) do
+    module_hint = module |> Module.split() |> List.last() |> Macro.underscore()
+
+    filtered =
+      Enum.filter(entries, fn %Entry{path: path} ->
+        String.contains?(String.downcase(path), module_hint)
+      end)
+
+    if filtered == [], do: entries, else: filtered
+  end
+
+  defp fetch_first_definition_text([], _project), do: {:error, :no_definition}
+
+  defp fetch_first_definition_text([%Entry{path: path, range: range} | _], project) do
+    uri = Document.Path.ensure_uri(path)
+
+    case EngineApi.call(project, Document.Store, :open_temporary, [uri]) do
+      {:ok, document} ->
+        text = Document.fragment(document, range.start, range.end)
+        {:ok, String.trim(text)}
+
+      error ->
+        error
+    end
   end
 
   @one_line_header_cutoff 50
