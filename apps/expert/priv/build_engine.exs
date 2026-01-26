@@ -17,8 +17,8 @@ expert_data_path = :filename.basedir(:user_data, "Expert", %{version: expert_vsn
 
 System.put_env("MIX_INSTALL_DIR", expert_data_path)
 
-Mix.Task.run("local.hex", ["--force"])
-Mix.Task.run("local.rebar", ["--force"])
+Mix.Task.run("local.hex", ["--force", "--if-missing"])
+Mix.Task.run("local.rebar", ["--force", "--if-missing"])
 
 Mix.install([{:engine, path: engine_source_path, env: :dev}],
   start_applications: false,
