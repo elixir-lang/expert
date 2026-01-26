@@ -226,9 +226,11 @@ defmodule Engine.Search.Store.State do
 
       {:ok, %__MODULE__{state | fuzzy: fuzzy}}
     end
+  catch
+    :exit, {:timeout, _} ->
+      Logger.warning("Timeout updating index for path: #{path}")
+      {:ok, state}
   end
-
-  require Logger
 
   defp prepare_backend_async(%__MODULE__{async_load_ref: nil} = state, backend_result) do
     task =
