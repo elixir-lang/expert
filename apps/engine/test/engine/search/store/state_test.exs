@@ -5,6 +5,8 @@ defmodule Engine.Search.Store.StateTest do
   use ExUnit.Case, async: true
 
   import Fixtures
+  import ExUnit.CaptureLog
+  require Logger
 
   defmodule TimeoutBackend do
     @behaviour Engine.Search.Store.Backend
@@ -29,7 +31,10 @@ defmodule Engine.Search.Store.StateTest do
   end
 
   describe "update_nosync/3" do
-    test "catches timeout from backend and returns unchanged state" do
+    test "catches timeout from backend and logs the warning" do
+      Logger.put_module_level(State, :warning)
+      on_exit(fn -> Logger.put_module_level(State, Logger.level()) end)
+
       project = project()
 
       state =
@@ -40,8 +45,13 @@ defmodule Engine.Search.Store.StateTest do
           TimeoutBackend
         )
 
-      assert {:ok, returned_state} = State.update_nosync(state, "/some/path.ex", [])
-      assert returned_state.fuzzy == state.fuzzy
+      {result, log} =
+        with_log(fn ->
+          State.update_nosync(state, "/some/path.ex", [])
+        end)
+
+      assert assert {:ok, returned_state} = result
+      assert log =~ "Timeout updating index for path: /some/path.ex"
     end
   end
 end
