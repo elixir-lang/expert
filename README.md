@@ -66,6 +66,9 @@ Thank you to our corporate sponsors! Expert is currently in alpha and [we have o
 <div>
   <img height="100" src="./assets/sponsors/river.png">
 </div>
+<div>
+  <img height="100" src="./assets/sponsors/logo-enigmatic-original.webp">
+</div>
 
 ### Corporate
 
