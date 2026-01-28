@@ -81,6 +81,12 @@ defmodule Engine.Search.Indexer.Extractors.StructReference do
     Analyzer.current_module(reducer.analysis, Reducer.position(reducer))
   end
 
+  # Any-struct pattern: %_{}
+  defp expand_alias(:_, _reducer), do: :ignored
+
+  # Struct pattern with variable binding: %struct_name{}
+  defp expand_alias(atom, _reducer) when is_atom(atom), do: :ignored
+
   defp expand_alias(alias, %Reducer{} = reducer) do
     {line, column} = reducer.position
 
