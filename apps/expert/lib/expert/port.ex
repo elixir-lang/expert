@@ -15,8 +15,6 @@ defmodule Expert.Port do
 
   @type open_opts :: [open_opt]
 
-  @path_marker "__EXPERT_PATH__"
-
   @doc """
   Launches elixir in a port.
 
@@ -131,13 +129,24 @@ defmodule Expert.Port do
   defp find_project_elixir_unix(%Project{} = project) do
     root_path = Project.root_path(project)
 
-    shell = System.get_env("SHELL")
-    path = path_env_at_directory(root_path, shell)
+    # Filter out Expert's release paths from current PATH
+    current_path = System.get_env("PATH", "/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin")
+    release_root = System.get_env("RELEASE_ROOT")
+
+    path =
+      if release_root do
+        current_path
+        |> String.split(":")
+        |> Enum.reject(fn entry -> String.starts_with?(entry, release_root) end)
+        |> Enum.join(":")
+      else
+        current_path
+      end
 
     case :os.find_executable(~c"elixir", to_charlist(path)) do
       false ->
         {:error, :no_elixir,
-         "Couldn't find an elixir executable for project at #{root_path}. Using shell at #{shell} with PATH=#{path}"}
+         "Couldn't find an elixir executable for project at #{root_path}. Using PATH=#{path}"}
 
       elixir ->
         env =
@@ -157,56 +166,6 @@ defmodule Expert.Port do
 
       elixir ->
         {:ok, to_charlist(elixir), []}
-    end
-  end
-
-  defp path_env_at_directory(directory, shell) do
-    # We run a shell in interactive mode to populate the PATH with the right value
-    # at the project root. Otherwise, we either can't find an elixir executable,
-    # we use the wrong version if the user uses a version manager like asdf/mise,
-    # or we get an incomplete PATH not including erl or any other version manager
-    # managed programs.
-    env = [
-      # Disable shell session history to reduce noise
-      {"SHELL_SESSIONS_DISABLE", "1"},
-      # Start with minimal system PATH, otherwise tools like `mv` won't be avaliable.
-      {"PATH", "/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"}
-    ]
-
-    args =
-      case Path.basename(shell) do
-        "fish" ->
-          # Fish uses space-separated PATH, so we use the built-in `string join` command
-          # to join the entries with colons and have a standard colon-separated PATH output
-          # as in bash, which is expected by `:os.find_executable/2`.
-          # Also, no -i flag
-          cmd =
-            "cd #{directory}; printf \"#{@path_marker}:%s:#{@path_marker}\" (string join ':' $PATH)"
-
-          ["-l", "-c", cmd]
-
-        "nu" ->
-          # Nushell stores PATH as a list in $env.PATH, so we join with colons.
-          # Nushell doesn't support && operator, use ; instead.
-          cmd =
-            "cd #{directory}; print $\"#{@path_marker}:($env.PATH | str join \":\"):#{@path_marker}\""
-
-          ["-l", "-c", cmd]
-
-        _ ->
-          cmd = "cd #{directory} && printf \"#{@path_marker}:%s:#{@path_marker}\" \"$PATH\""
-          ["-i", "-l", "-c", cmd]
-      end
-
-    {output, _} = System.cmd(shell, args, env: env)
-
-    # This ignores banners (start) and logout garbage (end)
-    case Regex.run(~r/#{@path_marker}:(.*?):#{@path_marker}/s, output) do
-      [_, clean_path] ->
-        clean_path
-
-      nil ->
-        output |> String.trim() |> String.split("\n") |> List.last()
     end
   end
 
