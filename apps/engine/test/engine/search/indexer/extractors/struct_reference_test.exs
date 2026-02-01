@@ -1,6 +1,10 @@
 defmodule Engine.Search.Indexer.Extractors.StructReferenceTest do
   alias Engine.Search.Subject
+  alias Engine.Search.Indexer.Extractors.StructReference
   use Engine.Test.ExtractorCase
+  require Logger
+
+  import ExUnit.CaptureLog
 
   def index(source) do
     do_index(source, fn entry ->
@@ -53,6 +57,20 @@ defmodule Engine.Search.Indexer.Extractors.StructReferenceTest do
       assert struct.subtype == :reference
       assert struct.subject == Subject.module(MyStruct)
       assert decorate(doc, struct.range) == "variable = «%MyStruct{}»"
+    end
+
+    test "in an any-struct pattern" do
+      Logger.put_module_level(StructReference, :error)
+      on_exit(fn -> Logger.put_module_level(StructReference, Logger.level()) end)
+
+      assert {{:ok, [], _}, ""} = with_log(fn -> ~q[%_{}] |> index() end)
+    end
+
+    test "in an any-struct pattern with binding" do
+      Logger.put_module_level(StructReference, :error)
+      on_exit(fn -> Logger.put_module_level(StructReference, Logger.level()) end)
+
+      assert {{:ok, [], _}, ""} = with_log(fn -> ~q[%str_name{}] |> index() end)
     end
 
     test "in an any-struct match on the left side and struct on the right" do
