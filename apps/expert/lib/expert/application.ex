@@ -31,6 +31,9 @@ defmodule Expert.Application do
 
           System.halt(1)
         end
+
+      _ ->
+        :noop
     end
 
     {opts, _argv, _invalid} =
