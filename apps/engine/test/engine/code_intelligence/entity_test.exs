@@ -1142,6 +1142,24 @@ defmodule Engine.CodeIntelligence.EntityTest do
 
       assert {:ok, {:call, MyLiveView, :get_time, 0}, _} = resolve(code)
     end
+
+    test "resolves function in pipe expression inside curly braces" do
+      code = ~q[
+        defmodule MyLiveView do
+          use Phoenix.Component
+
+          def render(assigns) do
+            ~H"""
+            <div :for={item <- @items}>
+              {item.value |> to_stri|ng() |> String.upcase()}
+            </div>
+            """
+          end
+        end
+      ]
+
+      assert {:ok, {:call, Kernel, :to_string, 1}, _} = resolve(code)
+    end
   end
 
   describe "resolve/2 within ~H sigil when phoenix_live_view is NOT available" do

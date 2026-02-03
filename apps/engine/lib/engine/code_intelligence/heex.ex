@@ -51,9 +51,18 @@ defmodule Engine.CodeIntelligence.Heex do
     relative_column = position.character - sigil_start_column
 
     with {:ok, tokens} <- EEx.tokenize(content),
-         {:ok, expr} <- find_expr_at(tokens, relative_line, relative_column),
+         {:ok, expr, _expr_start_col} <- find_expr_at(tokens, relative_line, relative_column),
          {:ok, ast} <- Code.string_to_quoted(List.to_string(expr)) do
-      arity_at_position.([ast], position)
+      # For pipe expressions, arity is calculated directly using Macro.unpipe()
+      case ast do
+        {:|>, _, _} ->
+          {last_call, _arg_position} = ast |> Macro.unpipe() |> List.last()
+          {_name, _meta, args} = last_call
+          length(args) + 1
+
+        _ ->
+          arity_at_position.([ast], position)
+      end
     else
       # component shorthand like `<.button>` - after normalization has arity 1
       :component_shorthand -> 1
@@ -212,7 +221,7 @@ defmodule Engine.CodeIntelligence.Heex do
         expr_length = length(expr)
 
         if target_column >= col and target_column <= col + expr_length do
-          {:ok, expr}
+          {:ok, expr, col}
         else
           nil
         end
@@ -261,7 +270,7 @@ defmodule Engine.CodeIntelligence.Heex do
     |> Enum.find_value(fn [{match_start, match_len}, {expr_start, expr_len}] ->
       if cursor_column >= match_start and cursor_column < match_start + match_len do
         expr = binary_part(line, expr_start, expr_len)
-        {:ok, String.to_charlist(expr)}
+        {:ok, String.to_charlist(expr), expr_start}
       end
     end)
   end
