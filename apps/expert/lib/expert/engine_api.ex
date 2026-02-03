@@ -83,6 +83,10 @@ defmodule Expert.EngineApi do
     call(project, Engine, :definition, [document, position])
   end
 
+  def hover(%Project{} = project, %Document{} = document, %Position{} = position) do
+    call(project, Engine, :hover, [document, position])
+  end
+
   def references(
         %Project{} = project,
         %Analysis{} = analysis,

@@ -31,9 +31,17 @@ defmodule Expert.Provider.Handlers.Hover do
         content = Markdown.to_content(markdown)
         %Structures.Hover{contents: content, range: range}
       else
-        error ->
-          Logger.warning("Could not resolve hover request, got: #{inspect(error)}")
+        {:error, :no_doc} ->
           nil
+
+        {:error, :no_type} ->
+          nil
+
+        :error ->
+          nil
+
+        _ ->
+          try_elixir_sense(project, document, params.position)
       end
 
     {:ok, maybe_hover}
@@ -41,6 +49,17 @@ defmodule Expert.Provider.Handlers.Hover do
 
   defp resolve_entity(%Project{} = project, %Analysis{} = analysis, %Position{} = position) do
     EngineApi.resolve_entity(project, analysis, position)
+  end
+
+  defp try_elixir_sense(project, document, position) do
+    case EngineApi.hover(project, document, position) do
+      {:ok, markdown, range} ->
+        content = Markdown.to_content(markdown)
+        %Structures.Hover{contents: content, range: range}
+
+      {:error, _} ->
+        nil
+    end
   end
 
   defp hover_content({kind, module}, %Project{} = project) when kind in [:module, :struct] do
@@ -67,15 +86,31 @@ defmodule Expert.Provider.Handlers.Hover do
   end
 
   defp hover_content({:call, module, fun, arity}, %Project{} = project) do
-    with {:ok, %Docs{} = module_docs} <- EngineApi.docs(project, module),
-         {:ok, entries} <- Map.fetch(module_docs.functions_and_macros, fun) do
+    # Try to resolve delegates to get docs from the original implementation.
+    # If function is found in index, use the resolved target for docs.
+    # If not found in index, try the module directly, then fallback to ElixirSense.
+    {target_module, target_fun, target_arity, indexed?} =
+      resolve_call_target(project, module, fun, arity)
+
+    with {:ok, %Docs{} = module_docs} <- EngineApi.docs(project, target_module),
+         {:ok, entries} <- Map.fetch(module_docs.functions_and_macros, target_fun) do
       sections =
         entries
         |> Enum.sort_by(& &1.arity)
-        |> Enum.filter(&(&1.arity >= arity))
+        |> Enum.filter(&(&1.arity >= target_arity))
         |> Enum.map(&entry_content/1)
 
       {:ok, Markdown.join_sections(sections, Markdown.separator())}
+    else
+      # If function was indexed (found in our Store), don't fallback - it's intentionally
+      # without docs (private, or docs deliberately omitted)
+      _ when indexed? ->
+        :error
+
+      # Not indexed - could be a dependency function, imported function, or private function.
+      # Fall back to ElixirSense which can resolve imports to their source module.
+      _ ->
+        {:error, :not_found}
     end
   end
 
@@ -105,6 +140,51 @@ defmodule Expert.Provider.Handlers.Hover do
 
   defp hover_content(type, _) do
     {:error, {:unsupported, type}}
+  end
+
+  defp resolve_call_target(project, module, fun, arity) do
+    mfa = Forge.Formats.mfa(module, fun, arity)
+
+    case EngineApi.call(project, Store, :exact, [mfa, [subtype: :definition]]) do
+      {:ok, [%Entry{type: {:function, :delegate}, metadata: %{original_mfa: original_mfa}} | _]} ->
+        # Found a delegate - try to resolve to the original function
+        case parse_mfa(original_mfa) do
+          {target_module, target_fun, target_arity} ->
+            {target_module, target_fun, target_arity, true}
+
+          nil ->
+            # Couldn't parse MFA, fall back to the delegate module itself
+            {module, fun, arity, true}
+        end
+
+      {:ok, [%Entry{type: {:function, _}} | _]} ->
+        # Regular function found in index
+        {module, fun, arity, true}
+
+      _ ->
+        # Not found in index
+        {module, fun, arity, false}
+    end
+  end
+
+  defp parse_mfa(mfa_string) do
+    # Parse "Module.Name.function/arity" format
+    case Regex.run(~r/^(.+)\.([^.\/]+)\/(\d+)$/, mfa_string) do
+      [_, module_str, fun_str, arity_str] ->
+        module =
+          if String.starts_with?(module_str, ":") do
+            module_str |> String.trim_leading(":") |> String.to_existing_atom()
+          else
+            String.to_existing_atom("Elixir." <> module_str)
+          end
+
+        fun = String.to_atom(fun_str)
+        arity = String.to_integer(arity_str)
+        {module, fun, arity}
+
+      _ ->
+        nil
+    end
   end
 
   defp module_header(:module, %Docs{module: module}) do

@@ -492,7 +492,10 @@ defmodule Expert.Provider.Handlers.HoverTest do
       hovered = "CallHover.|my_fun(1)"
 
       with_compiled_in(project, code, fn ->
-        assert {:ok, nil} = hover(project, hovered)
+        assert {:ok, %Structures.Hover{} = result} = hover(project, hovered)
+        assert result.contents.kind == "markdown"
+        assert result.contents.value =~ "CallHover.my_fun(integer)"
+        assert result.contents.value =~ "@spec my_fun(integer()) :: integer()"
       end)
     end
 
@@ -571,6 +574,35 @@ defmodule Expert.Provider.Handlers.HoverTest do
       """
 
       with_compiled_in(project, code, fn ->
+        assert {:ok, %Structures.Hover{} = result} = hover(project, hovered)
+        assert result.contents.kind == "markdown"
+        assert result.contents.value == expected
+      end)
+    end
+
+    test "delegated function shows docs from original module", %{project: project} do
+      code = ~q[
+        defmodule DelegateHover.MyDefinition do
+          @doc "Greets the given name."
+          def greet(name), do: "Hello, \#{name}!"
+        end
+
+        defmodule DelegateHover.UsesDelegation do
+          defdelegate greet(name), to: DelegateHover.MyDefinition
+        end
+      ]
+
+      hovered = "DelegateHover.UsesDelegation.|greet(\"world\")"
+
+      expected = """
+      ```elixir
+      DelegateHover.MyDefinition.greet(name)
+      ```
+
+      Greets the given name.
+      """
+
+      with_compiled_and_indexed(project, code, fn ->
         assert {:ok, %Structures.Hover{} = result} = hover(project, hovered)
         assert result.contents.kind == "markdown"
         assert result.contents.value == expected
@@ -824,6 +856,46 @@ defmodule Expert.Provider.Handlers.HoverTest do
         fun.()
       after
         Document.Store.close(uri)
+      end
+    end)
+  end
+
+  # combine compilation (for docs) and indexing (for delegate detection)
+  defp with_compiled_and_indexed(project, code, fun) do
+    tmp_dir = Fixtures.file_path(project, "lib/tmp")
+
+    tmp_path =
+      tmp_dir
+      |> Path.join("tmp_#{rand_hex(10)}.ex")
+
+    File.mkdir_p!(tmp_dir)
+
+    with_tmp_file(tmp_path, code, fn ->
+      # compile the code so docs are available
+      {:ok, compile_path} =
+        Engine.Mix.in_project(project, fn _ ->
+          Mix.Project.compile_path()
+        end)
+
+      {:ok, modules, _} =
+        EngineApi.call(project, Kernel.ParallelCompiler, :compile_to_path, [
+          [tmp_path],
+          compile_path
+        ])
+
+      # index the code so delegate metadata is available
+      {:ok, entries} = Search.Indexer.Source.index(tmp_path, code)
+      :ok = EngineApi.call(project, Search.Store, :replace, [entries])
+
+      try do
+        fun.()
+      after
+        for module <- modules do
+          path = EngineApi.call(project, :code, :which, [module])
+          EngineApi.call(project, :code, :delete, [module])
+          # only delete the .beam file, not the source file (which with_tmp_file handles)
+          if is_binary(path), do: File.rm(path)
+        end
       end
     end)
   end

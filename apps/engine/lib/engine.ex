@@ -44,6 +44,8 @@ defmodule Engine do
 
   defdelegate definition(document, position), to: CodeIntelligence.Definition
 
+  defdelegate hover(document, position), to: CodeIntelligence.Hover
+
   defdelegate references(analysis, position, include_definitions?),
     to: CodeIntelligence.References
 
