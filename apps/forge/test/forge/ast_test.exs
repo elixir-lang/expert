@@ -1,16 +1,19 @@
 defmodule Forge.AstTest do
   alias Forge.Ast
   alias Forge.Ast.Analysis
+  alias Forge.Ast.Parser.Spitfire
   alias Forge.Document
   alias Forge.Document.Position
   alias Sourceror.Zipper
 
+  import ExUnit.CaptureLog
   import Forge.Test.CodeSigil
   import Forge.Test.CursorSupport
   import Forge.Test.PositionSupport
   import Forge.Test.RangeSupport
 
   use ExUnit.Case, async: true
+  use Patch
 
   describe "cursor_path/2" do
     defp cursor_path(text) do
@@ -320,6 +323,46 @@ defmodule Forge.AstTest do
         end
       ]
       assert %Analysis{} = analyze(code)
+    end
+  end
+
+  describe "parser crash logging" do
+    @tag :capture_log
+    test "from/1 with Document logs crash with path" do
+      patch(Spitfire, :string_to_quoted, fn _string ->
+        {:error, :crashed, %CaseClauseError{term: :"}"}, [{Spitfire, :parse, 2, []}]}
+      end)
+
+      document = Document.new("file:///path/to/file.ex", "some code", 1)
+
+      log =
+        capture_log(fn ->
+          assert {:error, {[line: 1, column: 1], message}} = Ast.from(document)
+          assert message =~ "parser crashed"
+        end)
+
+      assert log =~ "Spitfire crashed when parsing /path/to/file.ex"
+      assert log =~ "message:"
+      assert log =~ "no case clause matching"
+      assert log =~ "stacktrace:"
+    end
+
+    @tag :capture_log
+    test "fragment/2 with Document logs crash with path" do
+      patch(Spitfire, :container_cursor_to_quoted, fn _fragment ->
+        {:error, :crashed, %CaseClauseError{term: :"}"}, [{Spitfire, :parse, 2, []}]}
+      end)
+
+      document = Document.new("file:///path/to/file.ex", "some code\nmore", 1)
+      position = Position.new(document, 1, 5)
+
+      log =
+        capture_log(fn ->
+          assert {:error, {[line: 1, column: 1], message}} = Ast.fragment(document, position)
+          assert message =~ "parser crashed"
+        end)
+
+      assert log =~ "Spitfire crashed when parsing /path/to/file.ex"
     end
   end
 
