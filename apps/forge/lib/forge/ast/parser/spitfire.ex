@@ -1,15 +1,14 @@
 defmodule Forge.Ast.Parser.Spitfire do
   @moduledoc false
 
-  defp opts do
-    [
-      literal_encoder: &{:ok, {:__block__, &2, [&1]}},
-      token_metadata: true,
-      columns: true,
-      unescape: false
-    ]
-  end
+  @type parse_error :: {location :: keyword(), message :: binary()}
+  @type comment :: map()
 
+  @spec string_to_quoted(binary()) ::
+          {:ok, Macro.t(), [comment()]}
+          | {:error, Macro.t(), parse_error(), [comment()]}
+          | {:error, parse_error(), []}
+          | {:error, :crashed, Exception.t(), Exception.stacktrace()}
   def string_to_quoted(string) when is_binary(string) do
     case Spitfire.parse_with_comments(string, opts()) do
       {:ok, quoted, comments} ->
@@ -27,6 +26,11 @@ defmodule Forge.Ast.Parser.Spitfire do
       {:error, :crashed, e, __STACKTRACE__}
   end
 
+  @spec container_cursor_to_quoted(binary()) ::
+          {:ok, Macro.t()}
+          | {:error, Macro.t(), parse_error()}
+          | {:error, parse_error()}
+          | {:error, :crashed, Exception.t(), Exception.stacktrace()}
   def container_cursor_to_quoted(fragment) when is_binary(fragment) do
     case Spitfire.container_cursor_to_quoted(fragment, opts()) do
       {:ok, quoted} ->
@@ -42,5 +46,14 @@ defmodule Forge.Ast.Parser.Spitfire do
   rescue
     e ->
       {:error, :crashed, e, __STACKTRACE__}
+  end
+
+  defp opts do
+    [
+      literal_encoder: &{:ok, {:__block__, &2, [&1]}},
+      token_metadata: true,
+      columns: true,
+      unescape: false
+    ]
   end
 end

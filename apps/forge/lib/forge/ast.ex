@@ -174,7 +174,9 @@ defmodule Forge.Ast do
     |> case do
       {:error, :crashed, exception, stacktrace} ->
         log_parser_crash(exception, stacktrace, document.path)
-        {:error, {[line: 1, column: 1], "parser crashed: #{Exception.message(exception)}"}}
+
+        {:error,
+         {[line: 1, column: 1], "parser crashed: #{Exception.format_banner(:error, exception)}"}}
 
       other ->
         other
@@ -215,7 +217,9 @@ defmodule Forge.Ast do
 
       {:error, :crashed, exception, stacktrace} ->
         log_parser_crash(exception, stacktrace, document.path)
-        {:error, {[line: 1, column: 1], "parser crashed: #{Exception.message(exception)}"}}
+
+        {:error,
+         {[line: 1, column: 1], "parser crashed: #{Exception.format_banner(:error, exception)}"}}
 
       _error ->
         # https://github.com/elixir-lang/elixir/issues/12673#issuecomment-1626932280
@@ -226,7 +230,10 @@ defmodule Forge.Ast do
         case do_container_cursor_to_quoted(document_fragment) do
           {:error, :crashed, exception, stacktrace} ->
             log_parser_crash(exception, stacktrace, document.path)
-            {:error, {[line: 1, column: 1], "parser crashed: #{Exception.message(exception)}"}}
+
+            {:error,
+             {[line: 1, column: 1],
+              "parser crashed: #{Exception.format_banner(:error, exception)}"}}
 
           other ->
             other
@@ -532,11 +539,11 @@ defmodule Forge.Ast do
   end
 
   defp log_parser_crash(exception, stacktrace, path) do
-    path_info = if path, do: " when parsing #{path}", else: ""
-    stacktrace_line = Exception.format_stacktrace(stacktrace) |> String.replace("\n", "\\n")
+    path_info =
+      if path, do: " when parsing #{path}. This file will not be used in search index.", else: ""
 
     Logger.warning(
-      "Spitfire crashed#{path_info}\nmessage: #{inspect(Exception.message(exception))}\nstacktrace: #{stacktrace_line}"
+      "Spitfire crashed#{path_info}\n#{Exception.format(:error, exception, stacktrace)}"
     )
   end
 

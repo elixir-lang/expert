@@ -342,9 +342,7 @@ defmodule Forge.AstTest do
         end)
 
       assert log =~ "Spitfire crashed when parsing /path/to/file.ex"
-      assert log =~ "message:"
       assert log =~ "no case clause matching"
-      assert log =~ "stacktrace:"
     end
 
     @tag :capture_log
