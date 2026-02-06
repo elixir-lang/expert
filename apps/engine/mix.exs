@@ -54,7 +54,7 @@ defmodule Engine.MixProject do
       {:patch, "~> 0.15", only: [:dev, :test], runtime: false},
       {:path_glob, "~> 0.2"},
       {:phoenix_live_view, "~> 1.0", only: [:test], runtime: false},
-      {:sourceror, "~> 1.9"},
+      {:sourceror, "~> 1.10.1"},
       {:stream_data, "~> 1.1", only: [:test], runtime: false},
       {:refactorex, "~> 0.1.52"}
     ]

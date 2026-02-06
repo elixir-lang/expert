@@ -42,7 +42,7 @@ defmodule Forge.MixProject do
       {:deps_nix, "~> 2.4", only: :dev},
       {:gen_lsp, "~> 0.11.3"},
       {:snowflake, "~> 1.0"},
-      {:sourceror, "~> 1.9"},
+      {:sourceror, "~> 1.10.1"},
       {:spitfire, "~> 0.3.0"},
       {:stream_data, "~> 1.1", only: [:test], runtime: false},
       {:patch, "~> 0.15", only: [:test], optional: true, runtime: false}

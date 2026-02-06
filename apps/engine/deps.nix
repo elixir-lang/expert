@@ -337,7 +337,7 @@ let
 
       sourceror =
         let
-          version = "1.10.0";
+          version = "1.10.1";
           drv = buildMix {
             inherit version;
             name = "sourceror";
@@ -346,7 +346,7 @@ let
             src = fetchHex {
               inherit version;
               pkg = "sourceror";
-              sha256 = "29dbdfc92e04569c9d8e6efdc422fc1d815f4bd0055dc7c51b8800fb75c4b3f1";
+              sha256 = "288f3079d93865cd1e3e20df5b884ef2cb440e0e03e8ae393624ee8a770ba588";
             };
           };
         in
