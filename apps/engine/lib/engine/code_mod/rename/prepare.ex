@@ -34,8 +34,8 @@ defmodule Engine.CodeMod.Rename.Prepare do
       {:error, {:unsupported_location, _}} ->
         {:ok, nil}
 
-      {:error, {:unsupported_entity, entity_type}} ->
-        {:error, "Renaming #{inspect(entity_type)} is not supported for now"}
+      {:error, {:unsupported_entity, _entity_type}} ->
+        {:ok, nil}
 
       {:error, error} ->
         {:error, error}
