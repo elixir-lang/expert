@@ -76,13 +76,16 @@ defmodule Engine.CodeMod.Rename do
       |> Enum.unzip()
 
     paths_to_delete = Enum.reject(paths_to_delete, &is_nil/1)
-    renaming_operation_count = Enum.count(uri_to_expected_operation)
-
-    total_operation_count =
-      renaming_operation_count + length(paths_to_delete) + length(paths_to_reindex)
 
     {on_update_progress, on_complete} =
-      Progress.begin_percent("Renaming", total_operation_count)
+      case Progress.begin("Renaming") do
+        {:ok, token} ->
+          {fn _delta, message -> Progress.report(token, message: message) end,
+           fn -> Progress.complete(token) end}
+
+        {:error, _} ->
+          {fn _delta, _message -> :ok end, fn -> :ok end}
+      end
 
     Commands.RenameSupervisor.start_renaming(
       uri_to_expected_operation,
