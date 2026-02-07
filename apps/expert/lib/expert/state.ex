@@ -144,8 +144,8 @@ defmodule Expert.State do
         if ActiveProjects.active?(project) do
           EngineApi.broadcast(project, updated_message)
           EngineApi.compile_document(project, updated_source)
+          EngineApi.maybe_update_rename_progress(project, updated_message)
         end
-
         {:ok, state}
 
       error ->
@@ -210,11 +210,16 @@ defmodule Expert.State do
     case Document.Store.save(uri) do
       :ok ->
         EngineApi.schedule_compile(project, false)
+        EngineApi.maybe_update_rename_progress(project, file_saved(uri: uri))
         {:ok, state}
 
-      error ->
-        Logger.error("Save failed for uri #{uri} error was #{inspect(error)}")
-        error
+      {:error, :not_open} ->
+        # File was closed before save notification was processed.
+        # This can happen during batch renames when didClose and didSave
+        # arrive nearly simultaneously. Still update rename progress tracking.
+        Logger.debug("Save received for already-closed file: #{uri}")
+        EngineApi.maybe_update_rename_progress(project, file_saved(uri: uri))
+        {:ok, state}
     end
   end
 
@@ -269,6 +274,11 @@ defmodule Expert.State do
         trigger_characters: CodeIntelligence.Completion.trigger_characters()
       }
 
+    rename_options =
+      %Structures.RenameOptions{
+        prepare_provider: true
+      }
+
     server_capabilities =
       %Structures.ServerCapabilities{
         code_action_provider: code_action_options,
@@ -280,6 +290,7 @@ defmodule Expert.State do
         execute_command_provider: command_options,
         hover_provider: true,
         references_provider: true,
+        rename_provider: rename_options,
         text_document_sync: sync_options,
         workspace_symbol_provider: true,
         workspace: %{

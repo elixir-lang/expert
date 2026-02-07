@@ -151,5 +151,43 @@ defmodule Expert.EngineApi do
     call(project, Engine, :workspace_symbols, [query])
   end
 
+  def prepare_rename(%Project{} = project, %Analysis{} = analysis, %Position{} = position) do
+    call(project, Engine, :prepare_rename, [analysis, position])
+  end
+
+  def rename(
+        %Project{} = project,
+        %Analysis{} = analysis,
+        %Position{} = position,
+        new_name,
+        client_name
+      ) do
+    call(project, Engine, :rename, [
+      analysis,
+      position,
+      new_name,
+      client_name
+    ])
+  end
+
+  @doc """
+  Updates the rename progress with a triggered message.
+
+  This should be called when files are changed or saved during a rename operation.
+  The message is used to track which file operations have been completed.
+
+  This function is intentionally fire-and-forget - failures don't affect
+  the main document change/save flow.
+  """
+  def maybe_update_rename_progress(%Project{} = project, message) do
+    try do
+      call(project, Engine, :maybe_update_rename_progress, [message])
+    rescue
+      _ -> {:error, :not_in_rename_progress}
+    catch
+      :exit, _ -> {:error, :not_in_rename_progress}
+    end
+  end
+
   defdelegate stop(project), to: EngineNode
 end
