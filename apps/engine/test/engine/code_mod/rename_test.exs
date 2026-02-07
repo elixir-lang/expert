@@ -83,7 +83,22 @@ defmodule Engine.CodeMod.RenameTest do
                |> prepare()
     end
 
-    test "returns error for unsupported entity" do
+    # Returns {:ok, nil} instead of an error because gen_lsp 0.11.x has a
+    # serialization bug where ErrorResponse crashes in Schematic.oneof.
+    # See commit message for details.
+    test "returns nil for unsupported entity" do
+      assert {:ok, nil} =
+               ~q[
+          x = 1
+          |x
+      ]
+               |> prepare()
+    end
+
+    @tag :skip
+    # TODO: restore once gen_lsp fixes ErrorResponse serialization in oneof,
+    # so we can return a user-friendly message via the LSP error response.
+    test "returns error with friendly message for unsupported entity" do
       assert {:error, "Renaming :variable is not supported for now"} =
                ~q[
           x = 1
