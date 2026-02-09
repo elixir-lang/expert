@@ -23,40 +23,45 @@ defmodule Expert.Port do
   """
   @spec open_elixir(Project.t(), open_opts()) :: port() | {:error, :no_elixir, String.t()}
   def open_elixir(%Project{} = project, opts) do
-    with {:ok, elixir_executable, environment_variables} <- elixir_executable(project) do
-      opts =
-        opts
-        |> Keyword.put_new_lazy(:cd, fn -> Project.root_path(project) end)
-        |> Keyword.update(:env, environment_variables, fn env ->
-          environment_variables ++ env
-        end)
+    case project_executable(project, "elixir") do
+      {:ok, elixir_executable, environment_variables} ->
+        opts =
+          opts
+          |> Keyword.put_new_lazy(:cd, fn -> Project.root_path(project) end)
+          |> Keyword.update(:env, environment_variables, fn env ->
+            environment_variables ++ env
+          end)
 
-      open_executable(elixir_executable, opts)
+        open_executable(elixir_executable, opts)
+
+      {:error, _, reason} ->
+        Logger.error("Failed to find elixir executable for project: #{reason}")
+        {:error, :no_elixir, reason}
     end
   end
 
   @doc """
-  Returns the elixir executable path and environment for a project.
+  Returns the specified executable path and environment for a project.
 
-  Returns `{:ok, elixir_path, env}` where:
-  - `elixir_path` is a charlist path to the elixir executable
+  Returns `{:ok, executable_path, env}` where:
+  - `executable_path` is a charlist path to the specified executable
   - `env` is a list of `{key, value}` tuples for the environment
 
-  Returns `{:error, :no_elixir, reason}` if no elixir executable can be found.
+  Returns `{:error, name, reason}` if no executable can be found.
   """
-  @spec elixir_executable(Project.t()) ::
-          {:ok, charlist(), list()} | {:error, :no_elixir, String.t()}
-  def elixir_executable(%Project{} = project) do
-    case find_project_elixir(project) do
+  @spec project_executable(Project.t(), String.t()) ::
+          {:ok, charlist(), list()} | {:error, String.t(), String.t()}
+  def project_executable(%Project{} = project, name) do
+    case find_project_executable(project, name) do
       {:ok, _, _} = success ->
         success
 
-      {:error, :no_elixir, reason} ->
+      {:error, name, reason} ->
         Logger.warning(
-          "Failed to find elixir for project, falling back to packaged elixir: #{reason}"
+          "Failed to find #{name} for project, falling back to packaged elixir: #{reason}"
         )
 
-        fallback_elixir()
+        fallback_executable(name)
     end
   end
 
@@ -82,17 +87,15 @@ defmodule Expert.Port do
     open_executable(elixir_executable, opts)
   end
 
-  # --- Private Functions ---
-
-  defp find_project_elixir(%Project{} = project) do
+  def find_project_executable(%Project{} = project, name) do
     if Forge.OS.windows?() do
-      find_project_elixir_windows()
+      find_project_executable_windows(name)
     else
-      find_project_elixir_unix(project)
+      find_project_executable_unix(project, name)
     end
   end
 
-  defp find_project_elixir_windows do
+  defp find_project_executable_windows(name) do
     release_root =
       :code.root_dir()
       |> to_string()
@@ -109,9 +112,9 @@ defmodule Expert.Port do
       end)
       |> Enum.join(";")
 
-    case :os.find_executable(~c"elixir", to_charlist(path)) do
+    case :os.find_executable(to_charlist(name), to_charlist(path)) do
       false ->
-        {:error, :no_elixir, "Couldn't find an elixir executable"}
+        {:error, name, "Couldn't find an #{name} executable. Using PATH=#{path}"}
 
       elixir ->
         env =
@@ -126,7 +129,7 @@ defmodule Expert.Port do
     end
   end
 
-  defp find_project_elixir_unix(%Project{} = project) do
+  defp find_project_executable_unix(%Project{} = project, name) do
     root_path = Project.root_path(project)
 
     # Filter out Expert's release paths from current PATH
@@ -143,10 +146,10 @@ defmodule Expert.Port do
         current_path
       end
 
-    case :os.find_executable(~c"elixir", to_charlist(path)) do
+    case :os.find_executable(to_charlist(name), to_charlist(path)) do
       false ->
-        {:error, :no_elixir,
-         "Couldn't find an elixir executable for project at #{root_path}. Using PATH=#{path}"}
+        {:error, name,
+         "Couldn't find an #{name} executable for project at #{root_path}. Using PATH=#{path}"}
 
       elixir ->
         env =
@@ -159,10 +162,10 @@ defmodule Expert.Port do
     end
   end
 
-  defp fallback_elixir do
-    case System.find_executable("elixir") do
+  defp fallback_executable(name) do
+    case System.find_executable(name) do
       nil ->
-        {:error, :no_elixir, "Couldn't find any elixir executable"}
+        {:error, name, "Couldn't find any #{name} executable"}
 
       elixir ->
         {:ok, to_charlist(elixir), []}

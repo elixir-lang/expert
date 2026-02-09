@@ -54,7 +54,7 @@ defmodule Expert.EngineNode do
         ]
 
       case Expert.Port.open_elixir(state.project, args: args, env: env) do
-        {:error, :no_elixir, message} ->
+        {:error, _, message} ->
           GenLSP.error(Expert.get_lsp(), message)
           Expert.terminate("Failed to find an elixir executable, shutting down", 1)
           {:error, :no_elixir}
@@ -230,20 +230,22 @@ defmodule Expert.EngineNode do
     # Expert release, and we build it on the fly for the project elixir+opt
     # versions if it was not built yet.
     defp glob_paths(%Project{} = project) do
-      case Expert.Port.elixir_executable(project) do
-        {:ok, elixir, env} ->
-          launch_engine_builder(project, elixir, env)
+      with {:ok, elixir, env} <- Expert.Port.project_executable(project, "elixir"),
+           {:ok, erl, _env} <- Expert.Port.project_executable(project, "erl") do
+        lsp = Expert.get_lsp()
+        Expert.log_info(lsp, project, "Found elixir executable at #{elixir}")
+        Expert.log_info(lsp, project, "Found erl executable at #{erl}")
 
-        {:error, :no_elixir, message} ->
+        launch_engine_builder(project, elixir, env)
+      else
+        {:error, name, message} ->
           GenLSP.error(Expert.get_lsp(), message)
-          Expert.terminate("Failed to find an elixir executable, shutting down", 1)
+          Expert.terminate("Failed to find an #{name} executable, shutting down", 1)
       end
     end
 
     defp launch_engine_builder(project, elixir, env) do
       lsp = Expert.get_lsp()
-
-      Expert.log_info(lsp, project, "Found elixir executable at #{elixir}")
 
       expert_priv = :code.priv_dir(:expert)
       packaged_engine_source = Path.join([expert_priv, "engine_source", "apps", "engine"])
