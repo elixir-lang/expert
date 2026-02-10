@@ -258,26 +258,9 @@ let
         in
         drv;
 
-      spitfire =
-        let
-          version = "0.3.1";
-          drv = buildMix {
-            inherit version;
-            name = "spitfire";
-            appConfigPath = ./config;
-
-            src = fetchHex {
-              inherit version;
-              pkg = "spitfire";
-              sha256 = "72ff34d8f0096313a4b1a6505513c5ef4bbc0919bd8c181c07fc8d8dea8c9056";
-            };
-          };
-        in
-        drv;
-
       sourceror =
         let
-          version = "1.9.0";
+          version = "1.10.1";
           drv = buildMix {
             inherit version;
             name = "sourceror";
@@ -286,7 +269,24 @@ let
             src = fetchHex {
               inherit version;
               pkg = "sourceror";
-              sha256 = "d20a9dd5efe162f0d75a307146faa2e17b823ea4f134f662358d70f0332fed82";
+              sha256 = "288f3079d93865cd1e3e20df5b884ef2cb440e0e03e8ae393624ee8a770ba588";
+            };
+          };
+        in
+        drv;
+
+      spitfire =
+        let
+          version = "0.3.4";
+          drv = buildMix {
+            inherit version;
+            name = "spitfire";
+            appConfigPath = ./config;
+
+            src = fetchHex {
+              inherit version;
+              pkg = "spitfire";
+              sha256 = "caba031fc6190573c920f0364cc221984e34c4b4c3df6f1dec0e2886fd7c115b";
             };
           };
         in
