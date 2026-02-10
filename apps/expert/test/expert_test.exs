@@ -5,6 +5,7 @@ defmodule Expert.ExpertTest do
   use ExUnit.Case, async: false
   use Patch
 
+  import ExUnit.CaptureLog
   import Expert.Test.Protocol.TransportSupport
 
   setup do
@@ -53,6 +54,27 @@ defmodule Expert.ExpertTest do
                         message: ^error_message
                       }
                     }}
+  end
+
+  test "logs error when Task.Supervisor.start_child fails during initialization" do
+    project = Fixtures.project()
+    lsp = initialize_lsp(project)
+
+    patch(Expert.ActiveProjects, :projects, [project])
+    patch(Task.Supervisor, :start_child, fn _sup, _fun -> {:error, :max_children} end)
+
+    Logger.configure(level: :error)
+
+    log =
+      capture_log(fn ->
+        assert {:noreply, ^lsp} =
+                 Expert.handle_notification(%GenLSP.Notifications.Initialized{}, lsp)
+      end)
+
+    Logger.configure(level: :none)
+
+    assert log =~ "Failed to start project initialization for"
+    assert log =~ "max_children"
   end
 
   test "suppresses window/logMessage for emacs client" do
