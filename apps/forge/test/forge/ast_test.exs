@@ -12,7 +12,7 @@ defmodule Forge.AstTest do
   import Forge.Test.PositionSupport
   import Forge.Test.RangeSupport
 
-  use ExUnit.Case, async: true
+  use ExUnit.Case, async: false
   use Patch
 
   describe "cursor_path/2" do
