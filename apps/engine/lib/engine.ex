@@ -89,6 +89,8 @@ defmodule Engine do
       :error ->
         {:ok, deps_paths} =
           Engine.Mix.in_project(fn _ ->
+            Mix.Task.run("local.hex", ~w(--force --if-missing))
+            Mix.Task.run("local.rebar", ~w(--force --if-missing))
             Mix.Task.run("loadpaths")
             Mix.Project.deps_paths()
           end)
