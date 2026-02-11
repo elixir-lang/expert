@@ -11,7 +11,8 @@ defmodule Forge.MixProject do
       start_permanent: Mix.env() == :prod,
       deps: deps(),
       compilers: [:yecc] ++ Mix.compilers(),
-      dialyzer: Mix.Dialyzer.config()
+      dialyzer: Mix.Dialyzer.config(),
+      test_ignore_filters: [&String.starts_with?(&1, "test/fixtures")]
     ]
   end
 
