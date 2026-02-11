@@ -16,7 +16,8 @@ if Code.ensure_loaded?(LoggerFileBackend) do
 
   config :logger, :general_log,
     path: log_file_name,
-    level: :debug
+    level: :debug,
+    metadata: [:instance_id]
 else
   :ok
 end

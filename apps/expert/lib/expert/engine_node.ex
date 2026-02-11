@@ -187,7 +187,16 @@ defmodule Expert.EngineNode do
     start_net_kernel(project)
 
     node_name = Project.node_name(project)
-    bootstrap_args = [project, Document.Store.entropy(), all_app_configs(), Node.self()]
+
+    bootstrap_args = [
+      project,
+      Document.Store.entropy(),
+      all_app_configs(),
+      Node.self(),
+      # Copy logger global metadata to engine instances.
+      # Everything spawned from single expert instance will use same `instance_id`
+      :logger.get_primary_config().metadata
+    ]
 
     with {:ok, node_pid} <- EngineSupervisor.start_project_node(project),
          {:ok, glob_paths} <- glob_paths(project),
@@ -426,7 +435,9 @@ defmodule Expert.EngineNode do
 
   @impl true
   def handle_info({_port, {:data, data}}, %State{} = state) do
-    message = to_string(data)
+    message =
+      data |> to_string() |> String.trim() |> (&Regex.replace(~r/\r\n|\n|\r/, &1, ", ")).()
+
     Logger.debug("Node port message: #{message}")
 
     {:noreply, %{state | last_message: message}}

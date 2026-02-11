@@ -11,7 +11,15 @@ defmodule Engine.Bootstrap do
 
   require Logger
 
-  def init(%Project{} = project, document_store_entropy, app_configs, manager_node) do
+  def init(
+        %Project{} = project,
+        document_store_entropy,
+        app_configs,
+        manager_node,
+        logger_global_metadata
+      ) do
+    :logger.update_primary_config(%{metadata: logger_global_metadata})
+
     Forge.Document.Store.set_entropy(document_store_entropy)
 
     Application.put_all_env(app_configs)
@@ -64,6 +72,7 @@ defmodule Engine.Bootstrap do
         max_no_bytes: 1_000_000,
         max_no_files: 1
       },
+      formatter: Logger.Formatter.new(metadata: [:instance_id]),
       level: :info
     }
 
