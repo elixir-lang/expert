@@ -288,8 +288,8 @@ defmodule Expert.EngineNode do
 
     defp wait_for_engine(port, last_line \\ "") do
       receive do
-        {^port, {:data, ~c"engine_path:" ++ engine_path}} ->
-          engine_path = engine_path |> to_string() |> String.trim()
+        {^port, {:data, "engine_path:" <> engine_path}} ->
+          engine_path = String.trim(engine_path)
           Logger.info("Engine build available at: #{engine_path}")
 
           Logger.info("ebin paths:\n#{inspect(ebin_paths(engine_path), pretty: true)}")
