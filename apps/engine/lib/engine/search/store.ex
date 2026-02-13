@@ -154,7 +154,16 @@ defmodule Engine.Search.Store do
 
   # handle the result from `State.async_load/1`
   def handle_info({ref, result}, {update_ref, %State{async_load_ref: ref} = state}) do
+    Process.demonitor(ref, [:flush])
     {:noreply, {update_ref, State.async_load_complete(state, result)}}
+  end
+
+  def handle_info(
+        {:DOWN, ref, :process, _pid, reason},
+        {update_ref, %State{async_load_ref: ref} = state}
+      ) do
+    Logger.error("Search index async load crashed: #{inspect(reason)}")
+    {:noreply, {update_ref, %State{state | async_load_ref: nil}}}
   end
 
   def handle_info(:flush_updates, {_, %State{} = state}) do

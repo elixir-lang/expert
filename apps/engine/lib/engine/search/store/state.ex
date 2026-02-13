@@ -234,7 +234,7 @@ defmodule Engine.Search.Store.State do
 
   defp prepare_backend_async(%__MODULE__{async_load_ref: nil} = state, backend_result) do
     task =
-      Task.async(fn ->
+      Task.Supervisor.async_nolink(Engine.TaskSupervisor, fn ->
         case state.backend.prepare(backend_result) do
           {:ok, :empty} ->
             Logger.info("backend reports empty")
