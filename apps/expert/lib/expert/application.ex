@@ -13,6 +13,10 @@ defmodule Expert.Application do
   @impl true
   # credo:disable-for-next-line Credo.Check.Refactor.CyclomaticComplexity
   def start(_type, _args) do
+    :logger.update_primary_config(%{
+      metadata: %{instance_id: Integer.to_string(System.os_time(:millisecond), 16)}
+    })
+
     argv = Burrito.Util.Args.argv()
 
     # Handle engine subcommand first (before starting the LSP server)
