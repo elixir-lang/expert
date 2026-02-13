@@ -10,6 +10,7 @@ defmodule Engine.Application do
         [
           Engine.Api.Proxy,
           Engine.Commands.Reindex,
+          Engine.Commands.RenameSupervisor,
           Engine.Module.Loader,
           Engine.Dispatch,
           Engine.ModuleMappings,
