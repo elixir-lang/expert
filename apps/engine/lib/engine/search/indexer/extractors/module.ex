@@ -30,32 +30,28 @@ defmodule Engine.Search.Indexer.Extractors.Module do
       when definition in @module_definitions do
     %Block{} = block = Reducer.current_block(reducer)
 
-    case resolve_alias(reducer, module_name) do
-      {:ok, aliased_module} ->
-        module_position = Metadata.position(module_name_meta)
-        detail_range = to_range(reducer, module_name, module_position)
+    with {:ok, aliased_module} <- resolve_alias(reducer, module_name),
+         {:ok, detail_range} <- module_range(reducer, module_name, module_name_meta) do
+      entry =
+        Entry.block_definition(
+          reducer.analysis.document.path,
+          block,
+          Subject.module(aliased_module),
+          @definition_mappings[definition],
+          block_range(reducer.analysis.document, defmodule_ast),
+          detail_range,
+          Application.get_application(aliased_module)
+        )
 
-        entry =
-          Entry.block_definition(
-            reducer.analysis.document.path,
-            block,
-            Subject.module(aliased_module),
-            @definition_mappings[definition],
-            block_range(reducer.analysis.document, defmodule_ast),
-            detail_range,
-            Application.get_application(aliased_module)
-          )
+      module_name_meta = Reducer.skip(module_name_meta)
 
-        module_name_meta = Reducer.skip(module_name_meta)
+      elem =
+        {:defmodule, defmodule_meta,
+         [{:__aliases__, module_name_meta, module_name}, module_block]}
 
-        elem =
-          {:defmodule, defmodule_meta,
-           [{:__aliases__, module_name_meta, module_name}, module_block]}
-
-        {:ok, entry, elem}
-
-      _ ->
-        :ignored
+      {:ok, entry, elem}
+    else
+      _ -> :ignored
     end
   end
 
@@ -67,8 +63,8 @@ defmodule Engine.Search.Indexer.Extractors.Module do
     %Block{} = block = Reducer.current_block(reducer)
 
     with {:ok, protocol_module} <- resolve_alias(reducer, module_name),
-         {:ok, for_target} <- resolve_for_block(reducer, for_block) do
-      detail_range = defimpl_range(reducer, defimpl_ast)
+         {:ok, for_target} <- resolve_for_block(reducer, for_block),
+         {:ok, detail_range} <- defimpl_range(reducer, defimpl_ast) do
       implemented_module = Module.concat(protocol_module, for_target)
 
       implementation_entry =
@@ -98,90 +94,72 @@ defmodule Engine.Search.Indexer.Extractors.Module do
   # This matches an elixir module reference
   def extract({:__aliases__, metadata, maybe_module}, %Reducer{} = reducer)
       when is_list(maybe_module) do
-    case module(reducer, maybe_module) do
-      {:ok, module} ->
-        start = Metadata.position(metadata)
-        range = to_range(reducer, maybe_module, start)
-        %Block{} = current_block = Reducer.current_block(reducer)
+    with {:ok, module} <- module(reducer, maybe_module),
+         {:ok, range} <- module_range(reducer, maybe_module, metadata) do
+      %Block{} = current_block = Reducer.current_block(reducer)
 
-        entry =
-          Entry.reference(
-            reducer.analysis.document.path,
-            current_block,
-            Subject.module(module),
-            :module,
-            range,
-            Application.get_application(module)
-          )
+      entry =
+        Entry.reference(
+          reducer.analysis.document.path,
+          current_block,
+          Subject.module(module),
+          :module,
+          range,
+          Application.get_application(module)
+        )
 
-        {:ok, entry, nil}
-
-      _ ->
-        :ignored
+      {:ok, entry, nil}
+    else
+      _ -> :ignored
     end
   end
 
   @module_length String.length("__MODULE__")
   # This matches __MODULE__ references
   def extract({:__MODULE__, metadata, _} = ast, %Reducer{} = reducer) do
-    line = Sourceror.get_line(ast)
-    pos = Position.new(reducer.analysis.document, line - 1, 1)
+    with line <- Sourceror.get_line(ast),
+         pos = Position.new(reducer.analysis.document, line - 1, 1),
+         {:ok, current_module} <- Engine.Analyzer.current_module(reducer.analysis, pos),
+         {:ok, start_pos, end_pos} <- module_positions(reducer, metadata) do
+      range = Range.new(start_pos, end_pos)
+      %Block{} = current_block = Reducer.current_block(reducer)
 
-    case Engine.Analyzer.current_module(reducer.analysis, pos) do
-      {:ok, current_module} ->
-        {start_line, start_col} = Metadata.position(metadata)
-        start_pos = Position.new(reducer.analysis.document, start_line, start_col)
+      entry =
+        Entry.reference(
+          reducer.analysis.document.path,
+          current_block,
+          Subject.module(current_module),
+          :module,
+          range,
+          Application.get_application(current_module)
+        )
 
-        end_pos =
-          Position.new(
-            reducer.analysis.document,
-            start_line,
-            start_col + @module_length
-          )
-
-        range = Range.new(start_pos, end_pos)
-        %Block{} = current_block = Reducer.current_block(reducer)
-
-        entry =
-          Entry.reference(
-            reducer.analysis.document.path,
-            current_block,
-            Subject.module(current_module),
-            :module,
-            range,
-            Application.get_application(current_module)
-          )
-
-        {:ok, entry}
-
-      _ ->
-        :ignored
+      {:ok, entry}
+    else
+      _ -> :ignored
     end
   end
 
   # This matches an erlang module, which is just an atom
   def extract({:__block__, metadata, [atom_literal]}, %Reducer{} = reducer)
       when is_atom(atom_literal) do
-    case module(reducer, atom_literal) do
-      {:ok, module} ->
-        start = Metadata.position(metadata)
-        %Block{} = current_block = Reducer.current_block(reducer)
-        range = to_range(reducer, module, start)
+    with {:ok, module} <- module(reducer, atom_literal),
+         {:ok, range} <- module_range(reducer, module, metadata) do
+      %Block{} = current_block = Reducer.current_block(reducer)
 
-        entry =
-          Entry.reference(
-            reducer.analysis.document.path,
-            current_block,
-            Subject.module(module),
-            :module,
-            range,
-            Application.get_application(module)
-          )
+      entry =
+        Entry.reference(
+          reducer.analysis.document.path,
+          current_block,
+          Subject.module(module),
+          :module,
+          range,
+          Application.get_application(module)
+        )
 
-        {:ok, entry}
-
-      :error ->
-        :ignored
+      {:ok, entry}
+    else
+      _ -> :ignored
     end
   end
 
@@ -197,26 +175,23 @@ defmodule Engine.Search.Indexer.Extractors.Module do
          ]},
         %Reducer{} = reducer
       ) do
-    case module(reducer, maybe_module) do
-      {:ok, module} ->
-        start = Metadata.position(start_metadata)
-        range = to_range(reducer, maybe_module, start)
-        %Block{} = current_block = Reducer.current_block(reducer)
+    with {:ok, module} <- module(reducer, maybe_module),
+         {:ok, range} <- module_range(reducer, maybe_module, start_metadata) do
+      %Block{} = current_block = Reducer.current_block(reducer)
 
-        entry =
-          Entry.reference(
-            reducer.analysis.document.path,
-            current_block,
-            Subject.module(module),
-            :module,
-            range,
-            Application.get_application(module)
-          )
+      entry =
+        Entry.reference(
+          reducer.analysis.document.path,
+          current_block,
+          Subject.module(module),
+          :module,
+          range,
+          Application.get_application(module)
+        )
 
-        {:ok, entry}
-
-      _ ->
-        :ignored
+      {:ok, entry}
+    else
+      _ -> :ignored
     end
   end
 
@@ -226,15 +201,24 @@ defmodule Engine.Search.Indexer.Extractors.Module do
 
   defp defimpl_range(%Reducer{} = reducer, {_, protocol_meta, _} = protocol_ast) do
     start = Sourceror.get_start_position(protocol_ast)
-    {finish_line, finish_column} = Metadata.position(protocol_meta, :do)
-    # add two to include the do
-    finish_column = finish_column + 2
-    document = reducer.analysis.document
 
-    Range.new(
-      Position.new(document, start[:line], start[:column]),
-      Position.new(document, finish_line, finish_column)
-    )
+    case Metadata.position(protocol_meta, :do) do
+      {finish_line, finish_column} ->
+        # add two to include the do
+        finish_column = finish_column + 2
+        document = reducer.analysis.document
+
+        range =
+          Range.new(
+            Position.new(document, start[:line], start[:column]),
+            Position.new(document, finish_line, finish_column)
+          )
+
+        {:ok, range}
+
+      nil ->
+        :error
+    end
   end
 
   defp resolve_for_block(
@@ -302,6 +286,25 @@ defmodule Engine.Search.Indexer.Extractors.Module do
         List.to_atom(module_charlist)
       end)
     end)
+  end
+
+  defp module_range(%Reducer{} = reducer, module_name, metadata) do
+    case Metadata.position(metadata) do
+      {line, column} -> {:ok, to_range(reducer, module_name, {line, column})}
+      nil -> :error
+    end
+  end
+
+  defp module_positions(%Reducer{} = reducer, metadata) do
+    case Metadata.position(metadata) do
+      {start_line, start_col} ->
+        start_pos = Position.new(reducer.analysis.document, start_line, start_col)
+        end_pos = Position.new(reducer.analysis.document, start_line, start_col + @module_length)
+        {:ok, start_pos, end_pos}
+
+      nil ->
+        :error
+    end
   end
 
   # handles @protocol and @for in defimpl blocks

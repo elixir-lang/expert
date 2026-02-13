@@ -25,8 +25,9 @@ defmodule Engine.Search.Indexer.Extractors.FunctionReference do
         %Reducer{} = reducer
       )
       when is_list(arg_list) and is_atom(function_name) do
-    entry = entry(reducer, apply_meta, apply_meta, module, function_name, arg_list)
-    {:ok, entry, nil}
+    reducer
+    |> entry(apply_meta, apply_meta, module, function_name, arg_list)
+    |> without_further_analysis()
   end
 
   # Dynamic call via Kernel.apply Kernel.apply(Module, :function, [1, 2])
@@ -40,8 +41,9 @@ defmodule Engine.Search.Indexer.Extractors.FunctionReference do
         %Reducer{} = reducer
       )
       when is_list(arg_list) and is_atom(function_name) do
-    entry = entry(reducer, start_metadata, apply_meta, module, function_name, arg_list)
-    {:ok, entry, nil}
+    reducer
+    |> entry(start_metadata, apply_meta, module, function_name, arg_list)
+    |> without_further_analysis()
   end
 
   # remote function OtherModule.foo(:arg), OtherModule.foo() or OtherModule.foo
@@ -50,9 +52,7 @@ defmodule Engine.Search.Indexer.Extractors.FunctionReference do
         %Reducer{} = reducer
       )
       when is_atom(fn_name) do
-    entry = entry(reducer, start_metadata, end_metadata, module, fn_name, args)
-
-    {:ok, entry}
+    entry(reducer, start_metadata, end_metadata, module, fn_name, args)
   end
 
   # local function capture &downcase/1
@@ -65,8 +65,9 @@ defmodule Engine.Search.Indexer.Extractors.FunctionReference do
     {module, _, _} =
       Engine.Analyzer.resolve_local_call(reducer.analysis, position, fn_name, arity)
 
-    entry = entry(reducer, end_metadata, arity_meta, module, fn_name, arity)
-    {:ok, entry, nil}
+    reducer
+    |> entry(end_metadata, arity_meta, module, fn_name, arity)
+    |> without_further_analysis()
   end
 
   # Function capture with arity: &OtherModule.foo/3
@@ -81,13 +82,13 @@ defmodule Engine.Search.Indexer.Extractors.FunctionReference do
          ]},
         %Reducer{} = reducer
       ) do
-    entry = entry(reducer, start_metadata, end_metadata, module, function_name, arity)
-
+    reducer
+    |> entry(start_metadata, end_metadata, module, function_name, arity)
     # we return nil here to stop analysis from progressing down the syntax tree,
     # because if it did, the function head that deals with normal calls will pick
     # up the rest of the call and return a reference to MyModule.function/0, which
     # is incorrect
-    {:ok, entry, nil}
+    |> without_further_analysis()
   end
 
   def extract({:|>, pipe_meta, [pipe_start, {fn_name, meta, args}]}, %Reducer{}) do
@@ -134,15 +135,16 @@ defmodule Engine.Search.Indexer.Extractors.FunctionReference do
       {module, _, _} =
         Engine.Analyzer.resolve_local_call(reducer.analysis, position, fn_name, arity)
 
-      entry = entry(reducer, meta, meta, [module], fn_name, args)
-
-      {:ok, entry}
+      entry(reducer, meta, meta, [module], fn_name, args)
     end
   end
 
   def extract(_ast, _reducer) do
     :ignored
   end
+
+  defp without_further_analysis(:ignored), do: :ignored
+  defp without_further_analysis({:ok, entry}), do: {:ok, entry, nil}
 
   defp entry(
          %Reducer{} = reducer,
@@ -156,63 +158,80 @@ defmodule Engine.Search.Indexer.Extractors.FunctionReference do
     block = Reducer.current_block(reducer)
 
     range =
-      get_reference_range(reducer.analysis.document, start_metadata, end_metadata, function_name)
+      get_reference_range(
+        reducer.analysis.document,
+        start_metadata,
+        end_metadata,
+        function_name
+      )
 
-    case Engine.Analyzer.expand_alias(module, reducer.analysis, range.start) do
-      {:ok, module} ->
-        mfa = Subject.mfa(module, function_name, arity)
-
-        Entry.reference(
-          reducer.analysis.document.path,
-          block,
-          mfa,
-          {:function, :usage},
-          range,
-          Application.get_application(module)
-        )
+    case range do
+      nil ->
+        :ignored
 
       _ ->
-        human_location = Reducer.human_location(reducer)
+        case Engine.Analyzer.expand_alias(module, reducer.analysis, range.start) do
+          {:ok, module} ->
+            mfa = Subject.mfa(module, function_name, arity)
 
-        Logger.warning(
-          "Could not expand #{inspect(module)} into an alias. Please report this. (at #{human_location})"
-        )
+            {:ok,
+             Entry.reference(
+               reducer.analysis.document.path,
+               block,
+               mfa,
+               {:function, :usage},
+               range,
+               Application.get_application(module)
+             )}
 
-        nil
+          _ ->
+            human_location = Reducer.human_location(reducer)
+
+            Logger.warning(
+              "Could not expand #{inspect(module)} into an alias. Please report this. (at #{human_location})"
+            )
+
+            :ignored
+        end
     end
   end
 
   defp get_reference_range(document, start_metadata, end_metadata, function_name) do
-    {start_line, start_column} = start_position(start_metadata)
-    start_position = Position.new(document, start_line, start_column)
-    has_parens? = not Keyword.get(end_metadata, :no_parens, false)
+    if valid_position_metadata?(start_metadata) and valid_position_metadata?(end_metadata) do
+      {start_line, start_column} = start_position(start_metadata)
+      start_pos = Position.new(document, start_line, start_column)
+      has_parens? = not Keyword.get(end_metadata, :no_parens, false)
 
-    {end_line, end_column} =
-      case Metadata.position(end_metadata, :closing) do
-        {line, column} ->
-          if has_parens? do
-            {line, column + 1}
-          else
-            {line, column}
-          end
+      {end_line, end_column} =
+        case Metadata.position(end_metadata, :closing) do
+          {line, column} when has_parens? -> {line, column + 1}
+          {line, column} -> {line, column}
+          nil -> adjust_position_for_name(end_metadata, function_name, has_parens?)
+        end
 
-        nil ->
-          {line, column} = Metadata.position(end_metadata)
-
-          if has_parens? do
-            {line, column + 1}
-          else
-            name_length = function_name |> Atom.to_string() |> String.length()
-            # without parens, the metadata points to the beginning of the call, so
-            # we need to add the length of the function name to be sure we have it
-            # all
-            {line, column + name_length}
-          end
-      end
-
-    end_position = Position.new(document, end_line, end_column)
-    Range.new(start_position, end_position)
+      end_pos = Position.new(document, end_line, end_column)
+      Range.new(start_pos, end_pos)
+    else
+      nil
+    end
   end
+
+  defp adjust_position_for_name(metadata, function_name, has_parens?) do
+    {line, column} = Metadata.position(metadata)
+
+    if has_parens? do
+      {line, column + 1}
+    else
+      name_length = function_name |> Atom.to_string() |> String.length()
+      {line, column + name_length}
+    end
+  end
+
+  defp valid_position_metadata?(metadata) when is_list(metadata) do
+    Keyword.has_key?(metadata, :line) and Keyword.has_key?(metadata, :column)
+  end
+
+  defp valid_position_metadata?(_), do: false
 
   defp start_position(metadata) do
     Metadata.position(metadata)

@@ -255,4 +255,19 @@ defmodule Engine.Search.Indexer.Extractors.EctoSchemaTest do
       assert extract(doc, schema_definition.block_range) =~ expected
     end
   end
+
+  describe "recovers from invalid code" do
+    test "with syntax errors" do
+      assert {:ok, [], _doc} =
+               ~q[
+                defmodule MySchema do
+                  use Ecto.Schema
+                   schema "my_schema" do
+                     field :first_name, :string
+                     field :last_name, :string
+                end
+                ]
+               |> index()
+    end
+  end
 end

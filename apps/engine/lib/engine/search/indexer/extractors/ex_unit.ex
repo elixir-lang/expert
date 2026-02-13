@@ -9,8 +9,6 @@ defmodule Engine.Search.Indexer.Extractors.ExUnit do
   alias Forge.Formats
   alias Forge.Search.Indexer.Entry
 
-  require Logger
-
   # setup block i.e. setup do... or setup arg do...
   def extract({setup_fn, _, args} = setup, %Reducer{} = reducer)
       when setup_fn in [:setup, :setup_all] and length(args) > 0 do
@@ -19,16 +17,10 @@ defmodule Engine.Search.Indexer.Extractors.ExUnit do
     subject = Formats.mfa(module, setup_fn, arity)
     setup_type = :"ex_unit_#{setup_fn}"
 
-    entry =
-      case Metadata.location(setup) do
-        {:block, _, _, _} ->
-          block_entry(reducer, setup, setup_type, subject)
-
-        {:expression, _} ->
-          expression_entry(reducer, setup, setup_type, subject)
-      end
-
-    {:ok, entry}
+    case Metadata.location(setup) do
+      {:block, _, _, _} -> block_entry(reducer, setup, setup_type, subject)
+      {:expression, _} -> expression_entry(reducer, setup, setup_type, subject)
+    end
   end
 
   # Test block test "test name" do ... or test "test name", arg do
@@ -39,18 +31,10 @@ defmodule Engine.Search.Indexer.Extractors.ExUnit do
     module_name = Formats.module(module)
     subject = "#{module_name}.[\"#{test_name}\"]/#{arity}"
 
-    entry =
-      case Metadata.location(test) do
-        {:block, _, _, _} ->
-          # a test with a body
-          block_entry(reducer, test, :ex_unit_test, subject)
-
-        {:expression, _} ->
-          # a pending test
-          expression_entry(reducer, test, :ex_unit_test, subject)
-      end
-
-    {:ok, entry}
+    case Metadata.location(test) do
+      {:block, _, _, _} -> block_entry(reducer, test, :ex_unit_test, subject)
+      {:expression, _} -> expression_entry(reducer, test, :ex_unit_test, subject)
+    end
   end
 
   # describe blocks
@@ -60,9 +44,7 @@ defmodule Engine.Search.Indexer.Extractors.ExUnit do
     module_name = Formats.module(module)
     subject = "#{module_name}[\"#{describe_name}\"]/#{arity}"
 
-    entry = block_entry(reducer, test, :ex_unit_describe, subject)
-
-    {:ok, entry}
+    block_entry(reducer, test, :ex_unit_describe, subject)
   end
 
   def extract(_ign, _) do
@@ -75,9 +57,11 @@ defmodule Engine.Search.Indexer.Extractors.ExUnit do
 
     {:ok, module} = Analyzer.current_module(reducer.analysis, Reducer.position(reducer))
     app = Application.get_application(module)
-    detail_range = detail_range(reducer.analysis, ast)
 
-    Entry.definition(path, block, subject, type, detail_range, app)
+    case detail_range(reducer.analysis, ast) do
+      nil -> :ignored
+      range -> {:ok, Entry.definition(path, block, subject, type, range, app)}
+    end
   end
 
   defp block_entry(%Reducer{} = reducer, ast, type, subject) do
@@ -86,9 +70,23 @@ defmodule Engine.Search.Indexer.Extractors.ExUnit do
 
     {:ok, module} = Analyzer.current_module(reducer.analysis, Reducer.position(reducer))
     app = Application.get_application(module)
-    detail_range = detail_range(reducer.analysis, ast)
-    block_range = block_range(reducer.analysis, ast)
-    Entry.block_definition(path, block, subject, type, block_range, detail_range, app)
+
+    case detail_range(reducer.analysis, ast) do
+      nil ->
+        :ignored
+
+      detail_range ->
+        {:ok,
+         Entry.block_definition(
+           path,
+           block,
+           subject,
+           type,
+           block_range(reducer.analysis, ast),
+           detail_range,
+           app
+         )}
+    end
   end
 
   defp block_range(%Analysis{} = analysis, ast) do
@@ -113,6 +111,9 @@ defmodule Engine.Search.Indexer.Extractors.ExUnit do
           Position.new(analysis.document, start_line, start_column),
           Position.new(analysis.document, end_line, end_column)
         )
+
+      _ ->
+        nil
     end
   end
 

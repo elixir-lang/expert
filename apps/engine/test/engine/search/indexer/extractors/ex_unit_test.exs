@@ -334,4 +334,17 @@ defmodule Engine.Search.Indexer.Extractors.ExUnitTest do
         |> index_definitions()
     end
   end
+
+  describe "recovers from invalid code" do
+    test "with syntax errors" do
+      assert {:ok, [], _doc} =
+               ~q[
+               defmodule SomeTest do
+                 test "my test" do
+                   assert true
+               end
+               ]
+               |> index_definitions()
+    end
+  end
 end
