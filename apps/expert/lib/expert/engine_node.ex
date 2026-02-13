@@ -233,6 +233,7 @@ defmodule Expert.EngineNode do
       with {:ok, elixir, env} <- Expert.Port.project_executable(project, "elixir"),
            {:ok, erl, _env} <- Expert.Port.project_executable(project, "erl") do
         lsp = Expert.get_lsp()
+        Expert.log_info(lsp, project, "Using path: #{System.get_env("PATH")}")
         Expert.log_info(lsp, project, "Found elixir executable at #{elixir}")
         Expert.log_info(lsp, project, "Found erl executable at #{erl}")
 

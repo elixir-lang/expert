@@ -114,7 +114,7 @@ defmodule Expert.Port do
 
     case :os.find_executable(to_charlist(name), to_charlist(path)) do
       false ->
-        {:error, name, "Couldn't find an #{name} executable. Using PATH=#{path}"}
+        {:error, name, "Couldn't find an #{name} executable"}
 
       elixir ->
         env =
@@ -148,8 +148,7 @@ defmodule Expert.Port do
 
     case :os.find_executable(to_charlist(name), to_charlist(path)) do
       false ->
-        {:error, name,
-         "Couldn't find an #{name} executable for project at #{root_path}. Using PATH=#{path}"}
+        {:error, name, "Couldn't find an #{name} executable for project at #{root_path}"}
 
       elixir ->
         env =
