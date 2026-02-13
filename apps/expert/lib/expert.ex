@@ -188,13 +188,24 @@ defmodule Expert do
     end
 
     for project <- ActiveProjects.projects() do
-      Task.Supervisor.start_child(:expert_task_queue, fn ->
-        log_info(lsp, project, "Starting project")
+      started =
+        Task.Supervisor.start_child(:expert_task_queue, fn ->
+          log_info(lsp, project, "Starting project")
 
-        start_result = Expert.Project.Supervisor.ensure_node_started(project)
+          start_result = Expert.Project.Supervisor.ensure_node_started(project)
 
-        send(Expert, {:engine_initialized, project, start_result})
-      end)
+          send(Expert, {:engine_initialized, project, start_result})
+        end)
+
+      case started do
+        {:ok, _pid} ->
+          :ok
+
+        {:error, reason} ->
+          Logger.error(
+            "Failed to start project initialization for #{Project.name(project)}: #{inspect(reason)}"
+          )
+      end
     end
 
     {:noreply, lsp}
