@@ -438,4 +438,16 @@ defmodule Engine.Search.Indexer.Extractors.FunctionDefinitionTest do
       assert "my_fn(a, b)" = extract(doc, function_definition.range)
     end
   end
+
+  describe "recovers from invalid code" do
+    test "with syntax errors" do
+      assert {:ok, [], _doc} =
+               ~q[
+               defmodule Parent do
+                 def my_fn(a, b
+               end
+               ]
+               |> index()
+    end
+  end
 end
