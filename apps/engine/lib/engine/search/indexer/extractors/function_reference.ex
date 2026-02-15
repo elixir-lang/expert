@@ -188,7 +188,7 @@ defmodule Engine.Search.Indexer.Extractors.FunctionReference do
             human_location = Reducer.human_location(reducer)
 
             Logger.warning(
-              "Could not expand #{inspect(module)} into an alias. Please report this. (at #{human_location})"
+              "Could not expand #{inspect(module)} into an alias (at #{human_location}). Please open an issue!"
             )
 
             :ignored
