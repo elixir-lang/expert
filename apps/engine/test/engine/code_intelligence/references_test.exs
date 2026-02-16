@@ -311,6 +311,22 @@ defmodule Engine.CodeIntelligence.ReferencesTest do
     end
   end
 
+  describe "unsupported entities" do
+    test "returns an empty list for plain atoms", %{project: project} do
+      query = ~S[
+        defmodule MyModule do
+          def my_fun do
+            :stub_create_consent|
+          end
+        end
+      ]
+
+      {_, code} = pop_cursor(query)
+
+      assert [] == references(project, query, code)
+    end
+  end
+
   defp references(project, referenced, code, include_definitions? \\ false) do
     with {position, referenced} <- pop_cursor(referenced, as: :document),
          {:ok, document} <- project_module(project, code),

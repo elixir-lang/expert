@@ -13,10 +13,14 @@ defmodule Engine.CodeIntelligence.References do
   require Logger
 
   def references(%Analysis{} = analysis, %Position{} = position, include_definitions?) do
-    with {:ok, resolved, _range} <- Entity.resolve(analysis, position) do
-      resolved
-      |> maybe_rewrite_resolution(analysis, position)
-      |> find_references(analysis, position, include_definitions?)
+    case Entity.resolve(analysis, position) do
+      {:ok, resolved, _range} ->
+        resolved
+        |> maybe_rewrite_resolution(analysis, position)
+        |> find_references(analysis, position, include_definitions?)
+
+      {:error, _} ->
+        []
     end
   end
 
