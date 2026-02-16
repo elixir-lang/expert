@@ -83,6 +83,15 @@ defmodule Engine.Search.Store do
     call_or_default({:all, constraints}, [])
   end
 
+  @spec resolve_mfa(module(), atom(), non_neg_integer()) ::
+          {:ok, {module(), atom(), non_neg_integer(), boolean(), boolean()}} | {:error, term()}
+  def resolve_mfa(module, function, arity) do
+    call_or_default(
+      {:resolve_mfa, module, function, arity},
+      {module, function, arity, false, false}
+    )
+  end
+
   def clear(path) do
     GenServer.call(__MODULE__, {:update, path, []})
   end
@@ -239,6 +248,17 @@ defmodule Engine.Search.Store do
   def handle_call({:siblings, entry}, _from, {_, %State{} = state} = orig_state) do
     state
     |> State.siblings(entry)
+    |> maybe_broadcast_loading(state)
+    |> then(&{:reply, &1, orig_state})
+  end
+
+  def handle_call(
+        {:resolve_mfa, module, function, arity},
+        _from,
+        {_, %State{} = state} = orig_state
+      ) do
+    state
+    |> State.resolve_mfa(module, function, arity)
     |> maybe_broadcast_loading(state)
     |> then(&{:reply, &1, orig_state})
   end

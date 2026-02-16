@@ -158,6 +158,27 @@ defmodule Engine.Search.Store.State do
     {:ok, entries}
   end
 
+  def resolve_mfa(%__MODULE__{} = state, module, function, arity) do
+    mfa = Forge.Formats.mfa(module, function, arity)
+
+    case exact(state, mfa, subtype: :definition) do
+      {:ok, [%Entry{type: {:function, :delegate}, metadata: %{original_mfa: original_mfa}} | _]} ->
+        case Forge.Code.parse_mfa(original_mfa) do
+          {target_module, target_fun, target_arity} ->
+            {target_module, target_fun, target_arity, true, true}
+
+          nil ->
+            {module, function, arity, true, false}
+        end
+
+      {:ok, [%Entry{type: {:function, _}} | _]} ->
+        {module, function, arity, true, false}
+
+      _ ->
+        {module, function, arity, false, false}
+    end
+  end
+
   defp matches_constraints?(%Entry{type: t, subtype: st}, type, subtype) do
     (type == :_ or t == type) and (subtype == :_ or st == subtype)
   end

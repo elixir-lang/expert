@@ -15,8 +15,6 @@ defmodule Expert.Provider.Handlers.Hover do
   alias GenLSP.Requests
   alias GenLSP.Structures
 
-  require Logger
-
   @impl Expert.Provider.Handler
   def handle(%Requests.TextDocumentHover{params: %Structures.HoverParams{} = params}) do
     document = Document.Container.context_document(params, nil)
@@ -86,10 +84,7 @@ defmodule Expert.Provider.Handlers.Hover do
   end
 
   defp hover_content({:call, module, fun, arity}, %Project{} = project) do
-    # Try to resolve delegates to get docs from the original implementation.
-    # If function is found in index, use the resolved target for docs.
-    # If not found in index, try the module directly, then fallback to ElixirSense.
-    {target_module, target_fun, target_arity, indexed?} =
+    {target_module, target_fun, target_arity, indexed?, resolved_delegate?} =
       resolve_call_target(project, module, fun, arity)
 
     with {:ok, %Docs{} = module_docs} <- EngineApi.docs(project, target_module),
@@ -102,15 +97,11 @@ defmodule Expert.Provider.Handlers.Hover do
 
       {:ok, Markdown.join_sections(sections, Markdown.separator())}
     else
-      # If function was indexed (found in our Store), don't fallback - it's intentionally
-      # without docs (private, or docs deliberately omitted)
-      _ when indexed? ->
-        :error
-
-      # Not indexed - could be a dependency function, imported function, or private function.
-      # Fall back to ElixirSense which can resolve imports to their source module.
-      _ ->
+      _ when resolved_delegate? ->
         {:error, :not_found}
+
+      _ ->
+        maybe_fallback_error(indexed?)
     end
   end
 
@@ -142,49 +133,11 @@ defmodule Expert.Provider.Handlers.Hover do
     {:error, {:unsupported, type}}
   end
 
+  defp maybe_fallback_error(true), do: :error
+  defp maybe_fallback_error(false), do: {:error, :not_found}
+
   defp resolve_call_target(project, module, fun, arity) do
-    mfa = Forge.Formats.mfa(module, fun, arity)
-
-    case EngineApi.call(project, Store, :exact, [mfa, [subtype: :definition]]) do
-      {:ok, [%Entry{type: {:function, :delegate}, metadata: %{original_mfa: original_mfa}} | _]} ->
-        # Found a delegate - try to resolve to the original function
-        case parse_mfa(original_mfa) do
-          {target_module, target_fun, target_arity} ->
-            {target_module, target_fun, target_arity, true}
-
-          nil ->
-            # Couldn't parse MFA, fall back to the delegate module itself
-            {module, fun, arity, true}
-        end
-
-      {:ok, [%Entry{type: {:function, _}} | _]} ->
-        # Regular function found in index
-        {module, fun, arity, true}
-
-      _ ->
-        # Not found in index
-        {module, fun, arity, false}
-    end
-  end
-
-  defp parse_mfa(mfa_string) do
-    # Parse "Module.Name.function/arity" format
-    case Regex.run(~r/^(.+)\.([^.\/]+)\/(\d+)$/, mfa_string) do
-      [_, module_str, fun_str, arity_str] ->
-        module =
-          if String.starts_with?(module_str, ":") do
-            module_str |> String.trim_leading(":") |> String.to_existing_atom()
-          else
-            String.to_existing_atom("Elixir." <> module_str)
-          end
-
-        fun = String.to_atom(fun_str)
-        arity = String.to_integer(arity_str)
-        {module, fun, arity}
-
-      _ ->
-        nil
-    end
+    EngineApi.call(project, Store, :resolve_mfa, [module, fun, arity])
   end
 
   defp module_header(:module, %Docs{module: module}) do

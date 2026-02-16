@@ -608,6 +608,43 @@ defmodule Expert.Provider.Handlers.HoverTest do
         assert result.contents.value == expected
       end)
     end
+
+    test "delegated function to unloaded module does not crash", %{project: project} do
+      code = ~q[
+        defmodule ModA do
+          def test do
+            ModB.func1()
+          end
+        end
+
+        defmodule ModB do
+          defdelegate func1, to: ModC
+        end
+
+        defmodule ModC do
+          @doc """
+          This is the original implementation
+          """
+          def func1, do: :ok
+        end
+      ]
+
+      hovered = "ModB.|func1()"
+
+      expected = """
+      ```elixir
+      ModC.func1()
+      ```
+
+      This is the original implementation
+      """
+
+      with_compiled_and_indexed(project, code, fn ->
+        assert {:ok, %Structures.Hover{} = result} = hover(project, hovered)
+        assert result.contents.kind == "markdown"
+        assert result.contents.value == expected
+      end)
+    end
   end
 
   describe "type hover" do
