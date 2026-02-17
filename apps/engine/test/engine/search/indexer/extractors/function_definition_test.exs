@@ -439,6 +439,68 @@ defmodule Engine.Search.Indexer.Extractors.FunctionDefinitionTest do
     end
   end
 
+  describe "indexing functions with default arguments" do
+    test "indexes all callable arities for a function with default arguments" do
+      code = """
+      defmodule Parent do
+        def create(name \\\\ :default, public \\\\ false, opts \\\\ nil) do
+          {name, public, opts}
+        end
+      end
+      """
+
+      {:ok, entries, _} = index(code)
+
+      subjects = entries |> Enum.map(& &1.subject) |> Enum.sort()
+
+      assert subjects == [
+               "Parent.create/0",
+               "Parent.create/1",
+               "Parent.create/2",
+               "Parent.create/3"
+             ]
+    end
+
+    test "indexes all callable arities for a function with some default arguments" do
+      code = """
+      defmodule Parent do
+        def create(name, public, opts \\\\ nil) do
+          {name, public, opts}
+        end
+      end
+      """
+
+      {:ok, entries, _} = index(code)
+
+      subjects = entries |> Enum.map(& &1.subject) |> Enum.sort()
+
+      assert subjects == [
+               "Parent.create/2",
+               "Parent.create/3"
+             ]
+    end
+
+    test "indexes all callable arities for a function with default arguments and guards" do
+      code = """
+      defmodule Parent do
+        def create(name \\\\ :default, opts \\\\ []) when is_atom(name) do
+          {name, opts}
+        end
+      end
+      """
+
+      {:ok, entries, _} = index(code)
+
+      subjects = entries |> Enum.map(& &1.subject) |> Enum.sort()
+
+      assert subjects == [
+               "Parent.create/0",
+               "Parent.create/1",
+               "Parent.create/2"
+             ]
+    end
+  end
+
   describe "recovers from invalid code" do
     test "with syntax errors" do
       assert {:ok, [], _doc} =
