@@ -20,9 +20,9 @@ defmodule Expert.Provider.Handlers.CodeLensTest do
     start_supervised(Document.Store)
     project = project(:umbrella)
 
+    start_supervised!({Expert.ActiveProjects, []})
     start_supervised!({DynamicSupervisor, Expert.Project.DynamicSupervisor.options()})
     start_supervised!({Expert.Project.Supervisor, project})
-    start_supervised!({Expert.ActiveProjects, []})
 
     Expert.Configuration.new() |> Expert.Configuration.set()
 

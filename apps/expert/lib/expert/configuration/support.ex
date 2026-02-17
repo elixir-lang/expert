@@ -42,6 +42,10 @@ defmodule Expert.Configuration.Support do
     work_done_progress: [
       :window,
       :work_done_progress
+    ],
+    show_message: [
+      :window,
+      :show_message
     ]
   ]
 
@@ -51,7 +55,8 @@ defmodule Expert.Configuration.Support do
             deprecated: false,
             tags: false,
             signature_help: false,
-            work_done_progress: false
+            work_done_progress: false,
+            show_message: false
 
   @type t :: %__MODULE__{}
 

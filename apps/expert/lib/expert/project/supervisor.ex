@@ -45,28 +45,33 @@ defmodule Expert.Project.Supervisor do
   end
 
   def ensure_node_started(%Project{} = project) do
-    case start(project) do
-      {:ok, pid} ->
-        ActiveProjects.set_ready(project, true)
-        Logger.info("Project node started for #{Project.name(project)}")
+    if ActiveProjects.blocked?(project) do
+      Logger.info("Project node start blocked for #{Project.name(project)}")
+      {:error, :deps_error}
+    else
+      case start(project) do
+        {:ok, pid} ->
+          ActiveProjects.set_ready(project, true)
+          Logger.info("Project node started for #{Project.name(project)}")
 
-        GenLSP.log(Expert.get_lsp(), "Started project node for #{Project.name(project)}")
-        {:ok, pid}
+          GenLSP.log(Expert.get_lsp(), "Started project node for #{Project.name(project)}")
+          {:ok, pid}
 
-      {:error, {reason, pid}} when reason in [:already_started, :already_present] ->
-        {:ok, pid}
+        {:error, {reason, pid}} when reason in [:already_started, :already_present] ->
+          {:ok, pid}
 
-      {:error, reason} ->
-        Logger.error(
-          "Failed to start project node for #{Project.name(project)}: #{inspect(reason, pretty: true)}"
-        )
+        {:error, reason} ->
+          Logger.error(
+            "Failed to start project node for #{Project.name(project)}: #{inspect(reason, pretty: true)}"
+          )
 
-        GenLSP.error(
-          Expert.get_lsp(),
-          "Failed to start project node for #{Project.name(project)}: #{inspect(reason, pretty: true)}"
-        )
+          GenLSP.error(
+            Expert.get_lsp(),
+            "Failed to start project node for #{Project.name(project)}: #{inspect(reason, pretty: true)}"
+          )
 
-        {:error, reason}
+          {:error, reason}
+      end
     end
   end
 

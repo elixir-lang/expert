@@ -34,6 +34,10 @@ defmodule Engine.Build do
     :ok
   end
 
+  def clean_and_fetch_deps(%Project{} = project) do
+    GenServer.call(__MODULE__, {:clean_and_fetch_deps, project})
+  end
+
   def with_lock(func), do: Engine.with_lock(__MODULE__, func)
 
   # can't pass work token to Tracer module, so store it in persistent term.
@@ -69,6 +73,13 @@ defmodule Engine.Build do
   def handle_call({:force_compile_file, %Document{} = document}, _from, %State{} = state) do
     State.compile_file(state, document)
     {:reply, :ok, state, @timeout_interval_millis}
+  end
+
+  @impl GenServer
+  def handle_call({:clean_and_fetch_deps, %Project{} = project}, _from, %State{} = state) do
+    State.fetch_deps(state, project)
+
+    {:reply, :ok, state}
   end
 
   @impl GenServer

@@ -26,6 +26,9 @@ defmodule Expert.ActiveProjects do
     __MODULE__.Ready =
       :ets.new(__MODULE__.Ready, [:set, :named_table, :public, read_concurrency: true])
 
+    __MODULE__.Blocked =
+      :ets.new(__MODULE__.Blocked, [:set, :named_table, :public, read_concurrency: true])
+
     {:ok, nil}
   end
 
@@ -64,8 +67,24 @@ defmodule Expert.ActiveProjects do
   def set_ready(%Project{} = project, ready?) when is_boolean(ready?) do
     if ready? do
       :ets.insert(__MODULE__.Ready, {project.root_uri, true})
+      :ets.delete(__MODULE__.Blocked, project.root_uri)
     else
       :ets.delete(__MODULE__.Ready, project.root_uri)
+    end
+  end
+
+  def set_blocked(%Project{} = project, blocked?) when is_boolean(blocked?) do
+    if blocked? do
+      :ets.insert(__MODULE__.Blocked, {project.root_uri, true})
+    else
+      :ets.delete(__MODULE__.Blocked, project.root_uri)
+    end
+  end
+
+  def blocked?(%Project{} = project) do
+    case :ets.lookup(__MODULE__.Blocked, project.root_uri) do
+      [{_, true}] -> true
+      _ -> false
     end
   end
 

@@ -24,6 +24,26 @@ defmodule Engine.Build.Project do
     end)
   end
 
+  def fetch_deps(%Project{} = project) do
+    Engine.Mix.in_project(project, fn _ ->
+      Logger.info("Fetching dependencies for #{Project.display_name(project)}")
+
+      Progress.with_progress(
+        "Fetching dependencies for #{Project.display_name(project)}",
+        fn token ->
+          Build.set_progress_token(token)
+
+          try do
+            prepare_for_project_build(token)
+            {:done, :ok}
+          after
+            Build.clear_progress_token()
+          end
+        end
+      )
+    end)
+  end
+
   defp do_compile(project, initial?, token) do
     Mix.Task.clear()
 

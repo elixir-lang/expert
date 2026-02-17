@@ -21,6 +21,10 @@ defmodule Expert.EngineApi do
     call(project, Engine, :schedule_compile, [force?])
   end
 
+  def clean_and_fetch_deps(%Project{} = project) do
+    call(project, Engine, :clean_and_fetch_deps, [])
+  end
+
   def compile_document(%Project{} = project, %Document{} = document) do
     call(project, Engine, :compile_document, [document])
   end

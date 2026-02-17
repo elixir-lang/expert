@@ -95,6 +95,12 @@ defmodule Engine.Api.Proxy do
     :gen_statem.call(__MODULE__, drop)
   end
 
+  def clean_and_fetch_deps do
+    project = Engine.get_project()
+    mfa = to_mfa(Engine.Build.clean_and_fetch_deps(project))
+    :gen_statem.call(__MODULE__, buffer(contents: mfa))
+  end
+
   # utility functions
 
   def buffering? do

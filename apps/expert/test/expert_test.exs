@@ -14,6 +14,7 @@ defmodule Expert.ExpertTest do
 
   test "sends an error message on engine initialization error" do
     with_patched_transport()
+    start_supervised!({Expert.ActiveProjects, []})
 
     project = Fixtures.project()
     lsp = initialize_lsp(project)

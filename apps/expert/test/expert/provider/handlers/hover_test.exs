@@ -23,9 +23,9 @@ defmodule Expert.Provider.Handlers.HoverTest do
 
     start_supervised!({Forge.NodePortMapper, []})
     start_supervised!(Expert.Application.document_store_child_spec())
+    start_supervised!({Expert.ActiveProjects, []})
     start_supervised!({DynamicSupervisor, Expert.Project.DynamicSupervisor.options()})
     start_supervised!({Expert.Project.Supervisor, project})
-    start_supervised!({Expert.ActiveProjects, []})
 
     Expert.Configuration.new() |> Expert.Configuration.set()
 

@@ -28,6 +28,8 @@ defmodule Engine do
 
   defdelegate broadcast(message), to: Proxy
 
+  defdelegate clean_and_fetch_deps, to: Proxy
+
   defdelegate expand_alias(segments_or_module, analysis, position), to: Engine.Analyzer
 
   defdelegate list_modules, to: :code, as: :all_available

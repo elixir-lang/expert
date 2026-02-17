@@ -15,7 +15,8 @@ defmodule Expert.EngineNode do
       :stop_timeout,
       :started_by,
       :last_message,
-      :status
+      :status,
+      :deps_error
     ]
 
     def new(%Project{} = project) do
@@ -24,7 +25,8 @@ defmodule Expert.EngineNode do
       %__MODULE__{
         project: project,
         cookie: cookie,
-        status: :initializing
+        status: :initializing,
+        deps_error: false
       }
     end
 
@@ -138,6 +140,13 @@ defmodule Expert.EngineNode do
 
             :shutdown
 
+          _error_status when state.deps_error ->
+            Logger.error(
+              "Engine failed due to dependency errors (status: #{exit_status}). Last message: #{state.last_message}"
+            )
+
+            {:shutdown, :deps_error}
+
           _error_status ->
             Logger.error(
               "Engine shut down unexpectedly, node exited with status #{exit_status}). Last message: #{state.last_message}"
@@ -149,6 +158,14 @@ defmodule Expert.EngineNode do
       new_state = %{state | status: :stopped}
 
       {stop_reason, new_state}
+    end
+
+    @deps_error_patterns [
+      "Can't continue due to errors on dependencies",
+      "Unchecked dependencies"
+    ]
+    def detect_deps_error(message) when is_binary(message) do
+      Enum.any?(@deps_error_patterns, &String.contains?(message, &1))
     end
 
     def maybe_reply_to_stopper(%State{stopped_by: stopped_by} = state)
@@ -430,7 +447,15 @@ defmodule Expert.EngineNode do
     message = to_string(data)
     Logger.debug("Node port message: #{message}")
 
-    {:noreply, %{state | last_message: message}}
+    if State.detect_deps_error(message) do
+      if lsp = Expert.get_lsp() do
+        send(lsp.pid, {:deps_error, state.project, %{last_message: message}})
+      end
+
+      {:noreply, %{state | last_message: message, deps_error: true}}
+    else
+      {:noreply, %{state | last_message: message}}
+    end
   end
 
   @impl true

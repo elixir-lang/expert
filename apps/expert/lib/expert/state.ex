@@ -166,7 +166,7 @@ defmodule Expert.State do
         ActiveProjects.find_by_root_uri(closest.root_uri) || closest
       end
 
-    if project do
+    if project && not ActiveProjects.blocked?(project) do
       Task.Supervisor.start_child(:expert_task_queue, fn ->
         Expert.Project.Supervisor.ensure_node_started(project)
       end)
@@ -209,7 +209,10 @@ defmodule Expert.State do
 
     case Document.Store.save(uri) do
       :ok ->
-        EngineApi.schedule_compile(project, false)
+        if ActiveProjects.active?(project) do
+          EngineApi.schedule_compile(project, false)
+        end
+
         {:ok, state}
 
       error ->
@@ -233,7 +236,10 @@ defmodule Expert.State do
     for project <- ActiveProjects.projects(),
         change <- params.changes do
       params = filesystem_event(project: Project, uri: change.uri, event_type: change.type)
-      EngineApi.broadcast(project, params)
+
+      if ActiveProjects.active?(project) do
+        EngineApi.broadcast(project, params)
+      end
     end
 
     {:ok, state}

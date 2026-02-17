@@ -10,6 +10,7 @@ defmodule Expert.EngineNodeTest do
 
   setup do
     project = project()
+    start_supervised!(Expert.ActiveProjects)
     start_supervised!({Forge.NodePortMapper, []})
     start_supervised!({EngineSupervisor, project})
     {:ok, %{project: project}}
@@ -78,6 +79,20 @@ defmodule Expert.EngineNodeTest do
     assert {:shutdown, {:node_exit, node_exit}} = exit_reason
     assert %{status: ^exit_status, last_message: last_message} = node_exit
     assert is_binary(last_message)
+  end
+
+  test "detect_deps_error recognizes Mix dependency errors" do
+    assert EngineNode.State.detect_deps_error(
+             "** (Mix) Can't continue due to errors on dependencies"
+           )
+
+    assert EngineNode.State.detect_deps_error(
+             "** (Mix.Error) Can't continue due to errors on dependencies"
+           )
+
+    assert EngineNode.State.detect_deps_error("Unchecked dependencies for dependency_foo")
+    refute EngineNode.State.detect_deps_error("Compiling 1 file (.ex)")
+    refute EngineNode.State.detect_deps_error("")
   end
 
   defp try_start(project, retries \\ 2) do

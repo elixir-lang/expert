@@ -106,6 +106,9 @@ defmodule ExpertTest do
         capabilities: %{
           workspace: %{
             workspaceFolders: true
+          },
+          window: %{
+            showMessage: %{}
           }
         },
         workspaceFolders: workspace_folders
@@ -618,6 +621,148 @@ defmodule ExpertTest do
 
       refute_any_call(Expert.EngineApi.broadcast())
       refute_any_call(Expert.EngineApi.compile_document())
+    end
+  end
+
+  describe "dependency error handling" do
+    test "prompts user with window/showMessageRequest on deps error", %{
+      client: client,
+      server: server,
+      project_root: project_root,
+      main_project: main_project
+    } do
+      assert :ok =
+               request(client, initialize_request(project_root, id: 1, projects: [main_project]))
+
+      assert_result(1, _)
+
+      assert :ok = notify(client, initialized_notification())
+
+      assert_request(client, "client/registerCapability", fn _params -> nil end)
+
+      send(server.lsp, {:deps_error, main_project, %{last_message: "deps failed"}})
+
+      assert_request(
+        client,
+        "window/showMessageRequest",
+        fn params ->
+          assert params["type"] == 1
+          assert params["message"] =~ "dependencies"
+          assert length(params["actions"]) == 2
+
+          %{"title" => "No"}
+        end
+      )
+    end
+
+    test "runs mix deps.get when user confirms", %{
+      client: client,
+      server: server,
+      project_root: project_root,
+      main_project: main_project
+    } do
+      test_pid = self()
+
+      patch(Expert.EngineApi, :clean_and_fetch_deps, fn _project ->
+        send(test_pid, :deps_fetched)
+        :ok
+      end)
+
+      patch(Expert.Project.Supervisor, :stop_node, fn _project ->
+        send(test_pid, :project_stopped)
+        :ok
+      end)
+
+      patch(Expert.Project.Supervisor, :ensure_node_started, fn _project ->
+        send(test_pid, :project_restarted)
+        {:ok, self()}
+      end)
+
+      assert :ok =
+               request(client, initialize_request(project_root, id: 1, projects: [main_project]))
+
+      assert_result(1, _)
+      assert :ok = notify(client, initialized_notification())
+
+      assert_request(client, "client/registerCapability", fn _params -> nil end)
+
+      send(server.lsp, {:deps_error, main_project, %{last_message: "deps failed"}})
+
+      assert_request(
+        client,
+        "window/showMessageRequest",
+        fn _params -> %{"title" => "Yes"} end
+      )
+
+      assert_receive :deps_fetched, 5000
+      assert_receive :project_stopped, 5000
+      assert_receive :project_restarted, 5000
+    end
+
+    test "does not run deps.get when user declines", %{
+      client: client,
+      server: server,
+      project_root: project_root,
+      main_project: main_project
+    } do
+      test_pid = self()
+
+      patch(Expert.EngineApi, :clean_and_fetch_deps, fn _project ->
+        send(test_pid, :unexpected_deps_fetch)
+        :ok
+      end)
+
+      assert :ok =
+               request(client, initialize_request(project_root, id: 1, projects: [main_project]))
+
+      assert_result(1, _)
+      assert :ok = notify(client, initialized_notification())
+
+      assert_request(client, "client/registerCapability", fn _params -> nil end)
+
+      send(server.lsp, {:deps_error, main_project, %{last_message: "deps failed"}})
+
+      assert_request(
+        client,
+        "window/showMessageRequest",
+        fn _params -> %{"title" => "No"} end
+      )
+
+      refute_receive :unexpected_deps_fetch, 1000
+    end
+
+    test "logs error when mix deps.get fails", %{
+      client: client,
+      server: server,
+      project_root: project_root,
+      main_project: main_project
+    } do
+      patch(Expert.EngineApi, :clean_and_fetch_deps, fn _project ->
+        {:error, "Could not resolve dependency foo"}
+      end)
+
+      assert :ok =
+               request(client, initialize_request(project_root, id: 1, projects: [main_project]))
+
+      assert_result(1, _)
+      assert :ok = notify(client, initialized_notification())
+
+      assert_request(client, "client/registerCapability", fn _params -> nil end)
+
+      send(server.lsp, {:deps_error, main_project, %{last_message: "deps failed"}})
+
+      assert_request(
+        client,
+        "window/showMessageRequest",
+        fn _params -> %{"title" => "Yes"} end
+      )
+
+      assert_notification(
+        "window/showMessage",
+        %{"type" => 1, "message" => message}
+      )
+
+      assert message =~ "mix deps.get failed"
     end
   end
 end

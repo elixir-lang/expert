@@ -76,6 +76,24 @@ defmodule Engine.Build.State do
     end
   end
 
+  def fetch_deps(%__MODULE__{} = state, project) do
+    build_path = Project.versioned_build_path(project)
+
+    Logger.info("Cleaning build directory: #{build_path}")
+
+    case File.rm_rf(build_path) do
+      {:ok, _} ->
+        :ok
+
+      {:error, reason, path} ->
+        Logger.warning("Failed to remove build path #{path}: #{inspect(reason)}")
+    end
+
+    Engine.Build.Project.fetch_deps(project)
+
+    state
+  end
+
   defp compile_project(%__MODULE__{} = state, initial?) do
     state = increment_build_number(state)
     project = state.project

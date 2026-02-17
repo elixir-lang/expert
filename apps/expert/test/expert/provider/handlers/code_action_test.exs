@@ -16,9 +16,9 @@ defmodule Expert.Provider.Handlers.CodeActionTest do
     start_supervised!({Document.Store, derive: [analysis: &Forge.Ast.analyze/1]})
     project = project(:navigations)
 
+    start_supervised!({Expert.ActiveProjects, []})
     start_supervised!({DynamicSupervisor, Expert.Project.DynamicSupervisor.options()})
     start_supervised!({Expert.Project.Supervisor, project})
-    start_supervised!({Expert.ActiveProjects, []})
 
     Expert.ActiveProjects.set_projects([project])
     Expert.Configuration.new() |> Expert.Configuration.set()

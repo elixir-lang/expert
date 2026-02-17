@@ -188,13 +188,15 @@ defmodule Expert do
     end
 
     for project <- ActiveProjects.projects() do
-      Task.Supervisor.start_child(:expert_task_queue, fn ->
-        log_info(lsp, project, "Starting project")
+      unless ActiveProjects.blocked?(project) do
+        Task.Supervisor.start_child(:expert_task_queue, fn ->
+          log_info(lsp, project, "Starting project")
 
-        start_result = Expert.Project.Supervisor.ensure_node_started(project)
+          start_result = Expert.Project.Supervisor.ensure_node_started(project)
 
-        send(Expert, {:engine_initialized, project, start_result})
-      end)
+          send(lsp.pid, {:engine_initialized, project, start_result})
+        end)
+      end
     end
 
     {:noreply, lsp}
@@ -244,11 +246,111 @@ defmodule Expert do
     {:noreply, lsp}
   end
 
+  def handle_info({:deps_error, project, _details}, lsp) do
+    ActiveProjects.set_blocked(project, true)
+    ActiveProjects.set_ready(project, false)
+
+    maybe_prompt_deps_fetch(lsp, project)
+    {:noreply, lsp}
+  end
+
+  def handle_info({:engine_initialized, project, {:error, {:shutdown, :deps_error}}}, lsp) do
+    ActiveProjects.set_ready(project, false)
+
+    log_error(
+      lsp,
+      project,
+      "Engine failed due to dependency errors. Run 'mix deps.get' to fetch dependencies."
+    )
+
+    maybe_prompt_deps_fetch(lsp, project)
+
+    {:noreply, lsp}
+  end
+
   def handle_info({:engine_initialized, project, {:error, reason}}, lsp) do
+    ActiveProjects.set_ready(project, false)
+
     error_message = initialization_error_message(reason)
     log_error(lsp, project, error_message)
 
     {:noreply, lsp}
+  end
+
+  defp maybe_prompt_deps_fetch(lsp, project) do
+    if Expert.Configuration.client_support(:show_message) do
+      project_name = Project.name(project)
+
+      lsp
+      |> GenLSP.request(
+        %Requests.WindowShowMessageRequest{
+          id: Id.next(),
+          params: %Structures.ShowMessageRequestParams{
+            type: Enumerations.MessageType.error(),
+            message:
+              "The Expert engine failed with errors on dependencies for project #{project_name}. Would you like to fetch them?",
+            actions: [
+              %Structures.MessageActionItem{title: "Yes"},
+              %Structures.MessageActionItem{title: "No"}
+            ]
+          }
+        },
+        :infinity
+      )
+      |> handle_deps_fetch_result(lsp, project)
+    else
+      log_info(
+        lsp,
+        project,
+        "Client does not support window/showMessageRequest"
+      )
+    end
+  end
+
+  defp handle_deps_fetch_result(%Structures.MessageActionItem{title: "Yes"}, lsp, project) do
+    log_info(lsp, project, "Running mix deps.get for #{Project.name(project)}")
+
+    Task.Supervisor.start_child(:expert_task_queue, fn ->
+      result =
+        try do
+          Expert.EngineApi.clean_and_fetch_deps(project)
+        rescue
+          error in ErlangError ->
+            {:error, error.original}
+        end
+
+      case result do
+        :ok ->
+          log_info(lsp, project, "mix deps.get completed successfully")
+
+          Expert.Project.Supervisor.stop_node(project)
+          ActiveProjects.set_blocked(project, false)
+
+          log_info(lsp, project, "Restarting engine for #{Project.name(project)}")
+          start_result = Expert.Project.Supervisor.ensure_node_started(project)
+          send(lsp.pid, {:engine_initialized, project, start_result})
+
+        {:error, msg} ->
+          log_error(lsp, project, "mix deps.get failed: #{inspect(msg)}")
+
+        error ->
+          log_error(
+            lsp,
+            project,
+            "Unexpected error from clean_and_fetch_deps: #{inspect(error)}"
+          )
+      end
+    end)
+  end
+
+  defp handle_deps_fetch_result(%Structures.MessageActionItem{title: "No"}, lsp, project) do
+    ActiveProjects.set_blocked(project, false)
+    ActiveProjects.set_ready(project, true)
+    log_info(lsp, project, "User declined to run mix deps.get for #{Project.name(project)}")
+  end
+
+  defp handle_deps_fetch_result(_, _lsp, _project) do
+    :ok
   end
 
   def log_info(lsp \\ get_lsp(), project, message) do
@@ -376,6 +478,9 @@ defmodule Expert do
       # NOTE: ** (Mix.Error) httpc request failed with: ...Could not install Hex because Mix could not download...
       {{:shutdown, {:error, :normal, message}}, _} ->
         "Engine #{name} shut down with error:\n\n#{message}"
+
+      {{:shutdown, :deps_error}, _} ->
+        "Engine #{name} failed due to dependency errors. Run 'mix deps.get' to fetch dependencies."
 
       {{:shutdown, {:node_exit, node_exit}}, _} ->
         "Engine #{name} exit with status #{node_exit.status}, last message:\n\n#{node_exit.last_message}"
