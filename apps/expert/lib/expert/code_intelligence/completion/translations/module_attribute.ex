@@ -126,9 +126,9 @@ defmodule Expert.CodeIntelligence.Completion.Translations.ModuleAttribute do
 
   defp maybe_specialized_spec_snippet(builder, %Env{} = env, range) do
     with {:ok, %Position{} = position} <- Env.next_significant_position(env),
-         {:ok, [{maybe_def, _, [call, _]} | _]} when maybe_def in [:def, :defp] <-
+         {:ok, [{maybe_def, _, call_args} | _]} when maybe_def in [:def, :defp] <-
            Ast.path_at(env.analysis, position),
-         {function_name, _, args} <- call do
+         {:ok, function_name, args} <- fetch_function_name_and_args(call_args) do
       specialized_spec_snippet(builder, env, range, function_name, args)
     else
       _ -> nil
@@ -175,5 +175,23 @@ defmodule Expert.CodeIntelligence.Completion.Translations.ModuleAttribute do
       label: "@spec"
     )
     |> builder.set_sort_scope(SortScope.global(false, 1))
+  end
+
+  defp fetch_function_name_and_args([{:when, _, [{function_name, _, args} | _]}, _])
+       when is_atom(function_name) and is_list(args) do
+    {:ok, function_name, args}
+  end
+
+  defp fetch_function_name_and_args([{function_name, _, args}, _])
+       when is_atom(function_name) and is_list(args) do
+    {:ok, function_name, args}
+  end
+
+  defp fetch_function_name_and_args([{function_name, _, nil}, _]) when is_atom(function_name) do
+    {:ok, function_name, nil}
+  end
+
+  defp fetch_function_name_and_args(_) do
+    :error
   end
 end
