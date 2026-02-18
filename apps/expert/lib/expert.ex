@@ -247,11 +247,7 @@ defmodule Expert do
   end
 
   def handle_info({:deps_error, project, _details}, lsp) do
-    ActiveProjects.set_blocked(project, true)
-    ActiveProjects.set_ready(project, false)
-
-    maybe_prompt_deps_fetch(lsp, project)
-    {:noreply, lsp}
+    {:noreply, maybe_prompt_deps_fetch(lsp, project)}
   end
 
   def handle_info({:engine_initialized, project, {:error, {:shutdown, :deps_error}}}, lsp) do
@@ -262,8 +258,6 @@ defmodule Expert do
       project,
       "Engine failed due to dependency errors. Run 'mix deps.get' to fetch dependencies."
     )
-
-    maybe_prompt_deps_fetch(lsp, project)
 
     {:noreply, lsp}
   end
@@ -278,32 +272,56 @@ defmodule Expert do
   end
 
   defp maybe_prompt_deps_fetch(lsp, project) do
-    if Expert.Configuration.client_support(:show_message) do
+    state = assigns(lsp).state
+
+    supports_show_message = Expert.Configuration.client_support(:show_message)
+
+    # Avoids spamming the user with the same prompt if they already declined
+    deps_declined = State.deps_declined?(state, project)
+
+    if supports_show_message && not deps_declined do
       project_name = Project.name(project)
 
-      lsp
-      |> GenLSP.request(
-        %Requests.WindowShowMessageRequest{
-          id: Id.next(),
-          params: %Structures.ShowMessageRequestParams{
-            type: Enumerations.MessageType.error(),
-            message:
-              "The Expert engine failed with errors on dependencies for project #{project_name}. Would you like to fetch them?",
-            actions: [
-              %Structures.MessageActionItem{title: "Yes"},
-              %Structures.MessageActionItem{title: "No"}
-            ]
-          }
-        },
-        :infinity
-      )
-      |> handle_deps_fetch_result(lsp, project)
+      ActiveProjects.set_blocked(project, true)
+      ActiveProjects.set_ready(project, false)
+
+      response =
+        GenLSP.request(
+          lsp,
+          %Requests.WindowShowMessageRequest{
+            id: Id.next(),
+            params: %Structures.ShowMessageRequestParams{
+              type: Enumerations.MessageType.error(),
+              message:
+                "The Expert engine failed with errors on dependencies for project #{project_name}. Would you like to fetch them?",
+              actions: [
+                %Structures.MessageActionItem{title: "Yes"},
+                %Structures.MessageActionItem{title: "No"}
+              ]
+            }
+          },
+          :infinity
+        )
+
+      handle_deps_fetch_result(response, lsp, project)
     else
-      log_info(
-        lsp,
-        project,
-        "Client does not support window/showMessageRequest"
-      )
+      if deps_declined do
+        log_error(
+          lsp,
+          project,
+          "Engine failed due to dependency errors. Run 'mix deps.get' to fetch dependencies for #{Project.name(project)}."
+        )
+      end
+
+      if !supports_show_message do
+        log_error(
+          lsp,
+          project,
+          "Engine failed due to dependency errors, but client does not support showing messages. Run 'mix deps.get' to fetch dependencies for #{Project.name(project)}."
+        )
+      end
+
+      lsp
     end
   end
 
@@ -341,16 +359,22 @@ defmodule Expert do
           )
       end
     end)
+
+    lsp
   end
 
   defp handle_deps_fetch_result(%Structures.MessageActionItem{title: "No"}, lsp, project) do
     ActiveProjects.set_blocked(project, false)
     ActiveProjects.set_ready(project, true)
     log_info(lsp, project, "User declined to run mix deps.get for #{Project.name(project)}")
+
+    state = assigns(lsp).state
+    new_state = State.mark_deps_declined(state, project)
+    assign(lsp, state: new_state)
   end
 
-  defp handle_deps_fetch_result(_, _lsp, _project) do
-    :ok
+  defp handle_deps_fetch_result(_, lsp, _project) do
+    lsp
   end
 
   def log_info(lsp \\ get_lsp(), project, message) do

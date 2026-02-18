@@ -18,7 +18,8 @@ defmodule Expert.State do
 
   defstruct initialized?: false,
             shutdown_received?: false,
-            in_flight_requests: %{}
+            in_flight_requests: %{},
+            deps_declined_projects: MapSet.new()
 
   @supported_code_actions [
     Enumerations.CodeActionKind.quick_fix(),
@@ -248,6 +249,17 @@ defmodule Expert.State do
   def apply(%__MODULE__{} = state, msg) do
     Logger.error("Ignoring unhandled message: #{inspect(msg)}")
     {:ok, state}
+  end
+
+  def deps_declined?(%__MODULE__{deps_declined_projects: declined}, %Project{} = project) do
+    MapSet.member?(declined, project.root_uri)
+  end
+
+  def mark_deps_declined(
+        %__MODULE__{deps_declined_projects: declined} = state,
+        %Project{} = project
+      ) do
+    %__MODULE__{state | deps_declined_projects: MapSet.put(declined, project.root_uri)}
   end
 
   def initialize_result do

@@ -731,6 +731,43 @@ defmodule ExpertTest do
       refute_receive :unexpected_deps_fetch, 1000
     end
 
+    test "does not prompt again after user declines", %{
+      client: client,
+      server: server,
+      project_root: project_root,
+      main_project: main_project
+    } do
+      test_pid = self()
+
+      patch(Expert.EngineApi, :clean_and_fetch_deps, fn _project ->
+        send(test_pid, :unexpected_deps_fetch)
+        :ok
+      end)
+
+      assert :ok =
+               request(client, initialize_request(project_root, id: 1, projects: [main_project]))
+
+      assert_result(1, _)
+      assert :ok = notify(client, initialized_notification())
+
+      assert_request(client, "client/registerCapability", fn _params -> nil end)
+
+      send(server.lsp, {:deps_error, main_project, %{last_message: "deps failed"}})
+
+      assert_request(
+        client,
+        "window/showMessageRequest",
+        fn _params -> %{"title" => "no"} end
+      )
+
+      refute_receive :unexpected_deps_fetch, 1000
+
+      send(server.lsp, {:deps_error, main_project, %{last_message: "deps failed again"}})
+
+      refute_receive {:request, "window/showMessageRequest", _}, 1000
+      refute_receive :unexpected_deps_fetch, 1000
+    end
+
     test "logs error when mix deps.get fails", %{
       client: client,
       server: server,
