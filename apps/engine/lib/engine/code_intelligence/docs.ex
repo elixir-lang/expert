@@ -49,7 +49,9 @@ defmodule Engine.CodeIntelligence.Docs do
           module: module,
           doc: Entry.parse_doc(module_doc),
           functions_and_macros:
-            parse_entries(module, function_entries ++ macro_entries, spec_defs),
+            parse_entries(module, function_entries ++ macro_entries, spec_defs,
+              include_not_documented?: true
+            ),
           callbacks: parse_entries(module, callback_entries, callback_defs),
           types: parse_entries(module, type_entries, type_defs)
         }
@@ -65,7 +67,7 @@ defmodule Engine.CodeIntelligence.Docs do
     kind
   end
 
-  defp parse_entries(module, raw_entries, defs) do
+  defp parse_entries(module, raw_entries, defs, opts \\ []) do
     defs_by_name_arity =
       Enum.group_by(
         defs,
@@ -80,44 +82,34 @@ defmodule Engine.CodeIntelligence.Docs do
         %Entry{entry | defs: entry_defs}
       end
 
-    docs_names = MapSet.new(docs_entries, & &1.name)
-    docs_name_arities = MapSet.new(docs_entries, &{&1.name, &1.arity})
-
     not_documented_entries =
-      for {name, arity, formatted, _quoted} <- defs,
-          not MapSet.member?(docs_name_arities, {name, arity}),
-          not MapSet.member?(docs_names, name) do
-        %Entry{
-          module: module,
-          kind: :function,
-          name: name,
-          arity: arity,
-          signature: [extract_signature(formatted, name, arity)],
-          doc: :none,
-          defs: [formatted]
-        }
+      if Keyword.get(opts, :include_not_documented?, false) do
+        docs_names = MapSet.new(docs_entries, & &1.name)
+        docs_name_arities = MapSet.new(docs_entries, &{&1.name, &1.arity})
+
+        for {name, arity, formatted, _quoted} <- defs,
+            not MapSet.member?(docs_name_arities, {name, arity}),
+            not MapSet.member?(docs_names, name) do
+          %Entry{
+            module: module,
+            kind: :function,
+            name: name,
+            arity: arity,
+            signature: [generate_signature(name, arity)],
+            doc: :none,
+            defs: [formatted]
+          }
+        end
+      else
+        []
       end
 
     Enum.group_by(docs_entries ++ not_documented_entries, & &1.name)
   end
 
-  defp extract_signature(formatted, name, arity) do
-    name_str = Atom.to_string(name)
-
-    with [head | _] <- String.split(formatted, " ::", parts: 2),
-         [_, rest] <- String.split(head, name_str, parts: 2),
-         rest = String.trim_leading(rest),
-         true <- String.starts_with?(rest, "(") do
-      normalize_signature("#{name}#{rest}")
-    else
-      _ -> "#{name}/#{arity}"
-    end
-  end
-
-  defp normalize_signature(signature) do
-    # Remove parenthesis for the function head signature, e.g. `foo(integer())`
-    # becomes `foo(integer)`.
-    Regex.replace(~r/([A-Za-z0-9_\.]+)\(\)/, signature, "\\1")
+  defp generate_signature(name, arity) do
+    args = for i <- 1..arity, do: "arg#{i}"
+    "#{name}(#{Enum.join(args, ", ")})"
   end
 
   defp ok_or({:ok, value}, _default), do: value

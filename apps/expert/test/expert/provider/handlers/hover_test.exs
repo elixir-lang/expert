@@ -494,7 +494,7 @@ defmodule Expert.Provider.Handlers.HoverTest do
       expected =
         """
         ```elixir
-        CallHover.my_fun(integer)
+        CallHover.my_fun(arg1)
         @spec my_fun(integer()) :: integer()
         ```
         """
