@@ -1,6 +1,3 @@
-{:ok, _} = Application.ensure_all_started(:elixir)
-{:ok, _} = Application.ensure_all_started(:mix)
-
 {args, _, _} =
   OptionParser.parse(
     System.argv(),
@@ -17,8 +14,11 @@ expert_data_path = :filename.basedir(:user_data, "Expert", %{version: expert_vsn
 
 System.put_env("MIX_INSTALL_DIR", expert_data_path)
 
-Mix.Task.run("local.hex", ["--force", "--if-missing"])
-Mix.Task.run("local.rebar", ["--force", "--if-missing"])
+{:ok, _} = Application.ensure_all_started(:elixir)
+{:ok, _} = Application.ensure_all_started(:mix)
+
+Mix.Task.run("local.hex", ["--if-missing", "--force"])
+Mix.Task.run("local.rebar", ["--if-missing", "--force"])
 
 Mix.install([{:engine, path: engine_source_path, env: :dev}],
   start_applications: false,

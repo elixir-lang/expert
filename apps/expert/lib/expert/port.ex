@@ -15,6 +15,8 @@ defmodule Expert.Port do
 
   @type open_opts :: [open_opt]
 
+  @path_marker "__EXPERT_PATH__"
+
   @doc """
   Launches elixir in a port.
 
@@ -117,12 +119,28 @@ defmodule Expert.Port do
         {:error, name, "Couldn't find an #{name} executable"}
 
       elixir ->
+        release_vars = [
+          "RELEASE_ROOT",
+          "ROOTDIR",
+          "BINDIR",
+          "RELEASE_SYS_CONFIG",
+          "ERLEXEC_DIR",
+          "MIX_HOME",
+          "MIX_ARCHIVES"
+        ]
+
         env =
           System.get_env()
-          |> Enum.reject(fn {key, _} -> key == "ERLEXEC_DIR" end)
           |> Enum.map(fn
-            {key, _path} when key in ["PATH", "Path"] -> {key, path}
-            other -> other
+            {key, _path} when key in ["PATH", "Path"] ->
+              {key, path}
+
+            {key, _value} ->
+              if key in release_vars do
+                {key, ""}
+              else
+                {key, System.get_env(key)}
+              end
           end)
 
         {:ok, elixir, env}
@@ -131,33 +149,108 @@ defmodule Expert.Port do
 
   defp find_project_executable_unix(%Project{} = project, name) do
     root_path = Project.root_path(project)
-
-    # Filter out Expert's release paths from current PATH
-    current_path = System.get_env("PATH", "/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin")
-    release_root = System.get_env("RELEASE_ROOT")
+    shell_env = System.get_env("SHELL")
 
     path =
-      if release_root do
-        current_path
-        |> String.split(":")
-        |> Enum.reject(fn entry -> String.starts_with?(entry, release_root) end)
-        |> Enum.join(":")
+      if shell_available?(shell_env) do
+        path_env_at_directory(root_path, shell_env)
       else
-        current_path
+        filter_release_root_from_path()
       end
 
     case :os.find_executable(to_charlist(name), to_charlist(path)) do
       false ->
-        {:error, name, "Couldn't find an #{name} executable for project at #{root_path}"}
+        if shell_env do
+          {:error, name,
+           "Couldn't find an #{name} executable for project at #{root_path}. Using shell at #{shell_env} with PATH=#{path}"}
+        else
+          {:error, name,
+           "Couldn't find an #{name} executable for project at #{root_path}. Using PATH=#{path}"}
+        end
 
       elixir ->
+        release_vars = [
+          "RELEASE_ROOT",
+          "ROOTDIR",
+          "BINDIR",
+          "RELEASE_SYS_CONFIG",
+          "MIX_HOME",
+          "MIX_ARCHIVES"
+        ]
+
         env =
-          Enum.map(System.get_env(), fn
-            {"PATH", _path} -> {"PATH", path}
-            other -> other
+          System.get_env()
+          |> Enum.map(fn
+            {"PATH", _path} ->
+              {"PATH", path}
+
+            {key, _value} ->
+              if key in release_vars do
+                {key, ""}
+              else
+                {key, System.get_env(key)}
+              end
           end)
 
         {:ok, elixir, env}
+    end
+  end
+
+  defp shell_available?(shell) do
+    shell != nil and File.exists?(shell)
+  end
+
+  defp filter_release_root_from_path do
+    current_path = System.get_env("PATH", "/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin")
+    release_root = System.get_env("RELEASE_ROOT")
+
+    if release_root do
+      current_path
+      |> String.split(":")
+      |> Enum.reject(fn entry ->
+        String.starts_with?(entry, release_root)
+      end)
+      |> Enum.join(":")
+    else
+      current_path
+    end
+  end
+
+  defp path_env_at_directory(directory, shell) do
+    env = [
+      {"SHELL_SESSIONS_DISABLE", "1"},
+      {"PATH", "/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"}
+    ]
+
+    shell_name = Path.basename(shell)
+
+    args =
+      case shell_name do
+        "fish" ->
+          cmd =
+            "cd #{directory}; printf \"#{@path_marker}:%s:#{@path_marker}\" (string join ':' $PATH)"
+
+          ["-l", "-c", cmd]
+
+        "nu" ->
+          cmd =
+            "cd #{directory}; print $\"#{@path_marker}:($env.PATH | str join \":\"):#{@path_marker}\""
+
+          ["-l", "-c", cmd]
+
+        _ ->
+          cmd = "cd #{directory} && printf \"#{@path_marker}:%s:#{@path_marker}\" \"$PATH\""
+          ["-i", "-l", "-c", cmd]
+      end
+
+    {output, exit_code} = System.cmd(shell, args, env: env)
+
+    case Regex.run(~r/#{@path_marker}:(.*?):#{@path_marker}/s, output) do
+      [_, clean_path] when exit_code == 0 ->
+        clean_path
+
+      _ ->
+        output |> String.trim() |> String.split("\n") |> List.last()
     end
   end
 
