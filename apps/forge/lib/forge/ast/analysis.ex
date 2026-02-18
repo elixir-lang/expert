@@ -334,11 +334,25 @@ defmodule Forge.Ast.Analysis do
        ) do
     base_segments = expand_alias(aliases, state)
 
-    Enum.reduce(aliases_nodes, state, fn {:__aliases__, _, segments}, state ->
-      alias =
-        Alias.explicit(state.document, quoted, base_segments ++ segments, List.last(segments))
+    Enum.reduce(aliases_nodes, state, fn
+      {:__aliases__, _, segments}, state ->
+        alias =
+          Alias.explicit(state.document, quoted, base_segments ++ segments, List.last(segments))
 
-      State.push_alias(state, alias)
+        State.push_alias(state, alias)
+
+      # Syntactically incorrect code might result in something different than a tuple with :__aliases__
+      # as the first element. For example:
+      #
+      # alias Foo.{Bar
+      # results in :__cursor__ as the first element
+      #
+      # alias Foo.{Bar,
+      # results in :__block__
+      #
+      # In such case we just skip the node.
+      {type, _, _}, state when type in [:__cursor__, :__block__] ->
+        state
     end)
   end
 

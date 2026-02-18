@@ -641,6 +641,32 @@ defmodule Engine.CodeIntelligence.SymbolsTest do
       assert is_list(symbols)
       assert symbols == []
     end
+
+    test "returns some symbols for syntactically incorrect code with incomplete grouped aliases" do
+      {symbols, _doc} =
+        ~q[
+        defmodule MyModule do
+          alias Foo.{Bar
+        end
+        ]
+        |> document_symbols()
+
+      assert [%Document{} = module] = symbols
+      assert module.name == "MyModule"
+      assert module.type == :module
+
+      {symbols, _doc} =
+        ~q[
+        defmodule MyModule do
+          alias Foo.{Bar,
+        end
+        ]
+        |> document_symbols()
+
+      assert [%Document{} = module] = symbols
+      assert module.name == "MyModule"
+      assert module.type == :module
+    end
   end
 
   describe "workspace symbols" do
