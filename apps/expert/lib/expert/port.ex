@@ -97,20 +97,34 @@ defmodule Expert.Port do
 
   defp find_project_executable_windows(name) do
     release_root =
-      :code.root_dir()
-      |> to_string()
-      |> String.downcase()
-      |> String.replace("/", "\\")
+      "RELEASE_ROOT"
+      |> System.get_env()
+      |> case do
+        nil ->
+          nil
+
+        release_root ->
+          release_root
+          |> String.downcase()
+          |> String.replace("/", "\\")
+      end
 
     path =
       "PATH"
       |> System.get_env("")
-      |> String.split(";")
-      |> Enum.reject(fn entry ->
-        normalized = entry |> String.downcase() |> String.replace("/", "\\")
-        String.contains?(normalized, release_root)
+      |> then(fn current_path ->
+        if release_root do
+          current_path
+          |> String.split(";")
+          |> Enum.reject(fn entry ->
+            normalized = entry |> String.downcase() |> String.replace("/", "\\")
+            String.contains?(normalized, release_root)
+          end)
+          |> Enum.join(";")
+        else
+          current_path
+        end
       end)
-      |> Enum.join(";")
 
     case :os.find_executable(to_charlist(name), to_charlist(path)) do
       false ->
