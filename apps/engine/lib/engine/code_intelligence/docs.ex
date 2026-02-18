@@ -73,13 +73,51 @@ defmodule Engine.CodeIntelligence.Docs do
         fn {_name, _arity, formatted, _quoted} -> formatted end
       )
 
-    raw_entries
-    |> Enum.map(fn raw_entry ->
-      entry = Entry.from_docs_v1(module, raw_entry)
-      defs = Map.get(defs_by_name_arity, {entry.name, entry.arity}, [])
-      %Entry{entry | defs: defs}
-    end)
-    |> Enum.group_by(& &1.name)
+    docs_entries =
+      for raw_entry <- raw_entries do
+        entry = Entry.from_docs_v1(module, raw_entry)
+        entry_defs = Map.get(defs_by_name_arity, {entry.name, entry.arity}, [])
+        %Entry{entry | defs: entry_defs}
+      end
+
+    docs_names = MapSet.new(docs_entries, & &1.name)
+    docs_name_arities = MapSet.new(docs_entries, &{&1.name, &1.arity})
+
+    not_documented_entries =
+      for {name, arity, formatted, _quoted} <- defs,
+          not MapSet.member?(docs_name_arities, {name, arity}),
+          not MapSet.member?(docs_names, name) do
+        %Entry{
+          module: module,
+          kind: :function,
+          name: name,
+          arity: arity,
+          signature: [extract_signature(formatted, name, arity)],
+          doc: :none,
+          defs: [formatted]
+        }
+      end
+
+    Enum.group_by(docs_entries ++ not_documented_entries, & &1.name)
+  end
+
+  defp extract_signature(formatted, name, arity) do
+    name_str = Atom.to_string(name)
+
+    with [head | _] <- String.split(formatted, " ::", parts: 2),
+         [_, rest] <- String.split(head, name_str, parts: 2),
+         rest = String.trim_leading(rest),
+         true <- String.starts_with?(rest, "(") do
+      normalize_signature("#{name}#{rest}")
+    else
+      _ -> "#{name}/#{arity}"
+    end
+  end
+
+  defp normalize_signature(signature) do
+    # Remove parenthesis for the function head signature, e.g. `foo(integer())`
+    # becomes `foo(integer)`.
+    Regex.replace(~r/([A-Za-z0-9_\.]+)\(\)/, signature, "\\1")
   end
 
   defp ok_or({:ok, value}, _default), do: value
