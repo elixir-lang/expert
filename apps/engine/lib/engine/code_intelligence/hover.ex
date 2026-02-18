@@ -60,7 +60,7 @@ defmodule Engine.CodeIntelligence.Hover do
     specs_text =
       case specs do
         [] -> ""
-        _ -> Enum.map_join(specs, "\n", &("@spec " <> &1))
+        _ -> Enum.join(specs, "\n")
       end
 
     header =
