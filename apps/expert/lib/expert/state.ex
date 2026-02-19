@@ -47,11 +47,13 @@ defmodule Expert.State do
         _ -> nil
       end
 
-    root_path = Document.Path.from_uri(event.root_uri)
+    if event.root_uri do
+      root_path = Document.Path.from_uri(event.root_uri)
 
-    root_path
-    |> Forge.Workspace.new()
-    |> Forge.Workspace.set_workspace()
+      root_path
+      |> Forge.Workspace.new()
+      |> Forge.Workspace.set_workspace()
+    end
 
     event.capabilities
     |> Configuration.new(client_name)
