@@ -114,7 +114,7 @@ defmodule Expert.Port do
       end)
       |> Enum.join(";")
 
-    case :os.find_executable(to_charlist(name), to_charlist(path)) do
+    case find_windows_executable(name, path) do
       false ->
         {:error, name, "Couldn't find an #{name} executable"}
 
@@ -144,6 +144,16 @@ defmodule Expert.Port do
           end)
 
         {:ok, elixir, env}
+    end
+  end
+
+  defp find_windows_executable(name, path) do
+    cmd = "#{name}.cmd"
+    bat = "#{name}.bat"
+
+    with false <- :os.find_executable(to_charlist(cmd), to_charlist(path)),
+          false <- :os.find_executable(to_charlist(name), to_charlist(path)) do
+            :os.find_executable(to_charlist(bat), to_charlist(path))
     end
   end
 
