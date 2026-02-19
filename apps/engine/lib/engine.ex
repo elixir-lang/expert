@@ -65,6 +65,14 @@ defmodule Engine do
 
   defdelegate workspace_symbols(query), to: CodeIntelligence.Symbols, as: :for_workspace
 
+  defdelegate prepare_rename(analysis, position), to: Engine.CodeMod.Rename, as: :prepare
+
+  defdelegate rename(analysis, position, new_name, client_name), to: Engine.CodeMod.Rename
+
+  defdelegate maybe_update_rename_progress(triggered_message),
+    to: Engine.Commands.Rename,
+    as: :update_progress
+
   def list_apps do
     for {app, _, _} <- :application.loaded_applications(),
         not Forge.Namespace.Module.prefixed?(app),
