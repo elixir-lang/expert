@@ -306,10 +306,10 @@ defmodule Expert do
       handle_deps_fetch_result(response, lsp, project)
     else
       if deps_declined do
-        log_error(
+        log_info(
           lsp,
           project,
-          "Engine failed due to dependency errors. Run 'mix deps.get' to fetch dependencies for #{Project.name(project)}."
+          "Engine failed due to dependency errors, but user declined to fetch dependencies."
         )
       end
 
@@ -317,7 +317,7 @@ defmodule Expert do
         log_error(
           lsp,
           project,
-          "Engine failed due to dependency errors, but client does not support showing messages. Run 'mix deps.get' to fetch dependencies for #{Project.name(project)}."
+          "Engine failed due to dependency errors, but client does not support showing messages. Run 'mix deps.get' to fetch dependencies for #{Project.name(project)} and then restart Expert or your editor."
         )
       end
 
