@@ -152,8 +152,8 @@ defmodule Expert.Port do
     bat = "#{name}.bat"
 
     with false <- :os.find_executable(to_charlist(cmd), to_charlist(path)),
-          false <- :os.find_executable(to_charlist(name), to_charlist(path)) do
-            :os.find_executable(to_charlist(bat), to_charlist(path))
+         false <- :os.find_executable(to_charlist(name), to_charlist(path)) do
+      :os.find_executable(to_charlist(bat), to_charlist(path))
     end
   end
 
