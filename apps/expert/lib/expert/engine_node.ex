@@ -447,7 +447,7 @@ defmodule Expert.EngineNode do
     message = to_string(data)
     Logger.debug("Node port message: #{message}")
 
-    if State.detect_deps_error(message) do
+    if State.detect_deps_error(message) and not state.deps_error do
       if lsp = Expert.get_lsp() do
         send(lsp.pid, {:deps_error, state.project, %{last_message: message}})
       end
