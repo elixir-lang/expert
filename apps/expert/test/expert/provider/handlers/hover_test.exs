@@ -491,14 +491,13 @@ defmodule Expert.Provider.Handlers.HoverTest do
 
       hovered = "CallHover.|my_fun(1)"
 
-      expected =
-        """
-        ```elixir
-        CallHover.my_fun(arg1)
-        @spec my_fun(integer()) :: integer()
-        ```
-        """
-        |> String.trim_trailing()
+      expected = """
+      ```elixir
+      CallHover.my_fun(arg1)
+
+      @spec my_fun(integer()) :: integer()
+      ```
+      """
 
       with_compiled_in(project, code, fn ->
         assert {:ok, %Structures.Hover{} = result} = hover(project, hovered)
