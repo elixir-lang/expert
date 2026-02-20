@@ -34,13 +34,12 @@ beamPackages.mixRelease rec {
   preConfigure = ''
     # copy the logic from mixRelease to build a deps dir for engine
     mkdir -p apps/engine/deps
-    ${lib.concatMapStringsSep "\n" (dep: ''
-      dep_name=$(basename ${dep} | cut -d '-' -f2)
-      dep_path="apps/engine/deps/$dep_name"
+    ${lib.concatMapAttrsStringSep "\n" (name: dep: ''
+      dep_path="apps/engine/deps/${name}"
       if [ -d "${dep}/src" ]; then
-        ln -s ${dep}/src $dep_path
+        ln -sv ${dep}/src $dep_path
       fi
-    '') (builtins.attrValues engineDeps)}
+    '') engineDeps}
 
     cd apps/expert
   '';
