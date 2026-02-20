@@ -23,7 +23,7 @@ defmodule Expert.MixProject do
 
   def application do
     [
-      extra_applications: [:logger, :runtime_tools, :kernel, :observer],
+      extra_applications: [:logger, :runtime_tools, :kernel, :observer, :telemetry],
       mod: {Expert.Application, []}
     ]
   end
@@ -88,7 +88,6 @@ defmodule Expert.MixProject do
       {:forge, path: "../forge"},
       {:gen_lsp, "~> 0.11.3"},
       {:jason, "~> 1.4"},
-      {:logger_file_backend, "~> 0.0", only: [:dev, :prod]},
       {:patch, "~> 0.15", runtime: false, only: [:dev, :test]},
       {:path_glob, "~> 0.2"},
       {:phoenix_live_view, "~> 1.0", only: [:test], runtime: false},
