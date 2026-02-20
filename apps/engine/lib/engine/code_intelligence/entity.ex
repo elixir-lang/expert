@@ -276,30 +276,24 @@ defmodule Engine.CodeIntelligence.Entity do
     end
   end
 
+  # fetch the alias segments from ancestor `scope` macros
+  # e.g. `scope "/foo", FooWeb.Controllers`
+  # the alias module is `FooWeb.Controllers`, and the segments is `[:FooWeb, :Controllers]`
   defp fetch_phoenix_scope_alias_segments(analysis, position) do
-    # fetch the alias segments from the `scope` macro
-    # e.g. `scope "/foo", FooWeb.Controllers`
-    # the alias module is `FooWeb.Controllers`, and the segments is `[:FooWeb, :Controllers]`
-    path =
+    # Ast.cursor_path returns nodes from innermost to outermost,
+    # so we need to reverse.
+    segments =
       analysis
       |> Ast.cursor_path(position)
       |> Enum.filter(&match?({:scope, _, [_ | _]}, &1))
-      # There might be nested `scope` macros, we need the immediate ancestor
-      |> List.last()
+      |> Enum.reverse()
+      |> Enum.flat_map(fn
+        {:scope, _, [_, {:__aliases__, _, segments} | _]} -> segments
+        _ -> []
+      end)
 
-    if path do
-      {_, paths} =
-        path
-        |> Zipper.zip()
-        |> Zipper.traverse([], fn
-          %Zipper{node: {:scope, _, [_, {:__aliases__, _, segments} | _]}} = zipper, acc ->
-            {zipper, [segments | acc]}
-
-          zipper, acc ->
-            {zipper, acc}
-        end)
-
-      {:ok, paths |> Enum.reverse() |> List.flatten()}
+    if segments != [] do
+      {:ok, segments}
     else
       :error
     end

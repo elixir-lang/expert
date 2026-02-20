@@ -291,6 +291,57 @@ defmodule Engine.CodeIntelligence.EntityTest do
       assert {:ok, {:module, FooWeb.Bar.FooController}, resolved_range} = resolve(code)
       assert resolved_range =~ ~S[get "/foo", «FooController», :index]
     end
+
+    # Regression test for https://github.com/elixir-lang/expert/issues/360
+    # Sibling scope aliases were being concatenated into the module path,
+    # causing resolution to fail (or crash with :system_limit for many siblings).
+    test "does not include sibling scope aliases" do
+      patch(Entity, :function_exists?, fn
+        FooWeb.ARLive.Quickbooks, :call, 2 -> true
+        FooWeb.ARLive.Quickbooks, :action, 2 -> true
+      end)
+
+      code = ~q[
+        scope "/", FooWeb do
+          scope "/admin", AdminLive do
+            get "/types", TypeController, :index
+          end
+
+          scope "/ar", ARLive do
+            get "/quickbooks", |Quickbooks, :index
+          end
+        end
+      ]
+
+      assert {:ok, {:module, FooWeb.ARLive.Quickbooks}, resolved_range} = resolve(code)
+      assert resolved_range =~ ~S[get "/quickbooks", «Quickbooks», :index]
+    end
+
+    test "does not include sibling scope aliases in nested scopes" do
+      patch(Entity, :function_exists?, fn
+        FooWeb.AdminLive.Agreements.AgreementController, :call, 2 -> true
+        FooWeb.AdminLive.Agreements.AgreementController, :action, 2 -> true
+      end)
+
+      code = ~q[
+        scope "/", FooWeb do
+          scope "/admin", AdminLive do
+            scope "/types", AffiliationTypes do
+              get "/", TypeController, :index
+            end
+
+            scope "/agreements", Agreements do
+              get "/", |AgreementController, :index
+            end
+          end
+        end
+      ]
+
+      assert {:ok, {:module, FooWeb.AdminLive.Agreements.AgreementController}, resolved_range} =
+               resolve(code)
+
+      assert resolved_range =~ ~S[get "/", «AgreementController», :index]
+    end
   end
 
   describe "liveview module resolve in the router" do
