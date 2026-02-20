@@ -1,5 +1,7 @@
 Application.ensure_all_started(:snowflake)
 Application.ensure_all_started(:refactorex)
+Application.ensure_all_started(:telemetry)
+Application.put_env(:gen_lsp, :exit_on_end, false)
 
 random_number = :rand.uniform(500)
 
@@ -12,6 +14,7 @@ Engine.Module.Loader.start_link(nil)
 ExUnit.configure(timeout: :infinity, assert_receive_timeout: 1000)
 
 ExUnit.start(exclude: [:skip])
+Expert.Logging.WindowLogHandler.attach()
 
 if Version.match?(System.version(), ">= 1.15.0") do
   Logger.configure(level: :none)

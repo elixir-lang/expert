@@ -37,6 +37,28 @@ defmodule Expert.ConfigurationTest do
     end
   end
 
+  describe "window_log_message_enabled?/0" do
+    test "is enabled by default when client name is missing" do
+      assert Configuration.window_log_message_enabled?()
+    end
+
+    test "is disabled for emacs and eglot clients" do
+      Configuration.set(Configuration.new(client_name: "Emacs"))
+
+      refute Configuration.window_log_message_enabled?()
+
+      Configuration.set(Configuration.new(client_name: "Eglot"))
+
+      refute Configuration.window_log_message_enabled?()
+    end
+
+    test "is enabled for other clients" do
+      Configuration.set(Configuration.new(client_name: "Visual Studio Code"))
+
+      assert Configuration.window_log_message_enabled?()
+    end
+  end
+
   describe "on_change/1 with workspace_symbols.min_query_length" do
     test "parses nested setting correctly" do
       settings = %{"workspaceSymbols" => %{"minQueryLength" => 0}}

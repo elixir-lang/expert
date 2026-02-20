@@ -55,6 +55,14 @@ defmodule ExpertTest do
     # Clear any leftover configuration from previous tests
     :persistent_term.erase(Expert.Configuration)
 
+    # window/logMessage is emitted by a Logger handler; keep :info enabled
+    # so integration assertions can observe those notifications.
+    Logger.configure(level: :info)
+
+    on_exit(fn ->
+      Logger.configure(level: :none)
+    end)
+
     # NOTE(doorgan): repeatedly starting and stopping nodes in tests produces some
     # erratic behavior where sometimes some tests won't run. This somewhat mitigates
     # that.

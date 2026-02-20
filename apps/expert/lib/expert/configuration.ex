@@ -52,6 +52,22 @@ defmodule Expert.Configuration do
     client_support(get().support, key)
   end
 
+  @spec window_log_message_enabled?() :: boolean()
+  def window_log_message_enabled? do
+    case get().client_name do
+      nil ->
+        true
+
+      client_name ->
+        # Workaround for Eglot/Emacs behavior discussed in:
+        # https://github.com/elixir-lang/expert/issues/382
+        client_name
+        |> String.trim()
+        |> String.downcase()
+        |> then(&(&1 not in ["emacs", "eglot"]))
+    end
+  end
+
   defp client_support(%Support{} = client_support, key) do
     case Map.fetch(client_support, key) do
       {:ok, value} -> value

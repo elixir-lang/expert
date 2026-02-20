@@ -104,6 +104,10 @@ defmodule Expert.Application do
 
     LogFilter.hook_into_logger()
 
+    with {:error, reason} <- Expert.Logging.WindowLogHandler.attach() do
+      Logger.warning("Failed to enable window/logMessage logger handler: #{inspect(reason)}")
+    end
+
     children_spec = children(buffer: buffer_opts)
     opts = [strategy: :one_for_one, name: Expert.Supervisor]
 

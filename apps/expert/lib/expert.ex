@@ -93,7 +93,7 @@ defmodule Expert do
   end
 
   def handle_request(%mod{} = request, lsp) when mod in @server_specific_messages do
-    GenLSP.error(lsp, "handling server specific request #{Macro.to_string(mod)}")
+    Logger.error("handling server specific request #{Macro.to_string(mod)}")
 
     with {:ok, request} <- Expert.Protocol.Convert.to_native(request),
          {:ok, response, state} <- apply_to_state(assigns(lsp).state, request),
@@ -130,8 +130,7 @@ defmodule Expert do
          }, lsp}
 
       {:error, :engine_not_initialized, project} ->
-        GenLSP.info(
-          lsp,
+        Logger.info(
           "Received request #{request.method} before engine for #{project && Project.name(project)} was initialized. Ignoring."
         )
 
@@ -193,7 +192,6 @@ defmodule Expert do
           log_info(lsp, project, "Starting project")
 
           start_result = Expert.Project.Supervisor.ensure_node_started(project)
-
           send(lsp.pid, {:engine_initialized, project, start_result})
         end)
       end
@@ -377,11 +375,10 @@ defmodule Expert do
     lsp
   end
 
-  def log_info(lsp \\ get_lsp(), project, message) do
+  def log_info(_lsp \\ get_lsp(), project, message) do
     message = log_prepend_project_root(message, project)
 
     Logger.info(message)
-    GenLSP.info(lsp, message)
   end
 
   # When logging errors we also notify the client to display the message
@@ -389,7 +386,6 @@ defmodule Expert do
     message = log_prepend_project_root(message, project)
 
     Logger.error(message)
-    GenLSP.error(lsp, message)
 
     GenLSP.notify(lsp, %GenLSP.Notifications.WindowShowMessage{
       params: %GenLSP.Structures.ShowMessageParams{

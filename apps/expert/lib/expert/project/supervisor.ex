@@ -52,9 +52,7 @@ defmodule Expert.Project.Supervisor do
       case start(project) do
         {:ok, pid} ->
           ActiveProjects.set_ready(project, true)
-          Logger.info("Project node started for #{Project.name(project)}")
-
-          GenLSP.log(Expert.get_lsp(), "Started project node for #{Project.name(project)}")
+          Logger.info("Started project node for #{Project.name(project)}")
           {:ok, pid}
 
         {:error, {reason, pid}} when reason in [:already_started, :already_present] ->
@@ -62,11 +60,6 @@ defmodule Expert.Project.Supervisor do
 
         {:error, reason} ->
           Logger.error(
-            "Failed to start project node for #{Project.name(project)}: #{inspect(reason, pretty: true)}"
-          )
-
-          GenLSP.error(
-            Expert.get_lsp(),
             "Failed to start project node for #{Project.name(project)}: #{inspect(reason, pretty: true)}"
           )
 
@@ -79,9 +72,6 @@ defmodule Expert.Project.Supervisor do
     stop(project)
     ActiveProjects.set_ready(project, false)
 
-    GenLSP.log(
-      Expert.get_lsp(),
-      "Stopping project node for #{Project.name(project)}"
-    )
+    Logger.info("Stopping project node for #{Project.name(project)}")
   end
 end

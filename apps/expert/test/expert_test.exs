@@ -9,6 +9,15 @@ defmodule Expert.ExpertTest do
 
   setup do
     :persistent_term.erase(Expert.Configuration)
+
+    # window/logMessage comes from Logger via WindowLogHandler,
+    # so tests that assert on log notifications must allow :info events through.
+    Logger.configure(level: :info)
+
+    on_exit(fn ->
+      Logger.configure(level: :none)
+    end)
+
     :ok
   end
 
@@ -44,18 +53,52 @@ defmodule Expert.ExpertTest do
                     }}
   end
 
-  defp initialize_lsp(project) do
-    assigns = start_supervised!(GenLSP.Assigns, id: make_ref())
+  test "suppresses window/logMessage for emacs client" do
+    with_patched_transport()
 
-    {:ok, _response, state} = State.initialize(State.new(), initialize_request(project))
-    GenLSP.Assigns.merge(assigns, %{state: state})
+    project = Fixtures.project()
+    lsp = initialize_lsp(project, client_name: "Emacs")
+    reason = :something_bad
 
-    %GenLSP.LSP{mod: Expert, assigns: assigns}
+    assert {:noreply, ^lsp} =
+             Expert.handle_info({:engine_initialized, project, {:error, reason}}, lsp)
+
+    error_message = "[Project #{project.root_uri}] Failed to initialize: #{inspect(reason)}"
+    error_message_type = GenLSP.Enumerations.MessageType.error()
+
+    refute_receive {:transport, %GenLSP.Notifications.WindowLogMessage{}}
+
+    assert_receive {:transport,
+                    %GenLSP.Notifications.WindowShowMessage{
+                      params: %GenLSP.Structures.ShowMessageParams{
+                        type: ^error_message_type,
+                        message: ^error_message
+                      }
+                    }}
   end
 
-  defp initialize_request(project) do
+  defp initialize_lsp(project, opts \\ []) do
+    assigns = start_supervised!(GenLSP.Assigns, id: make_ref())
+
+    {:ok, _response, state} = State.initialize(State.new(), initialize_request(project, opts))
+    GenLSP.Assigns.merge(assigns, %{state: state})
+
+    lsp = %GenLSP.LSP{mod: Expert, assigns: assigns}
+    # These tests do not boot Expert.Application, so we mirror runtime setup by
+    # setting the global LSP reference used by the window logger handler.
+    :persistent_term.put(:expert_lsp, lsp)
+    lsp
+  end
+
+  defp initialize_request(project, opts) do
     root_uri = project.root_uri
     root_path = Forge.Project.root_path(project)
+    client_name = opts[:client_name]
+
+    client_info =
+      if is_binary(client_name) do
+        %{name: client_name, version: "test"}
+      end
 
     %GenLSP.Requests.Initialize{
       id: 1,
@@ -63,6 +106,7 @@ defmodule Expert.ExpertTest do
       method: "initialize",
       params: %GenLSP.Structures.InitializeParams{
         capabilities: %GenLSP.Structures.ClientCapabilities{},
+        client_info: client_info,
         process_id: "",
         root_uri: root_uri,
         root_path: root_path,
