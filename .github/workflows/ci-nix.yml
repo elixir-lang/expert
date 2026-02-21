@@ -24,6 +24,8 @@ jobs:
       - name: Setup Nix GHA Cache
         uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39 # v13
 
+      - name: Nix files are formatted
+        run:  nix develop --command bash -c "alejandra --check flake.nix ./nix/expert.nix"
+
       - name: Build
-        run: |
-          nix build .#expert
+        run: nix build .#expert
