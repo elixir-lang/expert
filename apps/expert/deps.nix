@@ -268,23 +268,6 @@ let
         in
         drv;
 
-      logger_file_backend =
-        let
-          version = "0.0.14";
-          drv = buildMix {
-            inherit version;
-            name = "logger_file_backend";
-            appConfigPath = ./config;
-
-            src = fetchHex {
-              inherit version;
-              pkg = "logger_file_backend";
-              sha256 = "071354a18196468f3904ef09413af20971d55164267427f6257b52cfba03f9e6";
-            };
-          };
-        in
-        drv;
-
       mime =
         let
           version = "2.0.7";
@@ -475,7 +458,7 @@ let
 
       spitfire =
         let
-          version = "0.3.5";
+          version = "0.3.7";
           drv = buildMix {
             inherit version;
             name = "spitfire";
@@ -484,7 +467,7 @@ let
             src = fetchHex {
               inherit version;
               pkg = "spitfire";
-              sha256 = "7ffcb11de2f6544868148f8fc996482040eb329a990e1624795e53598934a680";
+              sha256 = "798ff97db02477b05fa3db8e2810cebda6ed5d90c6de6b21aa65abd577599744";
             };
           };
         in
