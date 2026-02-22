@@ -1,5 +1,28 @@
 # Changelog
 
+## [0.1.0-rc.1](https://github.com/elixir-lang/expert/compare/v0.1.0-rc.0...v0.1.0-rc.1) (2026-02-22)
+
+
+### Features
+
+* prompt user to fetch deps when they get out of sync ([#405](https://github.com/elixir-lang/expert/issues/405)) ([fc16ddc](https://github.com/elixir-lang/expert/commit/fc16ddc14395817766f9ac9c902dde08d6e63f7d))
+
+
+### Bug Fixes
+
+* build expert on latest nixpkgs ([#422](https://github.com/elixir-lang/expert/issues/422)) ([d3eb92c](https://github.com/elixir-lang/expert/commit/d3eb92cf16ef154ddd7cd08d1135fd9d44c8bff0))
+* bump spitfire v0.3.7 ([#425](https://github.com/elixir-lang/expert/issues/425)) ([ce508c8](https://github.com/elixir-lang/expert/commit/ce508c868efe8cc1ca07299f9dda249be7df3525))
+* **engine:** don't collect sibling scopes in Phoenix router ([#420](https://github.com/elixir-lang/expert/issues/420)) ([b72bfc8](https://github.com/elixir-lang/expert/commit/b72bfc839a372138abbc30ac9cef3c1f6625ff81))
+* **expert:** don't crash on missing root_uri ([#412](https://github.com/elixir-lang/expert/issues/412)) ([11ed716](https://github.com/elixir-lang/expert/commit/11ed7167a5007075c254b38fbe72586afbfe6b65))
+* **forge:** progress message ordering ([#427](https://github.com/elixir-lang/expert/issues/427)) ([f3b9187](https://github.com/elixir-lang/expert/commit/f3b9187911da7906131b2f96406c3a1f7e95bd74))
+* migrate expert runtime logging to OTP handlers ([#419](https://github.com/elixir-lang/expert/issues/419)) ([8f2dda5](https://github.com/elixir-lang/expert/commit/8f2dda5f03de40419d10bd88b3072176c868f7c3))
+* provide typespec docs on hover for private functions ([#407](https://github.com/elixir-lang/expert/issues/407)) ([79c5451](https://github.com/elixir-lang/expert/commit/79c54513b8bb1a9e1eff2f7c32d4ff8354c8d0fa))
+
+
+### Miscellaneous Chores
+
+* release as 0.1.0-rc.1 ([6f5986e](https://github.com/elixir-lang/expert/commit/6f5986eced5090b2df17b0c0cb659180eafd047a))
+
 ## [0.1.0-rc.0](https://github.com/elixir-lang/expert/compare/v0.1.0...v0.1.0-rc.0) (2026-02-19)
 
 
