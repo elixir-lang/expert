@@ -69,6 +69,7 @@
             erlang = "27.3.4.1";
           };
           devShell.extraPackages = with pkgs; [
+            alejandra
             zig
             xz
             just
