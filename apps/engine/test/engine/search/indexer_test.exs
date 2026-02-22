@@ -29,8 +29,12 @@ defmodule Engine.Search.IndexerTest do
     # Mock the broadcast so progress reporting doesn't fail
     patch(Engine.Api.Proxy, :broadcast, fn _ -> :ok end)
     # Mock erpc calls for progress reporting
-    patch(Dispatch, :erpc_call, fn Expert.Progress, :begin, [_title, _opts] ->
-      {:ok, System.unique_integer([:positive])}
+    patch(Dispatch, :erpc_call, fn
+      Expert.Progress, :begin, [_title, _opts] ->
+        {:ok, System.unique_integer([:positive])}
+
+      Expert.Progress, :report, _args ->
+        :ok
     end)
 
     patch(Dispatch, :erpc_cast, fn Expert.Progress, _function, _args -> true end)

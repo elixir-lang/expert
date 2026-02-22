@@ -8,14 +8,19 @@ defmodule Engine.ProgressTest do
   setup do
     test_pid = self()
 
-    # Mock erpc_call for begin - returns {:ok, token}
-    patch(Dispatch, :erpc_call, fn Expert.Progress, :begin, [title, opts] ->
-      token = System.unique_integer([:positive])
-      send(test_pid, {:begin, token, title, opts})
-      {:ok, token}
+    # Mock erpc_call for begin and report
+    patch(Dispatch, :erpc_call, fn
+      Expert.Progress, :begin, [title, opts] ->
+        token = System.unique_integer([:positive])
+        send(test_pid, {:begin, token, title, opts})
+        {:ok, token}
+
+      Expert.Progress, :report, args ->
+        send(test_pid, {:report, args})
+        :ok
     end)
 
-    # Mock erpc_cast for report and complete
+    # Mock erpc_cast for complete
     patch(Dispatch, :erpc_cast, fn Expert.Progress, function, args ->
       send(test_pid, {function, args})
       true

@@ -16,8 +16,7 @@ defmodule Engine.Progress do
   def report(@noop_token, _opts), do: :ok
 
   def report(token, [_ | _] = opts) when is_token(token) do
-    Dispatch.erpc_cast(Expert.Progress, :report, [token, opts])
-    :ok
+    Dispatch.erpc_call(Expert.Progress, :report, [token, opts])
   end
 
   @impl true
