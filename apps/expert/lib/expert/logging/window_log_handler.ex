@@ -26,7 +26,7 @@ defmodule Expert.Logging.WindowLogHandler do
   module is `XPExpert.Logging.WindowLogHandler`, causing handler registration to fail.
   """
   @spec attach() :: :ok | {:error, term()}
-  def attach() do
+  def attach do
     case :logger.get_handler_config(:window_log_handler) do
       {:ok, %{module: __MODULE__}} ->
         :ok
@@ -40,7 +40,7 @@ defmodule Expert.Logging.WindowLogHandler do
     end
   end
 
-  defp add_handler() do
+  defp add_handler do
     case :logger.add_handler(:window_log_handler, __MODULE__, %{}) do
       :ok ->
         :ok
