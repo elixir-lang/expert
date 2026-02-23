@@ -194,7 +194,7 @@ defmodule Expert do
 
             start_result = Expert.Project.Supervisor.ensure_node_started(project)
 
-            send(Expert, {:engine_initialized, project, start_result})
+            send(lsp.pid, {:engine_initialized, project, start_result})
           end)
 
         case started do

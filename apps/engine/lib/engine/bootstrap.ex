@@ -36,11 +36,23 @@ defmodule Engine.Bootstrap do
       Engine.set_project(project)
       Engine.set_manager_node(manager_node)
       Mix.env(:test)
+      set_mix_build_path(project)
       ExUnit.start()
       start_logger(project)
       maybe_change_directory(project)
       Project.ensure_workspace(project)
     end
+  end
+
+  # There is a bug in elixir 1.19.1 where the partition child processes
+  # for parallel dependency compilation do not inherit the parent process's
+  # Mix.Project config, which causes them to write compiled artifacts to the
+  # default _build directory instead of expert build path.
+  # This ensures the build path is set regardless of elixir version.
+  defp set_mix_build_path(%Project{} = project) do
+    versioned_build = Project.versioned_build_path(project)
+    build_path = Path.join(versioned_build, Atom.to_string(Mix.env()))
+    System.put_env("MIX_BUILD_PATH", build_path)
   end
 
   defp maybe_append_hex_path do
