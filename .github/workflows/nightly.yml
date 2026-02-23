@@ -5,8 +5,31 @@ on:
     - cron: 0 0 * * *
 
 jobs:
+  check:
+    name: Check for new commits
+    runs-on: ubuntu-latest
+    outputs:
+      new_commits: ${{ steps.commit_check.outputs.new_commits }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Check for new commits since last nightly
+        id: commit_check
+        run: |
+          if git rev-parse nightly >/dev/null 2>&1; then
+            if [ -z "$(git log nightly..HEAD --oneline)" ]; then
+              echo "No new commits since last nightly release, skipping."
+              echo "new_commits=false" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+          fi
+          echo "new_commits=true" >> "$GITHUB_OUTPUT"
+
   nightly:
     name: Nightly build
+    needs: check
+    if: needs.check.outputs.new_commits == 'true'
     runs-on: ubuntu-latest
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
