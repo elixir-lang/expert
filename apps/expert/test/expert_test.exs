@@ -9,6 +9,11 @@ defmodule Expert.ExpertTest do
 
   setup do
     :persistent_term.erase(Expert.Configuration)
+    with_patched_transport()
+
+    # These tests call `Expert.handle_info/2` directly (bypassing `Expert.Application`),
+    # so we must start `Expert.ActiveProjects` to create its ETS tables first.
+    start_supervised!({Expert.ActiveProjects, []})
 
     # window/logMessage comes from Logger via WindowLogHandler,
     # so tests that assert on log notifications must allow :info events through.
@@ -22,9 +27,6 @@ defmodule Expert.ExpertTest do
   end
 
   test "sends an error message on engine initialization error" do
-    with_patched_transport()
-    start_supervised!({Expert.ActiveProjects, []})
-
     project = Fixtures.project()
     lsp = initialize_lsp(project)
 
@@ -54,8 +56,6 @@ defmodule Expert.ExpertTest do
   end
 
   test "suppresses window/logMessage for emacs client" do
-    with_patched_transport()
-
     project = Fixtures.project()
     lsp = initialize_lsp(project, client_name: "Emacs")
     reason = :something_bad
