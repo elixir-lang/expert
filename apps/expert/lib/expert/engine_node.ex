@@ -301,6 +301,8 @@ defmodule Expert.EngineNode do
           fn ->
             Process.flag(:trap_exit, true)
 
+            env = [{"MIX_ENV", "dev"} | env]
+
             elixir
             |> Expert.Port.open_elixir_with_env(env, args: args, cd: Project.root_path(project))
             |> wait_for_engine()
