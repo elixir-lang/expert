@@ -3,16 +3,24 @@
     System.argv(),
     strict: [
       vsn: :string,
-      source_path: :string
+      source_path: :string,
+      force: :boolean
     ]
   )
 
 expert_vsn = Keyword.fetch!(args, :vsn)
 engine_source_path = Keyword.fetch!(args, :source_path)
+force? = Keyword.get(args, :force, false)
 
 expert_data_path = :filename.basedir(:user_data, "Expert", %{version: expert_vsn})
 
+elixir_otp_vsn = "elixir-#{System.version()}-otp-#{:erlang.system_info(:otp_release)}"
+tooling_path = Path.join([expert_data_path, "tooling", elixir_otp_vsn])
+
 System.put_env("MIX_INSTALL_DIR", expert_data_path)
+System.put_env("MIX_HOME", Path.join(tooling_path, "mix_home"))
+System.put_env("HEX_HOME", Path.join(tooling_path, "hex_home"))
+System.put_env("REBAR_CACHE_DIR", Path.join(tooling_path, "rebar_cache"))
 
 {:ok, _} = Application.ensure_all_started(:elixir)
 {:ok, _} = Application.ensure_all_started(:mix)
@@ -23,7 +31,8 @@ Mix.Task.run("local.rebar", ["--if-missing", "--force"])
 Mix.install([{:engine, path: engine_source_path, env: :dev}],
   start_applications: false,
   config_path: Path.join(engine_source_path, "config/config.exs"),
-  lockfile: Path.join(engine_source_path, "mix.lock")
+  lockfile: Path.join(engine_source_path, "mix.lock"),
+  force: force?
 )
 
 install_path =
@@ -44,4 +53,5 @@ ns_build_path = Path.join([install_path, "_build", "dev_ns"])
 
 Mix.Task.run("namespace", [dev_build_path, ns_build_path, "--cwd", install_path, "--no-progress"])
 
+IO.puts("mix_home:" <> Path.join(tooling_path, "mix_home"))
 IO.puts("engine_path:" <> ns_build_path)

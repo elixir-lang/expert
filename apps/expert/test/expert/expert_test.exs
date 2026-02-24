@@ -790,6 +790,10 @@ defmodule ExpertTest do
         {:error, "Could not resolve dependency foo"}
       end)
 
+      patch(Expert.Project.Supervisor, :ensure_node_started, fn _project ->
+        {:ok, self()}
+      end)
+
       assert :ok =
                request(client, initialize_request(project_root, id: 1, projects: [main_project]))
 

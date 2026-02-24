@@ -49,7 +49,7 @@ defmodule Expert.EngineNodeTest do
   test "terminates the server if no elixir is found", %{project: project} do
     test_pid = self()
 
-    patch(EngineNode, :glob_paths, {:error, :no_elixir})
+    patch(Expert.Port, :open_elixir, {:error, :no_elixir, "elixir not found"})
 
     patch(Expert, :terminate, fn _, status ->
       send(test_pid, {:stopped, status})

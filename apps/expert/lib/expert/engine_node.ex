@@ -32,7 +32,7 @@ defmodule Expert.EngineNode do
 
     @dialyzer {:nowarn_function, start: 3}
 
-    def start(%__MODULE__{} = state, paths, from) do
+    def start(%__MODULE__{} = state, paths, from, opts \\ []) do
       this_node = to_string(Node.self())
       dist_port = Forge.EPMD.dist_port()
 
@@ -49,11 +49,17 @@ defmodule Expert.EngineNode do
             project_node_eval_string(state.project)
           ]
 
+      mix_home_env =
+        case Keyword.fetch(opts, :mix_home) do
+          {:ok, mix_home} when is_binary(mix_home) -> [{"MIX_HOME", mix_home}]
+          _ -> []
+        end
+
       env =
         [
           {"EXPERT_PARENT_NODE", this_node},
           {"EXPERT_PARENT_PORT", to_string(dist_port)}
-        ]
+        ] ++ mix_home_env
 
       case Expert.Port.open_elixir(state.project, args: args, env: env) do
         {:error, _, message} ->
@@ -216,14 +222,22 @@ defmodule Expert.EngineNode do
     ]
 
     with {:ok, node_pid} <- EngineSupervisor.start_project_node(project),
-         {:ok, glob_paths} <- glob_paths(project),
+         {:ok, {glob_paths, mix_home}} <- prepare_engine(project),
          :ok <- Progress.report(token, message: "Starting Erlang node..."),
-         :ok <- start_node(project, glob_paths),
+         :ok <- start_node(project, glob_paths, mix_home: mix_home),
          :ok <- Progress.report(token, message: "Bootstrapping engine..."),
          :ok <- :rpc.call(node_name, Engine.Bootstrap, :init, bootstrap_args),
          :ok <- ensure_apps_started(node_name, token) do
       {:ok, node_name, node_pid}
     end
+  end
+
+  defp prepare_engine(project) do
+    Expert.Progress.with_progress("[#{Project.name(project)}] Preparing engine", fn _token ->
+      result = Expert.EngineNode.Builder.build_engine(project)
+
+      {:done, result, "Engine is ready"}
+    end)
   end
 
   defp start_net_kernel(%Project{} = project) do
@@ -233,110 +247,6 @@ defmodule Expert.EngineNode do
 
   defp ensure_apps_started(node, token) do
     :rpc.call(node, Engine, :ensure_apps_started, [token])
-  end
-
-  if Mix.env() == :test do
-    # In test environment, Expert depends on the Engine app, so we look for it
-    # in the expert build path.
-    @excluded_apps [:patch, :nimble_parsec]
-    @allowed_apps [:engine | Mix.Project.deps_apps()] -- @excluded_apps
-
-    def glob_paths(_) do
-      entries =
-        [Mix.Project.build_path(), "**/ebin"]
-        |> Forge.Path.glob()
-        |> Enum.filter(fn entry ->
-          Enum.any?(@allowed_apps, &String.contains?(entry, to_string(&1)))
-        end)
-
-      {:ok, entries}
-    end
-  else
-    # In dev and prod environments, the engine source code is included in the
-    # Expert release, and we build it on the fly for the project elixir+opt
-    # versions if it was not built yet.
-    defp glob_paths(%Project{} = project) do
-      with {:ok, elixir, env} <- Expert.Port.project_executable(project, "elixir"),
-           {:ok, erl, _env} <- Expert.Port.project_executable(project, "erl") do
-        lsp = Expert.get_lsp()
-        Expert.log_info(lsp, project, "Using path: #{System.get_env("PATH")}")
-        Expert.log_info(lsp, project, "Found elixir executable at #{elixir}")
-        Expert.log_info(lsp, project, "Found erl executable at #{erl}")
-
-        launch_engine_builder(project, elixir, env)
-      else
-        {:error, name, message} ->
-          GenLSP.error(Expert.get_lsp(), message)
-          Expert.terminate("Failed to find an #{name} executable, shutting down", 1)
-      end
-    end
-
-    defp launch_engine_builder(project, elixir, env) do
-      lsp = Expert.get_lsp()
-
-      expert_priv = :code.priv_dir(:expert)
-      packaged_engine_source = Path.join([expert_priv, "engine_source", "apps", "engine"])
-
-      engine_source =
-        "EXPERT_ENGINE_PATH"
-        |> System.get_env(packaged_engine_source)
-        |> Path.expand()
-
-      build_engine_script = Path.join(expert_priv, "build_engine.exs")
-
-      args = [
-        build_engine_script,
-        "--source-path",
-        engine_source,
-        "--vsn",
-        Expert.vsn()
-      ]
-
-      Expert.log_info(lsp, project, "Finding or building engine")
-
-      project_name = Project.name(project)
-
-      Expert.Progress.with_progress("Building engine for #{project_name}", fn _token ->
-        result =
-          fn ->
-            Process.flag(:trap_exit, true)
-
-            env = [{"MIX_ENV", "dev"} | env]
-
-            elixir
-            |> Expert.Port.open_elixir_with_env(env, args: args, cd: Project.root_path(project))
-            |> wait_for_engine()
-          end
-          |> Task.async()
-          |> Task.await(:infinity)
-
-        {:done, result, "Engine node built for #{project_name}."}
-      end)
-    end
-
-    defp wait_for_engine(port, last_line \\ "") do
-      receive do
-        {^port, {:data, "engine_path:" <> engine_path}} ->
-          engine_path = String.trim(engine_path)
-          Logger.info("Engine build available at: #{engine_path}")
-
-          Logger.info("ebin paths:\n#{inspect(ebin_paths(engine_path), pretty: true)}")
-
-          {:ok, ebin_paths(engine_path)}
-
-        {^port, {:data, data}} ->
-          Logger.debug("Building engine: #{to_string(data)}")
-          wait_for_engine(port, data)
-
-        {:EXIT, ^port, reason} ->
-          Logger.error("Engine build script exited with reason: #{inspect(reason)} #{last_line}")
-          {:error, reason, last_line}
-      end
-    end
-
-    defp ebin_paths(base_path) do
-      Forge.Path.glob([base_path, "lib/**/ebin"])
-    end
   end
 
   @stop_timeout 1_000
@@ -362,10 +272,10 @@ defmodule Expert.EngineNode do
 
   @start_timeout 6_000
 
-  defp start_node(project, paths) do
+  defp start_node(project, paths, opts) do
     project
     |> name()
-    |> GenServer.call({:start, paths}, @start_timeout + 500)
+    |> GenServer.call({:start, paths, opts}, @start_timeout + 500)
   end
 
   @impl GenServer
@@ -375,11 +285,11 @@ defmodule Expert.EngineNode do
   end
 
   @impl true
-  def handle_call({:start, paths}, from, %State{} = state) do
+  def handle_call({:start, paths, opts}, from, %State{} = state) do
     :ok = :net_kernel.monitor_nodes(true, node_type: :all)
     Process.send_after(self(), :maybe_start_timeout, @start_timeout)
 
-    case State.start(state, paths, from) do
+    case State.start(state, paths, from, opts) do
       {:ok, state} ->
         {:noreply, state}
 

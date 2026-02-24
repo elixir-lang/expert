@@ -100,10 +100,10 @@ defmodule Engine.Build.Project do
   defp prepare_for_project_build(token) do
     if connected_to_internet?() do
       Progress.report(token, message: "mix local.hex")
-      Mix.Task.run("local.hex", ~w(--force))
+      Mix.Task.run("local.hex", ~w(--force --if-missing))
 
       Progress.report(token, message: "mix local.rebar")
-      Mix.Task.run("local.rebar", ~w(--force))
+      Mix.Task.run("local.rebar", ~w(--force --if-missing))
 
       Progress.report(token, message: "mix deps.get")
       Mix.Task.run("deps.get")

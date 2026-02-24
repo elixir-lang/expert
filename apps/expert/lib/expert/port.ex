@@ -53,17 +53,28 @@ defmodule Expert.Port do
   """
   @spec project_executable(Project.t(), String.t()) ::
           {:ok, charlist(), list()} | {:error, String.t(), String.t()}
-  def project_executable(%Project{} = project, name) do
-    case find_project_executable(project, name) do
-      {:ok, _, _} = success ->
-        success
+  if Mix.env() == :test do
+    # In test mode, the child engine node must use the same Elixir/OTP as the
+    # test runner, because the test build produces BEAM files for that specific
+    # OTP version. Spawning a login shell to detect the project-local executable
+    # can return a different OTP version (e.g. via mise), causing the child to
+    # fail to load the test BEAM files.
+    def project_executable(_project, name) do
+      fallback_executable(name)
+    end
+  else
+    def project_executable(%Project{} = project, name) do
+      case find_project_executable(project, name) do
+        {:ok, _, _} = success ->
+          success
 
-      {:error, name, reason} ->
-        Logger.warning(
-          "Failed to find #{name} for project, falling back to packaged elixir: #{reason}"
-        )
+        {:error, name, reason} ->
+          Logger.warning(
+            "Failed to find #{name} for project, falling back to packaged elixir: #{reason}"
+          )
 
-        fallback_executable(name)
+          fallback_executable(name)
+      end
     end
   end
 
@@ -199,7 +210,8 @@ defmodule Expert.Port do
           "BINDIR",
           "RELEASE_SYS_CONFIG",
           "MIX_HOME",
-          "MIX_ARCHIVES"
+          "MIX_ARCHIVES",
+          "MIX_ENV"
         ]
 
         env =

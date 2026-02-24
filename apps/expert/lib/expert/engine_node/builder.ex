@@ -1,0 +1,213 @@
+defmodule Expert.EngineNode.Builder do
+  @moduledoc """
+  Builds the engine node for a project.
+  """
+  alias Forge.Project
+  require Logger
+
+  use GenServer
+
+  defmodule State do
+    defstruct [:project, :last_line, :from, :port, :mix_home, attempts: 0]
+  end
+
+  @max_attempts 1
+
+  def build_engine(project) do
+    with {:ok, pid} <- start_link(project) do
+      GenServer.call(pid, :build, :infinity)
+    end
+  end
+
+  def start_link(project) do
+    GenServer.start_link(__MODULE__, project)
+  end
+
+  @impl GenServer
+  def init(project) do
+    {:ok, %State{project: project, last_line: ""}}
+  end
+
+  @impl GenServer
+  def handle_call(:build, from, state) do
+    state =
+      case start_build(state.project, from) do
+        {:ok, port} ->
+          %State{state | port: port}
+
+        _ ->
+          state
+      end
+
+    {:noreply, %State{state | from: from}}
+  end
+
+  @impl GenServer
+  def handle_info({_port, {:data, "mix_home:" <> mix_home}}, state) do
+    mix_home = String.trim(mix_home)
+    {:noreply, %State{state | mix_home: mix_home}}
+  end
+
+  def handle_info({_port, {:data, "engine_path:" <> engine_path}}, state) do
+    engine_path = String.trim(engine_path)
+    Logger.info("Engine build available at: #{engine_path}")
+
+    Logger.info("ebin paths:\n#{inspect(ebin_paths(engine_path), pretty: true)}")
+    GenServer.reply(state.from, {:ok, {ebin_paths(engine_path), state.mix_home}})
+    {:stop, :normal, state}
+  end
+
+  def handle_info({_port, {:data, data}}, state) do
+    line = to_string(data)
+    Logger.debug("Engine build output: #{line}")
+
+    if detect_deps_error(line) do
+      if state.attempts < @max_attempts do
+        Logger.warning(
+          "Detected dependency errors during engine build, retrying... (attempt #{state.attempts + 1}/#{@max_attempts})"
+        )
+
+        close_port(state.port)
+
+        state =
+          case start_build(state.project, state.from, force: true) do
+            {:ok, port} ->
+              %State{state | port: port}
+
+            _ ->
+              state
+          end
+
+        {:noreply, %State{state | attempts: state.attempts + 1}}
+      else
+        Logger.error("Maximum build attempts reached. Failing the build.")
+
+        GenServer.reply(
+          state.from,
+          {:error, "Build failed due to dependency errors after #{@max_attempts} attempts", line}
+        )
+
+        {:stop, :normal, state}
+      end
+    else
+      {:noreply, %State{state | last_line: line}}
+    end
+  end
+
+  def handle_info({_port, {:exit_status, status}}, state) do
+    Logger.error("Engine build script exited with status: #{status}")
+
+    GenServer.reply(
+      state.from,
+      {:error, "Build script exited with status: #{status}", state.last_line}
+    )
+
+    {:stop, :normal, state}
+  end
+
+  def handle_info({:EXIT, port, reason}, %State{port: port} = state) when reason != :normal do
+    Logger.error("Engine build script exited with reason: #{inspect(reason)}")
+    GenServer.reply(state.from, {:error, reason, state.last_line})
+    {:stop, :normal, state}
+  end
+
+  def handle_info({:EXIT, _port, _reason}, state) do
+    {:noreply, state}
+  end
+
+  if Mix.env() == :test do
+    # In test environment, Expert depends on the Engine app, so we look for it
+    # in the expert build path.
+    @excluded_apps [:patch, :nimble_parsec]
+    @allowed_apps [:engine | Mix.Project.deps_apps()] -- @excluded_apps
+
+    def start_build(_, from, _ \\ []) do
+      entries =
+        [Mix.Project.build_path(), "**/ebin"]
+        |> Forge.Path.glob()
+        |> Enum.filter(fn entry ->
+          Enum.any?(@allowed_apps, &String.contains?(entry, to_string(&1)))
+        end)
+
+      GenServer.reply(from, {:ok, {entries, nil}})
+    end
+
+    def close_port(_port), do: :ok
+  else
+    # In dev and prod environments, the engine source code is included in the
+    # Expert release, and we build it on the fly for the project elixir+opt
+    # versions if it was not built yet.
+    defp start_build(%Project{} = project, from, opts \\ []) do
+      with {:ok, elixir, env} <- Expert.Port.project_executable(project, "elixir"),
+           {:ok, erl, _env} <- Expert.Port.project_executable(project, "erl") do
+        lsp = Expert.get_lsp()
+        Expert.log_info(lsp, project, "Using path: #{System.get_env("PATH")}")
+        Expert.log_info(lsp, project, "Found elixir executable at #{elixir}")
+        Expert.log_info(lsp, project, "Found erl executable at #{erl}")
+
+        port = launch_engine_builder(project, elixir, env, opts)
+        {:ok, port}
+      else
+        {:error, name, message} = error ->
+          GenLSP.error(Expert.get_lsp(), message)
+          GenServer.reply(from, {:error, message})
+          Expert.terminate("Failed to find an #{name} executable, shutting down", 1)
+          error
+      end
+    end
+
+    defp close_port(port), do: Port.close(port)
+  end
+
+  def launch_engine_builder(project, elixir, env, opts \\ []) do
+    lsp = Expert.get_lsp()
+
+    expert_priv = :code.priv_dir(:expert)
+    packaged_engine_source = Path.join([expert_priv, "engine_source", "apps", "engine"])
+
+    engine_source =
+      "EXPERT_ENGINE_PATH"
+      |> System.get_env(packaged_engine_source)
+      |> Path.expand()
+
+    build_engine_script = Path.join(expert_priv, "build_engine.exs")
+
+    args = [
+      build_engine_script,
+      "--source-path",
+      engine_source,
+      "--vsn",
+      Expert.vsn()
+    ]
+
+    args =
+      if opts[:force] do
+        args ++ ["--force"]
+      else
+        args
+      end
+
+    Expert.log_info(lsp, project, "Preparing engine")
+
+    Process.flag(:trap_exit, true)
+
+    env = [{"MIX_ENV", "dev"} | env]
+
+    Expert.Port.open_elixir_with_env(elixir, env,
+      args: args,
+      cd: Project.root_path(project)
+    )
+  end
+
+  defp ebin_paths(base_path) do
+    Forge.Path.glob([base_path, "lib/**/ebin"])
+  end
+
+  @deps_error_patterns [
+    "Can't continue due to errors on dependencies",
+    "Unchecked dependencies"
+  ]
+  defp detect_deps_error(message) when is_binary(message) do
+    Enum.any?(@deps_error_patterns, &String.contains?(message, &1))
+  end
+end
