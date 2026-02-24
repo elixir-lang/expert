@@ -12,11 +12,12 @@ config :logger,
   handle_sasl_reports: true,
   handle_otp_reports: true
 
+config :logger, :default_formatter, metadata: [:instance_id]
+
 config :logger, :default_handler,
   level: :debug,
   config: [
     file: String.to_charlist(log_file_name),
     max_no_bytes: :infinity,
-    max_no_files: 0,
-    formatter: Logger.Formatter.new(metadata: [:instance_id])
+    max_no_files: 0
   ]

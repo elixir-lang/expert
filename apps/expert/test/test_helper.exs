@@ -14,7 +14,6 @@ Engine.Module.Loader.start_link(nil)
 ExUnit.configure(timeout: :infinity, assert_receive_timeout: 1000)
 
 ExUnit.start(exclude: [:skip])
-Expert.Logging.WindowLogHandler.attach()
 
 if Version.match?(System.version(), ">= 1.15.0") do
   Logger.configure(level: :none)

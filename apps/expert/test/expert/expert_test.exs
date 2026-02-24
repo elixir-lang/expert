@@ -57,10 +57,14 @@ defmodule ExpertTest do
 
     # window/logMessage is emitted by a Logger handler; keep :info enabled
     # so integration assertions can observe those notifications.
+    # The :default console handler is suppressed to avoid polluting test output.
+    Expert.Logging.WindowLogHandler.attach()
     Logger.configure(level: :info)
+    :logger.update_handler_config(:default, :level, :none)
 
     on_exit(fn ->
       Logger.configure(level: :none)
+      :logger.update_handler_config(:default, :level, :all)
     end)
 
     # NOTE(doorgan): repeatedly starting and stopping nodes in tests produces some

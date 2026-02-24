@@ -18,10 +18,14 @@ defmodule Expert.ExpertTest do
 
     # window/logMessage comes from Logger via WindowLogHandler,
     # so tests that assert on log notifications must allow :info events through.
+    # The :default console handler is suppressed to avoid polluting test output.
+    Expert.Logging.WindowLogHandler.attach()
     Logger.configure(level: :info)
+    :logger.update_handler_config(:default, :level, :none)
 
     on_exit(fn ->
       Logger.configure(level: :none)
+      :logger.update_handler_config(:default, :level, :all)
     end)
 
     :ok
