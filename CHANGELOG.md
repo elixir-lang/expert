@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.1.0-rc.2](https://github.com/elixir-lang/expert/compare/v0.1.0-rc.1...v0.1.0-rc.2) (2026-02-24)
+
+
+### Features
+
+* add `instance_id` metadata to logs ([#380](https://github.com/elixir-lang/expert/issues/380)) ([5c209be](https://github.com/elixir-lang/expert/commit/5c209be7490c44be6c3c12ca13058ddc16b91912))
+
+
+### Bug Fixes
+
+* ensure `MIX_BUILD_PATH` is set for child processes ([#436](https://github.com/elixir-lang/expert/issues/436)) ([3178302](https://github.com/elixir-lang/expert/commit/31783023c9ba4b0152a76aa255572867cca1abe7))
+* **expert:** check start_child return in initialized handler ([#371](https://github.com/elixir-lang/expert/issues/371)) ([de979ce](https://github.com/elixir-lang/expert/commit/de979ceabaa108a3e5eb43a7675f13ac913ac76b))
+* forward logs through window log handler ([#418](https://github.com/elixir-lang/expert/issues/418)) ([c608dc8](https://github.com/elixir-lang/expert/commit/c608dc84597193a2875714636ad2eebf40820ad5)), closes [#382](https://github.com/elixir-lang/expert/issues/382)
+* support multiple elixir versions on multiroot projects ([#413](https://github.com/elixir-lang/expert/issues/413)) ([dee595d](https://github.com/elixir-lang/expert/commit/dee595d9040416f9036eaa355ac645a8f35da202))
+
 ## [0.1.0-rc.1](https://github.com/elixir-lang/expert/compare/v0.1.0-rc.0...v0.1.0-rc.1) (2026-02-22)
 
 
