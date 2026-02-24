@@ -10,8 +10,14 @@ defmodule Engine.Analyzer.Aliases do
       [%Scope{} = scope | _] ->
         scope
         |> Scope.alias_map(position)
-        |> Map.new(fn {as, %Alias{} = alias} ->
-          {as, Alias.to_module(alias)}
+        |> Enum.reduce(%{}, fn {as, %Alias{} = alias}, acc ->
+          segments = alias.module
+
+          if is_list(segments) and Enum.all?(segments, &is_atom/1) do
+            Map.put(acc, as, Alias.to_module(alias))
+          else
+            acc
+          end
         end)
 
       [] ->

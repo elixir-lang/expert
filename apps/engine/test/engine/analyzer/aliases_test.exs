@@ -260,6 +260,23 @@ defmodule Engine.Analyzer.AliasesTest do
       assert aliases[:"@protocol"] == MyProtocol
       assert aliases[:"@for"] == Atom
     end
+
+    test "skips unquote-based aliases in quoted blocks" do
+      aliases =
+        ~q<
+          defmodule TopLevel do
+            defmacro __using__(module) do
+              quote do
+                alias unquote(module).Helpers|
+              end
+            end
+          end
+        >
+        |> aliases_at_cursor()
+
+      assert is_map(aliases)
+      refute Map.has_key?(aliases, :Helpers)
+    end
   end
 
   describe "alias ranges" do
