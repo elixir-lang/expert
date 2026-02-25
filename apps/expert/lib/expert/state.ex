@@ -314,7 +314,7 @@ defmodule Expert.State do
       capabilities: server_capabilities,
       server_info: %{
         name: "Expert",
-        version: "0.0.1"
+        version: Expert.vsn()
       }
     }
   end
