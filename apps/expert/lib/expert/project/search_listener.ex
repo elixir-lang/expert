@@ -15,7 +15,7 @@ defmodule Expert.Project.SearchListener do
   end
 
   defp name(%Project{} = project) do
-    :"#{Project.name(project)}::search_listener"
+    :"#{Project.unique_name(project)}::search_listener"
   end
 
   @impl GenServer

@@ -8,7 +8,7 @@ defmodule Expert.EngineSupervisor do
 
   def child_spec(%Project{} = project) do
     %{
-      id: {__MODULE__, Project.name(project)},
+      id: {__MODULE__, Project.unique_name(project)},
       start: {__MODULE__, :start_link, [project]}
     }
   end
@@ -18,7 +18,7 @@ defmodule Expert.EngineSupervisor do
   end
 
   defp name(%Project{} = project) do
-    :"#{Project.name(project)}::project_node_supervisor"
+    :"#{Project.unique_name(project)}::project_node_supervisor"
   end
 
   def start_project_node(%Project{} = project) do

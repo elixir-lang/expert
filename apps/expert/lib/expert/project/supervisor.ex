@@ -41,7 +41,7 @@ defmodule Expert.Project.Supervisor do
   end
 
   def name(%Project{} = project) do
-    :"#{Project.name(project)}::supervisor"
+    :"#{Project.unique_name(project)}::supervisor"
   end
 
   def ensure_node_started(%Project{} = project) do
