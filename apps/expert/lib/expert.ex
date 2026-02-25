@@ -190,7 +190,7 @@ defmodule Expert do
       unless ActiveProjects.blocked?(project) do
         started =
           Task.Supervisor.start_child(:expert_task_queue, fn ->
-            log_info(lsp, project, "Starting project")
+            Logger.info("Starting project", project: project)
 
             start_result = Expert.Project.Supervisor.ensure_node_started(project)
 
@@ -247,10 +247,9 @@ defmodule Expert do
   end
 
   def handle_info({:engine_initialized, project, {:ok, _pid}}, lsp) do
-    log_info(
-      lsp,
-      project,
-      "Engine initialized for project #{Project.name(project)}"
+    Logger.info(
+      "Engine initialized for project #{Project.name(project)}",
+      project: project
     )
 
     {:noreply, lsp}
@@ -316,10 +315,9 @@ defmodule Expert do
       handle_deps_fetch_result(response, lsp, project)
     else
       if deps_declined do
-        log_info(
-          lsp,
-          project,
-          "Engine failed due to dependency errors, but user declined to fetch dependencies."
+        Logger.info(
+          "Engine failed due to dependency errors, but user declined to fetch dependencies.",
+          project: project
         )
       end
 
@@ -336,7 +334,7 @@ defmodule Expert do
   end
 
   defp handle_deps_fetch_result(%Structures.MessageActionItem{title: "Yes"}, lsp, project) do
-    log_info(lsp, project, "Running mix deps.get for #{Project.name(project)}")
+    Logger.info("Running mix deps.get for #{Project.name(project)}", project: project)
 
     Task.Supervisor.start_child(:expert_task_queue, fn ->
       result =
@@ -349,12 +347,12 @@ defmodule Expert do
 
       case result do
         :ok ->
-          log_info(lsp, project, "mix deps.get completed successfully")
+          Logger.info("mix deps.get completed successfully", project: project)
 
           Expert.Project.Supervisor.stop_node(project)
           ActiveProjects.set_blocked(project, false)
 
-          log_info(lsp, project, "Restarting engine for #{Project.name(project)}")
+          Logger.info("Restarting engine for #{Project.name(project)}", project: project)
           start_result = Expert.Project.Supervisor.ensure_node_started(project)
           send(lsp.pid, {:engine_initialized, project, start_result})
 
@@ -376,7 +374,10 @@ defmodule Expert do
   defp handle_deps_fetch_result(%Structures.MessageActionItem{title: "No"}, lsp, project) do
     ActiveProjects.set_blocked(project, false)
     ActiveProjects.set_ready(project, true)
-    log_info(lsp, project, "User declined to run mix deps.get for #{Project.name(project)}")
+
+    Logger.info("User declined to run mix deps.get for #{Project.name(project)}",
+      project: project
+    )
 
     state = assigns(lsp).state
     new_state = State.mark_deps_declined(state, project)
@@ -387,22 +388,14 @@ defmodule Expert do
     lsp
   end
 
-  def log_info(_lsp \\ get_lsp(), project, message) do
-    message = log_prepend_project_root(message, project)
-
-    Logger.info(message)
-  end
-
   # When logging errors we also notify the client to display the message
   def log_error(lsp \\ get_lsp(), project, message) do
-    message = log_prepend_project_root(message, project)
-
-    Logger.error(message)
+    Logger.error(message, project: project)
 
     GenLSP.notify(lsp, %GenLSP.Notifications.WindowShowMessage{
       params: %GenLSP.Structures.ShowMessageParams{
         type: Enumerations.MessageType.error(),
-        message: message
+        message: "[#{Forge.Project.name(project)}] #{message}"
       }
     })
   end
@@ -525,9 +518,5 @@ defmodule Expert do
       reason ->
         "Failed to start engine #{name}: #{inspect(reason)}"
     end
-  end
-
-  defp log_prepend_project_root(message, project) do
-    "[Project #{project.root_uri}] #{message}"
   end
 end

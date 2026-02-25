@@ -63,7 +63,7 @@ defmodule Expert.EngineNode do
 
       case Expert.Port.open_elixir(state.project, args: args, env: env) do
         {:error, _, message} ->
-          GenLSP.error(Expert.get_lsp(), message)
+          Logger.error(message)
           Expert.terminate("Failed to find an elixir executable, shutting down", 1)
           {:error, :no_elixir}
 
@@ -141,14 +141,14 @@ defmodule Expert.EngineNode do
       stop_reason =
         case exit_status do
           0 ->
-            project = state.project
-            Logger.info("Engine for #{project.root_uri} shut down")
+            Logger.info("Engine shut down", project: state.project)
 
             :shutdown
 
           _error_status when state.deps_error ->
             Logger.error(
-              "Engine failed due to dependency errors (status: #{exit_status}). Last message: #{state.last_message}"
+              "Engine failed due to dependency errors (status: #{exit_status}). Last message: #{state.last_message}",
+              project: state.project
             )
 
             {:shutdown, :deps_error}

@@ -50,21 +50,25 @@ defmodule Expert.EngineNode.Builder do
 
   def handle_info({_port, {:data, "engine_path:" <> engine_path}}, state) do
     engine_path = String.trim(engine_path)
-    Logger.info("Engine build available at: #{engine_path}")
+    Logger.info("Engine build available at: #{engine_path}", project: state.project)
 
-    Logger.info("ebin paths:\n#{inspect(ebin_paths(engine_path), pretty: true)}")
+    Logger.info("ebin paths:\n#{inspect(ebin_paths(engine_path), pretty: true)}",
+      project: state.project
+    )
+
     GenServer.reply(state.from, {:ok, {ebin_paths(engine_path), state.mix_home}})
     {:stop, :normal, state}
   end
 
   def handle_info({_port, {:data, data}}, state) do
     line = to_string(data)
-    Logger.debug("Engine build output: #{line}")
+    Logger.debug("Engine build output: #{line}", project: state.project)
 
     if detect_deps_error(line) do
       if state.attempts < @max_attempts do
         Logger.warning(
-          "Detected dependency errors during engine build, retrying... (attempt #{state.attempts + 1}/#{@max_attempts})"
+          "Detected dependency errors during engine build, retrying... (attempt #{state.attempts + 1}/#{@max_attempts})",
+          project: state.project
         )
 
         close_port(state.port)
@@ -80,7 +84,7 @@ defmodule Expert.EngineNode.Builder do
 
         {:noreply, %State{state | attempts: state.attempts + 1}}
       else
-        Logger.error("Maximum build attempts reached. Failing the build.")
+        Logger.error("Maximum build attempts reached. Failing the build.", project: state.project)
 
         GenServer.reply(
           state.from,
@@ -95,7 +99,7 @@ defmodule Expert.EngineNode.Builder do
   end
 
   def handle_info({_port, {:exit_status, status}}, state) do
-    Logger.error("Engine build script exited with status: #{status}")
+    Logger.error("Engine build script exited with status: #{status}", project: state.project)
 
     GenServer.reply(
       state.from,
@@ -106,7 +110,10 @@ defmodule Expert.EngineNode.Builder do
   end
 
   def handle_info({:EXIT, port, reason}, %State{port: port} = state) when reason != :normal do
-    Logger.error("Engine build script exited with reason: #{inspect(reason)}")
+    Logger.error("Engine build script exited with reason: #{inspect(reason)}",
+      project: state.project
+    )
+
     GenServer.reply(state.from, {:error, reason, state.last_line})
     {:stop, :normal, state}
   end
@@ -140,16 +147,15 @@ defmodule Expert.EngineNode.Builder do
     defp start_build(%Project{} = project, from, opts \\ []) do
       with {:ok, elixir, env} <- Expert.Port.project_executable(project, "elixir"),
            {:ok, erl, _env} <- Expert.Port.project_executable(project, "erl") do
-        lsp = Expert.get_lsp()
-        Expert.log_info(lsp, project, "Using path: #{System.get_env("PATH")}")
-        Expert.log_info(lsp, project, "Found elixir executable at #{elixir}")
-        Expert.log_info(lsp, project, "Found erl executable at #{erl}")
+        Logger.info("Using path: #{System.get_env("PATH")}", project: project)
+        Logger.info("Found elixir executable at #{elixir}", project: project)
+        Logger.info("Found erl executable at #{erl}", project: project)
 
         port = launch_engine_builder(project, elixir, env, opts)
         {:ok, port}
       else
         {:error, name, message} = error ->
-          GenLSP.error(Expert.get_lsp(), message)
+          Logger.error(message, project: project)
           GenServer.reply(from, {:error, message})
           Expert.terminate("Failed to find an #{name} executable, shutting down", 1)
           error
@@ -160,8 +166,6 @@ defmodule Expert.EngineNode.Builder do
   end
 
   def launch_engine_builder(project, elixir, env, opts \\ []) do
-    lsp = Expert.get_lsp()
-
     expert_priv = :code.priv_dir(:expert)
     packaged_engine_source = Path.join([expert_priv, "engine_source", "apps", "engine"])
 
@@ -187,7 +191,7 @@ defmodule Expert.EngineNode.Builder do
         args
       end
 
-    Expert.log_info(lsp, project, "Preparing engine")
+    Logger.info("Preparing engine", project: project)
 
     Process.flag(:trap_exit, true)
 

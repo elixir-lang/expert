@@ -1,5 +1,6 @@
 defmodule Expert.ExpertTest do
   alias Expert.State
+  alias Forge.Project
   alias Forge.Test.Fixtures
 
   use ExUnit.Case, async: false
@@ -40,7 +41,7 @@ defmodule Expert.ExpertTest do
     assert {:noreply, ^lsp} =
              Expert.handle_info({:engine_initialized, project, {:error, reason}}, lsp)
 
-    error_message = "[Project #{project.root_uri}] Failed to initialize: #{inspect(reason)}"
+    error_message = "[#{Project.name(project)}] Failed to initialize: #{inspect(reason)}"
     error_message_type = GenLSP.Enumerations.MessageType.error()
 
     assert_receive {:transport,
@@ -89,7 +90,7 @@ defmodule Expert.ExpertTest do
     assert {:noreply, ^lsp} =
              Expert.handle_info({:engine_initialized, project, {:error, reason}}, lsp)
 
-    error_message = "[Project #{project.root_uri}] Failed to initialize: #{inspect(reason)}"
+    error_message = "[#{Project.name(project)}] Failed to initialize: #{inspect(reason)}"
     error_message_type = GenLSP.Enumerations.MessageType.error()
 
     refute_receive {:transport, %GenLSP.Notifications.WindowLogMessage{}}

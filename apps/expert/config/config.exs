@@ -1,5 +1,7 @@
 import Config
 
+config :logger, :default_formatter, metadata: [:instance_id, :project]
+
 config :snowflake,
   machine_id: 1,
   # First second of 2024

@@ -7,6 +7,7 @@ defmodule Expert.Logging.WindowLogHandler do
   messages emitted while forwarding itself to avoid recursive logging loops.
   """
 
+  alias Forge.Project
   alias GenLSP.Enumerations
   alias GenLSP.Notifications.WindowLogMessage
   alias GenLSP.Structures.LogMessageParams
@@ -108,13 +109,14 @@ defmodule Expert.Logging.WindowLogHandler do
     end
   end
 
-  defp extract_message(%{msg: {:string, message}}) do
+  defp extract_message(%{msg: {:string, message}, meta: metadata}) do
     message
     |> ensure_binary()
     |> normalize_message()
+    |> maybe_prepend_project(metadata)
   end
 
-  defp extract_message(%{msg: {format_string, format_data}}) do
+  defp extract_message(%{msg: {format_string, format_data}, meta: metadata}) do
     {:ok, pid} = StringIO.open("window_log_handler")
 
     :io.format(pid, format_string, format_data)
@@ -124,9 +126,18 @@ defmodule Expert.Logging.WindowLogHandler do
     |> ensure_binary()
     |> tap(fn _ -> StringIO.close(pid) end)
     |> normalize_message()
+    |> maybe_prepend_project(metadata)
   end
 
   defp extract_message(_), do: :error
+
+  defp maybe_prepend_project(:error, _metadata), do: :error
+
+  defp maybe_prepend_project({:ok, message}, %{project: %Project{} = project}) do
+    {:ok, "[#{Project.name(project)}] #{message}"}
+  end
+
+  defp maybe_prepend_project({:ok, message}, _), do: {:ok, message}
 
   defp normalize_message(message) do
     case String.trim(message) do
