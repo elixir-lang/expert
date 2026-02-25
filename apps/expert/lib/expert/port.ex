@@ -16,6 +16,7 @@ defmodule Expert.Port do
   @type open_opts :: [open_opt]
 
   @path_marker "__EXPERT_PATH__"
+  @default_unix_path "/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
 
   @doc """
   Launches elixir in a port.
@@ -225,7 +226,7 @@ defmodule Expert.Port do
   end
 
   defp filter_release_root_from_path do
-    current_path = System.get_env("PATH", "/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin")
+    current_path = System.get_env("PATH", @default_unix_path)
     release_root = System.get_env("RELEASE_ROOT")
 
     if release_root do
@@ -243,7 +244,7 @@ defmodule Expert.Port do
   defp path_env_at_directory(directory, shell) do
     env = [
       {"SHELL_SESSIONS_DISABLE", "1"},
-      {"PATH", "/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"}
+      {"PATH", System.get_env("PATH", @default_unix_path)}
     ]
 
     shell_name = Path.basename(shell)
