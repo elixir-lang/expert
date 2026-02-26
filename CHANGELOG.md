@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.0-rc.5](https://github.com/elixir-lang/expert/compare/v0.1.0-rc.4...v0.1.0-rc.5) (2026-02-26)
+
+
+### Bug Fixes
+
+* build engines to `:user_cache` instead of `:user_data` ([#467](https://github.com/elixir-lang/expert/issues/467)) ([5c65a97](https://github.com/elixir-lang/expert/commit/5c65a97bf2695d9ed367248ac53750e8b4930dfb))
+
 ## [0.1.0-rc.4](https://github.com/elixir-lang/expert/compare/v0.1.0-rc.3...v0.1.0-rc.4) (2026-02-26)
 
 
