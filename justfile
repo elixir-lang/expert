@@ -130,7 +130,6 @@ install: burrito-local
   chmod +x ~/.local/bin/expert
 
 clean-engine:
-  elixir -e ':filename.basedir(:user_cache, "Expert") |> File.rm_rf!() |> IO.inspect()'
+  elixir -e ':filename.basedir(:user_cache, "expert") |> File.rm_rf!() |> IO.inspect()'
 
 default: burrito-local
-

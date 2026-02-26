@@ -162,13 +162,16 @@ defmodule Expert.EngineNode.Builder do
       |> Path.expand()
 
     build_engine_script = Path.join(expert_priv, "build_engine.exs")
+    cache_dir = Forge.Path.expert_cache_dir()
 
     args = [
       build_engine_script,
       "--source-path",
       engine_source,
       "--vsn",
-      Expert.vsn()
+      Expert.vsn(),
+      "--cache-dir",
+      cache_dir
     ]
 
     args =

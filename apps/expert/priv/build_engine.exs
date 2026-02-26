@@ -4,15 +4,17 @@
     strict: [
       vsn: :string,
       source_path: :string,
-      force: :boolean
+      force: :boolean,
+      cache_dir: :string
     ]
   )
 
 expert_vsn = Keyword.fetch!(args, :vsn)
 engine_source_path = Keyword.fetch!(args, :source_path)
 force? = Keyword.get(args, :force, false)
+cache_dir = Keyword.fetch!(args, :cache_dir)
 
-expert_data_path = :filename.basedir(:user_cache, "Expert", %{version: expert_vsn})
+expert_data_path = Path.join(cache_dir, expert_vsn)
 
 elixir_erts_vsn = "elixir-#{System.version()}-erts-#{:erlang.system_info(:version)}"
 tooling_path = Path.join([expert_data_path, "tooling", elixir_erts_vsn])

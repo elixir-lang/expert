@@ -8,7 +8,7 @@ defmodule Expert.EngineTest do
 
   @moduletag :tmp_dir
   setup %{tmp_dir: tmp_dir} do
-    patch(Engine, :base_dir, tmp_dir)
+    patch(Forge.Path, :expert_cache_dir, tmp_dir)
 
     :ok
   end

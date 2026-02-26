@@ -94,15 +94,9 @@ defmodule Expert.Engine do
     end
   end
 
-  @spec base_dir() :: String.t()
-  defp base_dir do
-    base = :filename.basedir(:user_cache, ~c"Expert")
-    to_string(base)
-  end
-
   @spec get_engine_dirs() :: [String.t()]
   defp get_engine_dirs do
-    base = base_dir()
+    base = Forge.Path.expert_cache_dir()
 
     if File.exists?(base) do
       for expert_ver_dir <- File.ls!(base),
@@ -187,7 +181,7 @@ defmodule Expert.Engine do
   @spec print_no_engines_found() :: non_neg_integer()
   defp print_no_engines_found do
     IO.puts("No engine builds found.")
-    IO.puts("\nEngine builds are stored in: #{base_dir()}")
+    IO.puts("\nEngine builds are stored in: #{Forge.Path.expert_cache_dir()}")
 
     @success_code
   end

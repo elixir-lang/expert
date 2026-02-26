@@ -61,4 +61,11 @@ defmodule Forge.Path do
 
     String.starts_with?(normalized_child, normalized_parent)
   end
+
+  @spec expert_cache_dir() :: String.t()
+  def expert_cache_dir do
+    :user_cache
+    |> :filename.basedir("expert")
+    |> to_string()
+  end
 end
