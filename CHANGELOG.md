@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.0-rc.4](https://github.com/elixir-lang/expert/compare/v0.1.0-rc.3...v0.1.0-rc.4) (2026-02-26)
+
+
+### Bug Fixes
+
+* correctly handle port lines when building the engine ([#463](https://github.com/elixir-lang/expert/issues/463)) ([d795c70](https://github.com/elixir-lang/expert/commit/d795c70982a8ab39a06b91c72942ea7988c03657))
+
 ## [0.1.0-rc.3](https://github.com/elixir-lang/expert/compare/v0.1.0-rc.2...v0.1.0-rc.3) (2026-02-26)
 
 
