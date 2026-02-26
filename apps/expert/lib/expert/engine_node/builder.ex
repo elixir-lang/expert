@@ -98,6 +98,10 @@ defmodule Expert.EngineNode.Builder do
     end
   end
 
+  def handle_info({_port, {:exit_status, 0}}, state) do
+    {:noreply, state}
+  end
+
   def handle_info({_port, {:exit_status, status}}, state) do
     Logger.error("Engine build script exited with status: #{status}", project: state.project)
 
@@ -147,7 +151,7 @@ defmodule Expert.EngineNode.Builder do
     defp start_build(%Project{} = project, from, opts \\ []) do
       with {:ok, elixir, env} <- Expert.Port.project_executable(project, "elixir"),
            {:ok, erl, _env} <- Expert.Port.project_executable(project, "erl") do
-        Logger.info("Using PATH: #{System.get_env("PATH")}", project: project)
+        Logger.info("Using path: #{System.get_env("PATH")}", project: project)
         Logger.info("Found elixir executable at #{elixir}", project: project)
         Logger.info("Found erl executable at #{erl}", project: project)
 
