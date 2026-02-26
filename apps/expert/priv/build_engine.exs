@@ -53,5 +53,10 @@ ns_build_path = Path.join([install_path, "_build", "dev_ns"])
 
 Mix.Task.run("namespace", [dev_build_path, ns_build_path, "--cwd", install_path, "--no-progress"])
 
-IO.puts("mix_home:" <> Path.join(tooling_path, "mix_home"))
-IO.puts("engine_path:" <> ns_build_path)
+mix_home = Path.join(tooling_path, "mix_home")
+
+engine_meta =
+  "engine_meta:" <>
+    Base.encode64(:erlang.term_to_binary(%{mix_home: mix_home, engine_path: ns_build_path}))
+
+IO.puts(engine_meta)

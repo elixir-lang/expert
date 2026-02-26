@@ -36,7 +36,7 @@ defmodule Expert.EngineNode.BuilderTest do
     task = Task.async(fn -> GenServer.call(builder_pid, :build, :infinity) end)
 
     assert_receive {:attempt, 1, _from}, 1_000
-    send(builder_pid, {nil, {:data, "Unchecked dependencies for environment dev:"}})
+    send(builder_pid, {nil, {:data, {:eol, "Unchecked dependencies for environment dev:"}}})
 
     assert_receive {:attempt, 2, _from}, 1_000
 
@@ -58,13 +58,61 @@ defmodule Expert.EngineNode.BuilderTest do
     error_line = "Unchecked dependencies for environment dev:"
 
     assert_receive :build_started, 1_000
-    send(builder_pid, {nil, {:data, error_line}})
+    send(builder_pid, {nil, {:data, {:eol, error_line}}})
 
     assert_receive :build_started, 1_000
-    send(builder_pid, {nil, {:data, error_line}})
+    send(builder_pid, {nil, {:data, {:eol, error_line}}})
 
     assert {:error, "Build failed due to dependency errors after 1 attempts", ^error_line} =
              Task.await(task, 5_000)
+  end
+
+  test "parses engine_meta after unrelated output", %{project: project} do
+    patch(Builder, :start_build, fn _project, _from, _opts ->
+      {:ok, :fake_port}
+    end)
+
+    {:ok, builder_pid} = Builder.start_link(project)
+    task = Task.async(fn -> GenServer.call(builder_pid, :build, :infinity) end)
+
+    engine_path = Path.join(System.tmp_dir!(), "dev_ns")
+    mix_home = Path.join(System.tmp_dir!(), "mix_home")
+
+    meta =
+      %{mix_home: mix_home, engine_path: engine_path}
+      |> :erlang.term_to_binary()
+      |> Base.encode64()
+
+    send(builder_pid, {nil, {:data, {:eol, "Rewriting 0 config scripts."}}})
+    send(builder_pid, {nil, {:data, {:eol, "engine_meta:#{meta}"}}})
+
+    assert {:ok, {paths, ^mix_home}} = Task.await(task, 5_000)
+    assert paths == Forge.Path.glob([engine_path, "lib/**/ebin"])
+  end
+
+  test "parses engine_meta across chunks", %{project: project} do
+    patch(Builder, :start_build, fn _project, _from, _opts ->
+      {:ok, :fake_port}
+    end)
+
+    {:ok, builder_pid} = Builder.start_link(project)
+    task = Task.async(fn -> GenServer.call(builder_pid, :build, :infinity) end)
+
+    engine_path = Path.join(System.tmp_dir!(), "dev_ns")
+    mix_home = Path.join(System.tmp_dir!(), "mix_home")
+
+    meta =
+      %{mix_home: mix_home, engine_path: engine_path}
+      |> :erlang.term_to_binary()
+      |> Base.encode64()
+
+    {first, second} = String.split_at("engine_meta:#{meta}", 8)
+
+    send(builder_pid, {nil, {:data, {:noeol, first}}})
+    send(builder_pid, {nil, {:data, {:eol, second}}})
+
+    assert {:ok, {paths, ^mix_home}} = Task.await(task, 5_000)
+    assert paths == Forge.Path.glob([engine_path, "lib/**/ebin"])
   end
 
   @excluded_apps [:patch, :nimble_parsec]

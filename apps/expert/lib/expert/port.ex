@@ -12,6 +12,7 @@ defmodule Expert.Port do
           | {:cd, String.t() | charlist()}
           | {:env, [{:os.env_var_name(), :os.env_var_value()}]}
           | {:args, list()}
+          | {:line, non_neg_integer()}
 
   @type open_opts :: [open_opt]
 
