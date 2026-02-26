@@ -14,8 +14,8 @@ force? = Keyword.get(args, :force, false)
 
 expert_data_path = :filename.basedir(:user_data, "Expert", %{version: expert_vsn})
 
-elixir_otp_vsn = "elixir-#{System.version()}-otp-#{:erlang.system_info(:otp_release)}"
-tooling_path = Path.join([expert_data_path, "tooling", elixir_otp_vsn])
+elixir_erts_vsn = "elixir-#{System.version()}-erts-#{:erlang.system_info(:version)}"
+tooling_path = Path.join([expert_data_path, "tooling", elixir_erts_vsn])
 
 System.put_env("MIX_INSTALL_DIR", expert_data_path)
 System.put_env("MIX_HOME", Path.join(tooling_path, "mix_home"))
