@@ -9,6 +9,7 @@ defmodule Forge.ProjectUmbrellaTest do
 
   defp umbrella_root, do: Path.join(fixtures_path(), "umbrella")
   defp sub_app_path(name), do: Path.join([umbrella_root(), "apps", name])
+  defp package_project_path(name), do: Path.join([umbrella_root(), "packages", name])
 
   setup do
     Workspace.set_workspace(nil)
@@ -67,6 +68,14 @@ defmodule Forge.ProjectUmbrellaTest do
       assert result == expected
     end
 
+    test "returns non-umbrella package root URI for a file outside apps_path" do
+      file_uri = Document.Path.to_uri(Path.join(package_project_path("search"), "lib/search.ex"))
+      result = Project.find_parent_root_dir(file_uri)
+
+      expected = Document.Path.to_uri(package_project_path("search"))
+      assert result == expected
+    end
+
     test "returns normal project root for non-umbrella projects" do
       project_path = Path.join(fixtures_path(), "project")
 
@@ -104,6 +113,14 @@ defmodule Forge.ProjectUmbrellaTest do
       project = Project.find_project(file_uri)
 
       expected_root = Document.Path.to_uri(umbrella_root())
+      assert project.root_uri == expected_root
+    end
+
+    test "returns project rooted at a non-umbrella package outside apps_path" do
+      file_uri = Document.Path.to_uri(Path.join(package_project_path("search"), "lib/search.ex"))
+      project = Project.find_project(file_uri)
+
+      expected_root = Document.Path.to_uri(package_project_path("search"))
       assert project.root_uri == expected_root
     end
   end
