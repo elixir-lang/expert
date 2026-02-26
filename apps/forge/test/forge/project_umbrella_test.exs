@@ -1,15 +1,17 @@
 defmodule Forge.ProjectUmbrellaTest do
-  alias Forge.Document
-  alias Forge.Project
-  alias Forge.Workspace
-
   use ExUnit.Case, async: true
 
   import Forge.Test.Fixtures
 
+  alias Forge.Document
+  alias Forge.Project
+  alias Forge.Workspace
+
   defp umbrella_root, do: Path.join(fixtures_path(), "umbrella")
   defp sub_app_path(name), do: Path.join([umbrella_root(), "apps", name])
   defp package_project_path(name), do: Path.join([umbrella_root(), "packages", name])
+  defp custom_umbrella_root, do: Path.join(fixtures_path(), "umbrella_custom_apps_path")
+  defp custom_sub_app_path(name), do: Path.join([custom_umbrella_root(), "packages", name])
 
   setup do
     Workspace.set_workspace(nil)
@@ -40,6 +42,10 @@ defmodule Forge.ProjectUmbrellaTest do
       if File.exists?(Path.join(project_path, "mix.exs")) do
         assert Project.umbrella_apps_path(project_path) == nil
       end
+    end
+
+    test "returns custom apps_path for an umbrella project" do
+      assert Project.umbrella_apps_path(custom_umbrella_root()) == "packages"
     end
   end
 
@@ -73,6 +79,14 @@ defmodule Forge.ProjectUmbrellaTest do
       result = Project.find_parent_root_dir(file_uri)
 
       expected = Document.Path.to_uri(package_project_path("search"))
+      assert result == expected
+    end
+
+    test "returns umbrella root URI when apps_path is set to a custom directory" do
+      file_uri = Document.Path.to_uri(Path.join(custom_sub_app_path("first"), "lib/first.ex"))
+      result = Project.find_parent_root_dir(file_uri)
+
+      expected = Document.Path.to_uri(custom_umbrella_root())
       assert result == expected
     end
 
@@ -121,6 +135,14 @@ defmodule Forge.ProjectUmbrellaTest do
       project = Project.find_project(file_uri)
 
       expected_root = Document.Path.to_uri(package_project_path("search"))
+      assert project.root_uri == expected_root
+    end
+
+    test "returns project rooted at umbrella root when apps_path is custom" do
+      file_uri = Document.Path.to_uri(Path.join(custom_sub_app_path("first"), "lib/first.ex"))
+      project = Project.find_project(file_uri)
+
+      expected_root = Document.Path.to_uri(custom_umbrella_root())
       assert project.root_uri == expected_root
     end
   end

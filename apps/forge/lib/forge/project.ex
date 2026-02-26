@@ -472,7 +472,7 @@ defmodule Forge.Project do
       :ok
     end
   end
-  
+
   defp workspace_boundary_path do
     case Forge.Workspace.get_workspace() do
       %Forge.Workspace{root_path: root_path} when is_binary(root_path) ->
@@ -505,9 +505,7 @@ defmodule Forge.Project do
   end
 
   defp do_find_umbrella_root(current_path, project_path, boundary) do
-    if boundary_reached?(current_path, boundary) do
-      nil
-    else
+    if !boundary_reached?(current_path, boundary) do
       case umbrella_apps_path(current_path) do
         apps_path when is_binary(apps_path) ->
           apps_root = Path.expand(Path.join(current_path, apps_path))
