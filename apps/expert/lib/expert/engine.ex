@@ -96,7 +96,7 @@ defmodule Expert.Engine do
 
   @spec base_dir() :: String.t()
   defp base_dir do
-    base = :filename.basedir(:user_data, ~c"Expert")
+    base = :filename.basedir(:user_cache, ~c"Expert")
     to_string(base)
   end
 
