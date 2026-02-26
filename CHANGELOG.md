@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.1.0-rc.3](https://github.com/elixir-lang/expert/compare/v0.1.0-rc.2...v0.1.0-rc.3) (2026-02-26)
+
+
+### Bug Fixes
+
+* **engine:** skip unquoted aliases ([#452](https://github.com/elixir-lang/expert/issues/452)) ([9c5c89a](https://github.com/elixir-lang/expert/commit/9c5c89a1e4ebbd457e4a5d5b59eebf8d827508a4))
+* **expert:** always use MIX_ENV=dev when building engine ([#442](https://github.com/elixir-lang/expert/issues/442)) ([60cc5b7](https://github.com/elixir-lang/expert/commit/60cc5b720cfd1860fe66d54a7ee23257b87acae4)), closes [#431](https://github.com/elixir-lang/expert/issues/431)
+* **expert:** honor users PATH ([#456](https://github.com/elixir-lang/expert/issues/456)) ([c003eba](https://github.com/elixir-lang/expert/commit/c003eba58d2ef60121b29c8d05071156f520ec7d))
+* **expert:** send correct version in server_info ([#457](https://github.com/elixir-lang/expert/issues/457)) ([31a4226](https://github.com/elixir-lang/expert/commit/31a4226d48c2e21514115decd7120d8174201b5c))
+* isolate engine builds and retry them on dependency errors ([#454](https://github.com/elixir-lang/expert/issues/454)) ([3205d56](https://github.com/elixir-lang/expert/commit/3205d5649b94c88db138175a3e6a79fd47d174cb))
+* make Refactorex available on all trigger kinds ([#445](https://github.com/elixir-lang/expert/issues/445)) ([97c810b](https://github.com/elixir-lang/expert/commit/97c810bf8a7d4522a75e13bd1cdcee7adf07d8bd))
+* properly setup logger ([#455](https://github.com/elixir-lang/expert/issues/455)) ([ba10ae8](https://github.com/elixir-lang/expert/commit/ba10ae87cae1247a47ae26106161c599fefae1f4))
+
 ## [0.1.0-rc.2](https://github.com/elixir-lang/expert/compare/v0.1.0-rc.1...v0.1.0-rc.2) (2026-02-24)
 
 
