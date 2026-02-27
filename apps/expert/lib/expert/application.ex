@@ -86,10 +86,12 @@ defmodule Expert.Application do
     buffer_opts =
       cond do
         opts[:stdio] ->
+          Logger.info("Expert v#{Expert.vsn()} starting on stdio")
           []
 
         is_integer(opts[:port]) ->
           IO.puts("Starting on port #{opts[:port]}")
+          Logger.info("Expert v#{Expert.vsn()} starting on port #{opts[:port]}")
           [communication: {GenLSP.Communication.TCP, [port: opts[:port]]}]
 
         true ->
