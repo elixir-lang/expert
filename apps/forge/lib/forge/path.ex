@@ -23,11 +23,27 @@ defmodule Forge.Path do
     String.replace(path, "\\", "/")
   end
 
+  @doc """
+  Checks if `file_path` is contained within `possible_parent`.
+
+  ## Examples
+
+      iex> Forge.Path.contains?("/home/user/project/lib/foo.ex", "/home/user/project")
+      true
+
+      iex> Forge.Path.contains?("/home/user/project", "/home/user/project")
+      true
+
+      iex> Forge.Path.contains?("/home/user/project_v2/lib/foo.ex", "/home/user/project")
+      false
+
+  """
   def contains?(file_path, possible_parent)
       when is_binary(file_path) and is_binary(possible_parent) do
-    normalized_file = normalize(file_path)
-    normalized_parent = normalize(possible_parent)
-    String.starts_with?(normalized_file, normalized_parent)
+    file_parts = file_path |> normalize() |> Path.split()
+    parent_parts = possible_parent |> normalize() |> Path.split()
+
+    List.starts_with?(file_parts, parent_parts)
   end
 
   def normalize_paths(paths) when is_list(paths) do
@@ -50,16 +66,19 @@ defmodule Forge.Path do
 
       iex> Forge.Path.parent_path?("/home/user/docs", "/home/user/docs/subdir")
       false
+
+      iex> Forge.Path.parent_path?("/home/user/docs_v2/file.txt", "/home/user/docs")
+      false
   """
   def parent_path?(child_path, parent_path) when byte_size(child_path) < byte_size(parent_path) do
     false
   end
 
   def parent_path?(child_path, parent_path) do
-    normalized_child = Path.expand(child_path)
-    normalized_parent = Path.expand(parent_path)
+    child_parts = child_path |> Path.expand() |> Path.split()
+    parent_parts = parent_path |> Path.expand() |> Path.split()
 
-    String.starts_with?(normalized_child, normalized_parent)
+    List.starts_with?(child_parts, parent_parts)
   end
 
   @spec expert_cache_dir() :: String.t()
