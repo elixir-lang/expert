@@ -110,8 +110,10 @@ defmodule Engine.Search.Indexer do
     path_to_size_map = Map.new(paths_to_sizes)
 
     Progress.with_tracked_progress("Indexing source code", total_bytes, fn report ->
+      start_time = System.monotonic_time(:millisecond)
       result = do_process_chunks(paths_to_sizes, path_to_size_map, processor, timeout, report)
-      {:done, result}
+      elapsed = System.monotonic_time(:millisecond) - start_time
+      {:done, result, "Completed in #{format_duration(elapsed)}"}
     end)
   end
 
@@ -152,6 +154,9 @@ defmodule Engine.Search.Indexer do
     end)
     |> Enum.to_list()
   end
+
+  defp format_duration(ms) when ms < 1000, do: "#{ms}ms"
+  defp format_duration(ms), do: "#{Float.round(ms / 1000, 1)}s"
 
   defp path_to_sizes(paths) do
     Enum.reduce(paths, [], fn file_path, acc ->
