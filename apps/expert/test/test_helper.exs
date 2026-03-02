@@ -1,4 +1,3 @@
-Application.ensure_all_started(:snowflake)
 Application.ensure_all_started(:refactorex)
 Application.ensure_all_started(:telemetry)
 Application.put_env(:gen_lsp, :exit_on_end, false)
