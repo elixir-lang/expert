@@ -12,43 +12,74 @@ defmodule Engine.Search.Indexer.Extractors.ExUnit do
   # setup block i.e. setup do... or setup arg do...
   def extract({setup_fn, _, args} = setup, %Reducer{} = reducer)
       when setup_fn in [:setup, :setup_all] and length(args) > 0 do
-    {:ok, module} = Analyzer.current_module(reducer.analysis, Reducer.position(reducer))
-    arity = arity_for(args)
-    subject = Formats.mfa(module, setup_fn, arity)
-    setup_type = :"ex_unit_#{setup_fn}"
+    position = Reducer.position(reducer)
 
-    case Metadata.location(setup) do
-      {:block, _, _, _} -> block_entry(reducer, setup, setup_type, subject)
-      {:expression, _} -> expression_entry(reducer, setup, setup_type, subject)
+    with true <- exunit_in_scope?(reducer, position),
+         {:ok, module} <- Analyzer.current_module(reducer.analysis, position) do
+      arity = arity_for(args)
+      subject = Formats.mfa(module, setup_fn, arity)
+      setup_type = :"ex_unit_#{setup_fn}"
+
+      case Metadata.location(setup) do
+        {:block, _, _, _} -> block_entry(reducer, setup, setup_type, subject)
+        {:expression, _} -> expression_entry(reducer, setup, setup_type, subject)
+      end
+    else
+      _ -> :ignored
     end
   end
 
   # Test block test "test name" do ... or test "test name", arg do
   def extract({:test, _, [{_, _, [test_name]} | _] = args} = test, %Reducer{} = reducer)
       when is_binary(test_name) do
-    {:ok, module} = Analyzer.current_module(reducer.analysis, Reducer.position(reducer))
-    arity = arity_for(args)
-    module_name = Formats.module(module)
-    subject = "#{module_name}.[\"#{test_name}\"]/#{arity}"
+    position = Reducer.position(reducer)
 
-    case Metadata.location(test) do
-      {:block, _, _, _} -> block_entry(reducer, test, :ex_unit_test, subject)
-      {:expression, _} -> expression_entry(reducer, test, :ex_unit_test, subject)
+    with true <- exunit_in_scope?(reducer, position),
+         {:ok, module} <- Analyzer.current_module(reducer.analysis, position) do
+      arity = arity_for(args)
+      module_name = Formats.module(module)
+      subject = "#{module_name}.[\"#{test_name}\"]/#{arity}"
+
+      case Metadata.location(test) do
+        {:block, _, _, _} -> block_entry(reducer, test, :ex_unit_test, subject)
+        {:expression, _} -> expression_entry(reducer, test, :ex_unit_test, subject)
+      end
+    else
+      _ -> :ignored
     end
   end
 
   # describe blocks
-  def extract({:describe, _, [{_, _, [describe_name]} | _] = args} = test, %Reducer{} = reducer) do
-    {:ok, module} = Analyzer.current_module(reducer.analysis, Reducer.position(reducer))
-    arity = arity_for(args)
-    module_name = Formats.module(module)
-    subject = "#{module_name}[\"#{describe_name}\"]/#{arity}"
+  def extract({:describe, _, [{_, _, [describe_name]} | _] = args} = test, %Reducer{} = reducer)
+      when is_binary(describe_name) do
+    position = Reducer.position(reducer)
 
-    block_entry(reducer, test, :ex_unit_describe, subject)
+    with true <- exunit_in_scope?(reducer, position),
+         {:ok, module} <- Analyzer.current_module(reducer.analysis, position) do
+      arity = arity_for(args)
+      module_name = Formats.module(module)
+      subject = "#{module_name}[\"#{describe_name}\"]/#{arity}"
+
+      block_entry(reducer, test, :ex_unit_describe, subject)
+    else
+      _ -> :ignored
+    end
   end
 
   def extract(_ign, _) do
     :ignored
+  end
+
+  defp exunit_in_scope?(%Reducer{} = reducer, %Position{} = position) do
+    ExUnit.Case in Analyzer.uses_at(reducer.analysis, position) or
+      ExUnit.Case in Analyzer.requires_at(reducer.analysis, position) or
+      exunit_imported?(reducer, position)
+  end
+
+  defp exunit_imported?(%Reducer{} = reducer, %Position{} = position) do
+    Enum.any?(Analyzer.imports_at(reducer.analysis, position), fn {mod, _, _} ->
+      mod == ExUnit.Case
+    end)
   end
 
   defp expression_entry(%Reducer{} = reducer, ast, type, subject) do
