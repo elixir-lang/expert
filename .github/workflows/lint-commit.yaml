@@ -1,6 +1,6 @@
 name: Lint Commit
 on:
-  pull_request_target:
+  pull_request:
     types:
       - opened
       - reopened
@@ -9,6 +9,10 @@ on:
 
 permissions:
   pull-requests: write
+
+defaults:
+  run:
+    shell: bash
 
 jobs:
   commitlint:

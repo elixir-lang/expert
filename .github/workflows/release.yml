@@ -7,6 +7,10 @@ on:
 permissions:
   contents: read
 
+defaults:
+  run:
+    shell: bash
+
 jobs:
   release:
     name: release
@@ -34,7 +38,7 @@ jobs:
     steps:
       - env:
           TAG_NAME: ${{ needs.release.outputs.tag_name }}
-        run: gh release edit "$TAG_NAME" --draft=true --repo='elixir-lang/expert'
+        run: gh release edit "${TAG_NAME}" --draft=true --repo='elixir-lang/expert'
 
   build:
     needs: [release, draft]
@@ -70,7 +74,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.token }}
           TAG_NAME: ${{ needs.release.outputs.tag_name }}
-        run: gh release upload "$TAG_NAME" ./apps/expert/burrito_out/*
+        run: gh release upload "${TAG_NAME}" ./apps/expert/burrito_out/*
 
   publish:
     name: publish
@@ -83,4 +87,4 @@ jobs:
     steps:
       - env:
           TAG_NAME: ${{ needs.release.outputs.tag_name }}
-        run: gh release edit "$TAG_NAME" --draft=false --repo='elixir-lang/expert'
+        run: gh release edit "${TAG_NAME}" --draft=false --repo='elixir-lang/expert'

@@ -12,6 +12,10 @@ on:
 
 permissions: {}
 
+defaults:
+  run:
+    shell: bash
+
 jobs:
   zizmor:
     name: zizmor

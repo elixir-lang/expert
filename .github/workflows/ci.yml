@@ -13,6 +13,10 @@ env:
 permissions:
   contents: read
 
+defaults:
+  run:
+    shell: bash
+
 jobs:
   static-analysis:
     runs-on: ubuntu-latest
@@ -56,22 +60,22 @@ jobs:
       - name: Deps
         env:
           PROJECT: ${{ matrix.project }}
-        run: just deps "$PROJECT"
+        run: just deps "${PROJECT}"
 
       - name: Compile
         env:
           PROJECT: ${{ matrix.project }}
-        run: just compile "$PROJECT" --warnings-as-errors
+        run: just compile "${PROJECT}" --warnings-as-errors
 
       - name: Formatter
         env:
           PROJECT: ${{ matrix.project }}
-        run: just mix "$PROJECT" format --check-formatted
+        run: just mix "${PROJECT}" format --check-formatted
 
       - name: Credo
         env:
           PROJECT: ${{ matrix.project }}
-        run: just mix "$PROJECT" credo
+        run: just mix "${PROJECT}" credo
 
   dialyzer:
     runs-on: ubuntu-latest
@@ -125,12 +129,12 @@ jobs:
       - name: Deps
         env:
           PROJECT: ${{ matrix.project }}
-        run: just deps "$PROJECT"
+        run: just deps "${PROJECT}"
 
       - name: Compile
         env:
           PROJECT: ${{ matrix.project }}
-        run: just compile "$PROJECT" --warnings-as-errors
+        run: just compile "${PROJECT}" --warnings-as-errors
 
       - name: Create PLT
         if: steps.cache-plt.outputs.cache-hit != 'true'
@@ -138,14 +142,14 @@ jobs:
           PROJECT: ${{ matrix.project }}
         run: |
           mkdir -p priv/plts
-          just mix "$PROJECT" dialyzer --plt
+          just mix "${PROJECT}" dialyzer --plt
 
       - name: Dialyzer
         env:
           PROJECT: ${{ matrix.project }}
         run: |
-          just mix "$PROJECT" compile.protocols --warnings-as-errors
-          just mix "$PROJECT" dialyzer
+          just mix "${PROJECT}" compile.protocols --warnings-as-errors
+          just mix "${PROJECT}" dialyzer
 
   release-test:
     runs-on: ${{matrix.os.name}}
@@ -246,9 +250,9 @@ jobs:
       - name: Deps
         env:
           PROJECT: ${{ matrix.project }}
-        run: just deps "$PROJECT"
+        run: just deps "${PROJECT}"
 
       - name: Run tests
         env:
           PROJECT: ${{ matrix.project }}
-        run: just test "$PROJECT" --warnings-as-errors
+        run: just test "${PROJECT}" --warnings-as-errors
