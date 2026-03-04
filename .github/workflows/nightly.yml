@@ -4,6 +4,9 @@ on:
   schedule:
     - cron: 0 0 * * *
 
+permissions:
+  contents: read
+
 jobs:
   check:
     name: Check for new commits
@@ -11,9 +14,10 @@ jobs:
     outputs:
       new_commits: ${{ steps.commit_check.outputs.new_commits }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           fetch-depth: 0
+          persist-credentials: false
       - name: Check for new commits since last nightly
         id: commit_check
         run: |
@@ -31,17 +35,21 @@ jobs:
     needs: check
     if: needs.check.outputs.new_commits == 'true'
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
-      - uses: actions/checkout@v6
-      - uses: extractions/setup-just@v3
-      - uses: erlef/setup-beam@v1
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - uses: extractions/setup-just@f8a3cce218d9f83db3a2ecd90e41ac3de6cdfd9b # v3.1.0
+      - uses: erlef/setup-beam@e6d7c94229049569db56a7ad5a540c051a010af9 # v1.20.4
         with:
           otp-version: "27.3.4.1"
           elixir-version: "1.17.3"
           version-type: strict
-      - uses: mlugg/setup-zig@v2
+      - uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29 # v2.2.1
         with:
           version: "0.15.2"
 
@@ -49,9 +57,9 @@ jobs:
       - run: just deps engine
       - name: Set release version to latest rev
         run: sed -i "$ s/$/-$(git rev-parse --short HEAD)/" version.txt
-      - run: just burrito
-        env:
+      - env:
           MIX_ENV: prod
+        run: just burrito
       - name: Create Checksum
         run: |
           cd ./apps/expert/burrito_out
