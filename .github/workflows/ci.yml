@@ -13,6 +13,10 @@ env:
 permissions:
   contents: read
 
+defaults:
+  run:
+    shell: bash
+
 jobs:
   static-analysis:
     runs-on: ubuntu-latest
@@ -27,8 +31,8 @@ jobs:
           - forge
     steps:
       # Step: Setup Elixir + Erlang image as the base
-      - uses: extractions/setup-just@v3
-      - uses: erlef/setup-beam@v1
+      - uses: extractions/setup-just@f8a3cce218d9f83db3a2ecd90e41ac3de6cdfd9b # v3.1.0
+      - uses: erlef/setup-beam@e6d7c94229049569db56a7ad5a540c051a010af9 # v1.20.4
         with:
           otp-version: ${{ env.DEFAULT_OTP }}
           elixir-version: ${{ env.DEFAULT_ELIXIR }}
@@ -36,32 +40,42 @@ jobs:
 
       # Step: Check out the code.
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
 
       # Step: Define how to cache deps. Restores existing cache if present.
       - name: Cache deps
         id: cache-deps
-        uses: actions/cache@v5
+        uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
         with:
           path: |
             apps/${{ matrix.project }}/deps
             apps/${{ matrix.project }}/_build
 
-          key: ${{ runner.os }}-mix-${{ matrix.project }}-${{ env.DEFAULT_ELIXIR }}-${{ env.DEFAULT_OTP }}-${{ hashFiles('apps/${{matrix.project}}/mix.lock') }}
+          key: ${{ runner.os }}-mix-${{ matrix.project }}-${{ env.DEFAULT_ELIXIR }}-${{ env.DEFAULT_OTP }}-${{ hashFiles(format('apps/{0}/mix.lock', matrix.project)) }}
           restore-keys: |
             ${{ runner.os }}-mix-${{ matrix.project }}-${{ env.DEFAULT_ELIXIR }}-${{ env.DEFAULT_OTP }}-
 
       - name: Deps
-        run: just deps ${{ matrix.project }}
+        env:
+          PROJECT: ${{ matrix.project }}
+        run: just deps "${PROJECT}"
 
       - name: Compile
-        run: just compile ${{ matrix.project }} --warnings-as-errors
+        env:
+          PROJECT: ${{ matrix.project }}
+        run: just compile "${PROJECT}" --warnings-as-errors
 
       - name: Formatter
-        run: just mix ${{ matrix.project }} format --check-formatted
+        env:
+          PROJECT: ${{ matrix.project }}
+        run: just mix "${PROJECT}" format --check-formatted
 
       - name: Credo
-        run: just mix ${{ matrix.project }} credo
+        env:
+          PROJECT: ${{ matrix.project }}
+        run: just mix "${PROJECT}" credo
 
   dialyzer:
     runs-on: ubuntu-latest
@@ -74,9 +88,9 @@ jobs:
           - expert_credo
           - forge
     steps:
-      - uses: extractions/setup-just@v3
+      - uses: extractions/setup-just@f8a3cce218d9f83db3a2ecd90e41ac3de6cdfd9b # v3.1.0
       - name: Set up Elixir
-        uses: erlef/setup-beam@v1
+        uses: erlef/setup-beam@e6d7c94229049569db56a7ad5a540c051a010af9 # v1.20.4
         with:
           otp-version: ${{ env.DEFAULT_OTP }}
           elixir-version: ${{ env.DEFAULT_ELIXIR }}
@@ -84,48 +98,58 @@ jobs:
 
       # Step: Check out the code.
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
 
       # Step: Define how to cache deps. Restores existing cache if present.
       - name: Cache deps
         id: cache-deps
-        uses: actions/cache@v5
+        uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
         with:
           path: |
             apps/${{ matrix.project }}/deps
             apps/${{ matrix.project }}/_build
 
-          key: ${{ runner.os }}-mix-${{ matrix.project }}-${{ env.DEFAULT_ELIXIR }}-${{ env.DEFAULT_OTP }}-${{ hashFiles('apps/${{ matrix.project }}/mix.lock') }}
+          key: ${{ runner.os }}-mix-${{ matrix.project }}-${{ env.DEFAULT_ELIXIR }}-${{ env.DEFAULT_OTP }}-${{ hashFiles(format('apps/{0}/mix.lock', matrix.project)) }}
           restore-keys: |
             ${{ runner.os }}-mix-${{ matrix.project }}-${{ env.DEFAULT_ELIXIR }}-${{ env.DEFAULT_OTP }}-
 
       # Step: Create dialyzer .plt files if they're not present
       - name: Cache dialyzer plt files
         id: cache-plt
-        uses: actions/cache@v5
+        uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
         with:
-          key: expert-plts-${{ env.DEFAULT_OTP }}-${{ env.DEFAULT_ELIXIR }}-${{ hashFiles('apps/${{ matrix.project }}/mix.lock' ) }}
+          key: expert-plts-${{ env.DEFAULT_OTP }}-${{ env.DEFAULT_ELIXIR }}-${{ hashFiles(format('apps/{0}/mix.lock', matrix.project)) }}
           restore-keys: |
-            expert-plts-${{ env.DEFAULT_OTP }}-${{ env.DEFAULT_ELIXIR }}-${{ hashFiles('apps/${{ matrix.project }}/mix.lock') }}-
+            expert-plts-${{ env.DEFAULT_OTP }}-${{ env.DEFAULT_ELIXIR }}-${{ hashFiles(format('apps/{0}/mix.lock', matrix.project)) }}-
             expert-plts-${{ env.DEFAULT_OTP }}-${{ env.DEFAULT_ELIXIR }}-
           path: "priv/plts"
 
       - name: Deps
-        run: just deps ${{ matrix.project }}
+        env:
+          PROJECT: ${{ matrix.project }}
+        run: just deps "${PROJECT}"
 
       - name: Compile
-        run: just compile ${{ matrix.project }} --warnings-as-errors
+        env:
+          PROJECT: ${{ matrix.project }}
+        run: just compile "${PROJECT}" --warnings-as-errors
 
       - name: Create PLT
         if: steps.cache-plt.outputs.cache-hit != 'true'
+        env:
+          PROJECT: ${{ matrix.project }}
         run: |
           mkdir -p priv/plts
-          just mix ${{ matrix.project }} dialyzer --plt
+          just mix "${PROJECT}" dialyzer --plt
 
       - name: Dialyzer
+        env:
+          PROJECT: ${{ matrix.project }}
         run: |
-          just mix ${{ matrix.project }} compile.protocols --warnings-as-errors
-          just mix ${{ matrix.project }} dialyzer
+          just mix "${PROJECT}" compile.protocols --warnings-as-errors
+          just mix "${PROJECT}" dialyzer
 
   release-test:
     runs-on: ${{matrix.os.name}}
@@ -146,22 +170,24 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
 
-      - uses: extractions/setup-just@v3
+      - uses: extractions/setup-just@f8a3cce218d9f83db3a2ecd90e41ac3de6cdfd9b # v3.1.0
       - name: Set up Elixir
-        uses: erlef/setup-beam@v1
+        uses: erlef/setup-beam@e6d7c94229049569db56a7ad5a540c051a010af9 # v1.20.4
         with:
           otp-version: ${{matrix.otp}}
           elixir-version: ${{matrix.elixir}}
 
-      - uses: mlugg/setup-zig@v2
+      - uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29 # v2.2.1
         with:
           version: "0.15.2"
 
       - name: Cache deps
         id: cache-deps
-        uses: actions/cache@v5
+        uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
         with:
           path: |
             apps/**/deps
@@ -180,10 +206,12 @@ jobs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
     steps:
      - name: Checkout to repository
-       uses: actions/checkout@v6
+       uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+       with:
+         persist-credentials: false
      - name: Set matrix data
        id: set-matrix
-       run: echo "matrix=$(jq -c . < .github/matrix.json)" >> $GITHUB_OUTPUT
+       run: echo "matrix=$(jq -c . < .github/matrix.json)" >> "$GITHUB_OUTPUT"
 
   test:
     runs-on: ${{matrix.os}}
@@ -196,29 +224,35 @@ jobs:
         if: runner.os == 'Windows'
         run: git config --global core.autocrlf false
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
 
-      - uses: extractions/setup-just@v3
+      - uses: extractions/setup-just@f8a3cce218d9f83db3a2ecd90e41ac3de6cdfd9b # v3.1.0
       - name: Set up Elixir
-        uses: erlef/setup-beam@v1
+        uses: erlef/setup-beam@e6d7c94229049569db56a7ad5a540c051a010af9 # v1.20.4
         with:
           otp-version: ${{matrix.otp}}
           elixir-version: ${{matrix.elixir}}
 
       - name: Cache deps
         id: cache-deps
-        uses: actions/cache@v5
+        uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
         with:
           path: |
             apps/${{ matrix.project }}/deps
             apps/${{ matrix.project }}/_build
 
-          key: ${{ runner.os }}-mix-${{ matrix.project }}-${{ env.DEFAULT_ELIXIR }}-${{ env.DEFAULT_OTP }}-${{ hashFiles('apps/${{matrix.project}}/mix.lock') }}
+          key: ${{ runner.os }}-mix-${{ matrix.project }}-${{ env.DEFAULT_ELIXIR }}-${{ env.DEFAULT_OTP }}-${{ hashFiles(format('apps/{0}/mix.lock', matrix.project)) }}
           restore-keys: |
             ${{ runner.os }}-mix-${{ matrix.project }}-${{ env.DEFAULT_ELIXIR }}-${{ env.DEFAULT_OTP }}-
 
       - name: Deps
-        run: just deps ${{ matrix.project }}
+        env:
+          PROJECT: ${{ matrix.project }}
+        run: just deps "${PROJECT}"
 
       - name: Run tests
-        run: just test ${{ matrix.project }} --warnings-as-errors
+        env:
+          PROJECT: ${{ matrix.project }}
+        run: just test "${PROJECT}" --warnings-as-errors
