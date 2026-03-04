@@ -29,6 +29,7 @@ defmodule Engine.Search.Indexer.Extractors.ExUnitTest do
       {:ok, [setup], doc} =
         ~q[
         defmodule SomeTest do
+          use ExUnit.Case
           setup do
             :ok
           end
@@ -46,6 +47,7 @@ defmodule Engine.Search.Indexer.Extractors.ExUnitTest do
       {:ok, [setup], doc} =
         ~q[
         defmodule SomeTest do
+          use ExUnit.Case
           setup arg do
             :ok
           end
@@ -63,6 +65,7 @@ defmodule Engine.Search.Indexer.Extractors.ExUnitTest do
       {:ok, [setup], doc} =
         ~q[
         defmodule SomeTest do
+          use ExUnit.Case
           setup :other_function
         end
         ]
@@ -78,6 +81,7 @@ defmodule Engine.Search.Indexer.Extractors.ExUnitTest do
       {:ok, [setup], doc} =
         ~q{
         defmodule SomeTest do
+          use ExUnit.Case
           setup [:other_function, :second_function]
         end
         }
@@ -93,6 +97,7 @@ defmodule Engine.Search.Indexer.Extractors.ExUnitTest do
       {:ok, [setup], doc} =
         ~q[
         defmodule SomeTest do
+          use ExUnit.Case
           setup {OtherModule, :setup}
         end
         ]
@@ -108,6 +113,7 @@ defmodule Engine.Search.Indexer.Extractors.ExUnitTest do
       {:ok, [test], _doc} =
         ~q[
         defmodule SomeTest do
+          use ExUnit.Case
           test "something" do
             setup = 3
             setup
@@ -125,6 +131,7 @@ defmodule Engine.Search.Indexer.Extractors.ExUnitTest do
       {:ok, [setup], doc} =
         ~q[
         defmodule SomeTest do
+          use ExUnit.Case
           setup_all do
             :ok
           end
@@ -142,6 +149,7 @@ defmodule Engine.Search.Indexer.Extractors.ExUnitTest do
       {:ok, [setup], doc} =
         ~q[
         defmodule SomeTest do
+          use ExUnit.Case
           setup_all arg do
             :ok
           end
@@ -159,6 +167,7 @@ defmodule Engine.Search.Indexer.Extractors.ExUnitTest do
       {:ok, [setup], doc} =
         ~q[
         defmodule SomeTest do
+          use ExUnit.Case
           setup_all :other_function
         end
         ]
@@ -175,6 +184,7 @@ defmodule Engine.Search.Indexer.Extractors.ExUnitTest do
       {:ok, [setup], doc} =
         ~q{
         defmodule SomeTest do
+          use ExUnit.Case
           setup_all [:other_function, :second_function]
         end
         }
@@ -191,6 +201,7 @@ defmodule Engine.Search.Indexer.Extractors.ExUnitTest do
       {:ok, [setup], doc} =
         ~q[
         defmodule SomeTest do
+          use ExUnit.Case
           setup_all {OtherModule, :setup}
         end
         ]
@@ -209,6 +220,7 @@ defmodule Engine.Search.Indexer.Extractors.ExUnitTest do
       {:ok, [describe], doc} =
         ~q[
         defmodule SomeTest do
+          use ExUnit.Case
           describe "something" do
           end
         end
@@ -225,6 +237,7 @@ defmodule Engine.Search.Indexer.Extractors.ExUnitTest do
       {:ok, [describe, _test], doc} =
         ~q[
         defmodule SomeTest do
+          use ExUnit.Case
           describe "something" do
             test "something"
           end
@@ -247,6 +260,7 @@ defmodule Engine.Search.Indexer.Extractors.ExUnitTest do
       {:ok, [test], doc} =
         ~q[
         defmodule SomeTest do
+          use ExUnit.Case
           test "my test"
         end
         ]
@@ -263,6 +277,7 @@ defmodule Engine.Search.Indexer.Extractors.ExUnitTest do
       {:ok, [test], doc} =
         ~q[
         defmodule SomeTest do
+          use ExUnit.Case
           test "my test" do
           end
         end
@@ -280,6 +295,7 @@ defmodule Engine.Search.Indexer.Extractors.ExUnitTest do
       {:ok, [test], doc} =
         ~q[
         defmodule SomeTest do
+          use ExUnit.Case
           test "my test", context do
           end
         end
@@ -299,9 +315,10 @@ defmodule Engine.Search.Indexer.Extractors.ExUnitTest do
 
   describe "block structure" do
     test "describe contains tests" do
-      {:ok, [module, describe, test], _} =
+      {:ok, all_entries, _} =
         ~q[
          defmodule SomeTexst do
+           use ExUnit.Case
            describe "outer" do
              test "my test", context do
              end
@@ -309,6 +326,8 @@ defmodule Engine.Search.Indexer.Extractors.ExUnitTest do
          end
         ]
         |> index_with_structure()
+
+      [module, describe, test] = Enum.filter(all_entries, &(&1.subtype == :definition))
 
       assert module.type == :module
       assert module.block_id == :root
@@ -340,11 +359,61 @@ defmodule Engine.Search.Indexer.Extractors.ExUnitTest do
       assert {:ok, [], _doc} =
                ~q[
                defmodule SomeTest do
+                 use ExUnit.Case
                  test "my test" do
                    assert true
                end
                ]
                |> index_definitions()
+    end
+  end
+
+  describe "when ExUnit.Case is in scope" do
+    test "indexes test/describe/setup" do
+      {:ok, entries, _doc} =
+        ~q[
+        defmodule SomeTest do
+          use ExUnit.Case
+
+          setup do
+            :ok
+          end
+
+          describe "some group" do
+            test "my test" do
+              :ok
+            end
+          end
+        end
+        ]
+        |> index_definitions()
+
+      types = Enum.map(entries, & &1.type)
+      assert :ex_unit_setup in types
+      assert :ex_unit_describe in types
+      assert :ex_unit_test in types
+    end
+  end
+
+  describe "when ExUnit.Case is not in scope" do
+    test "does not index" do
+      {:ok, entries, _doc} =
+        ~q[
+        defmodule NotATest do
+          def setup(arg), do: arg
+
+          def describe(name) do
+            name
+          end
+
+          def test(name, _context) do
+            name
+          end
+        end
+        ]
+        |> index_definitions()
+
+      assert entries == []
     end
   end
 end
