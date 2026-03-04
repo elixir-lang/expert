@@ -59,6 +59,51 @@ defmodule Expert.ConfigurationTest do
     end
   end
 
+  describe "log_level/0" do
+    test "defaults to :info" do
+      assert Configuration.log_level() == :info
+    end
+
+    test "can be set via new/1" do
+      [log_level: :warning]
+      |> Configuration.new()
+      |> Configuration.set()
+
+      assert Configuration.log_level() == :warning
+    end
+  end
+
+  describe "on_change/1 with logLevel" do
+    test "parses the 4 valid LSP log level strings" do
+      for {string, atom} <- [
+            {"error", :error},
+            {"warning", :warning},
+            {"info", :info},
+            {"log", :log}
+          ] do
+        change = build_change(%{"logLevel" => string})
+
+        {:ok, updated} = Configuration.on_change(change)
+
+        assert updated.log_level == atom
+      end
+    end
+
+    test "defaults to :info when setting is missing" do
+      change = build_change(%{})
+      {:ok, updated} = Configuration.on_change(change)
+
+      assert updated.log_level == :info
+    end
+
+    test "defaults to :info for invalid string values" do
+      change = build_change(%{"logLevel" => "verbose"})
+      {:ok, updated} = Configuration.on_change(change)
+
+      assert updated.log_level == :info
+    end
+  end
+
   describe "on_change/1 with workspace_symbols.min_query_length" do
     test "parses nested setting correctly" do
       settings = %{"workspaceSymbols" => %{"minQueryLength" => 0}}

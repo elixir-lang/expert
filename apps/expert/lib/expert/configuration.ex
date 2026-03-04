@@ -10,16 +10,22 @@ defmodule Expert.Configuration do
   alias GenLSP.Requests
   alias GenLSP.Structures
 
+  @default_lsp_log_level :info
+
+  @type lsp_level :: :error | :warning | :info | :log
+
   defstruct support: nil,
             client_name: nil,
             additional_watched_extensions: nil,
-            workspace_symbols: %WorkspaceSymbols{}
+            workspace_symbols: %WorkspaceSymbols{},
+            log_level: @default_lsp_log_level
 
   @type t :: %__MODULE__{
           support: support | nil,
           client_name: String.t() | nil,
           additional_watched_extensions: [String.t()] | nil,
-          workspace_symbols: WorkspaceSymbols.t()
+          workspace_symbols: WorkspaceSymbols.t(),
+          log_level: lsp_level()
         }
 
   @opaque support :: Support.t()
@@ -50,6 +56,11 @@ defmodule Expert.Configuration do
   @spec client_support(atom()) :: term()
   def client_support(key) when is_atom(key) do
     client_support(get().support, key)
+  end
+
+  @spec log_level() :: lsp_level()
+  def log_level do
+    get().log_level
   end
 
   @spec window_log_message_enabled?() :: boolean()
@@ -94,11 +105,22 @@ defmodule Expert.Configuration do
   defp apply_config_change(%__MODULE__{} = old_config, %{} = settings) do
     new_config =
       old_config
+      |> set_lsp_log_level(settings)
       |> set_workspace_symbols(settings)
       |> set()
 
     maybe_watched_extensions_request(new_config, settings)
   end
+
+  defp set_lsp_log_level(%__MODULE__{} = config, settings) do
+    %__MODULE__{config | log_level: parse_lsp_log_level(settings)}
+  end
+
+  defp parse_lsp_log_level(%{"logLevel" => "error"}), do: :error
+  defp parse_lsp_log_level(%{"logLevel" => "warning"}), do: :warning
+  defp parse_lsp_log_level(%{"logLevel" => "info"}), do: :info
+  defp parse_lsp_log_level(%{"logLevel" => "log"}), do: :log
+  defp parse_lsp_log_level(_), do: @default_lsp_log_level
 
   defp set_workspace_symbols(%__MODULE__{} = config, settings) do
     %__MODULE__{config | workspace_symbols: WorkspaceSymbols.new(settings)}
