@@ -53,6 +53,8 @@ defmodule Engine.Build.Project do
       Mix.Task.clear()
       Progress.report(token, message: "Compiling #{Project.display_name(project)}")
       result = compile_in_isolation()
+      Mix.Task.run("local.hex", ~w(--force --if-missing))
+      Mix.Task.run("local.rebar", ~w(--force --if-missing))
       Mix.Task.run(:loadpaths)
       result
     end
@@ -78,7 +80,11 @@ defmodule Engine.Build.Project do
   end
 
   defp compile_in_isolation do
-    compile_fun = fn -> Mix.Task.run(:compile, mix_compile_opts()) end
+    compile_fun = fn ->
+      Mix.Task.run("local.hex", ~w(--force --if-missing))
+      Mix.Task.run("local.rebar", ~w(--force --if-missing))
+      Mix.Task.run(:compile, mix_compile_opts())
+    end
 
     case Isolation.invoke(compile_fun) do
       {:ok, result} ->
