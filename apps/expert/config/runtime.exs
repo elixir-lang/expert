@@ -16,6 +16,6 @@ config :logger, :default_handler,
   level: :debug,
   config: [
     file: String.to_charlist(log_file_name),
-    max_no_bytes: :infinity,
-    max_no_files: 0
+    max_no_bytes: 10_485_760,
+    max_no_files: 3
   ]
