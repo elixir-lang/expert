@@ -86,7 +86,9 @@ defmodule Expert.MixProject do
       # assume a roundtrip to a project node is made.
       {:engine, path: "../engine", only: [:test]},
       {:forge, path: "../forge"},
-      {:gen_lsp, "~> 0.11.3"},
+      {:gen_lsp,
+       git: "https://github.com/elixir-tools/gen_lsp",
+       ref: "7b634d09800a24c8671b3c515e5aa1bb6385210e"},
       {:jason, "~> 1.4"},
       {:patch, "~> 0.15", runtime: false, only: [:dev, :test]},
       {:path_glob, "~> 0.2"},

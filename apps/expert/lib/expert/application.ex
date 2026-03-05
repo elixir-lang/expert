@@ -115,9 +115,23 @@ defmodule Expert.Application do
     end
 
     children_spec = children(buffer: buffer_opts)
-    opts = [strategy: :one_for_one, name: Expert.Supervisor]
+    opts = [strategy: :one_for_one, name: Expert.Supervisor, auto_shutdown: :any_significant]
 
-    Supervisor.start_link(children_spec, opts)
+    case Supervisor.start_link(children_spec, opts) do
+      {:ok, pid} ->
+        spawn(fn ->
+          ref = Process.monitor(pid)
+
+          receive do
+            {:DOWN, ^ref, :process, _, _} ->
+              Logger.error("Expert application has terminated unexpectedly")
+              # Signifficant process we cant recover (like the GenLSP) has crashed
+              :timer.apply_after(50, System, :halt, [1])
+          end
+        end)
+
+        {:ok, pid}
+    end
   end
 
   def children(opts) do
