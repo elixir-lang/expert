@@ -318,23 +318,6 @@ let
         in
         drv;
 
-      snowflake =
-        let
-          version = "1.0.4";
-          drv = buildMix {
-            inherit version;
-            name = "snowflake";
-            appConfigPath = ./config;
-
-            src = fetchHex {
-              inherit version;
-              pkg = "snowflake";
-              sha256 = "badb07ebb089a5cff737738297513db3962760b10fe2b158ae3bebf0b4d5be13";
-            };
-          };
-        in
-        drv;
-
       sourceror =
         let
           version = "1.10.1";
