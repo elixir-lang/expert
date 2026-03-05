@@ -3,6 +3,7 @@ defmodule Engine.Build.Project do
   alias Engine.Build.Isolation
   alias Engine.Plugin
   alias Engine.Progress
+  alias Forge.Internet
   alias Forge.Project
   alias Mix.Task.Compiler.Diagnostic
 
@@ -53,6 +54,7 @@ defmodule Engine.Build.Project do
       Mix.Task.clear()
       Progress.report(token, message: "Compiling #{Project.display_name(project)}")
       result = compile_in_isolation()
+      Project.ensure_hex_and_rebar()
       Mix.Task.run(:loadpaths)
       result
     end
@@ -78,7 +80,10 @@ defmodule Engine.Build.Project do
   end
 
   defp compile_in_isolation do
-    compile_fun = fn -> Mix.Task.run(:compile, mix_compile_opts()) end
+    compile_fun = fn ->
+      Project.ensure_hex_and_rebar()
+      Mix.Task.run(:compile, mix_compile_opts())
+    end
 
     case Isolation.invoke(compile_fun) do
       {:ok, result} ->
@@ -98,7 +103,7 @@ defmodule Engine.Build.Project do
   end
 
   defp prepare_for_project_build(token) do
-    if connected_to_internet?() do
+    if Internet.connected_to_internet?() do
       Progress.report(token, message: "mix local.hex")
       Mix.Task.run("local.hex", ~w(--force --if-missing))
 
@@ -121,17 +126,6 @@ defmodule Engine.Build.Project do
 
     Progress.report(token, message: "Loading plugins")
     Plugin.Discovery.run()
-  end
-
-  defp connected_to_internet? do
-    # While there's no perfect way to check if a computer is connected to the internet,
-    # it seems reasonable to gate pulling dependencies on a resolution check for hex.pm.
-    # Yes, it's entirely possible that the DNS server is local, and that the entry is in cache,
-    # but that's an edge case, and the build will just time out anyways.
-    case :inet_res.getbyname(~c"hex.pm", :a, 250) do
-      {:ok, _} -> true
-      _ -> false
-    end
   end
 
   defp mix_compile_opts do

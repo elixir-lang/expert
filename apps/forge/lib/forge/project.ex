@@ -6,6 +6,9 @@ defmodule Forge.Project do
   as well as business logic for how to change its attributes.
   """
   alias Forge.Document
+  alias Forge.Internet
+
+  require Logger
 
   defstruct root_uri: nil,
             mix_exs_uri: nil,
@@ -430,6 +433,17 @@ defmodule Forge.Project do
     else
       {_, rest} = List.pop_at(segments, -1)
       traverse_path(rest)
+    end
+  end
+
+  def ensure_hex_and_rebar do
+    if Internet.connected_to_internet?() do
+      Mix.Task.run("local.hex", ~w(--force --if-missing))
+      Mix.Task.run("local.rebar", ~w(--force --if-missing))
+      :ok
+    else
+      Logger.warning("Could not connect to hex.pm, dependencies will not be fetched")
+      :ok
     end
   end
 end
