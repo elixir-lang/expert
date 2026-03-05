@@ -63,10 +63,11 @@ defmodule Expert.Logging.WindowLogHandler do
 
   defp maybe_notify(log_event) do
     with false <- ignore_event?(log_event),
+         true <- above_log_level?(log_event.level),
          true <- Expert.Configuration.window_log_message_enabled?(),
          %GenLSP.LSP{} = lsp <- Expert.get_lsp(),
          {:ok, message} <- extract_message(log_event) do
-      params = %LogMessageParams{type: to_lsp_message_type(log_event.level), message: message}
+      params = %LogMessageParams{type: to_message_type(log_event.level), message: message}
 
       with_recursion_metadata(fn ->
         GenLSP.notify(lsp, %WindowLogMessage{params: params})
@@ -74,6 +75,10 @@ defmodule Expert.Logging.WindowLogHandler do
     else
       _ -> :ok
     end
+  end
+
+  defp above_log_level?(otp_level) do
+    to_message_type(otp_level) <= to_message_type(Expert.Configuration.log_level())
   end
 
   defp ignore_event?(%{msg: {:report, _}}), do: true
@@ -150,11 +155,9 @@ defmodule Expert.Logging.WindowLogHandler do
   defp ensure_binary(string) when is_binary(string), do: string
   defp ensure_binary(other), do: inspect(other)
 
-  defp to_lsp_message_type(level) when level in [:debug], do: Enumerations.MessageType.log()
-
-  defp to_lsp_message_type(level) when level in [:info, :notice],
-    do: Enumerations.MessageType.info()
-
-  defp to_lsp_message_type(:warning), do: Enumerations.MessageType.warning()
-  defp to_lsp_message_type(_), do: Enumerations.MessageType.error()
+  defp to_message_type(:debug), do: Enumerations.MessageType.log()
+  defp to_message_type(level) when level in [:info, :notice], do: Enumerations.MessageType.info()
+  defp to_message_type(:warning), do: Enumerations.MessageType.warning()
+  defp to_message_type(:log), do: Enumerations.MessageType.log()
+  defp to_message_type(_), do: Enumerations.MessageType.error()
 end
