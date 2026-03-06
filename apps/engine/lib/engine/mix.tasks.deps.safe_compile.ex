@@ -53,6 +53,8 @@ unless Elixir.Features.compile_keeps_current_directory?() do
         Mix.Tasks.Deps.Compile.run(args)
       else
         unless "--no-archives-check" in args do
+          Mix.Task.run("local.hex", ~w(--force --if-missing))
+          Mix.Task.run("local.rebar", ~w(--force --if-missing))
           Mix.Task.run("archive.check", args)
         end
 
@@ -176,6 +178,8 @@ unless Elixir.Features.compile_keeps_current_directory?() do
             "--no-warnings-as-errors"
           ]
 
+          Mix.Task.run("local.hex", ~w(--force --if-missing))
+          Mix.Task.run("local.rebar", ~w(--force --if-missing))
           res = Mix.Task.run("compile", options)
           match?({:ok, _}, res)
         catch
