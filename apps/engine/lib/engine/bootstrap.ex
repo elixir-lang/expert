@@ -40,6 +40,9 @@ defmodule Engine.Bootstrap do
       ExUnit.start()
       start_logger(project)
       maybe_change_directory(project)
+
+      # This might fail and we are handling the result, so it's important that it
+      # stays last.
       Project.ensure_workspace(project)
     end
   end
