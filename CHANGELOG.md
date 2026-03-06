@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.1.0-rc.6](https://github.com/elixir-lang/expert/compare/v0.1.0-rc.5...v0.1.0-rc.6) (2026-03-06)
+
+
+### Features
+
+* configure lsp log level ([#488](https://github.com/elixir-lang/expert/issues/488)) ([f536fc6](https://github.com/elixir-lang/expert/commit/f536fc6ed7e2714c5526e36cb366503a164126a4))
+
+
+### Bug Fixes
+
+* add Project.unique_name to allow multiple project with same root folder name ([#458](https://github.com/elixir-lang/expert/issues/458)) ([d1b4889](https://github.com/elixir-lang/expert/commit/d1b4889c6c9f22a27eab50cbe20fe0e1046906d5))
+* bump Spitfire to v0.3.10 ([#491](https://github.com/elixir-lang/expert/issues/491)) ([335f022](https://github.com/elixir-lang/expert/commit/335f0224f23a9da52e1555319e570c964d1b842a))
+* **forge:** fix parent check to not give false positive on some siblings ([#472](https://github.com/elixir-lang/expert/issues/472)) ([44a43e2](https://github.com/elixir-lang/expert/commit/44a43e2d146ddb1a5cd9cce35b5cd7cd8947a94f))
+* only index tests if ExUnit.Case is in scope ([#480](https://github.com/elixir-lang/expert/issues/480)) ([a7b685d](https://github.com/elixir-lang/expert/commit/a7b685dfc0d4ab3f813a0d2389179ea681c2534f))
+* rotate expert.log files ([#489](https://github.com/elixir-lang/expert/issues/489)) ([90d7d81](https://github.com/elixir-lang/expert/commit/90d7d81fe537c486547b99fa4cfb3d4e52a7f19c))
+
+
+### Performance Improvements
+
+* use "Expert ID" instead of Snowflake ([#479](https://github.com/elixir-lang/expert/issues/479)) ([1743567](https://github.com/elixir-lang/expert/commit/174356760339056679d32561eb9f5d7132d63509)), closes [#471](https://github.com/elixir-lang/expert/issues/471)
+
 ## [0.1.0-rc.5](https://github.com/elixir-lang/expert/compare/v0.1.0-rc.4...v0.1.0-rc.5) (2026-02-26)
 
 
