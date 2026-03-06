@@ -386,7 +386,7 @@ defmodule Expert.EngineNode do
   end
 
   def name(%Project{} = project) do
-    :"#{Project.name(project)}::node_process"
+    :"#{Project.unique_name(project)}::node_process"
   end
 
   @deps_apps Mix.Project.deps_apps()

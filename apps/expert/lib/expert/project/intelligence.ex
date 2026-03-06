@@ -158,7 +158,7 @@ defmodule Expert.Project.Intelligence do
 
   def child_spec(%Project{} = project) do
     %{
-      id: {__MODULE__, Project.name(project)},
+      id: {__MODULE__, Project.unique_name(project)},
       start: {__MODULE__, :start_link, [project]}
     }
   end
@@ -226,7 +226,7 @@ defmodule Expert.Project.Intelligence do
   # Private
 
   def name(%Project{} = project) do
-    :"#{Project.name(project)}::intelligence"
+    :"#{Project.unique_name(project)}::intelligence"
   end
 
   defp extract_range(to: :infinity) do

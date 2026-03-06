@@ -17,7 +17,7 @@ defmodule Expert.Project.Diagnostics do
 
   def child_spec(%Project{} = project) do
     %{
-      id: {__MODULE__, Project.name(project)},
+      id: {__MODULE__, Project.unique_name(project)},
       start: {__MODULE__, :start_link, [project]}
     }
   end
@@ -104,6 +104,6 @@ defmodule Expert.Project.Diagnostics do
   end
 
   defp name(%Project{} = project) do
-    :"#{Project.name(project)}::diagnostics"
+    :"#{Project.unique_name(project)}::diagnostics"
   end
 end

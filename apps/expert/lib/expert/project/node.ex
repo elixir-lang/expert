@@ -27,13 +27,13 @@ defmodule Expert.Project.Node do
 
   def child_spec(%Project{} = project) do
     %{
-      id: {__MODULE__, Project.name(project)},
+      id: {__MODULE__, Project.unique_name(project)},
       start: {__MODULE__, :start_link, [project]}
     }
   end
 
   def name(%Project{} = project) do
-    :"#{Project.name(project)}::node"
+    :"#{Project.unique_name(project)}::node"
   end
 
   def node_name(%Project{} = project) do

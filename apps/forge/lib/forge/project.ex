@@ -58,6 +58,18 @@ defmodule Forge.Project do
   end
 
   @doc """
+  Returns a unique name for the project, suitable for process registration.
+
+  Appends a hash of the full root path to disambiguate projects that share
+  the same folder name (e.g. an umbrella root and a sub-app within it).
+  """
+  @spec unique_name(t) :: String.t()
+  def unique_name(%__MODULE__{} = project) do
+    hash = :erlang.phash2(root_path(project))
+    "#{name(project)}::#{hash}"
+  end
+
+  @doc """
   The project node's name
   """
   def node_name(%__MODULE__{} = project) do
