@@ -368,6 +368,7 @@ defmodule Engine.Search.StoreTest do
   defp with_a_started_store(project, backend) do
     destroy_backend(backend, project)
 
+    start_supervised!({Task.Supervisor, name: Engine.TaskSupervisor})
     start_supervised!(Dispatch)
     start_supervised!(backend)
     start_supervised!({Store, [project, &default_create/1, &default_update/2, backend]})
@@ -400,6 +401,7 @@ defmodule Engine.Search.StoreTest do
     setup %{project: project} do
       destroy_backend(Ets, project)
 
+      start_supervised!({Task.Supervisor, name: Engine.TaskSupervisor})
       start_supervised!(Dispatch)
       start_supervised!(Ets)
 
@@ -456,6 +458,39 @@ defmodule Engine.Search.StoreTest do
       assert {:error, :loading} = Store.siblings(%Entry{})
       assert_receive search_store_loading(project: received_project)
       assert received_project == project
+    end
+  end
+
+  describe "async load crash recovery" do
+    setup %{project: project} do
+      destroy_backend(Ets, project)
+
+      start_supervised!({Task.Supervisor, name: Engine.TaskSupervisor})
+      start_supervised!(Dispatch)
+      start_supervised!(Ets)
+
+      crashing_create = fn _project ->
+        raise "index build exploded"
+      end
+
+      start_supervised!({Store, [project, crashing_create, &default_update/2, Ets]})
+
+      assert_eventually alive?()
+
+      on_exit(fn ->
+        after_each_test(Ets, project)
+      end)
+
+      {:ok, project: project}
+    end
+
+    test "store survives when async load task crashes" do
+      pid = Process.whereis(Store)
+      Store.enable()
+      # Allow time for the task to crash and the DOWN message to be processed.
+      Process.sleep(100)
+
+      assert Process.alive?(pid)
     end
   end
 end
