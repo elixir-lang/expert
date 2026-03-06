@@ -410,26 +410,128 @@ defmodule Forge.Project do
     end
   end
 
+  @doc """
+  Returns the `apps_path` configured in `mix.exs` when `project_path` is an
+  umbrella root, otherwise returns `nil`.
+  """
+  def umbrella_apps_path(project_path) when is_binary(project_path) do
+    mix_exs_path = Path.join(project_path, "mix.exs")
+
+    with true <- File.exists?(mix_exs_path),
+         {:ok, source} <- File.read(mix_exs_path),
+         {:ok, ast} <- Code.string_to_quoted(source),
+         apps_path when is_binary(apps_path) <- extract_apps_path(ast) do
+      apps_path
+    else
+      _ -> nil
+    end
+  end
+
   def find_parent_root_dir(path) do
     path = Forge.Document.Path.from_uri(path)
-    path = path |> Path.expand() |> Path.dirname()
+    path = path |> Path.expand() |> path_or_parent_dir()
+    boundary = workspace_boundary_path()
 
     segments = Path.split(path)
 
-    traverse_path(segments)
+    case traverse_path(segments, boundary) do
+      nil -> nil
+      root -> Document.Path.to_uri(root)
+    end
   end
 
-  defp traverse_path([]), do: nil
+  defp traverse_path([], _boundary), do: nil
 
-  defp traverse_path(segments) do
+  defp traverse_path(segments, boundary) do
     path = Path.join(segments)
     mix_exs_path = Path.join(path, "mix.exs")
 
-    if File.exists?(mix_exs_path) do
-      Document.Path.to_uri(path)
-    else
-      {_, rest} = List.pop_at(segments, -1)
-      traverse_path(rest)
+    cond do
+      boundary_reached?(path, boundary) ->
+        nil
+
+      File.exists?(mix_exs_path) ->
+        umbrella_root_for(path, boundary) || path
+
+      true ->
+        {_, rest} = List.pop_at(segments, -1)
+        traverse_path(rest, boundary)
     end
+  end
+
+  defp workspace_boundary_path do
+    case Forge.Workspace.get_workspace() do
+      %Forge.Workspace{root_path: root_path} when is_binary(root_path) ->
+        Path.expand(root_path)
+
+      _ ->
+        nil
+    end
+  end
+
+  defp boundary_reached?(_path, nil), do: false
+
+  defp boundary_reached?(path, boundary) do
+    expanded_path = Path.expand(path)
+
+    not Forge.Path.parent_path?(expanded_path, boundary)
+  end
+
+  defp path_or_parent_dir(path) do
+    if File.dir?(path) do
+      path
+    else
+      Path.dirname(path)
+    end
+  end
+
+  defp umbrella_root_for(project_path, boundary) do
+    project_path = Path.expand(project_path)
+    do_find_umbrella_root(Path.dirname(project_path), project_path, boundary)
+  end
+
+  defp do_find_umbrella_root(current_path, project_path, boundary) do
+    if boundary_reached?(current_path, boundary) do
+      nil
+    else
+      case umbrella_apps_path(current_path) do
+        apps_path when is_binary(apps_path) ->
+          apps_root = Path.expand(Path.join(current_path, apps_path))
+
+          if project_path == apps_root or Forge.Path.parent_path?(project_path, apps_root) do
+            current_path
+          else
+            next_parent(current_path, project_path, boundary)
+          end
+
+        _ ->
+          next_parent(current_path, project_path, boundary)
+      end
+    end
+  end
+
+  defp next_parent(current_path, project_path, boundary) do
+    parent = Path.dirname(current_path)
+
+    cond do
+      parent == current_path ->
+        nil
+
+      boundary_reached?(parent, boundary) ->
+        nil
+
+      true ->
+        do_find_umbrella_root(parent, project_path, boundary)
+    end
+  end
+
+  defp extract_apps_path(ast) do
+    {_ast, apps_path} =
+      Macro.prewalk(ast, nil, fn
+        {:apps_path, value} = node, nil when is_binary(value) -> {node, value}
+        node, acc -> {node, acc}
+      end)
+
+    apps_path
   end
 end
