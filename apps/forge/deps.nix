@@ -260,7 +260,7 @@ let
 
       spitfire =
         let
-          version = "0.3.7";
+          version = "0.3.10";
           drv = buildMix {
             inherit version;
             name = "spitfire";
@@ -269,7 +269,7 @@ let
             src = fetchHex {
               inherit version;
               pkg = "spitfire";
-              sha256 = "798ff97db02477b05fa3db8e2810cebda6ed5d90c6de6b21aa65abd577599744";
+              sha256 = "6a6a5f77eb4165249c76199cd2d01fb595bac9207aed3de551918ac1c2bc9267";
             };
           };
         in
