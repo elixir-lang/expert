@@ -122,10 +122,10 @@ defmodule Expert.Project.Node do
 
   defp bootstrap_error_message(reason) do
     case reason do
-      :eacces -> "Project directory has insufficient permissions"
+      :eacces -> "Project directory has insufficient permissions. It needs to be writable."
       :erofs -> "Project is in a read-only filesystem"
       :enospc -> "No disk space available"
-      _ -> "Unable to create workspace: #{inspect(reason)}"
+      _ -> "Unable to bootstrap engine: #{inspect(reason)}"
     end
   end
 end
