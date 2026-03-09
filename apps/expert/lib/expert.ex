@@ -1,6 +1,5 @@
 defmodule Expert do
   alias Expert.ActiveProjects
-  alias Expert.Project
   alias Expert.Protocol.Convert
   alias Expert.Protocol.Id
   alias Expert.Provider.Handlers
