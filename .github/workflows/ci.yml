@@ -149,7 +149,7 @@ jobs:
           PROJECT: ${{ matrix.project }}
         run: |
           just mix "${PROJECT}" compile.protocols --warnings-as-errors
-          just mix "${PROJECT}" dialyzer
+          just mix "${PROJECT}" dialyzer --force-check
 
   release-test:
     runs-on: ${{matrix.os.name}}
