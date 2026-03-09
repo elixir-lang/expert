@@ -97,6 +97,9 @@ defmodule Engine.Search.Store.Backends.Ets.State do
     end)
     |> MapSet.new()
     |> Enum.flat_map(&:ets.lookup_element(state.table_name, &1, 2))
+  rescue
+    ArgumentError ->
+      []
   end
 
   def find_by_prefix(%__MODULE__{} = state, subject, type, subtype) do
@@ -112,6 +115,9 @@ defmodule Engine.Search.Store.Backends.Ets.State do
     |> Stream.flat_map(fn {_, id_keys} -> id_keys end)
     |> Stream.uniq()
     |> Enum.flat_map(&:ets.lookup_element(state.table_name, &1, 2))
+  rescue
+    ArgumentError ->
+      []
   end
 
   @dialyzer {:nowarn_function, to_prefix: 1}
