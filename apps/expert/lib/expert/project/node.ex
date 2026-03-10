@@ -60,8 +60,15 @@ defmodule Expert.Project.Node do
       end)
 
     case result do
-      {:ok, state} -> {:ok, state, {:continue, :trigger_build}}
-      error -> {:stop, error}
+      {:ok, state} ->
+        {:ok, state, {:continue, :trigger_build}}
+
+      {:error, {:bootstrap, reason}} ->
+        message = bootstrap_error_message(reason)
+        {:stop, {:shutdown, {:bootstrap_error, message}}}
+
+      error ->
+        {:stop, error}
     end
   end
 
@@ -110,6 +117,15 @@ defmodule Expert.Project.Node do
     case File.rm_rf(build_path) do
       {:ok, _deleted} -> :ok
       error -> error
+    end
+  end
+
+  defp bootstrap_error_message(reason) do
+    case reason do
+      :eacces -> "Project directory has insufficient permissions. It needs to be writable."
+      :erofs -> "Project is in a read-only filesystem"
+      :enospc -> "No disk space available"
+      _ -> "Unable to bootstrap engine: #{inspect(reason)}"
     end
   end
 end

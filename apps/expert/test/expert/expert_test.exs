@@ -818,4 +818,45 @@ defmodule ExpertTest do
       assert message =~ "mix deps.get failed"
     end
   end
+
+  describe "bootstrap error handling" do
+    test "sends a single window/showMessage with the bootstrap error message", %{
+      client: client,
+      server: server,
+      project_root: project_root,
+      main_project: main_project
+    } do
+      patch(Expert.Project.Supervisor, :ensure_node_started, fn _project ->
+        {:ok, nil}
+      end)
+
+      assert :ok =
+               request(client, initialize_request(project_root, id: 1, projects: [main_project]))
+
+      assert_result(1, _)
+      assert :ok = notify(client, initialized_notification())
+      assert_request(client, "client/registerCapability", fn _params -> nil end)
+
+      # Simulate what happens when Node.init returns
+      # {:stop, {:shutdown, {:bootstrap_error, message}}}
+      # OTP wraps it as {:shutdown, {:failed_to_start_child, {Expert.Project.Node, name},
+      #   {:shutdown, {:bootstrap_error, message}}}}
+      project_name = Forge.Project.name(main_project)
+      error_message = "Project directory has insufficient permissions"
+
+      bootstrap_reason =
+        {:shutdown,
+         {:failed_to_start_child, {Expert.Project.Node, project_name},
+          {:shutdown, {:bootstrap_error, error_message}}}}
+
+      send(server.lsp, {:engine_initialized, main_project, {:error, bootstrap_reason}})
+
+      assert_notification(
+        "window/showMessage",
+        %{"type" => 1, "message" => message}
+      )
+
+      assert message =~ error_message
+    end
+  end
 end

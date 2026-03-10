@@ -1,6 +1,5 @@
 defmodule Expert do
   alias Expert.ActiveProjects
-  alias Expert.Project
   alias Expert.Protocol.Convert
   alias Expert.Protocol.Id
   alias Expert.Provider.Handlers
@@ -482,7 +481,7 @@ defmodule Expert do
 
   defp initialization_error_message({:shutdown, {:failed_to_start_child, child, reason}}) do
     case child do
-      {Project.Node, node_name} ->
+      {Expert.Project.Node, node_name} ->
         node_initialization_message(node_name, reason)
 
       child ->
@@ -514,6 +513,9 @@ defmodule Expert do
 
       {{:shutdown, {:node_exit, node_exit}}, _} ->
         "Engine #{name} exit with status #{node_exit.status}, last message:\n\n#{node_exit.last_message}"
+
+      {:shutdown, {:bootstrap_error, message}} ->
+        message
 
       reason ->
         "Failed to start engine #{name}: #{inspect(reason)}"

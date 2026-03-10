@@ -235,6 +235,8 @@ defmodule Forge.Project do
   @doc """
   Creates and initializes expert's workspace directory if it doesn't already exist
   """
+  @spec ensure_workspace(t()) ::
+          :ok | {:error, File.posix() | :badarg | :terminated | :system_limit}
   def ensure_workspace(%__MODULE__{} = project) do
     with :ok <- ensure_workspace_directory(project) do
       ensure_git_ignore(project)
@@ -250,10 +252,10 @@ defmodule Forge.Project do
 
       File.exists?(workspace_path) ->
         :ok = File.rm(workspace_path)
-        :ok = File.mkdir_p(workspace_path)
+        File.mkdir_p(workspace_path)
 
       true ->
-        :ok = File.mkdir(workspace_path)
+        File.mkdir(workspace_path)
     end
   end
 

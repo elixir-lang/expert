@@ -226,9 +226,16 @@ defmodule Expert.EngineNode do
          :ok <- Progress.report(token, message: "Starting Erlang node..."),
          :ok <- start_node(project, glob_paths, mix_home: mix_home),
          :ok <- Progress.report(token, message: "Bootstrapping engine..."),
-         :ok <- :rpc.call(node_name, Engine.Bootstrap, :init, bootstrap_args),
+         :ok <- bootstrap(node_name, bootstrap_args),
          :ok <- ensure_apps_started(node_name, token) do
       {:ok, node_name, node_pid}
+    end
+  end
+
+  defp bootstrap(node_name, bootstrap_args) do
+    case :rpc.call(node_name, Engine.Bootstrap, :init, bootstrap_args) do
+      :ok -> :ok
+      {:error, reason} -> {:error, {:bootstrap, reason}}
     end
   end
 
