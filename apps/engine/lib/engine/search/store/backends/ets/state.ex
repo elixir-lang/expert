@@ -96,7 +96,9 @@ defmodule Engine.Search.Store.Backends.Ets.State do
       id_keys
     end)
     |> MapSet.new()
-    |> Enum.flat_map(&:ets.lookup_element(state.table_name, &1, 2))
+    |> Enum.map(&lookup_element(state.table_name, &1, 2))
+    |> Enum.reject(&(&1 == :error))
+    |> List.flatten()
   end
 
   def find_by_prefix(%__MODULE__{} = state, subject, type, subtype) do
@@ -111,7 +113,9 @@ defmodule Engine.Search.Store.Backends.Ets.State do
     |> :ets.select([{{match_pattern, :_}, [], [:"$_"]}])
     |> Stream.flat_map(fn {_, id_keys} -> id_keys end)
     |> Stream.uniq()
-    |> Enum.flat_map(&:ets.lookup_element(state.table_name, &1, 2))
+    |> Enum.map(&lookup_element(state.table_name, &1, 2))
+    |> Enum.reject(&(&1 == :error))
+    |> List.flatten()
   end
 
   @dialyzer {:nowarn_function, to_prefix: 1}
@@ -127,24 +131,20 @@ defmodule Engine.Search.Store.Backends.Ets.State do
   def siblings(%__MODULE__{} = state, %Entry{} = entry) do
     key = by_block_id(block_id: entry.block_id, path: entry.path)
 
-    siblings =
-      state.table_name
-      |> :ets.lookup_element(key, 2)
-      |> Enum.map(&:ets.lookup_element(state.table_name, &1, 2))
-      |> List.flatten()
-      |> Enum.filter(fn sibling ->
-        case {is_block(entry), is_block(sibling)} do
-          {same, same} -> true
-          _ -> false
-        end
-      end)
-      |> Enum.sort_by(& &1.id)
-      |> Enum.uniq()
+    case lookup_element(state.table_name, key, 2) do
+      :error ->
+        :error
 
-    {:ok, siblings}
-  rescue
-    ArgumentError ->
-      :error
+      elements ->
+        elements
+        |> Enum.map(&lookup_element(state.table_name, &1, 2))
+        |> Enum.reject(&(&1 == :error))
+        |> List.flatten()
+        |> Enum.filter(&same_block_type?(entry, &1))
+        |> Enum.sort_by(& &1.id)
+        |> Enum.uniq()
+        |> then(&{:ok, &1})
+    end
   end
 
   def parent(%__MODULE__{} = state, %Entry{} = entry) do
@@ -278,14 +278,20 @@ defmodule Engine.Search.Store.Backends.Ets.State do
   def structure_for_path(%__MODULE__{} = state, path) do
     key = structure(path: path)
 
-    case :ets.lookup_element(state.table_name, key, 2) do
+    case lookup_element(state.table_name, key, 2) do
       [structure] -> {:ok, structure}
       _ -> :error
     end
+  end
+
+  defp lookup_element(table_name, key, pos) do
+    :ets.lookup_element(table_name, key, pos)
   rescue
     ArgumentError ->
       :error
   end
+
+  defp same_block_type?(a, b), do: is_block(a) == is_block(b)
 
   defp match_id_key(id, type, subtype) do
     {query_by_id(id: id, type: type, subtype: subtype), :_}
