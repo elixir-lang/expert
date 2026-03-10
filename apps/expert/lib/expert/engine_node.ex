@@ -249,7 +249,7 @@ defmodule Expert.EngineNode do
 
   defp start_net_kernel(%Project{} = project) do
     manager = Project.manager_node_name(project)
-    Node.start(manager, name_domain: :longnames)
+    Node.start(manager, :longnames)
   end
 
   defp ensure_apps_started(node, token) do
