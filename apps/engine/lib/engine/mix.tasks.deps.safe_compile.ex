@@ -1,5 +1,7 @@
 unless Elixir.Features.compile_keeps_current_directory?() do
   defmodule Mix.Tasks.Deps.SafeCompile do
+    alias Forge.Project
+
     use Mix.Task
 
     @shortdoc "Compiles dependencies"
@@ -53,6 +55,7 @@ unless Elixir.Features.compile_keeps_current_directory?() do
         Mix.Tasks.Deps.Compile.run(args)
       else
         unless "--no-archives-check" in args do
+          Project.ensure_hex_and_rebar()
           Mix.Task.run("archive.check", args)
         end
 
@@ -176,6 +179,7 @@ unless Elixir.Features.compile_keeps_current_directory?() do
             "--no-warnings-as-errors"
           ]
 
+          Project.ensure_hex_and_rebar()
           res = Mix.Task.run("compile", options)
           match?({:ok, _}, res)
         catch
