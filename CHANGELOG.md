@@ -1,5 +1,29 @@
 # Changelog
 
+## [0.1.0-rc.6](https://github.com/elixir-lang/expert/compare/v0.1.0-rc.5...v0.1.0-rc.6) (2026-03-10)
+
+
+### Features
+
+* configure lsp log level ([#488](https://github.com/elixir-lang/expert/issues/488)) ([f536fc6](https://github.com/elixir-lang/expert/commit/f536fc6ed7e2714c5526e36cb366503a164126a4))
+
+
+### Bug Fixes
+
+* add Project.unique_name to allow multiple project with same root folder name ([#458](https://github.com/elixir-lang/expert/issues/458)) ([d1b4889](https://github.com/elixir-lang/expert/commit/d1b4889c6c9f22a27eab50cbe20fe0e1046906d5))
+* bump Spitfire to v0.3.10 ([#491](https://github.com/elixir-lang/expert/issues/491)) ([335f022](https://github.com/elixir-lang/expert/commit/335f0224f23a9da52e1555319e570c964d1b842a))
+* **engine:** add missing rescue for `:ets.lookup_element` ([#494](https://github.com/elixir-lang/expert/issues/494)) ([f4884f4](https://github.com/elixir-lang/expert/commit/f4884f43dbcd5991a46e9a4af299217f22c54f9a))
+* **expert:** display user-friendly message on filesystem error ([#495](https://github.com/elixir-lang/expert/issues/495)) ([021da96](https://github.com/elixir-lang/expert/commit/021da96be08bb15220d12317a00430c0ab743b53))
+* fetch `hex` and `rebar` in all places ([#490](https://github.com/elixir-lang/expert/issues/490)) ([48b5ad0](https://github.com/elixir-lang/expert/commit/48b5ad0b1d65b35c4b59f718c9a14ef4f072511c))
+* **forge:** fix parent check to not give false positive on some siblings ([#472](https://github.com/elixir-lang/expert/issues/472)) ([44a43e2](https://github.com/elixir-lang/expert/commit/44a43e2d146ddb1a5cd9cce35b5cd7cd8947a94f))
+* only index tests if ExUnit.Case is in scope ([#480](https://github.com/elixir-lang/expert/issues/480)) ([a7b685d](https://github.com/elixir-lang/expert/commit/a7b685dfc0d4ab3f813a0d2389179ea681c2534f))
+* rotate expert.log files ([#489](https://github.com/elixir-lang/expert/issues/489)) ([90d7d81](https://github.com/elixir-lang/expert/commit/90d7d81fe537c486547b99fa4cfb3d4e52a7f19c))
+
+
+### Performance Improvements
+
+* use "Expert ID" instead of Snowflake ([#479](https://github.com/elixir-lang/expert/issues/479)) ([1743567](https://github.com/elixir-lang/expert/commit/174356760339056679d32561eb9f5d7132d63509)), closes [#471](https://github.com/elixir-lang/expert/issues/471)
+
 ## [0.1.0-rc.5](https://github.com/elixir-lang/expert/compare/v0.1.0-rc.4...v0.1.0-rc.5) (2026-02-26)
 
 
