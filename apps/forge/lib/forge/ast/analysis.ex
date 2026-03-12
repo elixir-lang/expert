@@ -442,21 +442,33 @@ defmodule Forge.Ast.Analysis do
     state
   end
 
-  defp maybe_push_implicit_alias(%State{} = state, [first_segment | _], document, quoted)
+  defp maybe_push_implicit_alias(
+         %State{} = state,
+         [first_segment | _] = module_segments,
+         document,
+         quoted
+       )
        when is_atom(first_segment) do
     segments =
       case State.current_module(state) do
         # the head element of top-level modules can be aliased, so we
         # must expand them
         [] ->
-          expand_alias([first_segment], state)
+          expand_alias(module_segments, state)
 
-        # if we have a current module, we prefix the first segment with it
+        # if we have a current module, we prefix the segments with it
         current_module ->
-          current_module ++ [first_segment]
+          current_module ++ module_segments
       end
 
-    implicit_alias = Alias.implicit(document, quoted, segments, first_segment)
+    implicit_alias =
+      Alias.implicit(
+        document,
+        quoted,
+        segments,
+        module_segments |> Enum.join(".") |> String.to_atom()
+      )
+
     State.push_alias(state, implicit_alias)
   end
 
