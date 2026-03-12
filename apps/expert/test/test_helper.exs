@@ -2,6 +2,7 @@ Application.ensure_all_started(:refactorex)
 Application.ensure_all_started(:telemetry)
 Application.put_env(:gen_lsp, :exit_on_end, false)
 
+Forge.Identifier.start()
 random_number = :rand.uniform(500)
 
 with :nonode@nohost <- Node.self() do

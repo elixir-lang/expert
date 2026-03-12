@@ -75,7 +75,6 @@ defmodule Forge.Ast do
   alias Sourceror.Zipper
 
   require Logger
-  require Sourceror
 
   @parser (case Application.compile_env(:forge, :parser, :spitfire) do
              :spitfire -> Forge.Ast.Parser.Spitfire

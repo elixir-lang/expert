@@ -5,6 +5,8 @@ defmodule Engine.Application do
 
   @impl true
   def start(_type, _args) do
+    Forge.Identifier.start()
+
     children =
       if Engine.project_node?() do
         [
