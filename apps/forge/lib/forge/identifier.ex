@@ -1,5 +1,5 @@
 defmodule Forge.Identifier do
-  # Microseconds since Jan 1, 2024 UTC
+  # Microseconds from the Unix epoch to January 1, 2024, UTC
   @epoch 1_704_070_800_000_000
   @atomics_key {__MODULE__, :atomics_key}
   @max_seq 4096
