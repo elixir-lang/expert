@@ -42,7 +42,7 @@ defmodule Engine.Analyzer.Aliases do
 
       [prefix | suffix] ->
         case aliases do
-          %{^prefix => _} ->
+          %{[^prefix] => _} ->
             current_module = resolve_alias(aliases, prefix, suffix)
 
             Module.concat([current_module | suffix])
@@ -60,7 +60,7 @@ defmodule Engine.Analyzer.Aliases do
   defp resolve_alias(aliases, prefix, suffix) do
     current_module =
       aliases
-      |> Map.get(prefix)
+      |> Map.get(List.wrap(prefix))
       |> Alias.to_module()
 
     Module.concat([current_module | suffix])
