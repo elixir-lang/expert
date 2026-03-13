@@ -12,6 +12,8 @@ defmodule Expert.Provider.Handlers.CodeActionTest do
   use ExUnit.Case, async: false
 
   setup_all do
+    start_supervised!({DynamicSupervisor, Expert.EngineBuild.DynamicSupervisor.options()})
+    start_supervised!(Expert.EngineBuilds)
     start_supervised!({Forge.NodePortMapper, []})
     start_supervised!({Document.Store, derive: [analysis: &Forge.Ast.analyze/1]})
     project = project(:navigations)

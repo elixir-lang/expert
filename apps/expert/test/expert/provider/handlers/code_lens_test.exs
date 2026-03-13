@@ -16,6 +16,8 @@ defmodule Expert.Provider.Handlers.CodeLensTest do
   use Patch
 
   setup_all do
+    start_supervised!({DynamicSupervisor, Expert.EngineBuild.DynamicSupervisor.options()})
+    start_supervised!(Expert.EngineBuilds)
     start_supervised!({Forge.NodePortMapper, []})
     start_supervised(Document.Store)
     project = project(:umbrella)
