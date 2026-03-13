@@ -29,7 +29,7 @@ defmodule Expert.EngineNode.Builder do
   end
 
   @impl GenServer
-  def handle_call(:build, from, state) do
+  def handle_call(:build, from, %State{} = state) do
     state =
       case start_build(state.project, from) do
         {:ok, port} ->
@@ -43,11 +43,11 @@ defmodule Expert.EngineNode.Builder do
   end
 
   @impl GenServer
-  def handle_info({_port, {:data, {:noeol, line}}}, state) do
+  def handle_info({_port, {:data, {:noeol, line}}}, %State{} = state) do
     {:noreply, %State{state | buffer: state.buffer <> line}}
   end
 
-  def handle_info({_port, {:data, {:eol, line}}}, state) do
+  def handle_info({_port, {:data, {:eol, line}}}, %State{} = state) do
     chunk = state.buffer <> line
     line = String.trim(chunk)
     state = %State{state | buffer: ""}
@@ -198,7 +198,7 @@ defmodule Expert.EngineNode.Builder do
     Forge.Path.glob([base_path, "lib/**/ebin"])
   end
 
-  defp handle_deps_error(line, state) do
+  defp handle_deps_error(line, %State{} = state) do
     if state.attempts < @max_attempts do
       Logger.warning(
         "Detected dependency errors during engine build, retrying... (attempt #{state.attempts + 1}/#{@max_attempts})",
