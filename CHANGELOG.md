@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.0-rc.7](https://github.com/elixir-lang/expert/compare/v0.1.0-rc.6...v0.1.0-rc.7) (2026-03-13)
+
+
+### Bug Fixes
+
+* **forge:** id generator must not create duplicate IDs ([#499](https://github.com/elixir-lang/expert/issues/499)) ([7a4e333](https://github.com/elixir-lang/expert/commit/7a4e33347e0005d4ec10c9f5ef94148983bb9f96))
+
 ## [0.1.0-rc.6](https://github.com/elixir-lang/expert/compare/v0.1.0-rc.5...v0.1.0-rc.6) (2026-03-10)
 
 
