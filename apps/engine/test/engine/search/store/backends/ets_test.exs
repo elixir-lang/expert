@@ -61,6 +61,7 @@ defmodule Engine.Search.Store.Backend.EtsTest do
   end
 
   defp start_supervised_store(%Project{} = project, create_fn, update_fn, backend) do
+    start_supervised!({Task.Supervisor, name: Engine.TaskSupervisor})
     start_supervised!(Dispatch)
     start_supervised!(Backends.Ets)
     start_supervised!({Store, [project, create_fn, update_fn, backend]})

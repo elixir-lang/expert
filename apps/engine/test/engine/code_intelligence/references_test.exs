@@ -20,6 +20,7 @@ defmodule Engine.CodeIntelligence.ReferencesTest do
     Backends.Ets.destroy_all(project)
     Engine.set_project(project)
 
+    start_supervised!({Task.Supervisor, name: Engine.TaskSupervisor})
     start_supervised!(Document.Store)
     start_supervised!(Engine.Dispatch)
     start_supervised!(Backends.Ets)

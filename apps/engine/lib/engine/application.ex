@@ -19,6 +19,7 @@ defmodule Engine.Application do
           Engine.Build.CaptureServer,
           Engine.Plugin.Runner.Supervisor,
           Engine.Plugin.Runner.Coordinator,
+          {Task.Supervisor, name: Engine.TaskSupervisor},
           Engine.Search.Store.Backends.Ets,
           {Engine.Search.Store,
            [
