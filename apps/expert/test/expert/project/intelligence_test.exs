@@ -1,14 +1,14 @@
 defmodule Expert.Project.IntelligenceTest do
+  use ExUnit.Case
+  use Patch
+  use Expert.Test.DispatchFake
+
+  import Forge.EngineApi.Messages
+
   alias Expert.EngineApi
   alias Expert.Project.Intelligence
   alias Expert.Test.DispatchFake
-  alias Forge.EngineApi.Messages
   alias Forge.Test.Fixtures
-
-  use ExUnit.Case
-  use Patch
-  use DispatchFake
-  import Messages
 
   setup do
     project = Fixtures.project()

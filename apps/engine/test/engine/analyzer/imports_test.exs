@@ -38,13 +38,14 @@ defmodule WithSigils do
 end
 
 defmodule Engine.Ast.Analysis.ImportsTest do
+  use ExUnit.Case
+
+  import Forge.Test.CodeSigil
+  import Forge.Test.CursorSupport
+
   alias Engine.Analyzer
   alias Forge.Ast
   alias Parent.Child.ImportedModule
-  import Forge.Test.CursorSupport
-  import Forge.Test.CodeSigil
-
-  use ExUnit.Case
 
   def imports_at_cursor(text) do
     {position, document} = pop_cursor(text, as: :document)

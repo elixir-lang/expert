@@ -1,12 +1,12 @@
 # credo:disable-for-this-file Credo.Check.Readability.RedundantBlankLines
 defmodule Engine.CodeMod.FormatTest do
+  use Forge.Test.CodeMod.Case, enable_ast_conversion: false
+  use Patch
+
   alias Engine.Build
   alias Engine.CodeMod.Format
   alias Forge.Document
   alias Forge.Project
-
-  use Forge.Test.CodeMod.Case, enable_ast_conversion: false
-  use Patch
 
   def apply_code_mod(text, _ast, opts) do
     project = Keyword.get(opts, :project)

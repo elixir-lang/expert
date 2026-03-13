@@ -1,14 +1,13 @@
 defmodule Engine.Completion do
+  import Forge.Document.Line
+  import Forge.Logging
+
+  alias Engine.CodeMod.Format
   alias Forge.Ast.Analysis
   alias Forge.Ast.Env
   alias Forge.Completion.Candidate
   alias Forge.Document
   alias Forge.Document.Position
-
-  alias Engine.CodeMod.Format
-
-  import Document.Line
-  import Forge.Logging
 
   def elixir_sense_expand(%Env{} = env) do
     {doc_string, position} = strip_struct_operator(env)

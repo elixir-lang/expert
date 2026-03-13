@@ -1,11 +1,10 @@
 defmodule Forge.Document.LinesTest do
-  alias Forge.Document.Line
-  alias Forge.Document.Lines
-
   use ExUnit.Case, async: true
   use ExUnitProperties
 
-  import Line
+  import Forge.Document.Line
+
+  alias Forge.Document.Lines
 
   describe "Lines Enumerable" do
     test "it should be able to be fetched by line number" do

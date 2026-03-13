@@ -1,11 +1,11 @@
 defmodule Engine.CodeMod.AliasesTest do
-  alias Forge.Ast
-
-  alias Engine.CodeMod.Aliases
-
-  import Forge.Test.CursorSupport
   use Forge.Test.CodeMod.Case
   use Patch
+
+  import Forge.Test.CursorSupport
+
+  alias Engine.CodeMod.Aliases
+  alias Forge.Ast
 
   setup do
     patch(Engine, :get_project, %Forge.Project{})

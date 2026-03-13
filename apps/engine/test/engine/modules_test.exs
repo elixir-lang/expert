@@ -1,8 +1,8 @@
 defmodule Engine.ModulesTest do
-  alias Engine.Modules
-
   use ExUnit.Case
   use Forge.Test.EventualAssertions
+
+  alias Engine.Modules
 
   describe "simple prefixes" do
     test "specifying a prefix with a string" do

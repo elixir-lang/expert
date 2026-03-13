@@ -1,4 +1,6 @@
 defmodule Expert.Project.Supervisor do
+  use Supervisor
+
   alias Expert.ActiveProjects
   alias Expert.EngineSupervisor
   alias Expert.Project.Diagnostics
@@ -8,8 +10,6 @@ defmodule Expert.Project.Supervisor do
   alias Forge.Project
 
   require Logger
-
-  use Supervisor
 
   def start_link(%Project{} = project) do
     Supervisor.start_link(__MODULE__, project, name: name(project))

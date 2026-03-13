@@ -5,9 +5,9 @@ defmodule Expert.ActiveProjects do
   Since GenLSP events happen asynchronously, we use an ets table to keep track of
   them and avoid race conditions when we try to update the list of active projects.
   """
-  alias Forge.Project
-
   use GenServer
+
+  alias Forge.Project
 
   def child_spec(_) do
     %{

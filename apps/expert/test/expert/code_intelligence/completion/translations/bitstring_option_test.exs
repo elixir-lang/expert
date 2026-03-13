@@ -1,6 +1,7 @@
 defmodule Expert.CodeIntelligence.Completion.Translations.BitstringOptionsTest do
-  alias GenLSP.Enumerations.CompletionItemKind
   use Expert.Test.Expert.CompletionCase
+
+  alias GenLSP.Enumerations.CompletionItemKind
 
   describe "bitstring options" do
     test "offers completions after ::", %{project: project} do

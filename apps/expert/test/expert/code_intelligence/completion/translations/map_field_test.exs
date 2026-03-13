@@ -1,7 +1,7 @@
 defmodule Expert.CodeIntelligence.Completion.Translations.MapFieldTest do
-  alias GenLSP.Enumerations.CompletionItemKind
-
   use Expert.Test.Expert.CompletionCase
+
+  alias GenLSP.Enumerations.CompletionItemKind
 
   test "a map's fields are completed", %{project: project} do
     source = ~q[

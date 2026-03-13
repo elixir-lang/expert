@@ -117,9 +117,10 @@ defmodule Engine.Search.Indexer.Extractors.Module do
   @module_length String.length("__MODULE__")
   # This matches __MODULE__ references
   def extract({:__MODULE__, metadata, _} = ast, %Reducer{} = reducer) do
-    with line <- Sourceror.get_line(ast),
-         pos = Position.new(reducer.analysis.document, line - 1, 1),
-         {:ok, current_module} <- Engine.Analyzer.current_module(reducer.analysis, pos),
+    line = Sourceror.get_line(ast)
+    pos = Position.new(reducer.analysis.document, line - 1, 1)
+
+    with {:ok, current_module} <- Engine.Analyzer.current_module(reducer.analysis, pos),
          {:ok, start_pos, end_pos} <- module_positions(reducer, metadata) do
       range = Range.new(start_pos, end_pos)
       %Block{} = current_block = Reducer.current_block(reducer)

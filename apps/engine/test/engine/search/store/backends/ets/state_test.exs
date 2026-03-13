@@ -1,12 +1,12 @@
 defmodule Engine.Search.Store.Backends.Ets.StateTest do
+  use ExUnit.Case, async: true
+
+  import Engine.Search.Store.Backends.Ets.Schemas.V4, only: [by_id: 1]
+  import Engine.Test.Entry.Builder
+
   alias Engine.Search.Store.Backends.Ets.Schema
   alias Engine.Search.Store.Backends.Ets.Schemas.V4
   alias Engine.Search.Store.Backends.Ets.State
-
-  use ExUnit.Case, async: true
-
-  import Engine.Test.Entry.Builder
-  import V4, only: [by_id: 1]
 
   describe "resilience to stale index references" do
     setup do

@@ -1,4 +1,10 @@
 defmodule Engine.Api.ProxyTest do
+  use ExUnit.Case
+  use Patch
+
+  import Forge.EngineApi.Messages
+  import Forge.Test.Fixtures
+
   alias Engine.Api.Proxy
   alias Engine.Api.Proxy.BufferingState
   alias Engine.Api.Proxy.DrainingState
@@ -6,15 +12,8 @@ defmodule Engine.Api.ProxyTest do
   alias Engine.CodeMod
   alias Engine.Commands
   alias Engine.Dispatch
-
   alias Forge.Document
   alias Forge.Document.Changes
-
-  use ExUnit.Case
-  use Patch
-
-  import Forge.EngineApi.Messages
-  import Forge.Test.Fixtures
 
   setup do
     start_supervised!(Proxy)

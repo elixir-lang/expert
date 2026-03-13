@@ -1,4 +1,10 @@
 defmodule Expert.CodeIntelligence.Completion.BuilderTest do
+  use ExUnit.Case, async: true
+
+  import Expert.CodeIntelligence.Completion.Builder
+  import Forge.Test.CursorSupport
+  import Forge.Test.Fixtures
+
   alias Expert.CodeIntelligence.Completion.SortScope
   alias Forge.Ast
   alias Forge.Ast.Env
@@ -6,12 +12,6 @@ defmodule Expert.CodeIntelligence.Completion.BuilderTest do
   alias Forge.Document.Position
   alias Forge.Protocol.Convertible
   alias GenLSP.Structures.CompletionItem
-
-  use ExUnit.Case, async: true
-
-  import Expert.CodeIntelligence.Completion.Builder
-  import Forge.Test.CursorSupport
-  import Forge.Test.Fixtures
 
   def new_env(text) do
     project = project()
@@ -22,7 +22,7 @@ defmodule Expert.CodeIntelligence.Completion.BuilderTest do
   end
 
   def item(label, opts \\ []) do
-    fields = Keyword.merge(opts, label: label)
+    fields = Keyword.put(opts, :label, label)
 
     CompletionItem
     |> struct(fields)

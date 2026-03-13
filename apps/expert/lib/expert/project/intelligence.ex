@@ -1,4 +1,13 @@
 defmodule Expert.Project.Intelligence do
+  use GenServer
+
+  import Forge.EngineApi.Messages
+
+  alias Expert.EngineApi
+  alias Forge.Project
+
+  require Logger
+
   defmodule State do
     alias Forge.Formats
     alias Forge.Project
@@ -57,12 +66,6 @@ defmodule Expert.Project.Intelligence do
       false
     end
   end
-
-  alias Expert.EngineApi
-  alias Forge.Project
-
-  use GenServer
-  import Forge.EngineApi.Messages
 
   @generations [
                  :self,
@@ -208,8 +211,6 @@ defmodule Expert.Project.Intelligence do
     state = State.add_struct_module(state, module_name)
     {:noreply, state}
   end
-
-  require Logger
 
   @impl GenServer
   def handle_info(project_index_ready(), %State{} = state) do

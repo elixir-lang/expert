@@ -1,11 +1,12 @@
 defmodule Engine.Plugin.Runner.Coordinator do
   @moduledoc false
 
+  use GenServer
+
   alias Engine.Plugin.Runner.Coordinator.State
   alias Forge.Formats
 
   require Logger
-  use GenServer
 
   def run_all(subject, plugin_type, on_complete, timeout) when is_function(on_complete, 1) do
     GenServer.call(__MODULE__, {:run_all, subject, plugin_type, on_complete, timeout})

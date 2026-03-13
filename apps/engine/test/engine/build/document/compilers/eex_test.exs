@@ -1,4 +1,12 @@
 defmodule Engine.Build.Document.Compilers.EExTest do
+  use ExUnit.Case
+
+  import Engine.Build.Document.Compilers.EEx, only: [recognizes?: 1]
+  import Forge.Test.CodeSigil
+  import Forge.Test.DiagnosticSupport
+  import Forge.Test.Quiet
+  import Forge.Test.RangeSupport
+
   alias Engine.Build
   alias Engine.Build.CaptureServer
   alias Engine.Build.Document.Compilers
@@ -6,14 +14,6 @@ defmodule Engine.Build.Document.Compilers.EExTest do
   alias Engine.ModuleMappings
   alias Forge.Document
   alias Forge.Plugin.V1.Diagnostic.Result
-
-  use ExUnit.Case
-
-  import Compilers.EEx, only: [recognizes?: 1]
-  import Forge.Test.Quiet
-  import Forge.Test.CodeSigil
-  import Forge.Test.DiagnosticSupport
-  import Forge.Test.RangeSupport
 
   def with_capture_server(_) do
     start_supervised!(CaptureServer)

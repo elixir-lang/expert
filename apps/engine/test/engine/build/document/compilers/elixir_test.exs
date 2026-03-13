@@ -1,9 +1,10 @@
 defmodule Engine.Build.Document.Compilers.ElixirTest do
+  use ExUnit.Case
+
+  import Engine.Build.Document.Compilers.Elixir
+
   alias Engine.Build.Document.Compilers
   alias Forge.Document
-
-  use ExUnit.Case
-  import Compilers.Elixir
 
   def document_with_extension(extension) do
     Document.new("file:///foo#{extension}", "", 0)

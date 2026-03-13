@@ -1,4 +1,6 @@
 defmodule Expert do
+  use GenLSP
+
   alias Expert.ActiveProjects
   alias Expert.Protocol.Convert
   alias Expert.Protocol.Id
@@ -10,8 +12,6 @@ defmodule Expert do
   alias GenLSP.Structures
 
   require Logger
-
-  use GenLSP
 
   @server_specific_messages [
     GenLSP.Notifications.TextDocumentDidChange,
@@ -186,7 +186,7 @@ defmodule Expert do
     end
 
     for project <- ActiveProjects.projects() do
-      unless ActiveProjects.blocked?(project) do
+      if !ActiveProjects.blocked?(project) do
         started =
           Task.Supervisor.start_child(:expert_task_queue, fn ->
             Logger.info("Starting project", project: project)

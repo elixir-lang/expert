@@ -1,9 +1,9 @@
 defmodule Engine.Test.Entry.Builder do
+  import Forge.Test.PositionSupport
+
   alias Forge.Document.Range
   alias Forge.Identifier
   alias Forge.Search.Indexer.Entry
-
-  import Forge.Test.PositionSupport
 
   def entry(fields \\ []) do
     defaults = [

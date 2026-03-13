@@ -1,8 +1,9 @@
 defmodule Engine.Search.Indexer.Extractors.ExUnitTest do
-  alias Engine.Search.Indexer.Extractors
-
   use Engine.Test.ExtractorCase
+
   import Forge.Test.RangeSupport
+
+  alias Engine.Search.Indexer.Extractors
 
   @test_types [
     :ex_unit_setup,
@@ -251,7 +252,7 @@ defmodule Engine.Search.Indexer.Extractors.ExUnitTest do
       assert decorate(doc, describe.range) =~ "  «describe \"something\" do»"
 
       assert decorate(doc, describe.block_range) =~
-               "  «describe \"something\" do\n    test \"something\"\n  end»"
+               ~s(  «describe "something" do\n    test "something"\n  end»)
     end
   end
 

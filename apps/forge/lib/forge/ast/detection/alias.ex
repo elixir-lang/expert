@@ -1,10 +1,10 @@
 defmodule Forge.Ast.Detection.Alias do
+  use Forge.Ast.Detection
+
   alias Forge.Ast.Analysis
   alias Forge.Ast.Detection
   alias Forge.Ast.Tokens
   alias Forge.Document.Position
-
-  use Detection
 
   @doc """
   Recognizes an alias at the current position

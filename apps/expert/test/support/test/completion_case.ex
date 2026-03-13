@@ -1,4 +1,10 @@
 defmodule Expert.Test.Expert.CompletionCase do
+  use ExUnit.CaseTemplate
+
+  import Forge.EngineApi.Messages
+  import Forge.Test.CursorSupport
+  import Forge.Test.Fixtures
+
   alias Expert.CodeIntelligence.Completion
   alias Expert.EngineApi
   alias Forge.Ast
@@ -9,11 +15,6 @@ defmodule Expert.Test.Expert.CompletionCase do
   alias GenLSP.Structures.CompletionContext
   alias GenLSP.Structures.CompletionItem
   alias GenLSP.Structures.CompletionList
-
-  use ExUnit.CaseTemplate
-  import Forge.Test.CursorSupport
-  import Forge.Test.Fixtures
-  import Forge.EngineApi.Messages
 
   setup_all do
     project = project()
@@ -92,7 +93,10 @@ defmodule Expert.Test.Expert.CompletionCase do
   def fetch_completion(completions, label_prefix) when is_binary(label_prefix) do
     matcher = &String.starts_with?(&1.label, label_prefix)
 
-    case completions |> completion_items() |> Enum.filter(matcher) do
+    completions
+    |> completion_items()
+    |> Enum.filter(matcher)
+    |> case do
       [] -> {:error, :not_found}
       [found] -> {:ok, found}
       found when is_list(found) -> {:ok, found}
@@ -104,7 +108,10 @@ defmodule Expert.Test.Expert.CompletionCase do
       Map.get(completion, :kind) == kind
     end
 
-    case completions |> completion_items() |> Enum.filter(matcher) do
+    completions
+    |> completion_items()
+    |> Enum.filter(matcher)
+    |> case do
       [] -> {:error, :not_found}
       [found] -> {:ok, found}
       found when is_list(found) -> {:ok, found}
@@ -122,7 +129,10 @@ defmodule Expert.Test.Expert.CompletionCase do
       end)
     end
 
-    case completions |> completion_items() |> Enum.filter(matcher) do
+    completions
+    |> completion_items()
+    |> Enum.filter(matcher)
+    |> case do
       [] -> {:error, :not_found}
       [found] -> {:ok, found}
       found when is_list(found) -> {:ok, found}

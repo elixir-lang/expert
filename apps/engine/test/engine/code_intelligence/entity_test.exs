@@ -1,6 +1,6 @@
 defmodule Engine.CodeIntelligence.EntityTest do
-  alias Engine.CodeIntelligence.Entity
-  alias Forge.Document
+  use ExUnit.Case
+  use Patch
 
   import ExUnit.CaptureIO
   import Forge.Test.CodeSigil
@@ -8,8 +8,9 @@ defmodule Engine.CodeIntelligence.EntityTest do
   import Forge.Test.Fixtures
   import Forge.Test.RangeSupport
 
-  use ExUnit.Case
-  use Patch
+  alias Engine.CodeIntelligence.Entity
+  alias FooWeb.AdminLive.Agreements.AgreementController
+  alias Forge.Document
 
   describe "module resolve/2" do
     test "succeeds with trailing period" do
@@ -319,8 +320,8 @@ defmodule Engine.CodeIntelligence.EntityTest do
 
     test "does not include sibling scope aliases in nested scopes" do
       patch(Entity, :function_exists?, fn
-        FooWeb.AdminLive.Agreements.AgreementController, :call, 2 -> true
-        FooWeb.AdminLive.Agreements.AgreementController, :action, 2 -> true
+        AgreementController, :call, 2 -> true
+        AgreementController, :action, 2 -> true
       end)
 
       code = ~q[
@@ -337,7 +338,7 @@ defmodule Engine.CodeIntelligence.EntityTest do
         end
       ]
 
-      assert {:ok, {:module, FooWeb.AdminLive.Agreements.AgreementController}, resolved_range} =
+      assert {:ok, {:module, AgreementController}, resolved_range} =
                resolve(code)
 
       assert resolved_range =~ ~S[get "/", «AgreementController», :index]

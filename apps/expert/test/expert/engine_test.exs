@@ -2,9 +2,9 @@ defmodule Expert.EngineTest do
   use ExUnit.Case, async: false
   use Patch
 
-  alias Expert.Engine
-
   import ExUnit.CaptureIO
+
+  alias Expert.Engine
 
   @moduletag :tmp_dir
   setup %{tmp_dir: tmp_dir} do

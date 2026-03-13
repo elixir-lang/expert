@@ -3,10 +3,10 @@ defmodule Forge.Document.Store do
   Backing store for source file documents.
   """
 
+  use GenServer
+
   alias Forge.Document
   alias Forge.ProcessCache
-
-  use GenServer
 
   @type updater :: (Document.t() -> {:ok, Document.t()} | {:error, any()})
 
@@ -22,12 +22,12 @@ defmodule Forge.Document.Store do
   defmodule State do
     @moduledoc false
 
+    import Record
+
     alias Forge.Document
     alias Forge.Document.Store
 
     require Logger
-
-    import Record
 
     defstruct open: %{}, temporary_open_refs: %{}, derivation_funs: %{}
 

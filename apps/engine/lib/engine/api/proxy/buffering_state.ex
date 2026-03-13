@@ -1,11 +1,10 @@
 defmodule Engine.Api.Proxy.BufferingState do
-  alias Forge.Document
+  import Engine.Api.Proxy.Records
+  import Forge.EngineApi.Messages
 
   alias Engine.Build
   alias Engine.Commands
-
-  import Forge.EngineApi.Messages
-  import Engine.Api.Proxy.Records
+  alias Forge.Document
 
   defstruct initiator_pid: nil, buffer: []
 

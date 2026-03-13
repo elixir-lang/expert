@@ -20,9 +20,10 @@ defmodule Engine.CodeIntelligence.Hover do
   defp elixir_sense_hover(%Analysis{} = analysis, %Position{} = position) do
     analysis = Engine.CodeIntelligence.Heex.maybe_normalize(analysis, position)
 
-    case analysis.document
-         |> Document.to_string()
-         |> ElixirSense.docs(position.line, position.character) do
+    analysis.document
+    |> Document.to_string()
+    |> ElixirSense.docs(position.line, position.character)
+    |> case do
       %{docs: docs, range: range} when docs != [] ->
         markdown = format_docs(docs)
         lsp_range = to_lsp_range(analysis.document, range)

@@ -5,6 +5,20 @@ defmodule Engine.Search.Store.Backends.Ets.State do
   This backend uses an ETS table to store its data using a schema defined in the schemas submodule.
 
   """
+  import Engine.Search.Store.Backends.Ets.Schemas.V4,
+    only: [
+      by_block_id: 1,
+      query_by_id: 1,
+      query_by_path: 1,
+      query_structure: 1,
+      query_by_subject: 1,
+      structure: 1,
+      to_subject: 1
+    ]
+
+  import Engine.Search.Store.Backends.Ets.Wal, only: :macros
+  import Forge.Search.Indexer.Entry, only: :macros
+
   alias Engine.Search.Store.Backends.Ets.Schema
   alias Engine.Search.Store.Backends.Ets.Schemas
   alias Engine.Search.Store.Backends.Ets.Wal
@@ -18,20 +32,6 @@ defmodule Engine.Search.Store.Backends.Ets.State do
     Schemas.V3,
     Schemas.V4
   ]
-
-  import Wal, only: :macros
-  import Entry, only: :macros
-
-  import Schemas.V4,
-    only: [
-      by_block_id: 1,
-      query_by_id: 1,
-      query_by_path: 1,
-      query_structure: 1,
-      query_by_subject: 1,
-      structure: 1,
-      to_subject: 1
-    ]
 
   defstruct [:project, :table_name, :leader?, :leader_pid, :wal_state]
 

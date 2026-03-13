@@ -1,4 +1,10 @@
 defmodule Expert.Project.Diagnostics.State do
+  alias Forge.Document
+  alias Forge.Plugin.V1.Diagnostic
+  alias Forge.Project
+
+  require Logger
+
   defmodule Entry do
     defstruct build_number: 0, diagnostics: []
 
@@ -28,13 +34,7 @@ defmodule Expert.Project.Diagnostics.State do
     end
   end
 
-  alias Forge.Document
-  alias Forge.Plugin.V1.Diagnostic
-  alias Forge.Project
-
   defstruct project: nil, entries_by_uri: %{}
-
-  require Logger
 
   def new(%Project{} = project) do
     %__MODULE__{project: project}

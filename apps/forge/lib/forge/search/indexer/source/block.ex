@@ -3,8 +3,9 @@ defmodule Forge.Search.Indexer.Source.Block do
   A struct that represents a block of source code
   """
 
-  defstruct [:starts_at, :ends_at, :id, :parent_id]
   alias Forge.Identifier
+
+  defstruct [:starts_at, :ends_at, :id, :parent_id]
 
   def root do
     %__MODULE__{id: :root}

@@ -6,6 +6,9 @@ defmodule Forge.Document do
   All language server documents are represented and backed by documents, which
   provide functionality for fetching lines, applying changes, and tracking versions.
   """
+  import Forge.Document.Line
+
+  alias __MODULE__.Path, as: DocumentPath
   alias Forge.Document.Edit
   alias Forge.Document.Line
   alias Forge.Document.Lines
@@ -14,11 +17,7 @@ defmodule Forge.Document do
   alias Forge.Math
   alias Forge.Protocol.Convertible
 
-  import Forge.Document.Line
-
   require Logger
-
-  alias __MODULE__.Path, as: DocumentPath
 
   @derive {Inspect, only: [:path, :version, :dirty?, :lines]}
 

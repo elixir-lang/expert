@@ -1,7 +1,7 @@
 defmodule Expert.CodeIntelligence.Completion.Translations.StructTest do
-  alias GenLSP.Enumerations.CompletionItemKind
-
   use Expert.Test.Expert.CompletionCase
+
+  alias GenLSP.Enumerations.CompletionItemKind
 
   describe "structs" do
     test "should complete after %", %{project: project} do

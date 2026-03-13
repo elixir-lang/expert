@@ -1,9 +1,9 @@
 defmodule Engine.Search.Store.Backends.Ets.Schemas.V2 do
-  alias Engine.Search.Store.Backends.Ets.Schema
+  use Engine.Search.Store.Backends.Ets.Schema, version: 2
+
   alias Forge.Search.Indexer.Entry
 
   require Entry
-  use Schema, version: 2
 
   defkey :by_id, [:id, :type, :subtype]
 

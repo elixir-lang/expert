@@ -11,7 +11,7 @@ defmodule Engine.Search.Indexer.Extractors.ExUnit do
 
   # setup block i.e. setup do... or setup arg do...
   def extract({setup_fn, _, args} = setup, %Reducer{} = reducer)
-      when setup_fn in [:setup, :setup_all] and length(args) > 0 do
+      when setup_fn in [:setup, :setup_all] and (is_list(args) and args != []) do
     position = Reducer.position(reducer)
 
     with true <- exunit_in_scope?(reducer, position),

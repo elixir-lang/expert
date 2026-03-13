@@ -1,11 +1,11 @@
 defmodule Engine.ModuleMappingsTest do
-  alias Engine.Dispatch
-  alias Engine.ModuleMappings
-
   use ExUnit.Case
   use Forge.Test.EventualAssertions
 
   import Forge.EngineApi.Messages
+
+  alias Engine.Dispatch
+  alias Engine.ModuleMappings
 
   setup do
     start_supervised!(Dispatch)

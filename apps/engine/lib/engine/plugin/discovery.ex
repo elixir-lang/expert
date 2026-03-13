@@ -56,7 +56,7 @@ defmodule Engine.Plugin.Discovery do
   end
 
   defp unload_module(module) do
-    unless :code.delete(module) do
+    if !:code.delete(module) do
       :code.purge(module)
       :code.delete(module)
     end

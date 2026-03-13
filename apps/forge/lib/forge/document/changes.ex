@@ -9,11 +9,11 @@ defmodule Forge.Document.Changes do
   Using this struct allows efficient conversions at the language server border, as the document
   doesn't have to be looked up (and possibly read off the filesystem) by the language server.
   """
-  defstruct [:document, :edits]
-  alias Forge.Document
-
   use Forge.StructAccess
 
+  alias Forge.Document
+
+  defstruct [:document, :edits]
   @type edits :: Document.Edit.t() | [Document.Edit.t()]
   @type t :: %__MODULE__{
           document: Document.t(),

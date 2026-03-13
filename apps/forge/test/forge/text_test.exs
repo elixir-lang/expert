@@ -1,8 +1,8 @@
 defmodule Forge.TextTest do
-  alias Forge.Text
-
   use ExUnit.Case, async: true
   use ExUnitProperties
+
+  alias Forge.Text
 
   property "count_leading_spaces/1" do
     check all(

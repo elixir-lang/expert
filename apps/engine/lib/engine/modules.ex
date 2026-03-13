@@ -237,7 +237,7 @@ defmodule Engine.Modules do
   defp expired?(nil), do: true
 
   defp expired?(expires) do
-    DateTime.compare(DateTime.utc_now(), expires) == :gt
+    DateTime.after?(DateTime.utc_now(), expires)
   end
 
   defp rebuild_cache do

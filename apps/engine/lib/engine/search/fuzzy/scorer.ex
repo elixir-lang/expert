@@ -17,11 +17,11 @@ defmodule Engine.Search.Fuzzy.Scorer do
 
   Based loosely on https://medium.com/@Srekel/implementing-a-fuzzy-search-algorithm-for-the-debuginator-cacc349e6c55
   """
+  import Record
+
   defstruct match?: false,
             index: 0,
             matched_character_positions: []
-
-  import Record
 
   defrecord :subject, graphemes: nil, normalized: nil, period_positions: [-1]
 

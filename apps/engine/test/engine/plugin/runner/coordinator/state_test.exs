@@ -1,10 +1,10 @@
 defmodule Engine.Plugin.Coordinator.StateTest do
+  use ExUnit.Case
+
   alias Engine.Plugin.Runner
   alias Engine.Plugin.Runner.Coordinator.State
   alias Forge.Document
   alias Forge.Plugin.V1
-
-  use ExUnit.Case
 
   setup do
     start_supervised!(Runner.Supervisor)

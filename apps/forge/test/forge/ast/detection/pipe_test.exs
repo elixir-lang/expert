@@ -1,8 +1,6 @@
 defmodule Forge.Ast.Detection.PipeTest do
-  alias Forge.Ast.Detection
-
   use Forge.Test.DetectionCase,
-    for: Detection.Pipe,
+    for: Forge.Ast.Detection.Pipe,
     assertions: [[:pipe, :*]],
     variations: [:function_arguments],
     skip: [[:module_attribute, :multi_line_pipe]]

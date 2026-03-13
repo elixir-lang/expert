@@ -1,7 +1,6 @@
 defmodule Forge.Ast.Detection.AliasTest do
-  alias Forge.Ast.Detection
-
   use Forge.Test.DetectionCase,
-    for: Detection.Alias,
+    for: Forge.Ast.Detection.Alias,
     assertions: [[:alias, :*]]
+
 end

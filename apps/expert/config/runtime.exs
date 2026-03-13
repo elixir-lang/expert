@@ -2,7 +2,7 @@ import Config
 
 log_directory = Path.join(File.cwd!(), ".expert")
 
-unless File.exists?(log_directory) do
+if !File.exists?(log_directory) do
   File.mkdir_p(log_directory)
 end
 

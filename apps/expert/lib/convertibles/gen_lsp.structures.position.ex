@@ -1,6 +1,6 @@
 defimpl Forge.Protocol.Convertible, for: GenLSP.Structures.Position do
-  alias GenLSP.Structures.Position
   alias Expert.Protocol.Conversions
+  alias GenLSP.Structures.Position
 
   def to_lsp(%Position{} = position) do
     Conversions.to_lsp(position)

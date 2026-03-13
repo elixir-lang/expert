@@ -1,8 +1,6 @@
 defmodule Forge.Ast.Detection.FunctionCaptureTest do
-  alias Forge.Ast.Detection
-
   use Forge.Test.DetectionCase,
-    for: Detection.FunctionCapture,
+    for: Forge.Ast.Detection.FunctionCapture,
     assertions: [[:function_capture, :*]],
     variations: [:match, :function_body]
 

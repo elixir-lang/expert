@@ -11,10 +11,11 @@ defmodule Engine.Search.Fuzzy do
   returned.
   """
 
+  import Record
+
   alias Engine.Search.Fuzzy.Scorer
   alias Forge.Project
   alias Forge.Search.Indexer.Entry
-  import Record
 
   defstruct subject_to_values: %{},
             grouping_key_to_values: %{},
