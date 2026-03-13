@@ -1,6 +1,8 @@
 defmodule Expert.Provider.Handlers.CodeLens do
   @behaviour Expert.Provider.Handler
 
+  import Forge.Document.Line
+
   alias Expert.ActiveProjects
   alias Expert.EngineApi
   alias Expert.Provider.Handlers
@@ -11,7 +13,6 @@ defmodule Expert.Provider.Handlers.CodeLens do
   alias GenLSP.Requests
   alias GenLSP.Structures
 
-  import Document.Line
   require Logger
 
   @impl Expert.Provider.Handler

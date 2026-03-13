@@ -1,4 +1,6 @@
 defmodule Engine.CodeAction.Handlers.AddAlias do
+  @behaviour Engine.CodeAction.Handler
+
   alias Engine.Analyzer
   alias Engine.CodeAction
   alias Engine.CodeIntelligence.Entity
@@ -16,8 +18,6 @@ defmodule Engine.CodeAction.Handlers.AddAlias do
   alias Forge.Search.Indexer.Entry
   alias GenLSP.Enumerations.CodeActionKind
   alias Sourceror.Zipper
-
-  @behaviour CodeAction.Handler
 
   @impl CodeAction.Handler
   def actions(%Document{} = doc, %Range{} = range, _diagnostics) do

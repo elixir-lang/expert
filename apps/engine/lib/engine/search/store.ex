@@ -3,13 +3,17 @@ defmodule Engine.Search.Store do
   A persistent store for search entries
   """
 
+  use GenServer
+
+  import Forge.EngineApi.Messages
+
   alias Engine.Dispatch
   alias Engine.Search.Store
   alias Engine.Search.Store.State
-
-  alias Forge.EngineApi
   alias Forge.Project
   alias Forge.Search.Indexer.Entry
+
+  require Logger
 
   @type index_state :: :empty | :stale
   @type existing_entries :: [Entry.t()]
@@ -36,10 +40,6 @@ defmodule Engine.Search.Store do
                        :search_store_quiescent_period_ms,
                        2500
                      )
-
-  import EngineApi.Messages
-  use GenServer
-  require Logger
 
   def stop do
     GenServer.stop(__MODULE__)

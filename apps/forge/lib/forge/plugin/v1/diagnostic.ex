@@ -62,11 +62,12 @@ defmodule Forge.Plugin.V1.Diagnostic do
     name = Keyword.get(opts, :name)
 
     quote location: :keep do
-      require Logger
-      Module.register_attribute(__MODULE__, :expert_plugin, persist: true)
-      @expert_plugin true
       @behaviour unquote(__MODULE__)
 
+      require Logger
+
+      Module.register_attribute(__MODULE__, :expert_plugin, persist: true)
+      @expert_plugin true
       def __expert_plugin__ do
         __MODULE__
       end

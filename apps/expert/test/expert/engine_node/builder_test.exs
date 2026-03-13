@@ -1,10 +1,10 @@
 defmodule Expert.EngineNode.BuilderTest do
-  alias Expert.EngineNode.Builder
+  use ExUnit.Case, async: false
+  use Patch
 
   import Forge.Test.Fixtures
 
-  use ExUnit.Case, async: false
-  use Patch
+  alias Expert.EngineNode.Builder
 
   setup do
     {:ok, project: project()}

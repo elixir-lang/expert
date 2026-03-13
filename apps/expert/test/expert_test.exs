@@ -1,13 +1,13 @@
 defmodule Expert.ExpertTest do
-  alias Expert.State
-  alias Forge.Project
-  alias Forge.Test.Fixtures
-
   use ExUnit.Case, async: false
   use Patch
 
-  import ExUnit.CaptureLog
   import Expert.Test.Protocol.TransportSupport
+  import ExUnit.CaptureLog
+
+  alias Expert.State
+  alias Forge.Project
+  alias Forge.Test.Fixtures
 
   setup do
     :persistent_term.erase(Expert.Configuration)

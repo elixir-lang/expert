@@ -1,6 +1,7 @@
 defmodule Forge.Ast.ModuleTest do
-  import Forge.Ast.Module
   use ExUnit.Case, async: true
+
+  import Forge.Ast.Module
 
   describe "safe_split/2" do
     test "splits elixir modules into binaries by default" do

@@ -2,12 +2,12 @@ defmodule Engine.Search.Store.Backends.Ets.Wal do
   @moduledoc """
   A (hopefully) simple write-ahead log
   """
+  import Record
+
   alias Engine.Progress
   alias Forge.Identifier
   alias Forge.Project
   alias Forge.VM.Versions
-
-  import Record
 
   defrecord :operation, id: nil, function: nil, args: nil
 

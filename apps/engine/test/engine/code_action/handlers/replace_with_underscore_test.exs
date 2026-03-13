@@ -1,9 +1,9 @@
 defmodule Engine.CodeAction.Handlers.ReplaceWithUnderscoreTest do
+  use Forge.Test.CodeMod.Case
+
   alias Engine.CodeAction.Handlers.ReplaceWithUnderscore
   alias Forge.CodeAction.Diagnostic
   alias Forge.Document
-
-  use Forge.Test.CodeMod.Case
 
   def apply_code_mod(original_text, _ast, options) do
     variable = Keyword.get(options, :variable, :unused)

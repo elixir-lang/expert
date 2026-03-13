@@ -1,7 +1,7 @@
 defmodule Engine.Api.Proxy.Records do
-  alias Forge.Formats
-
   import Record
+
+  alias Forge.Formats
 
   defrecord :mfa, module: nil, function: nil, arguments: [], seq: nil
 
@@ -22,7 +22,7 @@ defmodule Engine.Api.Proxy.Records do
     Code.ensure_compiled!(module)
     Code.ensure_loaded!(module)
 
-    unless function_exported?(module, f, arity) do
+    if !function_exported?(module, f, arity) do
       mfa = Formats.mfa(module, f, arity)
 
       raise CompileError.message(%{

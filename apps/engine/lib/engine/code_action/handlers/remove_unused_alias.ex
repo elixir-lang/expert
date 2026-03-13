@@ -21,6 +21,10 @@ defmodule Engine.CodeAction.Handlers.RemoveUnusedAlias do
   normalizer and possibly fix sourceror, so until then, this is what we have.
   """
 
+  @behaviour Engine.CodeAction.Handler
+
+  import Record
+
   alias Engine.Analyzer
   alias Engine.CodeAction
   alias Forge.Ast
@@ -34,8 +38,6 @@ defmodule Engine.CodeAction.Handlers.RemoveUnusedAlias do
   alias GenLSP.Enumerations
   alias Sourceror.Zipper
 
-  import Record
-
   defrecordp :multi_alias_metadata, [
     :document,
     :multi_alias_range,
@@ -44,8 +46,6 @@ defmodule Engine.CodeAction.Handlers.RemoveUnusedAlias do
   ]
 
   defrecordp :single_alias_metadata, [:document, :range]
-  @behaviour CodeAction.Handler
-
   @impl CodeAction.Handler
   def actions(%Document{} = document, %Range{} = range, diagnostics) do
     Enum.reduce(diagnostics, [], fn %Diagnostic{} = diagnostic, acc ->

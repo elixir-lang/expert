@@ -3,6 +3,15 @@ defmodule Expert.Project.Node do
   A genserver responsible for starting the remote node and cleaning up the build directory if it crashes
   """
 
+  use GenServer
+
+  alias Expert.EngineApi
+  alias Expert.EngineNode
+  alias Expert.Progress
+  alias Forge.Project
+
+  require Logger
+
   defmodule State do
     defstruct [:project, :node, :supervisor_pid]
 
@@ -10,16 +19,6 @@ defmodule Expert.Project.Node do
       %__MODULE__{project: project, node: node, supervisor_pid: supervisor_pid}
     end
   end
-
-  alias Forge.Project
-
-  alias Expert.EngineApi
-  alias Expert.EngineNode
-  alias Expert.Progress
-
-  require Logger
-
-  use GenServer
 
   def start_link(%Project{} = project) do
     GenServer.start_link(__MODULE__, project, name: name(project))

@@ -3,11 +3,11 @@ defmodule Engine.Plugin.Runner.Coordinator.State do
 
   alias Engine.Plugin.Runner
 
+  require Logger
+
   defstruct tasks: [], failures: %{}
 
   @max_plugin_errors 10
-
-  require Logger
 
   def new do
     %__MODULE__{}
@@ -17,8 +17,7 @@ defmodule Engine.Plugin.Runner.Coordinator.State do
     tasks_to_plugin_modules =
       plugin_type
       |> Runner.plugins_of_type()
-      |> Enum.map(&Runner.Supervisor.async(&1, subject))
-      |> Map.new()
+      |> Map.new(&Runner.Supervisor.async(&1, subject))
 
     await_results(state, tasks_to_plugin_modules, timeout)
   end

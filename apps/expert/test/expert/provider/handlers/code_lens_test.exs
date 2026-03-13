@@ -1,4 +1,11 @@
 defmodule Expert.Provider.Handlers.CodeLensTest do
+  use ExUnit.Case, async: false
+  use Patch
+
+  import Forge.EngineApi.Messages
+  import Forge.Test.Fixtures
+  import Forge.Test.RangeSupport
+
   alias Expert.EngineApi
   alias Expert.Protocol.Convert
   alias Expert.Protocol.Id
@@ -7,13 +14,6 @@ defmodule Expert.Provider.Handlers.CodeLensTest do
   alias Forge.Project
   alias GenLSP.Requests.TextDocumentCodeLens
   alias GenLSP.Structures
-
-  import Forge.EngineApi.Messages
-  import Forge.Test.Fixtures
-  import Forge.Test.RangeSupport
-
-  use ExUnit.Case, async: false
-  use Patch
 
   setup_all do
     start_supervised!({Forge.NodePortMapper, []})

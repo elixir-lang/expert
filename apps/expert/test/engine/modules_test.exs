@@ -1,13 +1,13 @@
 defmodule Expert.Engine.ModulesTest do
   use ExUnit.Case
 
+  import Forge.EngineApi.Messages
+  import Forge.Test.Fixtures
+
   alias Expert.EngineApi
   alias Expert.EngineNode
   alias Expert.EngineSupervisor
   alias Forge.Project
-
-  import Forge.EngineApi.Messages
-  import Forge.Test.Fixtures
 
   describe "Engine.Modules with custom time zone database config" do
     @tag timeout: :timer.seconds(60)

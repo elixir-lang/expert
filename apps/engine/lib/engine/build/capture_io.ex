@@ -88,16 +88,14 @@ defmodule Engine.Build.CaptureIO do
   end
 
   defp do_capture_gl(string_io, fun) do
-    try do
-      fun.()
-    catch
-      kind, reason ->
-        {:ok, {_input, output}} = StringIO.close(string_io)
-        {output, {kind, reason}}
-    else
-      result ->
-        {:ok, {_input, output}} = StringIO.close(string_io)
-        {output, result}
-    end
+    fun.()
+  catch
+    kind, reason ->
+      {:ok, {_input, output}} = StringIO.close(string_io)
+      {output, {kind, reason}}
+  else
+    result ->
+      {:ok, {_input, output}} = StringIO.close(string_io)
+      {output, result}
   end
 end

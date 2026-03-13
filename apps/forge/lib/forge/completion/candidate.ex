@@ -1,5 +1,6 @@
 defmodule Forge.Completion.Candidate do
   alias Forge.Completion.Candidate.ArgumentNames
+
   require Logger
 
   defmodule Function do

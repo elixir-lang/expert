@@ -1,12 +1,11 @@
 defmodule Forge.Ast.Detection.String do
+  use Forge.Ast.Detection
+
   alias Forge.Ast
   alias Forge.Ast.Analysis
   alias Forge.Ast.Detection
   alias Forge.Document.Position
-  alias Forge.Document.Position
   alias Forge.Document.Range
-
-  use Detection
 
   @string_sigils [
     :sigil_s,

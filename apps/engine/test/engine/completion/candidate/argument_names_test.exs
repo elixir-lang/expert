@@ -1,8 +1,9 @@
 defmodule Forge.Completion.Candidate.ArgumentNamesTest do
-  alias Forge.Completion.Candidate.ArgumentNames
-
   use ExUnit.Case
-  import ArgumentNames
+
+  import Forge.Completion.Candidate.ArgumentNames
+
+  alias Forge.Completion.Candidate.ArgumentNames
 
   describe "parsing elixir sense argument names" do
     test "handles normal arguments" do

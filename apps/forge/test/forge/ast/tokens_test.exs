@@ -1,10 +1,10 @@
 defmodule Forge.Ast.TokensTest do
-  alias Forge.Ast.Tokens
+  use ExUnit.Case, async: true
 
   import Forge.Test.CodeSigil
   import Forge.Test.CursorSupport
 
-  use ExUnit.Case, async: true
+  alias Forge.Ast.Tokens
 
   describe "prefix_stream/2" do
     test "works as intended" do

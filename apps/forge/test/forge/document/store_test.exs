@@ -1,10 +1,10 @@
 defmodule Forge.Document.StoreTest do
+  use ExUnit.Case
+
   alias Forge.Document
   alias Forge.Document.Edit
   alias Forge.Document.Position
   alias Forge.Document.Range
-
-  use ExUnit.Case
 
   def with_store(%{} = context) do
     store_opts = Map.get(context, :store, [])

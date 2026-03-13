@@ -1,9 +1,5 @@
 defmodule Expert.Engine.CodeIntelligence.DefinitionTest do
-  alias Engine.Search
-  alias Expert.EngineApi
-  alias Expert.EngineNode
-  alias Expert.EngineSupervisor
-  alias Forge.Document
+  use ExUnit.Case, async: false
 
   import Forge.EngineApi.Messages
   import Forge.Test.CodeSigil
@@ -11,7 +7,11 @@ defmodule Expert.Engine.CodeIntelligence.DefinitionTest do
   import Forge.Test.Fixtures
   import Forge.Test.RangeSupport
 
-  use ExUnit.Case, async: false
+  alias Engine.Search
+  alias Expert.EngineApi
+  alias Expert.EngineNode
+  alias Expert.EngineSupervisor
+  alias Forge.Document
 
   defp with_referenced_file(%{project: project}) do
     uri =

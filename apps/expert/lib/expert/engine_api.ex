@@ -2,12 +2,11 @@ defmodule Expert.EngineApi do
   alias Expert.EngineNode
   alias Forge.Ast.Analysis
   alias Forge.Ast.Env
+  alias Forge.CodeIntelligence
   alias Forge.Document
   alias Forge.Document.Position
   alias Forge.Document.Range
   alias Forge.Project
-
-  alias Forge.CodeIntelligence
 
   require Logger
 

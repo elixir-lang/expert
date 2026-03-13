@@ -2,6 +2,10 @@ defmodule Engine.Dispatch.PubSub do
   @moduledoc """
   A pubsub event handler for a gen_event controller.
   """
+  @behaviour :gen_event
+
+  alias Forge.Project
+
   defmodule State do
     alias Forge.Project
 
@@ -54,10 +58,6 @@ defmodule Engine.Dispatch.PubSub do
       %__MODULE__{state | registrations: registrations}
     end
   end
-
-  alias Forge.Project
-
-  @behaviour :gen_event
 
   def register_message(listener_pid, message_types) do
     {:register, listener_pid, message_types}

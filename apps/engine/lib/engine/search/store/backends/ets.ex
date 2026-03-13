@@ -1,12 +1,12 @@
 defmodule Engine.Search.Store.Backends.Ets do
+  @behaviour Engine.Search.Store.Backend
+
+  use GenServer
+
   alias Engine.Search.Store.Backend
   alias Engine.Search.Store.Backends.Ets.State
   alias Forge.Project
   alias Forge.Search.Indexer.Entry
-
-  use GenServer
-
-  @behaviour Backend
 
   @impl Backend
   def new(%Project{}) do

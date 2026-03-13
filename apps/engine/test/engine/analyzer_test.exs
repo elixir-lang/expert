@@ -1,12 +1,12 @@
 defmodule Engine.AnalyzerTest do
-  alias Engine.Analyzer
-  alias Forge.Ast
-  alias Forge.Ast.Analysis
+  use ExUnit.Case, async: true
 
   import Forge.Test.CodeSigil
   import Forge.Test.CursorSupport
 
-  use ExUnit.Case, async: true
+  alias Engine.Analyzer
+  alias Forge.Ast
+  alias Forge.Ast.Analysis
 
   describe "current_module/2" do
     test "fails if there is not __MODULE__ defined" do

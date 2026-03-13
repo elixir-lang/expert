@@ -1,5 +1,7 @@
 defmodule Engine.CodeAction.Handlers.CreateUndefinedFunction do
   @moduledoc false
+  @behaviour Engine.CodeAction.Handler
+
   alias Engine.CodeAction
   alias Forge.Ast
   alias Forge.Ast.Analysis
@@ -10,8 +12,6 @@ defmodule Engine.CodeAction.Handlers.CreateUndefinedFunction do
   alias Forge.Document.Position
   alias Forge.Document.Range
   alias GenLSP.Enumerations.CodeActionKind
-
-  @behaviour CodeAction.Handler
 
   @impl CodeAction.Handler
   def actions(%Document{} = doc, %Range{}, diagnostics) do

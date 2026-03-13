@@ -1,18 +1,17 @@
 defmodule Engine.CodeIntelligence.ReferencesTest do
-  alias Forge.Document
-  alias Forge.Document.Location
-
-  alias Engine.CodeIntelligence.References
-  alias Engine.Search
-  alias Engine.Search.Store.Backends
-
   use ExUnit.Case, async: false
 
   import Forge.Test.CodeSigil
   import Forge.Test.CursorSupport
+  import Forge.Test.EventualAssertions
   import Forge.Test.Fixtures
   import Forge.Test.RangeSupport
-  import Forge.Test.EventualAssertions
+
+  alias Engine.CodeIntelligence.References
+  alias Engine.Search
+  alias Engine.Search.Store.Backends
+  alias Forge.Document
+  alias Forge.Document.Location
 
   setup do
     project = project()

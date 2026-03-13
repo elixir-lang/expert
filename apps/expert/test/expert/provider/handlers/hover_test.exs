@@ -1,4 +1,10 @@
 defmodule Expert.Provider.Handlers.HoverTest do
+  use ExUnit.Case, async: false
+
+  import Forge.Test.CodeSigil
+  import Forge.Test.CursorSupport
+  import Forge.Test.RangeSupport
+
   alias Engine.Search
   alias Expert.EngineApi
   alias Expert.Protocol.Convert
@@ -10,13 +16,7 @@ defmodule Expert.Provider.Handlers.HoverTest do
   alias GenLSP.Requests
   alias GenLSP.Structures
 
-  import Forge.Test.CodeSigil
-  import Forge.Test.CursorSupport
-  import Forge.Test.RangeSupport
-
   require Messages
-
-  use ExUnit.Case, async: false
 
   setup_all do
     project = Fixtures.project()

@@ -1,7 +1,7 @@
 defmodule Expert.CodeIntelligence.Completion.Translations.ModuleAttributeTest do
-  alias GenLSP.Enumerations.CompletionItemKind
-
   use Expert.Test.Expert.CompletionCase
+
+  alias GenLSP.Enumerations.CompletionItemKind
 
   describe "module attributes" do
     test "@moduledoc completions", %{project: project} do

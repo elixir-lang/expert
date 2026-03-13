@@ -20,7 +20,7 @@ defmodule Expert.CodeIntelligence.Completion.Translations.Callable do
 
   def completion(%callable_module{arity: 0} = callable, %Env{} = env)
       when callable_module in @callables do
-    unless Env.in_context?(env, :pipe) do
+    if !Env.in_context?(env, :pipe) do
       do_completion(callable, env)
     end
   end

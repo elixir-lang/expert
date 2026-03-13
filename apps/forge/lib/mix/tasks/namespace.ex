@@ -10,9 +10,12 @@ defmodule Mix.Tasks.Namespace do
 
   This task takes a single argument, which is the full path to the release.
   """
+  use Mix.Task
+
   alias Forge.Ast
   alias Forge.Namespace.Transform
-  use Mix.Task
+
+  require Logger
 
   @dev_deps [:patch, :burrito]
   # Unless explicitly added, nimble_parsec won't show up as a loaded app
@@ -27,8 +30,6 @@ defmodule Mix.Tasks.Namespace do
     "expert" => "Expert",
     "forge" => "Forge"
   }
-
-  require Logger
 
   def run([base_directory, output_directory | opts]) do
     {args, _, _} =
@@ -167,7 +168,7 @@ defmodule Mix.Tasks.Namespace do
   defp init do
     discover_deps_apps()
     |> Enum.concat(@no_app_deps)
-    |> then(&(&1 -- @dev_deps))
+    |> Kernel.--(@dev_deps)
     |> root_modules_for_apps()
     |> Map.merge(extra_apps())
     |> register_mappings()

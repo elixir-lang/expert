@@ -1,12 +1,12 @@
 defmodule Engine.CodeAction.Handlers.Require do
+  @behaviour Engine.CodeAction.Handler
+
   alias Engine.CodeAction
   alias Forge.Ast.Analysis
   alias Forge.Ast.Analysis.Require
   alias Forge.Document
   alias Forge.Document.Changes
   alias GenLSP.Enumerations.CodeActionKind
-
-  @behaviour CodeAction.Handler
 
   @impl CodeAction.Handler
   def actions(document, range, diagnostics) do

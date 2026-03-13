@@ -1,13 +1,14 @@
 defmodule Expert.Project.SearchListener do
+  use GenServer
+
+  import Forge.EngineApi.Messages
+
   alias Expert.EngineApi
   alias Expert.Protocol.Id
   alias Forge.Formats
   alias Forge.Project
   alias GenLSP.Requests
 
-  import Forge.EngineApi.Messages
-
-  use GenServer
   require Logger
 
   def start_link(%Project{} = project) do

@@ -1,10 +1,10 @@
 defmodule Expert.CodeIntelligence.Completion.Translations.ModuleOrBehaviourTest do
+  use Expert.Test.Expert.CompletionCase
+  use Patch
+
   alias Expert.EngineApi
   alias GenLSP.Enumerations.CompletionItemKind
   alias GenLSP.Enumerations.InsertTextFormat
-
-  use Expert.Test.Expert.CompletionCase
-  use Patch
 
   describe "module completions" do
     test "modules should emit a completion for stdlib modules", %{project: project} do

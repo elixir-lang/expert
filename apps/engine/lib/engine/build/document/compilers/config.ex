@@ -2,16 +2,16 @@ defmodule Engine.Build.Document.Compilers.Config do
   @moduledoc """
   A compiler for elixir configuration
   """
+  @behaviour Engine.Build.Document.Compiler
+
   alias Elixir.Features
-  alias Engine.Build
   alias Engine.Build.Error.Location
   alias Forge.Document
   alias Forge.Plugin.V1.Diagnostic
 
-  @elixir_source "Elixir"
-
-  @behaviour Build.Document.Compiler
   require Logger
+
+  @elixir_source "Elixir"
 
   @impl true
   def enabled?, do: true

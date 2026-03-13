@@ -1,11 +1,12 @@
 defmodule Forge.Protocol.Convertibles.Forge.Plugin.V1.Diagnostic.ResultTest do
+  use Expert.Test.Protocol.ConvertibleSupport
+
+  import Forge.Test.CodeSigil
+
   alias Forge.Document
   alias Forge.Plugin.V1.Diagnostic
   alias GenLSP.Enumerations.DiagnosticSeverity
   alias GenLSP.Structures
-  use Expert.Test.Protocol.ConvertibleSupport
-
-  import Forge.Test.CodeSigil
 
   defp plugin_diagnostic(file_path, position) do
     file_path

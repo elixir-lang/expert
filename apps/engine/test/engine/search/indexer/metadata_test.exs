@@ -1,14 +1,14 @@
 defmodule Engine.Search.Indexer.MetadataTest do
+  use ExUnit.Case
+
+  import Forge.Test.CodeSigil
+  import Forge.Test.RangeSupport
+
   alias Engine.Search.Indexer.Metadata
   alias Forge.Ast
   alias Forge.Document
   alias Forge.Document.Position
   alias Forge.Document.Range
-
-  use ExUnit.Case
-
-  import Forge.Test.RangeSupport
-  import Forge.Test.CodeSigil
 
   describe "blocks in modules" do
     test "finds a block in an empty module" do

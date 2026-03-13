@@ -1,4 +1,12 @@
 defmodule Engine.Search.StoreTest do
+  use ExUnit.Case, async: false
+
+  import Engine.Test.Entry.Builder
+  import Forge.EngineApi.Messages
+  import Forge.Test.CodeSigil
+  import Forge.Test.EventualAssertions
+  import Forge.Test.Fixtures
+
   alias Engine.Dispatch
   alias Engine.Search.Indexer
   alias Engine.Search.Store
@@ -6,14 +14,6 @@ defmodule Engine.Search.StoreTest do
   alias Forge.Search.Indexer.Entry
   alias Forge.Test.EventualAssertions
   alias Forge.Test.Fixtures
-
-  use ExUnit.Case, async: false
-
-  import Engine.Test.Entry.Builder
-  import EventualAssertions
-  import Fixtures
-  import Forge.EngineApi.Messages
-  import Forge.Test.CodeSigil
 
   @backends [Ets]
 

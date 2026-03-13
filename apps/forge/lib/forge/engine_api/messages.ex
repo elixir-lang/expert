@@ -1,7 +1,8 @@
 defmodule Forge.EngineApi.Messages do
+  import Record
+
   alias Forge.Project
 
-  import Record
   defrecord :project_compile_requested, project: nil, build_number: 0
 
   defrecord :project_compiled,

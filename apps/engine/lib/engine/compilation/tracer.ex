@@ -1,9 +1,9 @@
 defmodule Engine.Compilation.Tracer do
+  import Forge.EngineApi.Messages
+
   alias Engine.Build
   alias Engine.Module.Loader
   alias Engine.Progress
-
-  import Forge.EngineApi.Messages
 
   def trace({:on_module, module_binary, _filename}, %Macro.Env{} = env) do
     message = extract_module_updated(env.module, module_binary, env.file)
@@ -17,7 +17,7 @@ defmodule Engine.Compilation.Tracer do
   end
 
   def extract_module_updated(module, module_binary, filename) do
-    unless Loader.ensure_loaded?(module) do
+    if !Loader.ensure_loaded?(module) do
       erlang_filename =
         filename
         |> ensure_filename()

@@ -169,9 +169,9 @@ defimpl Forge.Protocol.Convertible, for: Map do
 end
 
 defimpl Forge.Protocol.Convertible, for: Any do
+  alias Forge.Document
   alias Forge.Protocol.Convertible
   alias Forge.Protocol.Convertible.Helpers
-  alias Forge.Document
 
   def to_native(%_struct_module{} = struct, context_document) do
     context_document = Document.Container.context_document(struct, context_document)

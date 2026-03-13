@@ -16,6 +16,8 @@ defmodule Forge.Document.Range do
     )
   ```
   """
+  use Forge.StructAccess
+
   alias Forge.Document.Position
 
   defstruct start: nil, end: nil
@@ -24,8 +26,6 @@ defmodule Forge.Document.Range do
           start: Position.t(),
           end: Position.t()
         }
-
-  use Forge.StructAccess
 
   @doc """
   Builds a new range.

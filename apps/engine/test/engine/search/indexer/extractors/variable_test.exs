@@ -1,7 +1,7 @@
 defmodule Engine.Search.Indexer.Extractors.VariableTest do
-  alias Engine.Search.Indexer.Extractors
-
   use Engine.Test.ExtractorCase
+
+  alias Engine.Search.Indexer.Extractors
 
   def index_references(source) do
     do_index(source, fn entry -> entry.type == :variable and entry.subtype == :reference end, [
@@ -621,7 +621,7 @@ defmodule Engine.Search.Indexer.Extractors.VariableTest do
             nil
           end
         }
-        |> index
+        |> index()
 
       assert_reference(ref, :pinned)
       assert decorate(doc, ref.range) =~ "fn [^«pinned»] ->"

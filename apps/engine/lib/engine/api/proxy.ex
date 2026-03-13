@@ -29,20 +29,18 @@ defmodule Engine.Api.Proxy do
 
   """
 
-  alias Forge.Document
-  alias Forge.Document.Changes
+  @behaviour :gen_statem
+
+  import Engine.Api.Proxy.Records, only: :macros
+  import Record
 
   alias Engine.Api.Proxy.BufferingState
   alias Engine.Api.Proxy.DrainingState
   alias Engine.Api.Proxy.ProxyingState
-  alias Engine.Api.Proxy.Records
   alias Engine.CodeMod
   alias Engine.Commands
-
-  import Record
-  import Records, only: :macros
-
-  @behaviour :gen_statem
+  alias Forge.Document
+  alias Forge.Document.Changes
 
   defrecord :buffer, contents: nil, return: :ok
   defrecord :drop, contents: nil, return: :ok

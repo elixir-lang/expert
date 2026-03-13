@@ -3,10 +3,10 @@ defmodule Expert.Application do
   # for more information on OTP Applications
   @moduledoc false
 
+  use Application
+
   alias Forge.Document
   alias Forge.LogFilter
-
-  use Application
 
   require Logger
 
