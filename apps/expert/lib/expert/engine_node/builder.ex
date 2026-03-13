@@ -2,10 +2,11 @@ defmodule Expert.EngineNode.Builder do
   @moduledoc """
   Builds the engine node for a project.
   """
-  alias Forge.Project
-  require Logger
-
   use GenServer
+
+  alias Forge.Project
+
+  require Logger
 
   defmodule State do
     defstruct [:project, :last_line, :from, :port, :mix_home, :buffer, attempts: 0]

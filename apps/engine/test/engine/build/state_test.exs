@@ -1,14 +1,14 @@
 defmodule Engine.Build.StateTest do
+  use ExUnit.Case, async: false
+  use Patch
+
+  import Forge.Test.Fixtures
+
   alias Engine.Build
   alias Engine.Build.State
   alias Engine.Plugin
   alias Forge.Document
   alias Forge.Project
-
-  import Forge.Test.Fixtures
-
-  use ExUnit.Case, async: false
-  use Patch
 
   setup do
     start_supervised!(Engine.Dispatch)

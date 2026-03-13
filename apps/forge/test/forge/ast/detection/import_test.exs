@@ -1,8 +1,6 @@
 defmodule Forge.Ast.Detection.ImportTest do
-  alias Forge.Ast.Detection
-
   use Forge.Test.DetectionCase,
-    for: Detection.Import,
+    for: Forge.Ast.Detection.Import,
     assertions: [[:import, :*]]
 
   test "works on multi line" do

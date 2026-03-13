@@ -114,8 +114,7 @@ defmodule Forge.Namespace.FileSyncTest do
 
       assert MapSet.new(deleted) ==
                deleted_files
-               |> Enum.map(&Path.join(output_dir, &1))
-               |> MapSet.new()
+               |> MapSet.new(&Path.join(output_dir, &1))
     end
 
     test "handles mixed new, changed, and deleted entries", %{tmp_dir: tmp_dir} do
@@ -158,8 +157,7 @@ defmodule Forge.Namespace.FileSyncTest do
 
       expected_deleted =
         deleted_files
-        |> Enum.map(&Path.join(output_dir, &1))
-        |> MapSet.new()
+        |> MapSet.new(&Path.join(output_dir, &1))
 
       assert %Classification{new: new, changed: changed, deleted: deleted} = classification
 

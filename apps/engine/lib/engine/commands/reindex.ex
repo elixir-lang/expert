@@ -1,4 +1,16 @@
 defmodule Engine.Commands.Reindex do
+  @moduledoc """
+  A simple genserver that prevents more than one reindexing job from running at the same time
+  """
+
+  use GenServer
+
+  import Forge.EngineApi.Messages
+
+  alias Engine.Search
+  alias Forge.Document
+  alias Forge.Project
+
   defmodule State do
     alias Engine.Search
     alias Engine.Search.Indexer
@@ -65,19 +77,6 @@ defmodule Engine.Commands.Reindex do
       end
     end
   end
-
-  @moduledoc """
-  A simple genserver that prevents more than one reindexing job from running at the same time
-  """
-
-  alias Forge.Document
-  alias Forge.EngineApi
-  alias Forge.Project
-
-  alias Engine.Search
-
-  use GenServer
-  import EngineApi.Messages
 
   def start_link(opts) do
     [reindex_fun: fun] = Keyword.validate!(opts, reindex_fun: &do_reindex/1)

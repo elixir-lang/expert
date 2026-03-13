@@ -1,11 +1,11 @@
 defmodule Forge.Ast.EnvTest do
   use ExUnit.Case, async: true
 
-  alias Forge.Ast
-  alias Forge.Project
-
   import Forge.Ast.Env
   import Forge.Test.CursorSupport
+
+  alias Forge.Ast
+  alias Forge.Project
 
   def new_env(text, opts \\ []) do
     opts = Keyword.merge([as: :document], opts)

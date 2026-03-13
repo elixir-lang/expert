@@ -1,20 +1,19 @@
 defmodule Engine.BuildTest do
+  use ExUnit.Case
+  use Patch
+
+  import Forge.EngineApi.Messages
+  import Forge.Test.DiagnosticSupport
+  import Forge.Test.Fixtures
+
   alias Elixir.Features
   alias Engine.Build
   alias Expert.EngineApi
   alias Expert.EngineNode
   alias Expert.EngineSupervisor
   alias Forge.Document
-  alias Forge.EngineApi.Messages
   alias Forge.Plugin.V1.Diagnostic
   alias Forge.Project
-
-  import Messages
-  import Forge.Test.Fixtures
-  import Forge.Test.DiagnosticSupport
-
-  use ExUnit.Case
-  use Patch
 
   def compile_document(%Project{} = project, file_path \\ nil, source_code) do
     uri =

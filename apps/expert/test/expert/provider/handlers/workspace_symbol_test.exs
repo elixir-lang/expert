@@ -1,4 +1,6 @@
 defmodule Expert.Provider.Handlers.WorkspaceSymbolTest do
+  use ExUnit.Case, async: false
+
   alias Expert.Configuration
   alias Expert.Configuration.WorkspaceSymbols
   alias Expert.EngineApi
@@ -11,8 +13,6 @@ defmodule Expert.Provider.Handlers.WorkspaceSymbolTest do
   alias GenLSP.Structures
 
   require Messages
-
-  use ExUnit.Case, async: false
 
   setup_all do
     project = Fixtures.project()

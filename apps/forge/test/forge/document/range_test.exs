@@ -1,11 +1,11 @@
 defmodule Forge.Document.RangeTest do
-  alias Forge.Document.Lines
-  alias Forge.Document.Position
-  alias Forge.Document.Range
+  use ExUnit.Case, async: true
 
   import Forge.Document.Line
 
-  use ExUnit.Case, async: true
+  alias Forge.Document.Lines
+  alias Forge.Document.Position
+  alias Forge.Document.Range
 
   describe "contains?/2" do
     test "includes the start position" do

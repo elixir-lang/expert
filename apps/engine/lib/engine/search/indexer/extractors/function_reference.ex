@@ -211,8 +211,6 @@ defmodule Engine.Search.Indexer.Extractors.FunctionReference do
 
       end_pos = Position.new(document, end_line, end_column)
       Range.new(start_pos, end_pos)
-    else
-      nil
     end
   end
 

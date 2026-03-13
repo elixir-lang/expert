@@ -1,10 +1,10 @@
 defmodule Engine.Build.CaptureServer do
   @moduledoc false
+  use GenServer
+
   @compile {:no_warn_undefined, Logger}
   @timeout :infinity
   @name __MODULE__
-
-  use GenServer
 
   def start_link(_opts) do
     GenServer.start_link(__MODULE__, :ok, name: @name)

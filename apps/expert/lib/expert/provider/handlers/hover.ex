@@ -164,7 +164,7 @@ defmodule Expert.Provider.Handlers.Hover do
   defp module_footer(:module, docs) do
     callbacks = format_callbacks(docs.callbacks)
 
-    unless empty?(callbacks) do
+    if !empty?(callbacks) do
       Markdown.section(callbacks, header: "Callbacks")
     end
   end

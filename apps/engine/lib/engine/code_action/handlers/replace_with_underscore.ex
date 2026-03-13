@@ -1,4 +1,6 @@
 defmodule Engine.CodeAction.Handlers.ReplaceWithUnderscore do
+  @behaviour Engine.CodeAction.Handler
+
   alias Engine.CodeAction
   alias Forge.Ast
   alias Forge.CodeAction.Diagnostic
@@ -7,8 +9,6 @@ defmodule Engine.CodeAction.Handlers.ReplaceWithUnderscore do
   alias Forge.Document.Range
   alias GenLSP.Enumerations.CodeActionKind
   alias Sourceror.Zipper
-
-  @behaviour CodeAction.Handler
 
   @impl CodeAction.Handler
   def actions(%Document{} = doc, %Range{}, diagnostics) do

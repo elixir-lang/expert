@@ -1,9 +1,10 @@
 defmodule Forge.Document.LineParserTest do
-  alias Forge.Document.LineParser
-
-  import Forge.Document.Line
   use ExUnit.Case
   use ExUnitProperties
+
+  import Forge.Document.Line
+
+  alias Forge.Document.LineParser
 
   test "parsing a single \n" do
     assert length(LineParser.parse("\n", 1)) == 1

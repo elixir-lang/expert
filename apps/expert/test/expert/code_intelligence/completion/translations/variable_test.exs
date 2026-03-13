@@ -1,7 +1,7 @@
 defmodule Expert.CodeIntelligence.Completion.Translations.VariableTest do
-  alias GenLSP.Enumerations.CompletionItemKind
-
   use Expert.Test.Expert.CompletionCase
+
+  alias GenLSP.Enumerations.CompletionItemKind
 
   test "variables are completed", %{project: project} do
     source = ~q[

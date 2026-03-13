@@ -1,8 +1,8 @@
 defmodule Forge.MathTest do
-  alias Forge.Math
-
   use ExUnit.Case, async: true
   use ExUnitProperties
+
+  alias Forge.Math
 
   describe "clamp/3" do
     test "returns low when value is less than low" do

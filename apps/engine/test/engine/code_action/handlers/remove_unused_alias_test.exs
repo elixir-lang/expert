@@ -1,14 +1,14 @@
 defmodule Engine.CodeAction.Handlers.RemoveUnusedAliasTest do
+  use Forge.Test.CodeMod.Case, enable_ast_conversion: false
+
+  import Forge.Test.CodeSigil
+  import Forge.Test.CursorSupport
+
   alias Engine.CodeAction.Handlers.RemoveUnusedAlias
   alias Forge.Ast
   alias Forge.CodeAction.Diagnostic
   alias Forge.Document
   alias Forge.Document.Range
-
-  import Forge.Test.CursorSupport
-  import Forge.Test.CodeSigil
-
-  use Forge.Test.CodeMod.Case, enable_ast_conversion: false
 
   def apply_code_mod(original_text, _ast, options) do
     Document.Store.open("file:///file.ex", original_text, 1)
@@ -44,7 +44,7 @@ defmodule Engine.CodeAction.Handlers.RemoveUnusedAliasTest do
   def remove_alias(orig_text, opts \\ []) do
     {position, stripped} = pop_cursor(orig_text)
 
-    opts = Keyword.merge(opts, cursor: position)
+    opts = Keyword.put(opts, :cursor, position)
     modify(stripped, opts)
   end
 

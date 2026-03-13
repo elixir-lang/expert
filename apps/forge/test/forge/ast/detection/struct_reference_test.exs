@@ -1,8 +1,6 @@
 defmodule Forge.Ast.Detection.StructReferenceTest do
-  alias Forge.Ast.Detection
-
   use Forge.Test.DetectionCase,
-    for: Detection.StructReference,
+    for: Forge.Ast.Detection.StructReference,
     assertions: [[:struct_reference, :*]],
     skip: [[:struct_fields, :*], [:struct_field_value, :*], [:struct_field_key, :*]],
     variations: [:match, :function_arguments]

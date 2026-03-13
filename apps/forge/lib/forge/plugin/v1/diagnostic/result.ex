@@ -44,6 +44,7 @@ defmodule Forge.Plugin.V1.Diagnostic.Result do
   `Document.Position.t` - Equivalent to `{line_number, column}`, but saves a conversion step.
   """
   alias Forge.Document
+
   defstruct [:details, :message, :position, :severity, :source, :uri]
 
   @typedoc """

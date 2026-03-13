@@ -2,13 +2,13 @@ defmodule Engine.Build.Document.Compilers.HEEx do
   @moduledoc """
   A compiler for .heex files
   """
-  alias Engine.Build.Document.Compiler
+  @behaviour Engine.Build.Document.Compiler
+
   alias Engine.Build.Document.Compilers
   alias Forge.Document
   alias Forge.Plugin.V1.Diagnostic.Result
-  require Logger
 
-  @behaviour Compiler
+  require Logger
 
   def recognizes?(%Document{language_id: "phoenix-heex"}), do: true
   def recognizes?(%Document{language_id: "heex"}), do: true
@@ -44,25 +44,23 @@ defmodule Engine.Build.Document.Compilers.HEEx do
   end
 
   defp heex_to_quoted(%Document{} = document) do
-    try do
-      source = Document.to_string(document)
+    source = Document.to_string(document)
 
-      opts = [
-        source: source,
-        file: document.path,
-        caller: __ENV__,
-        engine: Phoenix.LiveView.TagEngine,
-        subengine: Phoenix.LiveView.Engine,
-        tag_handler: Phoenix.LiveView.HTMLEngine
-      ]
+    opts = [
+      source: source,
+      file: document.path,
+      caller: __ENV__,
+      engine: Phoenix.LiveView.TagEngine,
+      subengine: Phoenix.LiveView.Engine,
+      tag_handler: Phoenix.LiveView.HTMLEngine
+    ]
 
-      quoted = EEx.compile_string(source, opts)
+    quoted = EEx.compile_string(source, opts)
 
-      {:ok, quoted}
-    rescue
-      error ->
-        {:error, [error_to_result(document, error)]}
-    end
+    {:ok, quoted}
+  rescue
+    error ->
+      {:error, [error_to_result(document, error)]}
   end
 
   defp error_to_result(%Document{} = document, %EEx.SyntaxError{} = error) do

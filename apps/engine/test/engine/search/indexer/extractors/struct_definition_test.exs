@@ -1,6 +1,7 @@
 defmodule Engine.Search.Indexer.Extractors.StructDefinitionTest do
-  alias Engine.Search.Subject
   use Engine.Test.ExtractorCase
+
+  alias Engine.Search.Subject
 
   def index(source) do
     do_index(source, fn entry ->

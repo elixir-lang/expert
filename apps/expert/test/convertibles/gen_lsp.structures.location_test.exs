@@ -1,6 +1,7 @@
 defmodule GenLsp.Structures.Convertibles.LocationTest do
-  alias GenLSP.Structures
   use Expert.Test.Protocol.ConvertibleSupport
+
+  alias GenLSP.Structures
 
   describe "to_lsp/2" do
     setup [:with_an_open_file]

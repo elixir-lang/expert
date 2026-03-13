@@ -6,6 +6,8 @@ defmodule Forge.Document.Location do
   The location is bounded by the given range, and the document can be given as a `Forge.Document`
   struct, or a uri referencing the document
   """
+  use Forge.StructAccess
+
   alias Forge.Document
   alias Forge.Document.Range
 
@@ -16,8 +18,6 @@ defmodule Forge.Document.Location do
           document: Document.t() | nil,
           uri: Forge.uri()
         }
-  use Forge.StructAccess
-
   @spec new(Range.t(), Document.t() | String.t()) :: t()
   def new(%Range{} = range, %Document{} = document) do
     %__MODULE__{range: range, document: document, uri: document.uri}

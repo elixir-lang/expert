@@ -1,13 +1,13 @@
 defmodule Forge.Project.Diagnostics.StateTest do
+  use Forge.Test.CodeMod.Case
+
+  import Forge.Test.Fixtures
+
   alias Expert.Project.Diagnostics.State
   alias Forge.Document
   alias Forge.Document.Edit
   alias Forge.Plugin.V1.Diagnostic
   alias Forge.Project
-
-  import Forge.Test.Fixtures
-
-  use Forge.Test.CodeMod.Case
 
   setup do
     {:ok, _} = start_supervised(Forge.Document.Store)

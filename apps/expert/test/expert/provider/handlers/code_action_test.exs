@@ -1,15 +1,15 @@
 defmodule Expert.Provider.Handlers.CodeActionTest do
+  use ExUnit.Case, async: false
+
+  import Forge.EngineApi.Messages
+  import Forge.Test.Fixtures
+
   alias Expert.EngineApi
   alias Expert.Protocol.Convert
   alias Expert.Provider.Handlers
   alias Forge.Document
   alias GenLSP.Requests.TextDocumentCodeAction
   alias GenLSP.Structures
-
-  import Forge.EngineApi.Messages
-  import Forge.Test.Fixtures
-
-  use ExUnit.Case, async: false
 
   setup_all do
     start_supervised!({Forge.NodePortMapper, []})

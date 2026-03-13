@@ -1,8 +1,10 @@
 defmodule Forge.VM.VersionTest do
-  alias Forge.VM.Versions
   use ExUnit.Case
   use Patch
-  import Versions
+
+  import Forge.VM.Versions
+
+  alias Forge.VM.Versions
 
   test "it gets the current version" do
     assert current().elixir == System.version()

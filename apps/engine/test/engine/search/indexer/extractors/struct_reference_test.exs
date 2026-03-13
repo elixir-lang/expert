@@ -1,10 +1,12 @@
 defmodule Engine.Search.Indexer.Extractors.StructReferenceTest do
-  alias Engine.Search.Subject
-  alias Engine.Search.Indexer.Extractors.StructReference
   use Engine.Test.ExtractorCase
-  require Logger
 
   import ExUnit.CaptureLog
+
+  alias Engine.Search.Indexer.Extractors.StructReference
+  alias Engine.Search.Subject
+
+  require Logger
 
   def index(source) do
     do_index(source, fn entry ->

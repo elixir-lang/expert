@@ -1,4 +1,6 @@
 defmodule Expert.State do
+  import Forge.EngineApi.Messages
+
   alias Expert.ActiveProjects
   alias Expert.CodeIntelligence
   alias Expert.Configuration
@@ -13,8 +15,6 @@ defmodule Expert.State do
   alias GenLSP.Structures
 
   require Logger
-
-  import Forge.EngineApi.Messages
 
   defstruct initialized?: false,
             shutdown_received?: false,

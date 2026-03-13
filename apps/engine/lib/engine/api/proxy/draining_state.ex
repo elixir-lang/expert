@@ -1,9 +1,8 @@
 defmodule Engine.Api.Proxy.DrainingState do
+  import Engine.Api.Proxy.Records
+
   alias Engine.Api.Proxy.BufferingState
   alias Engine.Api.Proxy.ProxyingState
-  alias Engine.Api.Proxy.Records
-
-  import Records
 
   defstruct [:proxying_state, :buffering_state]
 

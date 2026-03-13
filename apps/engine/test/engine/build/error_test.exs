@@ -1,14 +1,16 @@
 defmodule Engine.Build.ErrorTest do
+  use ExUnit.Case
+  use Patch
+
+  import Forge.Test.DiagnosticSupport
+  import Forge.Test.RangeSupport
+
   alias Engine.Build
   alias Engine.Build.CaptureServer
   alias Engine.ModuleMappings
   alias Forge.Document
-  require Logger
 
-  import Forge.Test.DiagnosticSupport
-  import Forge.Test.RangeSupport
-  use ExUnit.Case
-  use Patch
+  require Logger
 
   setup do
     start_supervised!(Engine.Dispatch)
@@ -666,7 +668,7 @@ defmodule Engine.Build.ErrorTest do
                "record :user does not have the key: :email"
 
       assert decorate(document_text, diagnostic.position) =~
-               "«u = user(name: \"John\", email: \"\")\n»"
+               ~s{«u = user(name: "John", email: "")\n»}
     end
   end
 end

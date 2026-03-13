@@ -1,10 +1,9 @@
 defmodule Expert.CodeIntelligence.Completion.Translations.MacroTest do
+  use Expert.Test.Expert.CompletionCase
+
   alias GenLSP.Enumerations.CompletionItemKind
   alias GenLSP.Enumerations.InsertTextFormat
-
   alias GenLSP.Structures.CompletionItem
-
-  use Expert.Test.Expert.CompletionCase
 
   describe "Kernel* macros" do
     test "do/end only has a single completion", %{project: project} do
@@ -931,7 +930,7 @@ defmodule Expert.CodeIntelligence.Completion.Translations.MacroTest do
       project: project
     } do
       completions = complete(project, ":some_expression && Kernel.|")
-      assert length(completions) > 0
+      assert not Enum.empty?(completions)
     end
   end
 

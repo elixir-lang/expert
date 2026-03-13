@@ -1,4 +1,9 @@
 defmodule Engine.Build.Document.Compilers.HeexTest do
+  use ExUnit.Case
+
+  import Forge.Test.CodeSigil
+  import Forge.Test.Quiet
+
   alias Engine.Build
   alias Engine.Build.CaptureServer
   alias Engine.Build.Document.Compilers
@@ -6,10 +11,6 @@ defmodule Engine.Build.Document.Compilers.HeexTest do
   alias Engine.ModuleMappings
   alias Forge.Document
   alias Forge.Plugin.V1.Diagnostic.Result
-
-  import Forge.Test.CodeSigil
-  import Forge.Test.Quiet
-  use ExUnit.Case
 
   def with_capture_server(_) do
     start_supervised!(CaptureServer)

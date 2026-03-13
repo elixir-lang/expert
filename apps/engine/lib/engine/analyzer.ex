@@ -115,7 +115,7 @@ defmodule Engine.Analyzer do
           {:ok, module()} | :error
   def expand_alias([_ | _] = segments, %Analysis{} = analysis, %Position{} = position) do
     with %Analysis{valid?: true} = analysis <- Forge.Ast.reanalyze_to(analysis, position),
-         aliases <- aliases_at(analysis, position),
+         aliases = aliases_at(analysis, position),
          {:ok, resolved} <- resolve_alias(segments, aliases) do
       {:ok, Module.concat(resolved)}
     else

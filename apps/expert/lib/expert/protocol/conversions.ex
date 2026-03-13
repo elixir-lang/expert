@@ -7,17 +7,16 @@ defmodule Expert.Protocol.Conversions do
   the line contains non-ascii characters. If it's a pure ascii line, then the positions
   are the same in both utf-8 and utf-16, since they reference characters and not bytes.
   """
+  import Forge.Document.Line
+
   alias Forge.CodeUnit
   alias Forge.Document
-  alias Forge.Document.Line
   alias Forge.Document.Lines
   alias Forge.Document.Position, as: ElixirPosition
   alias Forge.Document.Range, as: ElixirRange
   alias Forge.Math
   alias GenLSP.Structures.Position, as: LSPosition
   alias GenLSP.Structures.Range, as: LSRange
-
-  import Line
 
   def to_elixir(%LSRange{} = ls_range, %Document{} = doc) do
     with {:ok, start_pos} <- to_elixir(ls_range.start, doc.lines),

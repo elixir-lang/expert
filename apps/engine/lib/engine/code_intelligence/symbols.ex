@@ -28,10 +28,10 @@ defmodule Engine.CodeIntelligence.Symbols do
     analysis = Ast.analyze(document)
 
     entries =
-      if analysis.ast != nil do
-        Indexer.Quoted.extract_entries(analysis, @symbol_extractors)
-      else
+      if analysis.ast == nil do
         []
+      else
+        Indexer.Quoted.extract_entries(analysis, @symbol_extractors)
       end
 
     definitions = Enum.filter(entries, &(&1.subtype == :definition))

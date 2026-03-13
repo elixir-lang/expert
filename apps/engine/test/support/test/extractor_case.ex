@@ -1,9 +1,10 @@
 defmodule Engine.Test.ExtractorCase do
+  use ExUnit.CaseTemplate
+
+  import Forge.Test.CodeSigil
+
   alias Engine.Search.Indexer
   alias Forge.Document
-
-  use ExUnit.CaseTemplate
-  import Forge.Test.CodeSigil
 
   using do
     quote do

@@ -1,10 +1,6 @@
 defmodule Forge.AstTest do
-  alias Forge.Ast
-  alias Forge.Ast.Analysis
-  alias Forge.Ast.Parser.Spitfire
-  alias Forge.Document
-  alias Forge.Document.Position
-  alias Sourceror.Zipper
+  use ExUnit.Case, async: false
+  use Patch
 
   import ExUnit.CaptureLog
   import Forge.Test.CodeSigil
@@ -12,8 +8,12 @@ defmodule Forge.AstTest do
   import Forge.Test.PositionSupport
   import Forge.Test.RangeSupport
 
-  use ExUnit.Case, async: false
-  use Patch
+  alias Forge.Ast
+  alias Forge.Ast.Analysis
+  alias Forge.Ast.Parser.Spitfire
+  alias Forge.Document
+  alias Forge.Document.Position
+  alias Sourceror.Zipper
 
   describe "cursor_path/2" do
     defp cursor_path(text) do
@@ -54,7 +54,7 @@ defmodule Forge.AstTest do
 
       path = cursor_path(text)
       # Spitfire's fault-tolerant parsing produces a cursor path
-      assert length(path) > 0
+      assert not Enum.empty?(path)
       assert Enum.any?(path, &match?({:__cursor__, _, _}, &1))
     end
   end

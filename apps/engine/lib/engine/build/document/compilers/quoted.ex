@@ -1,11 +1,11 @@
 defmodule Engine.Build.Document.Compilers.Quoted do
+  import Engine.Build.CaptureIO, only: [capture_io: 2]
+
   alias Elixir.Features
   alias Engine.Build
   alias Engine.ModuleMappings
   alias Forge.Ast
   alias Forge.Document
-
-  import Engine.Build.CaptureIO, only: [capture_io: 2]
 
   def compile(%Document{} = document, quoted_ast, compiler_name) do
     prepare_compile(document.path)
@@ -114,13 +114,11 @@ defmodule Engine.Build.Document.Compilers.Quoted do
   end
 
   defp safe_compile_quoted(quoted_ast, path) do
-    try do
-      {:ok, Code.compile_quoted(quoted_ast, path)}
-    rescue
-      exception ->
-        {filled_exception, stack} = Exception.blame(:error, exception, __STACKTRACE__)
-        {:exception, filled_exception, stack, quoted_ast}
-    end
+    {:ok, Code.compile_quoted(quoted_ast, path)}
+  rescue
+    exception ->
+      {filled_exception, stack} = Exception.blame(:error, exception, __STACKTRACE__)
+      {:exception, filled_exception, stack, quoted_ast}
   end
 
   defp purge_removed_modules(old_modules, new_modules) do

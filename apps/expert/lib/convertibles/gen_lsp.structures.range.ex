@@ -1,7 +1,7 @@
 defimpl Forge.Protocol.Convertible, for: GenLSP.Structures.Range do
-  alias GenLSP.Structures.Range
-  alias GenLSP.Structures.Position
   alias Expert.Protocol.Conversions
+  alias GenLSP.Structures.Position
+  alias GenLSP.Structures.Range
 
   def to_lsp(%Range{} = range) do
     Conversions.to_lsp(range)

@@ -408,9 +408,7 @@ defmodule Forge.Project do
   def find_project(path) do
     project_root = find_parent_root_dir(path)
 
-    if is_nil(project_root) do
-      nil
-    else
+    if !is_nil(project_root) do
       new(project_root)
     end
   end

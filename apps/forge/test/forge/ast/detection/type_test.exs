@@ -1,8 +1,6 @@
 defmodule Forge.Ast.Detection.TypeTest do
-  alias Forge.Ast.Detection
-
   use Forge.Test.DetectionCase,
-    for: Detection.Type,
+    for: Forge.Ast.Detection.Type,
     assertions: [[:type, :*]]
 
   test "is not detected if you're in a variable named type" do

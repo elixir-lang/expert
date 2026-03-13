@@ -18,6 +18,7 @@ defprotocol Forge.Document.Container do
   ```
   """
   alias Forge.Document
+
   @fallback_to_any true
   @type maybe_context_document :: Document.t() | nil
 

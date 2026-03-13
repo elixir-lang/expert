@@ -66,7 +66,7 @@ defmodule Expert.Provider.Markdown do
     with_rules =
       sections
       |> Stream.filter(&(is_binary(&1) and &1 != ""))
-      |> Stream.map(&String.trim(&1))
+      |> Stream.map(&String.trim/1)
       |> Enum.intersperse(joiner)
 
     case with_rules do

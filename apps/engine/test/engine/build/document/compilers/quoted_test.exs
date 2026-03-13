@@ -1,9 +1,9 @@
 defmodule Engine.Build.Document.Compilers.QuotedTest do
-  alias Engine.Build.Document.Compilers.Quoted
+  use ExUnit.Case, async: true
 
   import Forge.Test.CodeSigil
 
-  use ExUnit.Case, async: true
+  alias Engine.Build.Document.Compilers.Quoted
 
   defp parse!(code) do
     Code.string_to_quoted!(code, columns: true, token_metadata: true)

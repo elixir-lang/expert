@@ -1,11 +1,11 @@
 defmodule Forge.Ast.Detection.Bitstring do
+  use Forge.Ast.Detection
+
   alias Forge.Ast.Analysis
   alias Forge.Ast.Detection
   alias Forge.Ast.Tokens
   alias Forge.Document
   alias Forge.Document.Position
-
-  use Detection
 
   @impl Detection
   def detected?(%Analysis{} = analysis, %Position{} = position) do

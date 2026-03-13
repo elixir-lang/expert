@@ -2,11 +2,11 @@ defmodule Forge.Document.Lines do
   @moduledoc """
   A hyper-optimized, line-based backing store for text documents
   """
-  alias Forge.Document.Line
-  alias Forge.Document.LineParser
-
   use Forge.StructAccess
-  import Line
+
+  import Forge.Document.Line
+
+  alias Forge.Document.LineParser
 
   @default_starting_index 1
 
@@ -89,11 +89,10 @@ defmodule Forge.Document.Lines do
 end
 
 defimpl Inspect, for: Forge.Document.Lines do
-  alias Forge.Document.Lines
-  alias Forge.Document.Line
-
+  import Forge.Document.Line
   import Inspect.Algebra
-  import Line
+
+  alias Forge.Document.Lines
 
   def inspect(%Lines{lines: {}}) do
     concat([empty(), "%Lines<empty>"])

@@ -1,7 +1,7 @@
 defmodule Forge.FormatsTest do
-  alias Forge.Formats
-
   use ExUnit.Case
+
+  alias Forge.Formats
 
   describe "stringifying modules" do
     test "it correctly handles a top-level module" do

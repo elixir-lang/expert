@@ -1,4 +1,6 @@
 defmodule Engine.CodeAction.Handlers.ReplaceRemoteFunction do
+  @behaviour Engine.CodeAction.Handler
+
   alias Engine.CodeAction
   alias Engine.Modules
   alias Forge.Ast
@@ -9,8 +11,6 @@ defmodule Engine.CodeAction.Handlers.ReplaceRemoteFunction do
   alias Forge.Document.Range
   alias GenLSP.Enumerations.CodeActionKind
   alias Sourceror.Zipper
-
-  @behaviour CodeAction.Handler
 
   @impl CodeAction.Handler
   def actions(%Document{} = doc, %Range{}, diagnostics) do

@@ -1,5 +1,6 @@
 defmodule Forge.MixProject do
   use Mix.Project
+
   Code.require_file("../../mix_includes.exs")
 
   def project do
@@ -16,7 +17,7 @@ defmodule Forge.MixProject do
     ]
   end
 
-  def version() do
+  def version do
     "../../version.txt" |> File.read!() |> String.trim()
   end
 
@@ -45,7 +46,8 @@ defmodule Forge.MixProject do
       {:sourceror, "~> 1.10.1"},
       {:spitfire, "~> 0.3.5"},
       {:stream_data, "~> 1.1", only: [:test], runtime: false},
-      {:patch, "~> 0.15", only: [:test], optional: true, runtime: false}
+      {:patch, "~> 0.15", only: [:test], optional: true, runtime: false},
+      {:quokka, "~> 2.12", only: [:dev, :test], runtime: false}
     ]
   end
 end

@@ -1,12 +1,12 @@
 defmodule Expert.Project.NodeTest do
-  alias Expert.EngineApi
-  alias Expert.Project.Node, as: EngineNode
-
-  import Forge.Test.Fixtures
-  import Forge.EngineApi.Messages
-
   use ExUnit.Case
   use Forge.Test.EventualAssertions
+
+  import Forge.EngineApi.Messages
+  import Forge.Test.Fixtures
+
+  alias Expert.EngineApi
+  alias Expert.Project.Node, as: EngineNode
 
   setup do
     project = project()

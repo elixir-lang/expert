@@ -1,14 +1,13 @@
 defmodule Expert.CodeIntelligence.CompletionTest do
+  use Expert.Test.Expert.CompletionCase
+  use Patch
+
   alias Expert.CodeIntelligence.Completion.SortScope
   alias Expert.EngineApi
   alias Forge.Completion.Candidate
   alias GenLSP.Enumerations.CompletionItemKind
-
   alias GenLSP.Structures.CompletionItem
   alias GenLSP.Structures.CompletionList
-
-  use Expert.Test.Expert.CompletionCase
-  use Patch
 
   setup %{project: project} do
     project = %{project | project_module: Project}

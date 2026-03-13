@@ -108,7 +108,7 @@ defmodule Forge.VM.Versions do
   both elixir and erlang in it.
   """
   def tagged?(directory) do
-    with true <- File.exists?(version_file_path(directory, :elixir)) do
+    if File.exists?(version_file_path(directory, :elixir)) do
       File.exists?(version_file_path(directory, :erlang))
     end
   end

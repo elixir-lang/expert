@@ -111,7 +111,7 @@ defmodule Engine.Bootstrap do
         |> Path.expand()
       end)
 
-    unless current_dir == configured_root do
+    if current_dir != configured_root do
       File.cd!(configured_root)
     end
   end

@@ -1,13 +1,12 @@
 defmodule Forge.DocumentTest do
-  alias Forge.Document
-
-  alias GenLSP.Structures.Position
-  alias GenLSP.Structures.Range
-  alias GenLSP.Structures.TextEdit
-
   use ExUnit.Case
 
   import Forge.Document, except: [to_string: 1]
+
+  alias Forge.Document
+  alias GenLSP.Structures.Position
+  alias GenLSP.Structures.Range
+  alias GenLSP.Structures.TextEdit
 
   def text(%Forge.Document{} = doc) do
     Document.to_string(doc)
@@ -141,7 +140,7 @@ defmodule Forge.DocumentTest do
     # note that those functions are not production quality e.g. they don't deal with utf8/utf16 encoding issues
     defp index_of(string, substring) do
       case String.split(string, substring, parts: 2) do
-        [left, _] -> left |> String.codepoints() |> length
+        [left, _] -> left |> String.codepoints() |> length()
         [_] -> -1
       end
     end
@@ -191,7 +190,7 @@ defmodule Forge.DocumentTest do
     defp find_low_high(low, _high, _offset, _line_offsets), do: low
 
     def position_at(text, offset) do
-      offset = clamp(offset, 0, text |> String.codepoints() |> length)
+      offset = clamp(offset, 0, text |> String.codepoints() |> length())
 
       line_offsets = get_line_offsets(text)
       low = 0
@@ -222,7 +221,7 @@ defmodule Forge.DocumentTest do
     def position_after_substring(text, sub_text) do
       index = index_of(text, sub_text)
 
-      position_at(text, index + (sub_text |> String.to_charlist() |> length))
+      position_at(text, index + (sub_text |> String.to_charlist() |> length()))
     end
 
     def range_for_substring(doc, sub_text) do
@@ -624,7 +623,7 @@ defmodule Forge.DocumentTest do
 
       {:ok, line} = fetch_text_at(doc, 3)
 
-      assert line == "    {\"🎸\", \"ok\"}"
+      assert line == ~s(    {"🎸", "ok"})
     end
 
     test "invalid update range - before the document starts -> before the document starts" do

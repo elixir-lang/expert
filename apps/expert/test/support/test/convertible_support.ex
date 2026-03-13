@@ -1,13 +1,14 @@
 defmodule Expert.Test.Protocol.ConvertibleSupport do
+  use ExUnit.CaseTemplate
+
   alias Forge.Document
   alias Forge.Protocol.Convertible
 
-  use ExUnit.CaseTemplate
-
   using do
     quote location: :keep do
-      alias GenLSP.Structures
       use Forge.Test.DocumentSupport
+
+      alias GenLSP.Structures
 
       def open_file_contents do
         "hello"

@@ -1,9 +1,7 @@
 defmodule Forge.CodeUnitTest do
-  alias Forge.CodeUnit
-
   use ExUnit.Case
 
-  import CodeUnit
+  import Forge.CodeUnit
 
   describe "utf8_position_to_utf16_offset/2" do
     test "handles single-byte characters" do
@@ -52,7 +50,7 @@ defmodule Forge.CodeUnitTest do
     end
 
     test "after a unicode character" do
-      line = "    {\"🎸\",   \"ok\"}"
+      line = ~s(    {"🎸",   "ok"})
 
       assert utf16_offset_to_utf8_offset(line, 0) == {:ok, 1}
       assert utf16_offset_to_utf8_offset(line, 1) == {:ok, 2}

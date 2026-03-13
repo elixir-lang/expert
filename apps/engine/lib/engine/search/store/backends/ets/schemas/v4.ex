@@ -3,13 +3,12 @@ defmodule Engine.Search.Store.Backends.Ets.Schemas.V4 do
   V4 of the schema is the same as v3, but some releases had duplicate
   IDs. This schema just causes a reindex so we remove them entirely
   """
-  alias Engine.Search.Store.Backends.Ets.Schema
-  alias Engine.Search.Store.Backends.Ets.Schemas.V3
+  use Engine.Search.Store.Backends.Ets.Schema, version: 4
 
+  alias Engine.Search.Store.Backends.Ets.Schemas.V3
   alias Forge.Search.Indexer.Entry
 
   require Entry
-  use Schema, version: 4
 
   defkey :by_id, [:id, :type, :subtype]
 

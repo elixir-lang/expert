@@ -1,14 +1,14 @@
 defmodule Engine.Build.Error.ParseTest do
-  alias Engine.Build
-  alias Forge.Document
-  alias Forge.Plugin.V1.Diagnostic
+  use ExUnit.Case, async: true
 
+  import Forge.Test.DiagnosticSupport
+  import Forge.Test.RangeSupport
+
+  alias Engine.Build
   alias Engine.Build.CaptureServer
   alias Engine.Dispatch
-  import Forge.Test.RangeSupport
-  import Forge.Test.DiagnosticSupport
-
-  use ExUnit.Case, async: true
+  alias Forge.Document
+  alias Forge.Plugin.V1.Diagnostic
 
   setup do
     start_supervised!(Dispatch)

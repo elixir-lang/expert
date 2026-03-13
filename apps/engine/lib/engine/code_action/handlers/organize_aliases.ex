@@ -1,4 +1,6 @@
 defmodule Engine.CodeAction.Handlers.OrganizeAliases do
+  @behaviour Engine.CodeAction.Handler
+
   alias Engine.CodeAction
   alias Engine.CodeMod
   alias Forge.Ast.Analysis
@@ -9,8 +11,6 @@ defmodule Engine.CodeAction.Handlers.OrganizeAliases do
   alias GenLSP.Enumerations.CodeActionKind
 
   require Logger
-
-  @behaviour CodeAction.Handler
 
   @impl CodeAction.Handler
   def actions(%Document{} = doc, %Range{} = range, _diagnostics) do

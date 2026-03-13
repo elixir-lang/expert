@@ -1,8 +1,8 @@
 defmodule Expert.CodeIntelligence.Completion.Translations.FunctionTest do
+  use Expert.Test.Expert.CompletionCase
+
   alias GenLSP.Enumerations.CompletionItemKind
   alias GenLSP.Enumerations.InsertTextFormat
-
-  use Expert.Test.Expert.CompletionCase
 
   describe "function completions" do
     test "deprecated functions are marked", %{project: project} do
@@ -138,7 +138,7 @@ defmodule Expert.CodeIntelligence.Completion.Translations.FunctionTest do
           String.contains?(completion.label, "/1") and completion.detail == "(Capture)"
         end)
 
-      assert length(arity_one_completions) > 0
+      assert not Enum.empty?(arity_one_completions)
 
       Enum.each(arity_one_completions, fn completion ->
         assert completion |> apply_completion() |> String.contains?("/1)")
@@ -158,7 +158,7 @@ defmodule Expert.CodeIntelligence.Completion.Translations.FunctionTest do
             completion.detail =~ "(Capture with"
         end)
 
-      assert length(arity_one_completions) > 0
+      assert not Enum.empty?(arity_one_completions)
 
       Enum.each(arity_one_completions, fn completion ->
         assert completion |> apply_completion() |> String.contains?("(${1:")

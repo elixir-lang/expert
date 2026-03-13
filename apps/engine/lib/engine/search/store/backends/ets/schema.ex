@@ -10,15 +10,23 @@ defmodule Engine.Search.Store.Backends.Ets.Schema do
   transform them into the newer version. The results of this function will be loaded into the schema's
   ETS table. If an empty list is returned, a full reindex will take place.
   """
+  import Engine.Search.Store.Backends.Ets.Wal, only: :macros
+
+  alias Engine.Search.Store.Backends.Ets.Wal
+  alias Forge.Project
+  alias Forge.Search.Indexer.Entry
+
   defmacro __using__(opts) do
     version = Keyword.fetch!(opts, :version)
 
     quote do
       @behaviour unquote(__MODULE__)
-      @version unquote(version)
-      alias Forge.Project
+
       import unquote(__MODULE__), only: [defkey: 2]
 
+      alias Forge.Project
+
+      @version unquote(version)
       def version do
         @version
       end
@@ -42,12 +50,6 @@ defmodule Engine.Search.Store.Backends.Ets.Schema do
       defoverridable migrate: 1, index_file_name: 0, table_options: 0
     end
   end
-
-  alias Engine.Search.Store.Backends.Ets.Wal
-  alias Forge.Project
-  alias Forge.Search.Indexer.Entry
-
-  import Wal, only: :macros
 
   @type write_concurrency_alternative :: boolean() | :auto
   @type table_tweak ::
@@ -81,7 +83,7 @@ defmodule Engine.Search.Store.Backends.Ets.Schema do
   @spec entries_to_rows(Enumerable.t(Entry.t()), module()) :: [tuple()]
   def entries_to_rows(entries, schema_module) do
     entries
-    |> Stream.flat_map(&schema_module.to_rows(&1))
+    |> Stream.flat_map(&schema_module.to_rows/1)
     |> Enum.reduce(%{}, fn {key, value}, acc ->
       Map.update(acc, key, [value], fn old_values -> [value | old_values] end)
     end)

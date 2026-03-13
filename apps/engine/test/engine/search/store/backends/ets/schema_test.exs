@@ -1,14 +1,14 @@
 defmodule Engine.Search.Store.Backends.Ets.SchemaTest do
+  use ExUnit.Case
+  use Patch
+
+  import Engine.Search.Store.Backends.Ets.Wal, only: :macros
+  import Forge.Test.Fixtures
+
   alias Engine.Dispatch
   alias Engine.Search.Store.Backends.Ets.Schema
   alias Engine.Search.Store.Backends.Ets.Wal
   alias Forge.Project
-
-  import Forge.Test.Fixtures
-  import Wal, only: :macros
-
-  use ExUnit.Case
-  use Patch
 
   setup do
     project = project()
@@ -30,6 +30,7 @@ defmodule Engine.Search.Store.Backends.Ets.SchemaTest do
 
   defmodule First do
     use Schema, version: 1
+
     def to_rows(_), do: []
   end
 

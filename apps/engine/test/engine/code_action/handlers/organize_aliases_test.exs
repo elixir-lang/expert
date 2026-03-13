@@ -1,14 +1,13 @@
 defmodule Engine.CodeAction.Handlers.OrganizeAliasesTest do
-  alias Forge.Document
-  alias Forge.Document.Range
-
-  alias Engine.CodeAction.Handlers.OrganizeAliases
-
-  import Forge.Test.CursorSupport
-  import Forge.Test.CodeSigil
-
   use Forge.Test.CodeMod.Case, enable_ast_conversion: false
   use Patch
+
+  import Forge.Test.CodeSigil
+  import Forge.Test.CursorSupport
+
+  alias Engine.CodeAction.Handlers.OrganizeAliases
+  alias Forge.Document
+  alias Forge.Document.Range
 
   setup do
     start_supervised!({Document.Store, derive: [analysis: &Forge.Ast.analyze/1]})

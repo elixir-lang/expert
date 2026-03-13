@@ -1,12 +1,12 @@
 defmodule Engine.Search.Store.State do
+  import Forge.EngineApi.Messages
+
   alias Engine.Dispatch
   alias Engine.Search.Fuzzy
-  alias Forge.EngineApi.Messages
   alias Forge.Project
   alias Forge.Search.Indexer.Entry
 
   require Logger
-  import Messages
 
   defstruct [
     :project,

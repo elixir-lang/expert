@@ -3,12 +3,12 @@ defmodule Engine.Build.Document.Compilers.Elixir do
   A compiler for elixir source files (.ex and .exs)
   """
 
+  @behaviour Engine.Build.Document.Compiler
+
   alias Elixir.Features
   alias Engine.Build
   alias Engine.Build.Document.Compilers
   alias Forge.Document
-
-  @behaviour Build.Document.Compiler
 
   @impl true
   def recognizes?(%Document{} = doc) do

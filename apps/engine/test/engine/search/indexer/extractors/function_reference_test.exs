@@ -1,10 +1,10 @@
 defmodule Engine.Search.Indexer.Extractors.FunctionReferenceTest do
-  alias Forge.Test.RangeSupport
+  use Engine.Test.ExtractorCase
 
   import Forge.Test.CodeSigil
-  import RangeSupport
+  import Forge.Test.RangeSupport
 
-  use Engine.Test.ExtractorCase
+  alias Forge.Test.RangeSupport
 
   def index(source) do
     do_index(source, fn entry ->

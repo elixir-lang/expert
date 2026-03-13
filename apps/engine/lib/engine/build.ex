@@ -1,11 +1,12 @@
 defmodule Engine.Build do
+  use GenServer
+
   alias Engine.Build.Document.Compilers.HEEx
   alias Engine.Build.State
   alias Forge.Document
   alias Forge.Project
 
   require Logger
-  use GenServer
 
   @timeout_interval_millis 50
 
