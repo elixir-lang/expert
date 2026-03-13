@@ -6,10 +6,6 @@ on:
     branches:
       - main
 
-env:
-  DEFAULT_ELIXIR: 1.15.8-otp-25
-  DEFAULT_OTP: 25.3.2.4
-
 permissions:
   contents: read
 
@@ -30,21 +26,19 @@ jobs:
           - expert_credo
           - forge
     steps:
-      # Step: Setup Elixir + Erlang image as the base
-      - uses: extractions/setup-just@f8a3cce218d9f83db3a2ecd90e41ac3de6cdfd9b # v3.1.0
-      - uses: erlef/setup-beam@e6d7c94229049569db56a7ad5a540c051a010af9 # v1.20.4
-        with:
-          otp-version: ${{ env.DEFAULT_OTP }}
-          elixir-version: ${{ env.DEFAULT_ELIXIR }}
-          version-type: "strict"
-
-      # Step: Check out the code.
       - name: Checkout code
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
 
-      # Step: Define how to cache deps. Restores existing cache if present.
+      - uses: extractions/setup-just@f8a3cce218d9f83db3a2ecd90e41ac3de6cdfd9b # v3.1.0
+      - name: Set up Elixir
+        id: setup-beam
+        uses: erlef/setup-beam@e6d7c94229049569db56a7ad5a540c051a010af9 # v1.20.4
+        with:
+          version-file: ".tool-versions"
+          version-type: "strict"
+
       - name: Cache deps
         id: cache-deps
         uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
@@ -53,9 +47,9 @@ jobs:
             apps/${{ matrix.project }}/deps
             apps/${{ matrix.project }}/_build
 
-          key: ${{ runner.os }}-mix-${{ matrix.project }}-${{ env.DEFAULT_ELIXIR }}-${{ env.DEFAULT_OTP }}-${{ hashFiles(format('apps/{0}/mix.lock', matrix.project)) }}
+          key: ${{ runner.os }}-mix-${{ matrix.project }}-${{ steps.setup-beam.outputs.elixir-version }}-${{ steps.setup-beam.outputs.otp-version }}-${{ hashFiles(format('apps/{0}/mix.lock', matrix.project)) }}
           restore-keys: |
-            ${{ runner.os }}-mix-${{ matrix.project }}-${{ env.DEFAULT_ELIXIR }}-${{ env.DEFAULT_OTP }}-
+            ${{ runner.os }}-mix-${{ matrix.project }}-${{ steps.setup-beam.outputs.elixir-version }}-${{ steps.setup-beam.outputs.otp-version }}-
 
       - name: Deps
         env:
@@ -88,21 +82,19 @@ jobs:
           - expert_credo
           - forge
     steps:
-      - uses: extractions/setup-just@f8a3cce218d9f83db3a2ecd90e41ac3de6cdfd9b # v3.1.0
-      - name: Set up Elixir
-        uses: erlef/setup-beam@e6d7c94229049569db56a7ad5a540c051a010af9 # v1.20.4
-        with:
-          otp-version: ${{ env.DEFAULT_OTP }}
-          elixir-version: ${{ env.DEFAULT_ELIXIR }}
-          version-type: "strict"
-
-      # Step: Check out the code.
       - name: Checkout code
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
 
-      # Step: Define how to cache deps. Restores existing cache if present.
+      - uses: extractions/setup-just@f8a3cce218d9f83db3a2ecd90e41ac3de6cdfd9b # v3.1.0
+      - name: Set up Elixir
+        id: setup-beam
+        uses: erlef/setup-beam@e6d7c94229049569db56a7ad5a540c051a010af9 # v1.20.4
+        with:
+          version-file: ".tool-versions"
+          version-type: "strict"
+
       - name: Cache deps
         id: cache-deps
         uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
@@ -111,19 +103,18 @@ jobs:
             apps/${{ matrix.project }}/deps
             apps/${{ matrix.project }}/_build
 
-          key: ${{ runner.os }}-mix-${{ matrix.project }}-${{ env.DEFAULT_ELIXIR }}-${{ env.DEFAULT_OTP }}-${{ hashFiles(format('apps/{0}/mix.lock', matrix.project)) }}
+          key: ${{ runner.os }}-mix-${{ matrix.project }}-${{ steps.setup-beam.outputs.elixir-version }}-${{ steps.setup-beam.outputs.otp-version }}-${{ hashFiles(format('apps/{0}/mix.lock', matrix.project)) }}
           restore-keys: |
-            ${{ runner.os }}-mix-${{ matrix.project }}-${{ env.DEFAULT_ELIXIR }}-${{ env.DEFAULT_OTP }}-
+            ${{ runner.os }}-mix-${{ matrix.project }}-${{ steps.setup-beam.outputs.elixir-version }}-${{ steps.setup-beam.outputs.otp-version }}-
 
-      # Step: Create dialyzer .plt files if they're not present
       - name: Cache dialyzer plt files
         id: cache-plt
         uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
         with:
-          key: expert-plts-${{ env.DEFAULT_OTP }}-${{ env.DEFAULT_ELIXIR }}-${{ hashFiles(format('apps/{0}/mix.lock', matrix.project)) }}
+          key: expert-plts-${{ steps.setup-beam.outputs.otp-version }}-${{ steps.setup-beam.outputs.elixir-version }}-${{ hashFiles(format('apps/{0}/mix.lock', matrix.project)) }}
           restore-keys: |
-            expert-plts-${{ env.DEFAULT_OTP }}-${{ env.DEFAULT_ELIXIR }}-${{ hashFiles(format('apps/{0}/mix.lock', matrix.project)) }}-
-            expert-plts-${{ env.DEFAULT_OTP }}-${{ env.DEFAULT_ELIXIR }}-
+            expert-plts-${{ steps.setup-beam.outputs.otp-version }}-${{ steps.setup-beam.outputs.elixir-version }}-${{ hashFiles(format('apps/{0}/mix.lock', matrix.project)) }}-
+            expert-plts-${{ steps.setup-beam.outputs.otp-version }}-${{ steps.setup-beam.outputs.elixir-version }}-
           path: "priv/plts"
 
       - name: Deps
@@ -243,9 +234,9 @@ jobs:
             apps/${{ matrix.project }}/deps
             apps/${{ matrix.project }}/_build
 
-          key: ${{ runner.os }}-mix-${{ matrix.project }}-${{ env.DEFAULT_ELIXIR }}-${{ env.DEFAULT_OTP }}-${{ hashFiles(format('apps/{0}/mix.lock', matrix.project)) }}
+          key: ${{ runner.os }}-mix-${{ matrix.project }}-${{ matrix.elixir }}-${{ matrix.otp }}-${{ hashFiles(format('apps/{0}/mix.lock', matrix.project)) }}
           restore-keys: |
-            ${{ runner.os }}-mix-${{ matrix.project }}-${{ env.DEFAULT_ELIXIR }}-${{ env.DEFAULT_OTP }}-
+            ${{ runner.os }}-mix-${{ matrix.project }}-${{ matrix.elixir }}-${{ matrix.otp }}-
 
       - name: Deps
         env:
