@@ -448,6 +448,22 @@ defmodule Engine.Analyzer.AliasesTest do
 
       assert aliases[:__MODULE__] == Parent.Child
     end
+
+    test "doted parent and child" do
+      aliases =
+        ~q[
+          defmodule Parent.Foo do
+            defmodule Bar.Baz do
+              |
+            end
+          end
+        ]
+        |> aliases_at_cursor()
+
+      assert aliases[:"Bar.Baz"] == Parent.Foo.Bar.Baz
+      assert aliases[:"Parent.Foo"] == Parent.Foo
+      assert aliases[:__MODULE__] == Parent.Foo.Bar.Baz
+    end
   end
 
   describe "alias scopes" do
