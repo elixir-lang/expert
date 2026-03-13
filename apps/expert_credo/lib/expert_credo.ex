@@ -1,11 +1,12 @@
 defmodule ExpertCredo do
   @moduledoc false
 
+  use Forge.Plugin.V1.Diagnostic, name: :expert_credo
+
   alias Forge.Document
   alias Forge.Plugin.V1.Diagnostic
   alias Forge.Project
 
-  use Diagnostic, name: :expert_credo
   require Logger
 
   @doc false
