@@ -15,13 +15,14 @@ defmodule Engine.Search.Store.Backends.Ets.State do
     Schemas.LegacyV0,
     Schemas.V1,
     Schemas.V2,
-    Schemas.V3
+    Schemas.V3,
+    Schemas.V4
   ]
 
   import Wal, only: :macros
   import Entry, only: :macros
 
-  import Schemas.V3,
+  import Schemas.V4,
     only: [
       by_block_id: 1,
       query_by_id: 1,
