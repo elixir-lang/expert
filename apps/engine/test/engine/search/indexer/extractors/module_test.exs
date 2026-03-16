@@ -1,6 +1,8 @@
 defmodule Engine.Search.Indexer.Extractors.ModuleTest do
   use Engine.Test.ExtractorCase
 
+  alias Some.Other.Thing.Util
+
   def index(source) do
     do_index(source, &(&1.type == :module))
   end
@@ -135,7 +137,7 @@ defmodule Engine.Search.Indexer.Extractors.ModuleTest do
         |> index()
 
       assert module_ref.type == :module
-      assert module_ref.subject == Some.Other.Thing.Util
+      assert module_ref.subject == Util
       assert decorate(doc, module_ref.range) =~ "    «Thing.Util» = arg"
     end
 
@@ -185,7 +187,7 @@ defmodule Engine.Search.Indexer.Extractors.ModuleTest do
         |> index()
 
       assert module_ref.type == :module
-      assert module_ref.subject == Some.Other.Thing.Util
+      assert module_ref.subject == Util
       assert decorate(doc, module_ref.range) =~ "    arg = «Thing.Util»"
     end
 

@@ -1,11 +1,11 @@
 defmodule Engine.CodeAction.Handlers.RefactorexTest do
   use Forge.Test.CodeMod.Case
 
+  import Forge.Test.CodeSigil
+  import Forge.Test.RangeSupport
+
   alias Engine.CodeAction.Handlers.Refactorex
   alias Forge.Document
-
-  import Forge.Test.RangeSupport
-  import Forge.Test.CodeSigil
 
   def apply_code_mod(original_text, _ast, options) do
     document = Document.new("file:///file.ex", original_text, 0)

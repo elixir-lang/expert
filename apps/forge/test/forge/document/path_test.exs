@@ -133,7 +133,7 @@ defmodule ElixirLS.LanguageServer.SourceFile.PathTest do
   describe "to_uri/1" do
     # tests based on cases from https://github.com/microsoft/vscode-uri/blob/master/src/test/uri.test.ts
     test "unix path" do
-      unless Forge.OS.windows?() do
+      if !Forge.OS.windows?() do
         assert "file:///nodes%2B%23.ex" == to_uri("/nodes+#.ex")
         assert "file:///coding/c%23/project1" == to_uri("/coding/c#/project1")
 
@@ -182,7 +182,7 @@ defmodule ElixirLS.LanguageServer.SourceFile.PathTest do
       assert from_uri(uri) ==
                cwd
                |> Path.join("foo/bar")
-               |> maybe_convert_path_separators
+               |> maybe_convert_path_separators()
     end
 
     test "UNC path" do

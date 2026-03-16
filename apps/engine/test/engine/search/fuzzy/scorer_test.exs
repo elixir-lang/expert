@@ -1,7 +1,7 @@
 defmodule Engine.Search.Fuzzy.ScorerTest do
-  alias Engine.Search.Fuzzy.Scorer
-
   use ExUnit.Case
+
+  alias Engine.Search.Fuzzy.Scorer
 
   describe "matching" do
     test "fails if one character doesn't appear" do

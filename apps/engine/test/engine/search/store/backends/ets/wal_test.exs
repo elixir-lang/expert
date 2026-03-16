@@ -1,13 +1,12 @@
 defmodule Engine.Search.Store.Backends.Ets.WalTest do
-  alias Engine.Dispatch
-  alias Engine.Search.Store.Backends.Ets.Wal
-
-  import Forge.Test.Fixtures
-
   use ExUnit.Case
   use Patch
 
-  import Wal, only: :macros
+  import Engine.Search.Store.Backends.Ets.Wal, only: :macros
+  import Forge.Test.Fixtures
+
+  alias Engine.Dispatch
+  alias Engine.Search.Store.Backends.Ets.Wal
 
   @table_name :wal_test
   @schema_version 1

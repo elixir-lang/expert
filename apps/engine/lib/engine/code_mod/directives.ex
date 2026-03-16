@@ -1,11 +1,11 @@
 defmodule Engine.CodeMod.Directives do
   alias Forge.Ast
   alias Forge.Ast.Analysis
+  alias Forge.Ast.Analysis.Scope
   alias Forge.Document
   alias Forge.Document.Edit
   alias Forge.Document.Position
   alias Forge.Document.Range
-
   alias Sourceror.Zipper
 
   @type render_fun :: (any -> String.t())
@@ -34,7 +34,7 @@ defmodule Engine.CodeMod.Directives do
     # This ensures duplicate directives get their lines removed
     all_ranges =
       items
-      |> Enum.map(&range_fun.(&1))
+      |> Enum.map(range_fun)
       |> Enum.reject(&is_nil/1)
 
     unique_items =
@@ -129,10 +129,10 @@ defmodule Engine.CodeMod.Directives do
 
   defp do_insert_position(%Analysis{} = analysis, _, range) do
     case Analysis.module_scope(analysis, range) do
-      %Forge.Ast.Analysis.Scope{id: :global} = scope ->
+      %Scope{id: :global} = scope ->
         {scope.range.start, "\n"}
 
-      %Forge.Ast.Analysis.Scope{} = scope ->
+      %Scope{} = scope ->
         scope_start = scope.range.start
 
         initial_position =

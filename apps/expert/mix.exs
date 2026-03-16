@@ -1,5 +1,6 @@
 defmodule Expert.MixProject do
   use Mix.Project
+
   Code.require_file("../../mix_includes.exs")
 
   def project do
@@ -17,7 +18,7 @@ defmodule Expert.MixProject do
     ]
   end
 
-  def version() do
+  def version do
     "../../version.txt" |> File.read!() |> String.trim()
   end
 
@@ -44,7 +45,7 @@ defmodule Expert.MixProject do
     ["lib"]
   end
 
-  defp releases() do
+  defp releases do
     [
       expert: [
         strip_beams: false,
@@ -68,7 +69,7 @@ defmodule Expert.MixProject do
     ]
   end
 
-  defp release_steps() do
+  defp release_steps do
     [
       :assemble,
       &Expert.Release.assemble/1
@@ -89,6 +90,7 @@ defmodule Expert.MixProject do
       {:gen_lsp, "~> 0.11.3"},
       {:jason, "~> 1.4"},
       {:patch, "~> 0.15", runtime: false, only: [:dev, :test]},
+      {:quokka, "~> 2.12", only: [:dev, :test], runtime: false},
       {:path_glob, "~> 0.2"},
       {:phoenix_live_view, "~> 1.0", only: [:test], runtime: false},
       {:schematic, "~> 0.2"},

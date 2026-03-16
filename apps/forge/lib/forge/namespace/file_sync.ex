@@ -1,11 +1,11 @@
 defmodule Forge.Namespace.FileSync do
+  alias __MODULE__.Classification
+
   defmodule Classification do
     defstruct changed: [],
               new: [],
               deleted: []
   end
-
-  alias __MODULE__.Classification
 
   @type classification :: %Classification{
           changed: list({String.t(), String.t()}),

@@ -1,14 +1,14 @@
 defmodule Engine.Commands.ReindexTest do
+  use ExUnit.Case
+  use Patch
+
+  import Engine.Test.Entry.Builder
+  import Forge.Test.EventualAssertions
+  import Forge.Test.Fixtures
+
   alias Engine.Commands.Reindex
   alias Engine.Search
   alias Forge.Document
-
-  import Forge.Test.EventualAssertions
-  import Forge.Test.Fixtures
-  import Engine.Test.Entry.Builder
-
-  use ExUnit.Case
-  use Patch
 
   setup do
     reindex_fun = fn _ ->

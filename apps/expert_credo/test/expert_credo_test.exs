@@ -1,9 +1,10 @@
 defmodule ExpertCredoTest do
-  alias Forge.Document
-  alias Forge.Plugin.V1.Diagnostic.Result
+  use ExUnit.Case
 
   import ExpertCredo
-  use ExUnit.Case
+
+  alias Forge.Document
+  alias Forge.Plugin.V1.Diagnostic.Result
 
   setup_all do
     Application.ensure_all_started(:credo)

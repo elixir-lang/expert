@@ -1,8 +1,6 @@
 defmodule Forge.Ast.Detection.ModuleAttributeTest do
-  alias Forge.Ast.Detection
-
   use Forge.Test.DetectionCase,
-    for: Detection.ModuleAttribute,
+    for: Forge.Ast.Detection.ModuleAttribute,
     assertions: [
       [:module_attribute, :*],
       [:callbacks, :*]

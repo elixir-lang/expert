@@ -1,8 +1,6 @@
 defmodule Forge.Ast.Detection.StructFieldsTest do
-  alias Forge.Ast.Detection
-
   use Forge.Test.DetectionCase,
-    for: Detection.StructFields,
+    for: Forge.Ast.Detection.StructFields,
     assertions: [[:struct_fields, :*]],
     variations: [:match, :function_body, :function_arguments, :module],
     skip: [

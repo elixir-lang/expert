@@ -1,9 +1,9 @@
 defmodule Engine.Dispatch.HandlerTest do
-  alias Engine.Dispatch
-  alias Forge.EngineApi.Messages
-
-  import Messages
   use ExUnit.Case
+
+  import Forge.EngineApi.Messages
+
+  alias Engine.Dispatch
 
   setup do
     start_supervised!(Dispatch)

@@ -6,7 +6,6 @@ defmodule Engine.CodeIntelligence.Entity do
   alias Forge.Document.Range
   alias Forge.Formats
   alias Future.Code, as: Code
-
   alias Sourceror.Zipper
 
   require Logger
@@ -292,10 +291,10 @@ defmodule Engine.CodeIntelligence.Entity do
         _ -> []
       end)
 
-    if segments != [] do
-      {:ok, segments}
-    else
+    if segments == [] do
       :error
+    else
+      {:ok, segments}
     end
   end
 

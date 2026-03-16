@@ -1,12 +1,13 @@
 defmodule EngineTest do
+  use ExUnit.Case
+  use Forge.Test.EventualAssertions
+
+  import Forge.Test.Fixtures
+
   alias Expert.EngineApi
   alias Expert.EngineNode
   alias Forge.Document
   alias Forge.Project
-
-  use ExUnit.Case
-  use Forge.Test.EventualAssertions
-  import Forge.Test.Fixtures
 
   def start_project(%Project{} = project) do
     start_supervised!({Forge.NodePortMapper, []})
@@ -37,7 +38,7 @@ defmodule EngineTest do
         [fixtures_path(), "umbrella", "apps", "first"]
         |> Path.join()
         |> Document.Path.to_uri()
-        |> then(&Project.new(&1))
+        |> Project.new()
 
       start_project(subapp_project)
 

@@ -1,7 +1,7 @@
 defmodule Expert.CodeIntelligence.Completion.Translations.StructFieldTest do
-  alias GenLSP.Enumerations.CompletionItemKind
-
   use Expert.Test.Expert.CompletionCase
+
+  alias GenLSP.Enumerations.CompletionItemKind
 
   test "a struct's fields are completed", %{project: project} do
     source = ~q[

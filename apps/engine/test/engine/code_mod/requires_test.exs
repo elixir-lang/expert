@@ -2,14 +2,15 @@ defmodule Engine.CodeMod.RequiresTest do
   use ExUnit.Case, async: false
   use Patch
 
+  import Forge.Test.CodeSigil
+  import Forge.Test.CursorSupport
+
   alias Engine.CodeMod.Requires
   alias Forge.Ast
+  alias Forge.Ast.Analysis.Require
   alias Forge.Document
   alias Forge.Document.Position
   alias Forge.Document.Range
-
-  import Forge.Test.CodeSigil
-  import Forge.Test.CursorSupport
 
   setup do
     patch(Engine, :get_project, %Forge.Project{})
@@ -76,13 +77,13 @@ defmodule Engine.CodeMod.RequiresTest do
       {insert_position, trailer} =
         Requires.insert_position(analysis, Position.new(document, 2, 3))
 
-      require_a = %Forge.Ast.Analysis.Require{
+      require_a = %Require{
         module: [:A, :B],
         as: :B,
         range: Range.new(Position.new(document, 3, 3), Position.new(document, 3, 12))
       }
 
-      require_b = %Forge.Ast.Analysis.Require{
+      require_b = %Require{
         module: [:B, :A],
         as: :A,
         range: Range.new(Position.new(document, 2, 3), Position.new(document, 2, 12))

@@ -1,10 +1,10 @@
 defmodule Engine.Build.Document.Compilers.ConfigTest do
-  alias Engine.Build.Document.Compilers
-  alias Forge.Document
-
   use ExUnit.Case
+
+  import Engine.Build.Document.Compilers.Config
   import Forge.Test.CodeSigil
-  import Compilers.Config
+
+  alias Forge.Document
 
   def document_with_path(left, right) do
     left

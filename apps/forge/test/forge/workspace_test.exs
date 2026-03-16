@@ -1,7 +1,7 @@
 defmodule Forge.WorkspaceTest do
-  alias Forge.Workspace
-
   use ExUnit.Case, async: true
+
+  alias Forge.Workspace
 
   describe "name/1" do
     test "returns the folder basename" do

@@ -1,6 +1,7 @@
 defmodule Engine.Search.Indexer.Extractors.FunctionDefinitionTest do
-  alias Forge.Search.Indexer.Entry
   use Engine.Test.ExtractorCase
+
+  alias Forge.Search.Indexer.Entry
 
   def index(source) do
     do_index(source, fn %Entry{type: type} = entry ->

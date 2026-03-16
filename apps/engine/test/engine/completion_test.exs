@@ -1,16 +1,16 @@
 defmodule Engine.CompletionTest do
-  alias Engine.Completion
-  alias Forge.Ast
-  alias Forge.Ast.Env
-  alias Forge.Document
+  use ExUnit.Case, async: true
+  use Patch
 
   import Forge.Test.CodeSigil
   import Forge.Test.CursorSupport
   import Forge.Test.Fixtures
   import Forge.Test.Quiet
 
-  use ExUnit.Case, async: true
-  use Patch
+  alias Engine.Completion
+  alias Forge.Ast
+  alias Forge.Ast.Env
+  alias Forge.Document
 
   describe "struct_fields/2" do
     test "returns the field completion for current module" do

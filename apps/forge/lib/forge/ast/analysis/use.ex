@@ -1,6 +1,7 @@
 defmodule Forge.Ast.Analysis.Use do
   alias Forge.Ast
   alias Forge.Document
+
   defstruct [:module, :range, :opts]
 
   def new(%Document{} = document, ast, module, opts) do

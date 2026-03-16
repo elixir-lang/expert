@@ -1,17 +1,16 @@
 defmodule Engine.Dispatch.Handlers.IndexingTest do
-  alias Forge.Document
-
-  alias Engine.Commands
-  alias Engine.Dispatch.Handlers.Indexing
-  alias Engine.Search
+  use ExUnit.Case
+  use Patch
 
   import Forge.EngineApi.Messages
   import Forge.Test.CodeSigil
   import Forge.Test.EventualAssertions
   import Forge.Test.Fixtures
 
-  use ExUnit.Case
-  use Patch
+  alias Engine.Commands
+  alias Engine.Dispatch.Handlers.Indexing
+  alias Engine.Search
+  alias Forge.Document
 
   setup do
     project = project()

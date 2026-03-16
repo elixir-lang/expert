@@ -1,4 +1,8 @@
 defmodule Forge.CodeIntelligence.Symbols.Workspace do
+  alias Forge.Document
+  alias Forge.Formats
+  alias Forge.Search.Indexer.Entry
+
   defmodule Link do
     defstruct [:uri, :range, :detail_range]
 
@@ -12,10 +16,6 @@ defmodule Forge.CodeIntelligence.Symbols.Workspace do
       %__MODULE__{uri: uri, range: range, detail_range: detail_range}
     end
   end
-
-  alias Forge.Document
-  alias Forge.Formats
-  alias Forge.Search.Indexer.Entry
 
   defstruct [:name, :type, :link, container_name: nil]
 

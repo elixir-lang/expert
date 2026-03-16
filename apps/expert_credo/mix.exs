@@ -1,5 +1,6 @@
 defmodule ExpertCredo.MixProject do
   use Mix.Project
+
   Code.require_file("../../mix_dialyzer.exs")
   @repo_url "https://github.com/elixir-lang/expert/"
   @version "0.1.0"
@@ -32,7 +33,8 @@ defmodule ExpertCredo.MixProject do
       {:deps_nix, "~> 2.4", only: :dev},
       Mix.Dialyzer.dependency(),
       {:jason, "> 0.0.0", optional: true},
-      {:ex_doc, "~> 0.34", optional: true, only: [:dev, :hex]}
+      {:ex_doc, "~> 0.34", optional: true, only: [:dev, :hex]},
+      {:quokka, "~> 2.12", only: [:dev, :test], runtime: false}
     ]
   end
 

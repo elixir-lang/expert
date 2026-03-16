@@ -1,17 +1,17 @@
 defmodule Expert.Project.SearchListenerTest do
+  use ExUnit.Case
+  use Patch
+  use Expert.Test.DispatchFake
+
+  import Expert.Test.Protocol.TransportSupport
+  import Forge.EngineApi.Messages
+  import Forge.Test.Fixtures
+
   alias Expert.EngineApi
   alias Expert.Test.DispatchFake
   alias Forge.Project
   alias GenLSP.Notifications.WindowShowMessage
   alias GenLSP.Structures.ShowMessageParams
-
-  use ExUnit.Case
-  use Patch
-  use DispatchFake
-
-  import Forge.EngineApi.Messages
-  import Forge.Test.Fixtures
-  import Expert.Test.Protocol.TransportSupport
 
   setup do
     project = project()

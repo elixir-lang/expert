@@ -1,8 +1,6 @@
 defmodule Forge.Ast.Detection.StructFieldValueTest do
-  alias Forge.Ast.Detection
-
   use Forge.Test.DetectionCase,
-    for: Detection.StructFieldValue,
+    for: Forge.Ast.Detection.StructFieldValue,
     assertions: [[:struct_field_value, :*]],
     skip: [
       [:struct_fields, :*],

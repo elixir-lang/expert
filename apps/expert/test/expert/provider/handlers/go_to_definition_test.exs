@@ -1,4 +1,9 @@
 defmodule Expert.Provider.Handlers.GoToDefinitionTest do
+  use ExUnit.Case, async: false
+
+  import Forge.EngineApi.Messages
+  import Forge.Test.Fixtures
+
   alias Expert.EngineApi
   alias Expert.Protocol.Convert
   alias Expert.Provider.Handlers
@@ -6,11 +11,6 @@ defmodule Expert.Provider.Handlers.GoToDefinitionTest do
   alias Forge.Document.Location
   alias GenLSP.Requests.TextDocumentDefinition
   alias GenLSP.Structures
-
-  import Forge.EngineApi.Messages
-  import Forge.Test.Fixtures
-
-  use ExUnit.Case, async: false
 
   setup_all do
     project = project(:navigations)

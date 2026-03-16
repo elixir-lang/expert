@@ -1,9 +1,7 @@
 defmodule Engine.Api.Proxy.ProxyingState do
-  alias Engine.Api.Proxy.Records
+  import Engine.Api.Proxy.Records
 
   defstruct refs_to_from: %{}
-
-  import Records
 
   def new do
     %__MODULE__{}

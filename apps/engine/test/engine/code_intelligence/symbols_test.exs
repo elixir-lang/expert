@@ -1,14 +1,14 @@
 defmodule Engine.CodeIntelligence.SymbolsTest do
-  alias Engine.CodeIntelligence.Symbols
-  alias Engine.Search.Indexer.Extractors
-  alias Engine.Search.Indexer.Source
-  alias Forge.CodeIntelligence.Symbols.Document
-
   use ExUnit.Case
   use Patch
 
   import Forge.Test.CodeSigil
   import Forge.Test.RangeSupport
+
+  alias Engine.CodeIntelligence.Symbols
+  alias Engine.Search.Indexer.Extractors
+  alias Engine.Search.Indexer.Source
+  alias Forge.CodeIntelligence.Symbols.Document
 
   def document_symbols(code) do
     doc = Forge.Document.new("file:///file.ex", code, 1)

@@ -1,5 +1,6 @@
 defmodule Engine.MixProject do
   use Mix.Project
+
   Code.require_file("../../mix_includes.exs")
 
   def project do
@@ -16,7 +17,7 @@ defmodule Engine.MixProject do
     ]
   end
 
-  def version() do
+  def version do
     "../../version.txt" |> File.read!() |> String.trim()
   end
 
@@ -52,6 +53,7 @@ defmodule Engine.MixProject do
       {:forge, path: "../forge"},
       {:gen_lsp, "~> 0.11.3"},
       {:patch, "~> 0.15", only: [:dev, :test], runtime: false},
+      {:quokka, "~> 2.12", only: [:dev, :test], runtime: false},
       {:path_glob, "~> 0.2"},
       {:phoenix_live_view, "~> 1.0", only: [:test], runtime: false},
       {:sourceror, "~> 1.10.1"},

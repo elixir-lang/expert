@@ -1,7 +1,7 @@
 defmodule Expert.CodeIntelligence.Completion.Translations.CallbackTest do
-  alias GenLSP.Enumerations.CompletionItemKind
-
   use Expert.Test.Expert.CompletionCase
+
+  alias GenLSP.Enumerations.CompletionItemKind
 
   describe "callback completions" do
     test "suggest callbacks", %{project: project} do

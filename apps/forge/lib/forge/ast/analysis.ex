@@ -163,7 +163,7 @@ defmodule Forge.Ast.Analysis do
         end
       )
 
-    unless length(state.scopes) == 1 do
+    if length(state.scopes) != 1 do
       raise RuntimeError,
             "invariant not met, :scopes should only contain the global scope: #{inspect(state)}"
     end

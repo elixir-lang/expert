@@ -2,14 +2,14 @@ defmodule Engine.CodeMod.DirectivesTest do
   use ExUnit.Case, async: false
   use Patch
 
+  import Forge.Test.CodeSigil
+  import Forge.Test.CursorSupport
+
   alias Engine.CodeMod.Directives
   alias Forge.Ast
   alias Forge.Document
   alias Forge.Document.Position
   alias Forge.Document.Range
-
-  import Forge.Test.CodeSigil
-  import Forge.Test.CursorSupport
 
   setup do
     patch(Engine, :get_project, %Forge.Project{})

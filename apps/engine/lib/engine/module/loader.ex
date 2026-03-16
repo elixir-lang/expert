@@ -5,8 +5,9 @@ defmodule Engine.Module.Loader do
   is that having a cache will improve performance
   """
 
-  alias Future.Code
   use Agent
+
+  alias Future.Code
 
   def start_link(_) do
     initialize = fn ->

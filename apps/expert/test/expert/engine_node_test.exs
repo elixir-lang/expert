@@ -1,12 +1,12 @@
 defmodule Expert.EngineNodeTest do
-  alias Expert.EngineNode
-  alias Expert.EngineSupervisor
+  use ExUnit.Case, async: false
+  use Patch
 
   import Forge.Test.EventualAssertions
   import Forge.Test.Fixtures
 
-  use ExUnit.Case, async: false
-  use Patch
+  alias Expert.EngineNode
+  alias Expert.EngineSupervisor
 
   setup do
     project = project()

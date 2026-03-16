@@ -1,5 +1,9 @@
 defmodule Expert.EngineNode do
+  use GenServer
+
+  alias Expert.EngineSupervisor
   alias Expert.Progress
+  alias Forge.Document
   alias Forge.Project
 
   require Logger
@@ -201,10 +205,6 @@ defmodule Expert.EngineNode do
       |> :rpc.call(module, function, args)
     end
   end
-
-  alias Expert.EngineSupervisor
-  alias Forge.Document
-  use GenServer
 
   def start(project, token \\ Progress.noop_token()) do
     start_net_kernel(project)

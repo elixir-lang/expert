@@ -1,10 +1,10 @@
 defmodule Forge.ProcessCacheTest do
-  alias Forge.ProcessCache
-
-  import ProcessCache
-
   use ExUnit.Case
   use Patch
+
+  import Forge.ProcessCache
+
+  alias Forge.ProcessCache
 
   setup do
     expose(ProcessCache.Entry, now_ts: 0)

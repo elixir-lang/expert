@@ -1,6 +1,6 @@
 defimpl Forge.Protocol.Convertible, for: GenLSP.Structures.TextEdit do
-  alias Forge.Document
   alias Expert.Protocol.Conversions
+  alias Forge.Document
   alias GenLSP.Structures
 
   def to_lsp(%Structures.TextEdit{} = text_edit) do

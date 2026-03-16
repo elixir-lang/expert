@@ -1,9 +1,9 @@
 defmodule Engine.CodeAction.Handlers.CreateUndefinedFunctionTest do
+  use Forge.Test.CodeMod.Case
+
   alias Engine.CodeAction.Handlers.CreateUndefinedFunction
   alias Forge.CodeAction.Diagnostic
   alias Forge.Document
-
-  use Forge.Test.CodeMod.Case
 
   setup do
     start_supervised!({Document.Store, derive: [analysis: &Forge.Ast.analyze/1]})

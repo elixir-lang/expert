@@ -1,13 +1,13 @@
 defmodule Forge.ProjectTest do
-  alias Forge.Document
-  alias Forge.Project
-  alias Forge.Workspace
-
   use ExUnit.Case, async: false
   use ExUnitProperties
   use Patch
 
   import Forge.Test.Fixtures
+
+  alias Forge.Document
+  alias Forge.Project
+  alias Forge.Workspace
 
   defp test_project do
     root = Forge.Document.Path.to_uri(__DIR__)

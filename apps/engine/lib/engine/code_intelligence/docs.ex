@@ -1,11 +1,11 @@
 defmodule Engine.CodeIntelligence.Docs do
-  alias Engine.Modules
-  alias Forge.CodeIntelligence.Docs
-  alias Forge.CodeIntelligence.Docs.Entry
-
   @moduledoc """
   Utilities for fetching documentation for a compiled module.
   """
+
+  alias Engine.Modules
+  alias Forge.CodeIntelligence.Docs
+  alias Forge.CodeIntelligence.Docs.Entry
 
   @doc """
   Fetches known documentation for the given module.

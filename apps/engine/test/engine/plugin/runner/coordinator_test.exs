@@ -1,10 +1,11 @@
 defmodule Engine.Plugin.Runner.CoordinatorTest do
+  use ExUnit.Case, async: false
+
+  import Forge.Test.EventualAssertions
+
   alias Engine.Plugin.Runner
   alias Forge.Document
   alias Forge.Project
-
-  use ExUnit.Case, async: false
-  import Forge.Test.EventualAssertions
 
   setup do
     {:ok, _} = start_supervised(Runner.Supervisor)
@@ -18,10 +19,10 @@ defmodule Engine.Plugin.Runner.CoordinatorTest do
   end
 
   defmodule Echo do
+    use Forge.Plugin.V1.Diagnostic, name: :report_back
+
     alias Forge.Document
     alias Forge.Project
-
-    use Forge.Plugin.V1.Diagnostic, name: :report_back
 
     def diagnose(%Document{} = doc) do
       {:ok, [doc]}

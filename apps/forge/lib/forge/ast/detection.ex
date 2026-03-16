@@ -21,6 +21,7 @@ defmodule Forge.Ast.Detection do
   defmacro __using__(_) do
     quote do
       @behaviour unquote(__MODULE__)
+
       import unquote(__MODULE__)
     end
   end

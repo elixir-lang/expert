@@ -1,16 +1,14 @@
 defmodule Engine.Api.Proxy.BufferingStateStateTest do
-  alias Engine.Api.Proxy
+  use ExUnit.Case
+
+  import Engine.Api.Proxy.Records
+  import Forge.EngineApi.Messages
+  import Forge.Test.Fixtures
+
   alias Engine.Api.Proxy.BufferingState
   alias Engine.Build
   alias Engine.Commands
   alias Forge.Document
-  alias Forge.EngineApi.Messages
-
-  import Forge.Test.Fixtures
-  import Messages
-  import Proxy.Records
-
-  use ExUnit.Case
 
   setup do
     start_supervised!(Document.Store)

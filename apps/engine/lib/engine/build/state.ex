@@ -1,15 +1,14 @@
 defmodule Engine.Build.State do
+  import Forge.EngineApi.Messages
+
   alias Elixir.Features
   alias Engine.Build
   alias Engine.Plugin
   alias Forge.Document
-  alias Forge.EngineApi.Messages
   alias Forge.Project
   alias Forge.VM.Versions
 
   require Logger
-
-  import Messages
 
   defstruct project: nil,
             build_number: 0,
@@ -60,7 +59,7 @@ defmodule Engine.Build.State do
     project = state.project
     build_path = Project.versioned_build_path(project)
 
-    unless Versions.compatible?(build_path) do
+    if !Versions.compatible?(build_path) do
       Logger.info("Build path #{build_path} was compiled on a previous erlang version. Deleting")
 
       if File.exists?(build_path) do
@@ -70,7 +69,7 @@ defmodule Engine.Build.State do
 
     maybe_delete_old_builds(project)
 
-    unless File.exists?(build_path) do
+    if !File.exists?(build_path) do
       File.mkdir_p!(build_path)
       Versions.write(build_path)
     end

@@ -1,13 +1,11 @@
 defmodule Forge.Ast.Detection.StringTest do
-  alias Forge.Ast.Detection
-
   use Forge.Test.DetectionCase,
-    for: Detection.String,
+    for: Forge.Ast.Detection.String,
     assertions: [[:strings, :*]],
-    # we skip other tests that have strings in them
     skip: [
       [:doc, :*],
       [:keyword, :single_line],
+      # we skip other tests that have strings in them
       [:keyword, :multi_line],
       [:module_doc, :*]
     ],

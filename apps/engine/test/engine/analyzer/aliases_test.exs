@@ -1,13 +1,13 @@
 defmodule Engine.Analyzer.AliasesTest do
+  use ExUnit.Case
+
+  import Forge.Test.CodeSigil
+  import Forge.Test.CursorSupport
+  import Forge.Test.RangeSupport
+
   alias Engine.Analyzer
   alias Forge.Ast
   alias Forge.Document
-
-  import Forge.Test.CursorSupport
-  import Forge.Test.CodeSigil
-  import Forge.Test.RangeSupport
-
-  use ExUnit.Case
 
   def aliases_at_cursor(text) do
     {position, document} = pop_cursor(text, as: :document)

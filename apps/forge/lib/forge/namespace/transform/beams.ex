@@ -99,7 +99,7 @@ defmodule Forge.Namespace.Transform.Beams do
     new_beam_path = Path.join(ebin_path, "#{module_name}.beam")
 
     with :ok <- File.write(new_beam_path, binary, [:binary, :raw]) do
-      unless old_path == new_beam_path do
+      if old_path != new_beam_path do
         # avoids deleting modules that did not get a new name
         # e.g. Elixir.Mix.Task.. etc
         File.rm(old_path)

@@ -1,18 +1,17 @@
 defmodule Engine.CodeAction.Handlers.AddAliasTest do
+  use Forge.Test.CodeMod.Case, enable_ast_conversion: false
+  use Patch
+
+  import Forge.Test.CodeSigil
+  import Forge.Test.CursorSupport
+
+  alias Engine.CodeAction.Handlers.AddAlias
+  alias Engine.Search.Store
   alias Forge.Ast.Analysis.Scope
   alias Forge.CodeUnit
   alias Forge.Document
   alias Forge.Document.Line
   alias Forge.Document.Range
-
-  alias Engine.CodeAction.Handlers.AddAlias
-  alias Engine.Search.Store
-
-  import Forge.Test.CursorSupport
-  import Forge.Test.CodeSigil
-
-  use Forge.Test.CodeMod.Case, enable_ast_conversion: false
-  use Patch
 
   setup do
     start_supervised!({Document.Store, derive: [analysis: &Forge.Ast.analyze/1]})

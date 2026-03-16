@@ -1,4 +1,9 @@
 defmodule Expert.Provider.Handlers.FindReferencesTest do
+  use ExUnit.Case, async: false
+  use Patch
+
+  import Forge.Test.Fixtures
+
   alias Expert.EngineApi
   alias Expert.Protocol.Convert
   alias Expert.Provider.Handlers
@@ -7,11 +12,6 @@ defmodule Expert.Provider.Handlers.FindReferencesTest do
   alias Forge.Document.Location
   alias GenLSP.Requests.TextDocumentReferences
   alias GenLSP.Structures
-
-  import Forge.Test.Fixtures
-
-  use ExUnit.Case, async: false
-  use Patch
 
   setup_all do
     start_supervised(Expert.Application.document_store_child_spec())

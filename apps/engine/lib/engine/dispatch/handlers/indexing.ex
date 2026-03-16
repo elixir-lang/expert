@@ -1,14 +1,13 @@
 defmodule Engine.Dispatch.Handlers.Indexing do
+  use Engine.Dispatch.Handler, [file_compile_requested(), filesystem_event()]
+
+  import Forge.EngineApi.Messages
+
   alias Engine.Commands
-  alias Engine.Dispatch
   alias Engine.Search
   alias Forge.Document
-  alias Forge.EngineApi.Messages
 
   require Logger
-  import Messages
-
-  use Dispatch.Handler, [file_compile_requested(), filesystem_event()]
 
   def on_event(file_compile_requested(uri: uri), state) do
     reindex(uri)

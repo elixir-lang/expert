@@ -1,18 +1,15 @@
 defmodule Engine.Search.Store.Backend.EtsTest do
-  alias Engine.Dispatch
-  alias Engine.Search.Store
-  alias Engine.Search.Store.Backends
-  alias Engine.Test.Entry
-  alias Forge.Project
-  alias Forge.Test.EventualAssertions
-  alias Forge.Test.Fixtures
-
   use ExUnit.Case, async: false
   use Patch
 
-  import EventualAssertions
-  import Entry.Builder
-  import Fixtures
+  import Engine.Test.Entry.Builder
+  import Forge.Test.EventualAssertions
+  import Forge.Test.Fixtures
+
+  alias Engine.Dispatch
+  alias Engine.Search.Store
+  alias Engine.Search.Store.Backends
+  alias Forge.Project
 
   setup do
     backend = Backends.Ets

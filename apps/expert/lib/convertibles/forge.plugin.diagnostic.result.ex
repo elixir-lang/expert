@@ -1,6 +1,4 @@
 defimpl Forge.Protocol.Convertible, for: Forge.Plugin.V1.Diagnostic.Result do
-  alias GenLSP.Structures
-  alias GenLSP.Enumerations.DiagnosticSeverity
   alias Expert.Protocol.Conversions
   alias Forge.Document
   alias Forge.Document.Position
@@ -8,6 +6,8 @@ defimpl Forge.Protocol.Convertible, for: Forge.Plugin.V1.Diagnostic.Result do
   alias Forge.Math
   alias Forge.Plugin.V1.Diagnostic
   alias Forge.Text
+  alias GenLSP.Enumerations.DiagnosticSeverity
+  alias GenLSP.Structures
 
   def to_lsp(%Diagnostic.Result{} = diagnostic) do
     with {:ok, lsp_range} <- lsp_range(diagnostic) do

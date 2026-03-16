@@ -2,13 +2,14 @@ defmodule Engine.CodeAction.Handlers.RequireTest do
   use ExUnit.Case, async: false
   use Patch
 
+  import Forge.Test.CodeSigil
+  import Forge.Test.CursorSupport
+
   alias Engine.CodeAction.Handlers.Require, as: RequireHandler
   alias Forge.Document
   alias Forge.Document.Range
+  alias Forge.Test.CodeMod.Case
   alias GenLSP.Structures.Diagnostic
-
-  import Forge.Test.CodeSigil
-  import Forge.Test.CursorSupport
 
   setup do
     patch(Engine, :get_project, %Forge.Project{})
@@ -84,7 +85,7 @@ defmodule Engine.CodeAction.Handlers.RequireTest do
       original_text = Document.to_string(document)
 
       result_text =
-        Forge.Test.CodeMod.Case.apply_edits(original_text, action.changes.edits, trim: false)
+        Case.apply_edits(original_text, action.changes.edits, trim: false)
 
       assert result_text =~ ~r/require Kernel\n\s*require Logger/s or
                result_text =~ ~r/require Logger\n\s*require Kernel/s
@@ -122,7 +123,7 @@ defmodule Engine.CodeAction.Handlers.RequireTest do
       original_text = Document.to_string(document)
 
       result_text =
-        Forge.Test.CodeMod.Case.apply_edits(original_text, action.changes.edits, trim: false)
+        Case.apply_edits(original_text, action.changes.edits, trim: false)
 
       # Verify no extra blank lines between requires (should be consecutive lines)
       assert result_text =~ ~r/require Foo.Test\n\s+require Kernel\n\s+require Logger/

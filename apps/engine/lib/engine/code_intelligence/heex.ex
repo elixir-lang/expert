@@ -156,8 +156,6 @@ defmodule Engine.CodeIntelligence.Heex do
           component_name = binary_part(text, name_start, name_len)
           is_closing = String.starts_with?(matched_text, "</")
           {match_start, match_len, component_name, is_closing}
-        else
-          nil
         end
     end)
   end
@@ -222,8 +220,6 @@ defmodule Engine.CodeIntelligence.Heex do
 
         if target_column >= col and target_column <= col + expr_length do
           {:ok, expr, col}
-        else
-          nil
         end
 
       {:text, text, %{line: start_line, column: start_col}} ->
@@ -251,8 +247,6 @@ defmodule Engine.CodeIntelligence.Heex do
         # check if cursor inside a curly expression
         find_curly_expr_at_column(line, cursor_column)
       end
-    else
-      nil
     end
   end
 

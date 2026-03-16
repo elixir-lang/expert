@@ -7,12 +7,12 @@ defmodule Expert.Logging.WindowLogHandler do
   messages emitted while forwarding itself to avoid recursive logging loops.
   """
 
+  use Expert.Logging.LoggerHandler
+
   alias Forge.Project
   alias GenLSP.Enumerations
   alias GenLSP.Notifications.WindowLogMessage
   alias GenLSP.Structures.LogMessageParams
-
-  use Expert.Logging.LoggerHandler
 
   require Logger
 

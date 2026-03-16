@@ -1,10 +1,10 @@
 defmodule Expert.Protocol.ConversionsTest do
+  use ExUnit.Case
+
   alias Expert.Protocol.Conversions
   alias Forge.Document
   alias Forge.Document.Position, as: ExPosition
   alias GenLSP.Structures.Position, as: LSPosition
-
-  use ExUnit.Case
 
   defp lsp_position(line, char) do
     %LSPosition{line: line, character: char}

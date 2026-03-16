@@ -1,10 +1,10 @@
 defmodule Engine.DispatchTest do
-  alias Engine.Dispatch
-  alias Forge.EngineApi.Messages
-
-  import Messages
   use ExUnit.Case
   use Patch
+
+  import Forge.EngineApi.Messages
+
+  alias Engine.Dispatch
 
   def with_dispatch_started(_) do
     start_supervised!(Dispatch)

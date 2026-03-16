@@ -1,7 +1,9 @@
 defmodule Engine.Search.FuzzyTest do
-  alias Engine.Search.Fuzzy
-  import Engine.Test.Entry.Builder
   use ExUnit.Case
+
+  import Engine.Test.Entry.Builder
+
+  alias Engine.Search.Fuzzy
 
   setup do
     entries = [

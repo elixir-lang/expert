@@ -1,11 +1,11 @@
 defmodule Engine.Search.Store.StateTest do
-  alias Engine.Search.Store.State
-  alias Forge.Test.Fixtures
-
   use ExUnit.Case, async: true
 
-  import Fixtures
   import ExUnit.CaptureLog
+  import Forge.Test.Fixtures
+
+  alias Engine.Search.Store.State
+
   require Logger
 
   defmodule TimeoutBackend do

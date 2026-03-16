@@ -1,4 +1,8 @@
 defmodule Engine.ModuleMappings do
+  use GenServer
+
+  import Forge.EngineApi.Messages
+
   defmodule State do
     defstruct module_to_file: %{}, file_to_modules: %{}
 
@@ -38,12 +42,6 @@ defmodule Engine.ModuleMappings do
       %__MODULE__{state | file_to_modules: file_to_modules, module_to_file: module_to_file}
     end
   end
-
-  alias Forge.EngineApi.Messages
-
-  use GenServer
-
-  import Messages
 
   # Public
   def start_link(_) do

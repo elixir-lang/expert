@@ -1,10 +1,9 @@
 defmodule Engine.Plugin do
+  import Forge.EngineApi.Messages
+
   alias Engine.Plugin.Runner
   alias Forge.Document
-  alias Forge.EngineApi.Messages
   alias Forge.Project
-
-  import Messages
 
   def diagnose(%Project{} = project, build_number) do
     on_complete = fn

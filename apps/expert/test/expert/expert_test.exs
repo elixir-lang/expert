@@ -1,12 +1,12 @@
 defmodule ExpertTest do
-  alias Forge.Document
-  alias Forge.Project
-
-  import GenLSP.Test
-  import Forge.Test.Fixtures
-
   use ExUnit.Case, async: false
   use Patch
+
+  import Forge.Test.Fixtures
+  import GenLSP.Test
+
+  alias Forge.Document
+  alias Forge.Project
 
   setup_all do
     start_supervised!({Document.Store, derive: [analysis: &Forge.Ast.analyze/1]})

@@ -5,8 +5,9 @@ defmodule Forge.Document.Edit do
   A `Forge.Document.Edit` represents a single change to a document. It contains
   the new text and a range where the edit applies.
   """
+  use Forge.StructAccess
+
   alias Forge.Document.Range
-  alias Forge.StructAccess
 
   defstruct [:text, :range]
 
@@ -14,8 +15,6 @@ defmodule Forge.Document.Edit do
           text: String.t(),
           range: Range.t() | nil
         }
-
-  use StructAccess
 
   @doc "Creates a new edit that replaces all text in the document"
   @spec new(String.t(), Range.t() | nil) :: t

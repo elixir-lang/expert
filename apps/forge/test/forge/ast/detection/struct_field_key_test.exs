@@ -1,8 +1,6 @@
 defmodule Forge.Ast.Detection.StructFieldKeyTest do
-  alias Forge.Ast.Detection
-
   use Forge.Test.DetectionCase,
-    for: Detection.StructFieldKey,
+    for: Forge.Ast.Detection.StructFieldKey,
     assertions: [[:struct_field_key, :*]],
     skip: [
       [:struct_fields, :*],

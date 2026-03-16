@@ -1,12 +1,13 @@
 defmodule Engine.Search.IndexerTest do
+  use ExUnit.Case
+  use Patch
+
+  import Forge.Test.Fixtures
+
   alias Engine.Dispatch
   alias Engine.Search.Indexer
   alias Forge.Project
   alias Forge.Search.Indexer.Entry
-
-  use ExUnit.Case
-  use Patch
-  import Forge.Test.Fixtures
 
   defmodule FakeBackend do
     def set_entries(entries) when is_list(entries) do
@@ -47,7 +48,7 @@ defmodule Engine.Search.IndexerTest do
       entries = Enum.to_list(entry_stream)
       project_root = Project.root_path(project)
 
-      assert length(entries) > 0
+      assert not Enum.empty?(entries)
       assert Enum.all?(entries, fn entry -> String.starts_with?(entry.path, project_root) end)
     end
 

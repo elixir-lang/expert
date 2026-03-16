@@ -1,7 +1,7 @@
 defprotocol Expert.CodeIntelligence.Completion.Translatable do
-  alias GenLSP.Structures.CompletionItem
-  alias Forge.Ast.Env
   alias Expert.CodeIntelligence.Completion.Builder
+  alias Forge.Ast.Env
+  alias GenLSP.Structures.CompletionItem
 
   @type t :: any()
 

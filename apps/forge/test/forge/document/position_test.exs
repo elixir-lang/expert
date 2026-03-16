@@ -1,11 +1,10 @@
 defmodule Forge.Document.PositionTest do
-  alias Forge.Document.Line
+  use ExUnit.Case, async: true
+
+  import Forge.Document.Line
+
   alias Forge.Document.Lines
   alias Forge.Document.Position
-
-  import Line
-
-  use ExUnit.Case, async: true
 
   describe "compare/2" do
     test "positions on the same line" do
