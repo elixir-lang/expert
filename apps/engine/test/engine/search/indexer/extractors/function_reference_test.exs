@@ -4,8 +4,6 @@ defmodule Engine.Search.Indexer.Extractors.FunctionReferenceTest do
   import Forge.Test.CodeSigil
   import Forge.Test.RangeSupport
 
-  alias Forge.Test.RangeSupport
-
   def index(source) do
     do_index(source, fn entry ->
       match?({:function, :usage}, entry.type) and entry.subtype == :reference

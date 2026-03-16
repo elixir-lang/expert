@@ -3,8 +3,6 @@ defmodule Forge.Completion.Candidate.ArgumentNamesTest do
 
   import Forge.Completion.Candidate.ArgumentNames
 
-  alias Forge.Completion.Candidate.ArgumentNames
-
   describe "parsing elixir sense argument names" do
     test "handles normal arguments" do
       assert ~w(first second third) == from_elixir_sense(~w(first second third), 3)

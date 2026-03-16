@@ -12,8 +12,6 @@ defmodule Engine.Search.StoreTest do
   alias Engine.Search.Store
   alias Engine.Search.Store.Backends.Ets
   alias Forge.Search.Indexer.Entry
-  alias Forge.Test.EventualAssertions
-  alias Forge.Test.Fixtures
 
   @backends [Ets]
 

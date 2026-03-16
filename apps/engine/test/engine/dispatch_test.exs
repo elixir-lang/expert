@@ -5,7 +5,6 @@ defmodule Engine.DispatchTest do
   import Forge.EngineApi.Messages
 
   alias Engine.Dispatch
-  alias Forge.EngineApi.Messages
 
   def with_dispatch_started(_) do
     start_supervised!(Dispatch)

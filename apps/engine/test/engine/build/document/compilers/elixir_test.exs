@@ -3,7 +3,6 @@ defmodule Engine.Build.Document.Compilers.ElixirTest do
 
   import Engine.Build.Document.Compilers.Elixir
 
-  alias Engine.Build.Document.Compilers
   alias Forge.Document
 
   def document_with_extension(extension) do

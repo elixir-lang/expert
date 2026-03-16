@@ -4,7 +4,6 @@ defmodule Engine.Dispatch.HandlerTest do
   import Forge.EngineApi.Messages
 
   alias Engine.Dispatch
-  alias Forge.EngineApi.Messages
 
   setup do
     start_supervised!(Dispatch)

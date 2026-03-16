@@ -4,7 +4,6 @@ defmodule Engine.Build.Document.Compilers.ConfigTest do
   import Engine.Build.Document.Compilers.Config
   import Forge.Test.CodeSigil
 
-  alias Engine.Build.Document.Compilers
   alias Forge.Document
 
   def document_with_path(left, right) do

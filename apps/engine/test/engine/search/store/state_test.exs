@@ -5,7 +5,6 @@ defmodule Engine.Search.Store.StateTest do
   import Forge.Test.Fixtures
 
   alias Engine.Search.Store.State
-  alias Forge.Test.Fixtures
 
   require Logger
 

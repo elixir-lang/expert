@@ -5,12 +5,10 @@ defmodule Engine.Api.Proxy.BufferingStateStateTest do
   import Forge.EngineApi.Messages
   import Forge.Test.Fixtures
 
-  alias Engine.Api.Proxy
   alias Engine.Api.Proxy.BufferingState
   alias Engine.Build
   alias Engine.Commands
   alias Forge.Document
-  alias Forge.EngineApi.Messages
 
   setup do
     start_supervised!(Document.Store)
