@@ -323,8 +323,8 @@ defmodule Expert.Port do
         cmd_exe = "cmd" |> System.find_executable() |> to_charlist()
 
         opts =
-          Keyword.update(opts, :args, ["/c", executable_str], fn args ->
-            ["/c", executable_str | args]
+          Keyword.update(opts, :args, ["/c", "call", executable_str], fn args ->
+            ["/c", "call", executable_str | args]
           end)
 
         {cmd_exe, [:hide | opts]}
