@@ -5,14 +5,10 @@ defmodule Expert.Logging.ProjectLogFileTest do
 
   require Logger
 
-  @handler_name :expert_project_log
-
   setup do
     on_exit(fn ->
-      case :logger.remove_handler(@handler_name) do
-        :ok -> :ok
-        {:error, {:not_found, @handler_name}} -> :ok
-      end
+      ProjectLogFile.handler_name()
+      |> :logger.remove_handler()
     end)
   end
 

@@ -1,9 +1,12 @@
 defmodule Expert.Logging.ProjectLogFile do
   @moduledoc false
 
-  @handler_name :expert_project_log
   @max_no_bytes 10_485_760
   @max_no_files 3
+
+  def handler_name do
+    :expert_project_log
+  end
 
   def attach(root_path \\ File.cwd!()) when is_binary(root_path) do
     with :ok <- ensure_workspace(root_path) do
@@ -29,7 +32,8 @@ defmodule Expert.Logging.ProjectLogFile do
   end
 
   defp add_handler(config) do
-    :logger.add_handler(@handler_name, :logger_std_h, config)
+    handler_name()
+    |> :logger.add_handler(:logger_std_h, config)
   end
 
   defp log_config(root_path) do
