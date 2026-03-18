@@ -1,21 +1,7 @@
 import Config
 
-log_directory = Path.join(File.cwd!(), ".expert")
-
-if !File.exists?(log_directory) do
-  File.mkdir_p(log_directory)
-end
-
-log_file_name = Path.join(log_directory, "expert.log")
-
 config :logger,
   handle_sasl_reports: true,
   handle_otp_reports: true
 
-config :logger, :default_handler,
-  level: :debug,
-  config: [
-    file: String.to_charlist(log_file_name),
-    max_no_bytes: 10_485_760,
-    max_no_files: 3
-  ]
+config :logger, :default_handler, level: :none

@@ -33,17 +33,17 @@ defmodule Engine.Bootstrap do
          {:ok, _} <- Application.ensure_all_started(:mix),
          {:ok, _} <- Application.ensure_all_started(:logger) do
       project = maybe_load_mix_exs(project)
-      Engine.set_project(project)
-      Engine.set_manager_node(manager_node)
-      Mix.env(:test)
-      set_mix_build_path(project)
-      ExUnit.start()
-      start_logger(project)
-      maybe_change_directory(project)
 
-      # This might fail and we are handling the result, so it's important that it
-      # stays last.
-      Project.ensure_workspace(project)
+      with :ok <- Project.ensure_workspace(project) do
+        Engine.set_project(project)
+        Engine.set_manager_node(manager_node)
+        Mix.env(:test)
+        set_mix_build_path(project)
+        ExUnit.start()
+        start_logger(project)
+        maybe_change_directory(project)
+        :ok
+      end
     end
   end
 

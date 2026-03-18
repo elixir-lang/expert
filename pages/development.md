@@ -32,7 +32,7 @@ EXPERT_PARSER=elixir just release
 
 When expert starts up, it creates a `.expert` directory in the root
 directory of a project. Inside that directory are two log files,
-`expert.log` and `project.log`. The `.expert.log` log file contains
+`expert.log` and `project.log`. The `expert.log` log file contains
 logging and OTP messages from the language server, while the
 `project.log` file contains logging and OTP messages from the
 project's node. While developing expert, it's helpful to open up a
