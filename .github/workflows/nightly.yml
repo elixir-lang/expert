@@ -73,6 +73,6 @@ jobs:
       - name: Delete previous nightly release
         run: |
           gh release delete nightly --yes || true
-          git push origin :nightly || true
+          gh api -X DELETE repos/${{ github.repository }}/git/refs/tags/nightly || true
       - name: Create nightly release
         run: gh release create nightly --prerelease ./apps/expert/burrito_out/*
