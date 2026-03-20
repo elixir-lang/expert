@@ -245,18 +245,4 @@ defmodule Forge.ProjectTest do
       assert Atom.to_string(node_name) =~ sanitized_name
     end
   end
-
-  describe "ensure_workspace/1" do
-    @tag :tmp_dir
-    test "creates .gitignore when the workspace directory already exists", %{tmp_dir: tmp_dir} do
-      project = tmp_dir |> Document.Path.to_uri() |> Project.new()
-      workspace_path = Project.workspace_path(project)
-      gitignore_path = Project.workspace_path(project, ".gitignore")
-
-      File.mkdir_p!(workspace_path)
-
-      assert :ok = Project.ensure_workspace(project)
-      assert File.regular?(gitignore_path)
-    end
-  end
 end

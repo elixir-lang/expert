@@ -19,6 +19,8 @@ expert_data_path = Path.join(cache_dir, expert_vsn)
 elixir_erts_vsn = "elixir-#{System.version()}-erts-#{:erlang.system_info(:version)}"
 tooling_path = Path.join([expert_data_path, "tooling", elixir_erts_vsn])
 
+user_mix_home = System.get_env("MIX_HOME") || Path.join(System.user_home!(), ".mix")
+
 System.put_env("MIX_INSTALL_DIR", expert_data_path)
 System.put_env("MIX_HOME", Path.join(tooling_path, "mix_home"))
 System.put_env("HEX_HOME", Path.join(tooling_path, "hex_home"))
@@ -59,6 +61,12 @@ mix_home = Path.join(tooling_path, "mix_home")
 
 engine_meta =
   "engine_meta:" <>
-    Base.encode64(:erlang.term_to_binary(%{mix_home: mix_home, engine_path: ns_build_path}))
+    Base.encode64(
+      :erlang.term_to_binary(%{
+        mix_home: mix_home,
+        engine_path: ns_build_path,
+        user_mix_home: user_mix_home
+      })
+    )
 
 IO.puts(engine_meta)

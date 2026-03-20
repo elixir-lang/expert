@@ -61,14 +61,14 @@ defmodule Expert.EngineNode.Builder do
       end
 
     case parse_engine_meta(line) do
-      {:ok, mix_home, engine_path} ->
+      {:ok, mix_home, engine_path, user_mix_home} ->
         Logger.info("Engine available at: #{engine_path}", project: state.project)
 
         Logger.info("ebin paths:\n#{inspect(ebin_paths(engine_path), pretty: true)}",
           project: state.project
         )
 
-        GenServer.reply(state.from, {:ok, {ebin_paths(engine_path), mix_home}})
+        GenServer.reply(state.from, {:ok, {ebin_paths(engine_path), mix_home, user_mix_home}})
         {:stop, :normal, state}
 
       :error ->
@@ -123,7 +123,7 @@ defmodule Expert.EngineNode.Builder do
           Enum.any?(@allowed_apps, &String.contains?(entry, to_string(&1)))
         end)
 
-      GenServer.reply(from, {:ok, {entries, nil}})
+      GenServer.reply(from, {:ok, {entries, nil, nil}})
       {:ok, :fake_port}
     end
 
@@ -234,8 +234,8 @@ defmodule Expert.EngineNode.Builder do
     meta = String.trim(meta)
 
     with {:ok, binary} <- Base.decode64(meta),
-         %{mix_home: mix_home, engine_path: engine_path} <- :erlang.binary_to_term(binary) do
-      {:ok, mix_home, engine_path}
+         %{mix_home: mix_home, engine_path: engine_path} = map <- :erlang.binary_to_term(binary) do
+      {:ok, mix_home, engine_path, Map.get(map, :user_mix_home)}
     else
       _ -> :error
     end

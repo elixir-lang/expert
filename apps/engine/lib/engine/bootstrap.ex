@@ -25,6 +25,7 @@ defmodule Engine.Bootstrap do
     Application.put_all_env(app_configs)
 
     maybe_append_hex_path()
+    maybe_append_user_archives()
 
     project_root = Project.root_path(project)
 
@@ -33,17 +34,17 @@ defmodule Engine.Bootstrap do
          {:ok, _} <- Application.ensure_all_started(:mix),
          {:ok, _} <- Application.ensure_all_started(:logger) do
       project = maybe_load_mix_exs(project)
+      Engine.set_project(project)
+      Engine.set_manager_node(manager_node)
+      Mix.env(:test)
+      set_mix_build_path(project)
+      ExUnit.start()
+      start_logger(project)
+      maybe_change_directory(project)
 
-      with :ok <- Project.ensure_workspace(project) do
-        Engine.set_project(project)
-        Engine.set_manager_node(manager_node)
-        Mix.env(:test)
-        set_mix_build_path(project)
-        ExUnit.start()
-        start_logger(project)
-        maybe_change_directory(project)
-        :ok
-      end
+      # This might fail and we are handling the result, so it's important that it
+      # stays last.
+      Project.ensure_workspace(project)
     end
   end
 
@@ -70,6 +71,33 @@ defmodule Engine.Bootstrap do
     case hex_path do
       [archives] -> Code.append_path(archives)
       _ -> :ok
+    end
+  end
+
+  # When Expert overrides MIX_HOME for the engine node, Mix.path_for(:archives)
+  # points to Expert's own archives dir, which only has hex. User-installed
+  # archives (e.g. a custom Deps archive) won't be there. The original MIX_HOME
+  # (set by the user's environment, e.g. asdf) is passed via EXPERT_USER_MIX_HOME
+  # so we can load archives from the user's real archives directory.
+  defp maybe_append_user_archives do
+    case System.get_env("EXPERT_USER_MIX_HOME") do
+      nil ->
+        :ok
+
+      user_mix_home ->
+        archives_path = Path.join(user_mix_home, "archives")
+
+        case File.ls(archives_path) do
+          {:ok, archives} ->
+            Enum.each(archives, fn archive ->
+              [archives_path, archive, archive, "ebin"]
+              |> Path.join()
+              |> Code.append_path()
+            end)
+
+          _ ->
+            :ok
+        end
     end
   end
 

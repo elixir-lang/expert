@@ -59,11 +59,20 @@ defmodule Expert.EngineNode do
           _ -> []
         end
 
+      user_mix_home_env =
+        case Keyword.fetch(opts, :user_mix_home) do
+          {:ok, user_mix_home} when is_binary(user_mix_home) ->
+            [{"EXPERT_USER_MIX_HOME", user_mix_home}]
+
+          _ ->
+            []
+        end
+
       env =
         [
           {"EXPERT_PARENT_NODE", this_node},
           {"EXPERT_PARENT_PORT", to_string(dist_port)}
-        ] ++ mix_home_env
+        ] ++ mix_home_env ++ user_mix_home_env
 
       case Expert.Port.open_elixir(state.project, args: args, env: env) do
         {:error, _, message} ->
@@ -222,9 +231,9 @@ defmodule Expert.EngineNode do
     ]
 
     with {:ok, node_pid} <- EngineSupervisor.start_project_node(project),
-         {:ok, {glob_paths, mix_home}} <- prepare_engine(project),
+         {:ok, {glob_paths, mix_home, user_mix_home}} <- prepare_engine(project),
          :ok <- Progress.report(token, message: "Starting Erlang node..."),
-         :ok <- start_node(project, glob_paths, mix_home: mix_home),
+         :ok <- start_node(project, glob_paths, mix_home: mix_home, user_mix_home: user_mix_home),
          :ok <- Progress.report(token, message: "Bootstrapping engine..."),
          :ok <- bootstrap(node_name, bootstrap_args),
          :ok <- ensure_apps_started(node_name, token) do

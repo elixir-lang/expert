@@ -88,14 +88,10 @@ defmodule Expert.Application do
     buffer_opts =
       cond do
         opts[:stdio] ->
-          :ok = Expert.Logging.ProjectLogFile.attach()
-          :ok = mute_default_log_handler()
           Logger.info("Expert v#{Expert.vsn()} starting on stdio")
           []
 
         is_integer(opts[:port]) ->
-          :ok = Expert.Logging.ProjectLogFile.attach()
-          :ok = mute_default_log_handler()
           IO.puts("Starting on port #{opts[:port]}")
           Logger.info("Expert v#{Expert.vsn()} starting on port #{opts[:port]}")
           [communication: {GenLSP.Communication.TCP, [port: opts[:port]]}]
@@ -150,13 +146,6 @@ defmodule Expert.Application do
   @doc false
   def document_store_child_spec do
     {Document.Store, derive: [analysis: &Forge.Ast.analyze/1]}
-  end
-
-  defp mute_default_log_handler do
-    case :logger.update_handler_config(:default, :level, :none) do
-      :ok -> :ok
-      {:error, {:not_found, :default}} -> :ok
-    end
   end
 
   def ensure_epmd_module! do
