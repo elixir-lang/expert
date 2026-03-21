@@ -190,7 +190,10 @@ defmodule Expert.Port do
 
     path =
       if shell_available?(shell_env) do
-        path_env_at_directory(root_path, shell_env)
+        case path_env_at_directory(root_path, shell_env) do
+          {:ok, path} -> path
+          {:error, :timeout} -> filter_release_root_from_path()
+        end
       else
         filter_release_root_from_path()
       end
@@ -281,15 +284,49 @@ defmodule Expert.Port do
           ["-i", "-l", "-c", cmd]
       end
 
-    {output, exit_code} = System.cmd(shell, args, env: env)
+    maybe_cmd_output =
+      case cmd_with_timeout(shell, args, env: env, timeout: 1_000) do
+        {:ok, result} ->
+          {:ok, result}
 
-    case Regex.run(~r/#{@path_marker}:(.*?):#{@path_marker}/s, output) do
-      [_, clean_path] when exit_code == 0 ->
-        clean_path
+        {:error, :timeout} ->
+          if Enum.member?(args, "-i") do
+            # If the command contained the -i flag, try again without it.
+            # Some users have exec calls or blocking prompts in their .bashrc,
+            # so we would hang here without the timeout
+            args = Enum.reject(args, &(&1 == "-i"))
+            cmd_with_timeout(shell, args, env: env, timeout: 1_000)
+          else
+            {:error, :timeout}
+          end
+      end
 
-      _ ->
-        output |> String.trim() |> String.split("\n") |> List.last()
+    case maybe_cmd_output do
+      {:ok, {output, exit_code}} ->
+        case Regex.run(~r/#{@path_marker}:(.*?):#{@path_marker}/s, output) do
+          [_, clean_path] when exit_code == 0 ->
+            clean_path
+
+          _ ->
+            output |> String.trim() |> String.split("\n") |> List.last()
+        end
+
+      {:error, :timeout} ->
+        {:error, :timeout}
     end
+  end
+
+  defp cmd_with_timeout(shell, args, env: env, timeout: timeout) do
+    task = Task.async(fn -> System.cmd(shell, args, env: env) end)
+
+    {output, exit_code} =
+      case Task.yield(task, timeout) || Task.shutdown(task) do
+        {:ok, result} ->
+          {:ok, result}
+
+        _ ->
+          {:error, :timeout}
+      end
   end
 
   defp fallback_executable(name) do
