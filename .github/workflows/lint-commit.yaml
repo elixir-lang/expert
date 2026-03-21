@@ -1,6 +1,6 @@
 name: Lint Commit
 on:
-  pull_request:
+  pull_request_target:
     types:
       - opened
       - reopened
@@ -52,4 +52,3 @@ jobs:
         with:
           header: pr-title-lint-error
           delete: true
-
