@@ -87,7 +87,7 @@ defmodule Expert.MixProject do
       # assume a roundtrip to a project node is made.
       {:engine, path: "../engine", only: [:test]},
       {:forge, path: "../forge"},
-      {:gen_lsp, "~> 0.11.3"},
+      {:gen_lsp, github: "Draggu/gen_lsp", branch: "exit"},
       {:jason, "~> 1.4"},
       {:patch, "~> 0.15", runtime: false, only: [:dev, :test]},
       {:quokka, "~> 2.12", only: [:dev, :test], runtime: false},
