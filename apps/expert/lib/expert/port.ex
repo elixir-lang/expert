@@ -263,26 +263,7 @@ defmodule Expert.Port do
       {"PATH", System.get_env("PATH", @default_unix_path)}
     ]
 
-    shell_name = Path.basename(shell)
-
-    args =
-      case shell_name do
-        "fish" ->
-          cmd =
-            "cd #{directory}; printf \"#{@path_marker}:%s:#{@path_marker}\" (string join ':' $PATH)"
-
-          ["-l", "-c", cmd]
-
-        "nu" ->
-          cmd =
-            "cd #{directory}; print $\"#{@path_marker}:($env.PATH | str join \":\"):#{@path_marker}\""
-
-          ["-l", "-c", cmd]
-
-        _ ->
-          cmd = "cd #{directory} && printf \"#{@path_marker}:%s:#{@path_marker}\" \"$PATH\""
-          ["-i", "-l", "-c", cmd]
-      end
+    args = path_fetch_cmd_args(shell, directory)
 
     maybe_cmd_output =
       case cmd_with_timeout(shell, args, env: env, timeout: 1_000) do
@@ -305,10 +286,10 @@ defmodule Expert.Port do
       {:ok, {output, exit_code}} ->
         case Regex.run(~r/#{@path_marker}:(.*?):#{@path_marker}/s, output) do
           [_, clean_path] when exit_code == 0 ->
-            clean_path
+            {:ok, clean_path}
 
           _ ->
-            output |> String.trim() |> String.split("\n") |> List.last()
+            {:ok, output |> String.trim() |> String.split("\n") |> List.last()}
         end
 
       {:error, :timeout} ->
@@ -316,17 +297,36 @@ defmodule Expert.Port do
     end
   end
 
+  defp path_fetch_cmd_args(shell, directory) do
+    case Path.basename(shell) do
+      "fish" ->
+        cmd =
+          "cd #{directory}; printf \"#{@path_marker}:%s:#{@path_marker}\" (string join ':' $PATH)"
+
+        ["-l", "-c", cmd]
+
+      "nu" ->
+        cmd =
+          "cd #{directory}; print $\"#{@path_marker}:($env.PATH | str join \":\"):#{@path_marker}\""
+
+        ["-l", "-c", cmd]
+
+      _ ->
+        cmd = "cd #{directory} && printf \"#{@path_marker}:%s:#{@path_marker}\" \"$PATH\""
+        ["-i", "-l", "-c", cmd]
+    end
+  end
+
   defp cmd_with_timeout(shell, args, env: env, timeout: timeout) do
     task = Task.async(fn -> System.cmd(shell, args, env: env) end)
 
-    {output, exit_code} =
-      case Task.yield(task, timeout) || Task.shutdown(task) do
-        {:ok, result} ->
-          {:ok, result}
+    case Task.yield(task, timeout) || Task.shutdown(task) do
+      {:ok, result} ->
+        {:ok, result}
 
-        _ ->
-          {:error, :timeout}
-      end
+      _ ->
+        {:error, :timeout}
+    end
   end
 
   defp fallback_executable(name) do
