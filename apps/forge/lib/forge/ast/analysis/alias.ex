@@ -8,18 +8,19 @@ defmodule Forge.Ast.Analysis.Alias do
 
   @type t :: %__MODULE__{
           module: [atom],
-          as: module(),
+          as: [module()],
           range: Range.t() | nil
         }
 
   def explicit(%Document{} = document, ast, module, as) when is_list(module) do
+    as = List.wrap(as)
     range = range_for_ast(document, ast, module, as)
     %__MODULE__{module: module, as: as, range: range}
   end
 
   def implicit(%Document{} = document, ast, module, as) when is_list(module) do
     range = implicit_range(document, ast)
-    %__MODULE__{module: module, as: as, range: range, explicit?: false}
+    %__MODULE__{module: module, as: List.wrap(as), range: range, explicit?: false}
   end
 
   def to_module(%__MODULE__{} = alias) do
@@ -27,7 +28,7 @@ defmodule Forge.Ast.Analysis.Alias do
   end
 
   @implicit_aliases [:__MODULE__, :"@for", :"@protocol"]
-  defp range_for_ast(document, ast, _alias, as) when as in @implicit_aliases do
+  defp range_for_ast(document, ast, _alias, [as]) when as in @implicit_aliases do
     implicit_range(document, ast)
   end
 

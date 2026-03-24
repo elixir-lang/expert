@@ -48,7 +48,7 @@ defmodule Forge.Ast.Analysis.Scope do
     %__MODULE__{id: :global, range: range}
   end
 
-  @spec alias_map(t(), scope_position()) :: %{module() => t()}
+  @spec alias_map(t(), scope_position()) :: %{[module()] => t()}
   def alias_map(%__MODULE__{} = scope, position \\ :end) do
     scope.aliases
     # sorting by line ensures that aliases on later lines
@@ -70,7 +70,7 @@ defmodule Forge.Ast.Analysis.Scope do
   end
 
   def fetch_alias_with_prefix(%__MODULE__{} = scope, prefix) do
-    case Enum.find(scope.aliases, fn %Alias{} = alias -> alias.as == prefix end) do
+    case Enum.find(scope.aliases, fn %Alias{} = alias -> alias.as == List.wrap(prefix) end) do
       %Alias{} = existing -> {:ok, existing}
       _ -> :error
     end

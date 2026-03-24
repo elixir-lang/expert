@@ -184,7 +184,7 @@ defmodule Engine.CodeAction.Handlers.RemoveUnusedAlias do
   defp fetch_full_alias(%Analysis{} = analysis, %Position{} = position, last_segment) do
     aliases = Analyzer.aliases_at(analysis, position)
 
-    with {:ok, aliased_module} <- Map.fetch(aliases, last_segment),
+    with {:ok, aliased_module} <- Map.fetch(aliases, [last_segment]),
          {:elixir, full_alias} <- Ast.Module.safe_split(aliased_module, as: :atoms) do
       {:ok, full_alias}
     end

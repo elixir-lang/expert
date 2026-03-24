@@ -49,7 +49,7 @@ defmodule Engine.Analyzer do
 
     if is_nil(maybe_imported_mfa) do
       aliases = aliases_at(analysis, position)
-      current_module = aliases[:__MODULE__]
+      current_module = aliases[[:__MODULE__]]
       {current_module, function_name, arity}
     else
       maybe_imported_mfa
@@ -156,7 +156,7 @@ defmodule Engine.Analyzer do
   end
 
   defp resolve_alias([{:@, _, [{:protocol, _, _}]} | rest], alias_mapping) do
-    with {:ok, protocol} <- Map.fetch(alias_mapping, :"@protocol") do
+    with {:ok, protocol} <- Map.fetch(alias_mapping, [:"@protocol"]) do
       Ast.reify_alias(protocol, rest)
     end
   end
@@ -169,7 +169,7 @@ defmodule Engine.Analyzer do
   end
 
   defp resolve_alias([{:@, _, [{:for, _, _} | _]} | rest], alias_mapping) do
-    with {:ok, protocol_for} <- Map.fetch(alias_mapping, :"@for") do
+    with {:ok, protocol_for} <- Map.fetch(alias_mapping, [:"@for"]) do
       Ast.reify_alias(protocol_for, rest)
     end
   end
@@ -182,7 +182,7 @@ defmodule Engine.Analyzer do
   end
 
   defp resolve_alias([first | _] = segments, aliases_mapping) when is_tuple(first) do
-    with {:ok, current_module} <- Map.fetch(aliases_mapping, :__MODULE__) do
+    with {:ok, current_module} <- Map.fetch(aliases_mapping, [:__MODULE__]) do
       Ast.reify_alias(current_module, segments)
     end
   end
@@ -196,7 +196,7 @@ defmodule Engine.Analyzer do
   defp resolve_alias(_, _), do: :error
 
   defp fetch_leading_alias([first | rest], aliases_mapping) do
-    with {:ok, resolved} <- Map.fetch(aliases_mapping, first) do
+    with {:ok, resolved} <- Map.fetch(aliases_mapping, [first]) do
       {:ok, [resolved | rest]}
     end
   end
@@ -206,7 +206,7 @@ defmodule Engine.Analyzer do
     # in one go, like Foo.{First, Second.Third, Fourth}
     # Our alias mapping will have Third mapped to Foo.Second.Third, so we need to look
     # for Third, whereas the leading alias will look for Second in the mappings.
-    with {:ok, resolved} <- Map.fetch(aliases_mapping, List.last(segments)) do
+    with {:ok, resolved} <- Map.fetch(aliases_mapping, [List.last(segments)]) do
       {:ok, List.wrap(resolved)}
     end
   end

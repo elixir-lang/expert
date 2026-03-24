@@ -75,10 +75,10 @@ defmodule Engine.CodeMod.Aliases do
   end
 
   defp render_alias(%Alias{} = a) do
-    if List.last(a.module) == a.as do
+    if [List.last(a.module)] == a.as do
       "alias #{join(a.module)}"
     else
-      "alias #{join(a.module)}, as: #{join(List.wrap(a.as))}"
+      "alias #{join(a.module)}, as: #{join(a.as)}"
     end
   end
 end

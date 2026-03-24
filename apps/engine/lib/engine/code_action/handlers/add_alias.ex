@@ -53,7 +53,7 @@ defmodule Engine.CodeAction.Handlers.AddAlias do
 
       {:elixir, segments} ->
         {insert_position, trailer} = CodeMod.Aliases.insert_position(analysis, range.start)
-        alias_to_add = %Alias{module: segments, as: List.last(segments), explicit?: true}
+        alias_to_add = %Alias{module: segments, as: [List.last(segments)], explicit?: true}
         replace_current_alias = get_current_replacement(analysis, range, segments)
 
         alias_edits =
