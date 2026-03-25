@@ -1,5 +1,6 @@
 defmodule Engine.Search.Indexer.Extractors.ExUnit do
   alias Engine.Analyzer
+  alias Engine.Module.Loader
   alias Engine.Search.Indexer.Metadata
   alias Engine.Search.Indexer.Source.Reducer
   alias Forge.Ast
@@ -71,10 +72,33 @@ defmodule Engine.Search.Indexer.Extractors.ExUnit do
   end
 
   defp exunit_in_scope?(%Reducer{} = reducer, %Position{} = position) do
-    ExUnit.Case in Analyzer.uses_at(reducer.analysis, position) or
+    current_module =
+      case Analyzer.current_module(reducer.analysis, position) do
+        {:ok, module} -> module
+        _ -> nil
+      end
+
+    exunit_module?(current_module) or
+      exunit_from_uses?(reducer, position) or
       ExUnit.Case in Analyzer.requires_at(reducer.analysis, position) or
       exunit_imported?(reducer, position)
   end
+
+  defp exunit_from_uses?(%Reducer{} = reducer, %Position{} = position) do
+    uses = Analyzer.uses_at(reducer.analysis, position)
+
+    ExUnit.Case in uses or
+      ExUnit.CaseTemplate in uses or
+      Enum.any?(uses, &exunit_module?/1)
+  end
+
+  defp exunit_module?(module) when is_atom(module) do
+    Loader.ensure_loaded?(module) and
+      (function_exported?(module, :__ex_unit__, 1) or
+         function_exported?(module, :__ex_unit__, 2))
+  end
+
+  defp exunit_module?(_), do: false
 
   defp exunit_imported?(%Reducer{} = reducer, %Position{} = position) do
     Enum.any?(Analyzer.imports_at(reducer.analysis, position), fn {mod, _, _} ->

@@ -396,6 +396,62 @@ defmodule Engine.Search.Indexer.Extractors.ExUnitTest do
     end
   end
 
+  describe "when ExUnit.CaseTemplate is in scope" do
+    defmodule MyCase do
+      use ExUnit.CaseTemplate
+    end
+
+    test "indexes test/describe/setup when directly used" do
+      {:ok, entries, _doc} =
+        ~q[
+        defmodule SomeTest do
+          use ExUnit.CaseTemplate
+
+          setup do
+            :ok
+          end
+
+          describe "some group" do
+            test "my test" do
+              :ok
+            end
+          end
+        end
+        ]
+        |> index_definitions()
+
+      types = Enum.map(entries, & &1.type)
+      assert :ex_unit_setup in types
+      assert :ex_unit_describe in types
+      assert :ex_unit_test in types
+    end
+
+    test "indexes test/describe/setup through a case template" do
+      {:ok, entries, _doc} =
+        ~q[
+        defmodule SomeTest do
+          use Engine.Search.Indexer.Extractors.ExUnitTest.MyCase
+
+          setup do
+            :ok
+          end
+
+          describe "some group" do
+            test "my test" do
+              :ok
+            end
+          end
+        end
+        ]
+        |> index_definitions()
+
+      types = Enum.map(entries, & &1.type)
+      assert :ex_unit_setup in types
+      assert :ex_unit_describe in types
+      assert :ex_unit_test in types
+    end
+  end
+
   describe "when ExUnit.Case is not in scope" do
     test "does not index" do
       {:ok, entries, _doc} =
