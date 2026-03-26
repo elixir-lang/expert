@@ -41,7 +41,7 @@ jobs:
 
       - name: Cache deps
         id: cache-deps
-        uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
+        uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
         with:
           path: |
             apps/${{ matrix.project }}/deps
@@ -97,7 +97,7 @@ jobs:
 
       - name: Cache deps
         id: cache-deps
-        uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
+        uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
         with:
           path: |
             apps/${{ matrix.project }}/deps
@@ -109,7 +109,7 @@ jobs:
 
       - name: Cache dialyzer plt files
         id: cache-plt
-        uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
+        uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
         with:
           key: expert-plts-${{ steps.setup-beam.outputs.otp-version }}-${{ steps.setup-beam.outputs.elixir-version }}-${{ hashFiles(format('apps/{0}/mix.lock', matrix.project)) }}
           restore-keys: |
@@ -178,7 +178,7 @@ jobs:
 
       - name: Cache deps
         id: cache-deps
-        uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
+        uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
         with:
           path: |
             apps/**/deps
@@ -228,7 +228,7 @@ jobs:
 
       - name: Cache deps
         id: cache-deps
-        uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
+        uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
         with:
           path: |
             apps/${{ matrix.project }}/deps
