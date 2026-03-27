@@ -121,9 +121,20 @@ defmodule Expert.Application do
     end
 
     children_spec = children(buffer: buffer_opts)
-    opts = [strategy: :one_for_one, name: Expert.Supervisor]
+    opts = [strategy: :one_for_one, name: Expert.Supervisor, auto_shutdown: :any_significant]
 
     Supervisor.start_link(children_spec, opts)
+  end
+
+  @impl true
+  def stop(_) do
+    # If the application is stopping, but the GenLSP server hasn't triggered an exit, it means
+    # something went wrong and the application is crashing. In that case, we log an error.
+    if !:persistent_term.get(:gen_lsp_exit_trigerred, false) do
+      Logger.error("Expert application has terminated unexpectedly")
+
+      System.halt(1)
+    end
   end
 
   def children(opts) do
@@ -136,14 +147,21 @@ defmodule Expert.Application do
       {DynamicSupervisor, name: Expert.DynamicSupervisor},
       {GenLSP.Assigns, [name: Expert.Assigns]},
       {Task.Supervisor, name: :expert_task_queue},
-      {GenLSP.Buffer, [name: Expert.Buffer] ++ buffer_opts},
+      Supervisor.child_spec({GenLSP.Buffer, [name: Expert.Buffer] ++ buffer_opts},
+        restart: :temporary,
+        significant: true
+      ),
       {Expert.ActiveProjects, []},
-      {Expert,
-       name: Expert,
-       buffer: Expert.Buffer,
-       task_supervisor: :expert_task_queue,
-       dynamic_supervisor: Expert.DynamicSupervisor,
-       assigns: Expert.Assigns}
+      Supervisor.child_spec(
+        {Expert,
+         name: Expert,
+         buffer: Expert.Buffer,
+         task_supervisor: :expert_task_queue,
+         dynamic_supervisor: Expert.DynamicSupervisor,
+         assigns: Expert.Assigns},
+        restart: :temporary,
+        significant: true
+      )
     ]
   end
 
