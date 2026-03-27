@@ -6,16 +6,9 @@ expert_erl_flags := "-start_epmd false -epmd_module Elixir.Forge.EPMD"
 engine_erl_flags := "-start_epmd false -epmd_module Elixir.Forge.EPMD"
 
 [doc('Run mix deps.get for the given project')]
-[unix]
-deps project:
-    #!/usr/bin/env bash
-    cd apps/{{ project }}
-    mix deps.get
+deps project="all" *args="":
+  @just mix {{ project }} deps.get {{ args }}
 
-[windows]
-deps project:
-    cd apps/{{ project }} && \
-    mix deps.get
 
 [doc('Run an arbitrary command inside the given project directory')]
 run project +ARGS:
@@ -131,5 +124,8 @@ install: burrito-local
 
 clean-engine:
   elixir -e ':filename.basedir(:user_cache, "expert") |> File.rm_rf!() |> IO.inspect()'
+
+start *args="":
+  ./apps/expert/_build/{{ env('MIX_ENV', 'prod')}}/rel/plain/bin/start_expert {{ args }}
 
 default: burrito-local
