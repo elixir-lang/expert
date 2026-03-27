@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.1.0](https://github.com/elixir-lang/expert/compare/v0.1.0-rc.6...v0.1.0) (2026-03-27)
+
+
+### Bug Fixes
+
+* **engine:** only start one engine for umbrella apps ([#462](https://github.com/elixir-lang/expert/issues/462)) ([f674d3d](https://github.com/elixir-lang/expert/commit/f674d3da196344c96d14e1bfbc90eca8eab0b3cb)), closes [#460](https://github.com/elixir-lang/expert/issues/460)
+* extractor not working with ExUnit.CaseTemplate ([#529](https://github.com/elixir-lang/expert/issues/529)) ([11fb790](https://github.com/elixir-lang/expert/commit/11fb79058fe35966d58e1fc436f768690a671e2a))
+* **forge:** id generator must not create duplicate IDs ([#499](https://github.com/elixir-lang/expert/issues/499)) ([7a4e333](https://github.com/elixir-lang/expert/commit/7a4e33347e0005d4ec10c9f5ef94148983bb9f96))
+* issues with creating `.expert` directory too eagerly ([#520](https://github.com/elixir-lang/expert/issues/520)) ([1c51871](https://github.com/elixir-lang/expert/commit/1c51871bbb68bbbdb4031fe425b2c3540c2cc619))
+* prevent recursive alias generation for nested modules ([#505](https://github.com/elixir-lang/expert/issues/505)) ([7596f9c](https://github.com/elixir-lang/expert/commit/7596f9c2f84a29f968ef330917d3355d876eab04))
+* startup and tests on Windows ([#518](https://github.com/elixir-lang/expert/issues/518)) ([a2a2947](https://github.com/elixir-lang/expert/commit/a2a29470fb5e39c9942c9fd8cdbafe9da95d95c8)), closes [#515](https://github.com/elixir-lang/expert/issues/515)
+
+
+### Performance Improvements
+
+* **engine:** load module store after build ([#519](https://github.com/elixir-lang/expert/issues/519)) ([e73266d](https://github.com/elixir-lang/expert/commit/e73266d29f20dc4d9456583204f849033f297cfc))
+
+
+### Miscellaneous Chores
+
+* release as 0.1.0 ([1bbd0df](https://github.com/elixir-lang/expert/commit/1bbd0df1ebc79621919096ae4c6f911bf5d91336))
+
 ## [0.1.0-rc.6](https://github.com/elixir-lang/expert/compare/v0.1.0-rc.5...v0.1.0-rc.6) (2026-03-10)
 
 
