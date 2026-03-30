@@ -58,9 +58,6 @@ You can find more information in the [Installation Instructions](pages/installat
 Thank you to our corporate sponsors! Expert is currently in alpha and [we have organized all future work, including the first release, as milestones](https://github.com/elixir-lang/expert/milestones). If you'd like to start sponsoring the project, please read more below.
 
 <div>
-  <img height="100" src="./assets/sponsors/fly.png">
-</div>
-<div>
   <img height="100" src="./assets/sponsors/tauspace.png">
 </div>
 <div>
