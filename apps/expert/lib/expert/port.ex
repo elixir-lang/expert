@@ -278,7 +278,7 @@ defmodule Expert.Port do
 
         _ ->
           cmd = "cd #{directory} && printf \"#{@path_marker}:%s:#{@path_marker}\" \"$PATH\""
-          ["-i", "-l", "-c", cmd]
+          path_lookup_args(cmd)
       end
 
     {output, exit_code} = System.cmd(shell, args, env: env)
@@ -288,7 +288,21 @@ defmodule Expert.Port do
         clean_path
 
       _ ->
-        output |> String.trim() |> String.split("\n") |> List.last()
+        output
+        |> String.trim()
+        |> String.split("\n")
+        |> List.last()
+    end
+  end
+
+  defp path_lookup_args(cmd) do
+    case System.get_env("EXPERT_PATH_SHELL_MODE", "login") do
+      # Some users configure version managers or PATH mutations only in
+      # interactive shell startup files. Keep an escape hatch for those
+      # environments, but default to non-interactive login shells so LSP
+      # startup avoids shell UI side effects like zle/fzf or job-control noise.
+      "interactive" -> ["-i", "-l", "-c", cmd]
+      _ -> ["-l", "-c", cmd]
     end
   end
 
