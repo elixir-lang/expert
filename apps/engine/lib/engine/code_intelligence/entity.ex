@@ -117,12 +117,18 @@ defmodule Engine.CodeIntelligence.Entity do
   end
 
   defp resolve({:local_arity, chars}, node_range, analysis, position) do
-    current_module = current_module(analysis, position)
+    fun = List.to_atom(chars)
 
     with {:ok, %Zipper{node: {:/, _, [_, {:__block__, _, [arity]}]}} = zipper} <-
            Ast.zipper_at(analysis.document, position),
          true <- inside_capture?(zipper) do
-      {:ok, {:call, current_module, List.to_atom(chars), arity}, node_range}
+      module =
+        case fetch_module_for_function(analysis, position, fun, arity) do
+          {:ok, mod} -> mod
+          _ -> current_module(analysis, position)
+        end
+
+      {:ok, {:call, module, fun, arity}, node_range}
     else
       _ ->
         {:error, :not_found}
@@ -491,20 +497,8 @@ defmodule Engine.CodeIntelligence.Entity do
 
   defp fetch_module_for_function(analysis, position, function_name, arity) do
     with :error <- fetch_module_for_local_function(analysis, position, function_name, arity) do
-      fetch_module_for_imported_function(analysis, position, function_name, arity)
+      Engine.Analyzer.import_module_for(analysis, position, function_name, arity)
     end
-  end
-
-  defp fetch_module_for_imported_function(analysis, position, function_name, arity) do
-    analysis
-    |> Engine.Analyzer.imports_at(position)
-    |> Enum.find_value({:error, :not_found}, fn
-      {imported_module, ^function_name, ^arity} ->
-        {:ok, imported_module}
-
-      _ ->
-        false
-    end)
   end
 
   defp fetch_module_for_local_function(analysis, position, function_name, arity) do
@@ -537,8 +531,13 @@ defmodule Engine.CodeIntelligence.Entity do
       range = Ast.Range.fetch!(zipper.node, analysis.document)
       range = put_in(range.end.character, range.start.character + function_name_length)
 
-      current_module = current_module(analysis, position)
-      {:ok, {:call, current_module, local_func_name, arity}, range}
+      module =
+        case fetch_module_for_function(analysis, position, local_func_name, arity) do
+          {:ok, mod} -> mod
+          _ -> current_module(analysis, position)
+        end
+
+      {:ok, {:call, module, local_func_name, arity}, range}
     else
       _ ->
         {:error, :not_found}
