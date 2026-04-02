@@ -266,7 +266,7 @@ defmodule Expert.Port do
     args = path_fetch_cmd_args(shell, directory)
 
     maybe_cmd_output =
-      case cmd_with_timeout(shell, args, env: env, timeout: 1_000) do
+      case cmd_with_timeout(shell, args, env, 1_000) do
         {:ok, result} ->
           {:ok, result}
 
@@ -276,7 +276,7 @@ defmodule Expert.Port do
             # Some users have exec calls or blocking prompts in their .bashrc,
             # so we would hang here without the timeout
             args = Enum.reject(args, &(&1 == "-i"))
-            cmd_with_timeout(shell, args, env: env, timeout: 1_000)
+            cmd_with_timeout(shell, args, env, 1_000)
           else
             {:error, :timeout}
           end
@@ -317,7 +317,7 @@ defmodule Expert.Port do
     end
   end
 
-  defp cmd_with_timeout(shell, args, env: env, timeout: timeout) do
+  defp cmd_with_timeout(shell, args, env, timeout) do
     task = Task.async(fn -> System.cmd(shell, args, env: env) end)
 
     case Task.yield(task, timeout) || Task.shutdown(task) do
