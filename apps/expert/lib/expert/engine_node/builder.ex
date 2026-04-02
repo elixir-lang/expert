@@ -245,7 +245,8 @@ defmodule Expert.EngineNode.Builder do
 
   @deps_error_patterns [
     "Can't continue due to errors on dependencies",
-    "Unchecked dependencies"
+    "Unchecked dependencies",
+    "Hex dependency resolution failed"
   ]
   defp detect_deps_error(message) when is_binary(message) do
     Enum.any?(@deps_error_patterns, &String.contains?(message, &1))

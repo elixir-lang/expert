@@ -162,6 +162,7 @@ defmodule Engine.Build.StateTest do
       assert_called(Build.Project.compile(_, _))
     end
   end
+
   describe "bare project compilation" do
     setup [:with_bare_project_state, :with_a_valid_document]
 
@@ -186,22 +187,26 @@ defmodule Engine.Build.StateTest do
   end
 
   describe "fetching deps" do
-    test "returns :ok when deps fetch succeeds" do
+    test "stores :ok when deps fetch succeeds" do
       {:ok, state} = with_project_state(:project_metadata)
 
       patch(File, :rm_rf, fn _path -> {:ok, []} end)
       patch(Build.Project, :fetch_deps, fn _project -> :ok end)
 
-      assert {^state, :ok} = State.fetch_deps(state, state.project)
+      state = State.fetch_deps(state, state.project)
+
+      assert State.last_deps_fetch_result(state) == :ok
     end
 
-    test "returns error when deps fetch fails" do
+    test "stores error when deps fetch fails" do
       {:ok, state} = with_project_state(:project_metadata)
 
       patch(File, :rm_rf, fn _path -> {:ok, []} end)
       patch(Build.Project, :fetch_deps, fn _project -> {:error, "deps failed"} end)
 
-      assert {^state, {:error, "deps failed"}} = State.fetch_deps(state, state.project)
+      state = State.fetch_deps(state, state.project)
+
+      assert State.last_deps_fetch_result(state) == {:error, "deps failed"}
     end
   end
 end

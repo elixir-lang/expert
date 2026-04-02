@@ -25,7 +25,6 @@ defmodule Expert do
     GenLSP.Notifications.Exit,
     GenLSP.Requests.Shutdown
   ]
-
   @dialyzer {:nowarn_function, apply_to_state: 2}
 
   def vsn, do: :expert |> Application.spec(:vsn) |> to_string()
@@ -245,8 +244,7 @@ defmodule Expert do
   end
 
   def handle_info({:engine_initialized, project, {:ok, _pid}}, lsp) do
-    ActiveProjects.set_blocked(project, false)
-    ActiveProjects.set_ready(project, true)
+    Store.transition(project, :ready)
 
     Logger.info(
       "Engine initialized for project #{Project.name(project)}",
@@ -260,9 +258,12 @@ defmodule Expert do
     {:noreply, maybe_prompt_deps_fetch(lsp, project)}
   end
 
+  def handle_info({:deps_fetch_failed, project, message}, lsp) do
+    {:noreply, prompt_deps_fetch_retry(lsp, project, message)}
+  end
+
   def handle_info({:engine_initialized, project, {:error, {:shutdown, :deps_error}}}, lsp) do
-    ActiveProjects.set_blocked(project, false)
-    ActiveProjects.set_ready(project, false)
+    Store.transition(project, :pending)
 
     log_error(
       lsp,
@@ -274,8 +275,7 @@ defmodule Expert do
   end
 
   def handle_info({:engine_initialized, project, {:error, reason}}, lsp) do
-    ActiveProjects.set_blocked(project, false)
-    ActiveProjects.set_ready(project, false)
+    Store.transition(project, :pending)
 
     error_message = initialization_error_message(reason)
     log_error(lsp, project, error_message)
@@ -287,34 +287,14 @@ defmodule Expert do
     state = assigns(lsp).state
 
     supports_show_message = Expert.Configuration.client_support(:show_message)
-    blocked = ActiveProjects.blocked?(project)
 
     # Avoids spamming the user with the same prompt if they already declined
     deps_declined = State.deps_declined?(state, project)
 
-    if supports_show_message && not deps_declined && not blocked do
-      project_name = Project.name(project)
+    if supports_show_message && not deps_declined do
+      Store.transition(project, :blocked)
 
-      ActiveProjects.set_blocked(project, true)
-      ActiveProjects.set_ready(project, false)
-
-      response =
-        GenLSP.request(
-          lsp,
-          %Requests.WindowShowMessageRequest{
-            id: Id.next(),
-            params: %Structures.ShowMessageRequestParams{
-              type: Enumerations.MessageType.error(),
-              message:
-                "The Expert engine failed with errors on dependencies for project #{project_name}. Would you like to fetch them?",
-              actions: [
-                %Structures.MessageActionItem{title: "Yes"},
-                %Structures.MessageActionItem{title: "No"}
-              ]
-            }
-          },
-          :infinity
-        )
+      response = prompt_deps_fetch(lsp, project)
 
       handle_deps_fetch_result(response, lsp, project)
     else
@@ -337,50 +317,20 @@ defmodule Expert do
     end
   end
 
-  defp handle_deps_fetch_result(%Structures.MessageActionItem{title: "Yes"}, lsp, project) do
-    Logger.info("Running mix deps.get for #{Project.name(project)}", project: project)
-
-    Task.Supervisor.start_child(:expert_task_queue, fn ->
-      result =
-        try do
-          Expert.EngineApi.clean_and_fetch_deps(project)
-        rescue
-          error in ErlangError ->
-            {:error, error.original}
-        end
-
-      case result do
-        :ok ->
-          Logger.info("mix deps.get completed successfully", project: project)
-
-          Expert.Project.Supervisor.stop_node(project)
-
-
-          Logger.info("Restarting engine for #{Project.name(project)}", project: project)
-          start_result = Expert.Project.Supervisor.ensure_node_started(project, blocked?: false)
-          send(lsp.pid, {:engine_initialized, project, start_result})
-
-        {:error, msg} ->
-          ActiveProjects.set_blocked(project, false)
-          log_error(lsp, project, "mix deps.get failed: #{inspect(msg)}")
-
-        error ->
-          ActiveProjects.set_blocked(project, false)
-
-          log_error(
-            lsp,
-            project,
-            "Unexpected error from clean_and_fetch_deps: #{inspect(error)}"
-          )
-      end
-    end)
-
-    lsp
+  defp handle_deps_fetch_result(
+         %Structures.MessageActionItem{title: "Yes"},
+         lsp,
+         project
+       ) do
+    start_deps_fetch_task(lsp, project)
   end
 
-  defp handle_deps_fetch_result(%Structures.MessageActionItem{title: "No"}, lsp, project) do
-    ActiveProjects.set_blocked(project, false)
-    ActiveProjects.set_ready(project, true)
+  defp handle_deps_fetch_result(
+         %Structures.MessageActionItem{title: "No"},
+         lsp,
+         project
+       ) do
+    Store.transition(project, :ready)
 
     Logger.info("User declined to run mix deps.get for #{Project.name(project)}",
       project: project
@@ -391,8 +341,141 @@ defmodule Expert do
     assign(lsp, state: new_state)
   end
 
-  defp handle_deps_fetch_result(_, lsp, _project) do
+  defp handle_deps_fetch_result(_, lsp, project) do
+    Store.transition(project, :pending)
+
+    Logger.info("Dismissed dependency fetch prompt for #{Project.name(project)}",
+      project: project
+    )
+
     lsp
+  end
+
+  defp start_deps_fetch_task(lsp, project) do
+    case Task.Supervisor.start_child(:expert_task_queue, fn ->
+           run_deps_fetch_recovery(lsp, project)
+         end) do
+      {:ok, _pid} ->
+        lsp
+
+      {:error, reason} ->
+        Store.transition(project, :pending)
+
+        log_error(
+          lsp,
+          project,
+          "Failed to start dependency fetch task: #{inspect(reason)}"
+        )
+
+        lsp
+    end
+  end
+
+  defp run_deps_fetch_recovery(lsp, project) do
+    Logger.info("Running mix deps.get for #{Project.name(project)}", project: project)
+
+    result =
+      try do
+        Expert.EngineApi.clean_and_fetch_deps(project)
+      rescue
+        error in ErlangError ->
+          {:error, error.original}
+      end
+
+    case result do
+      :ok ->
+        Logger.info("mix deps.get completed successfully", project: project)
+
+        Expert.Project.Supervisor.stop_node(project)
+
+        Logger.info("Restarting engine for #{Project.name(project)}", project: project)
+        start_result = Expert.Project.Supervisor.ensure_node_started(project, blocked?: false)
+        send(lsp.pid, {:engine_initialized, project, start_result})
+
+      {:error, msg} ->
+        send(lsp.pid, {:deps_fetch_failed, project, "mix deps.get failed: #{inspect(msg)}"})
+
+      error ->
+        send(
+          lsp.pid,
+          {:deps_fetch_failed, project,
+           "Unexpected error from clean_and_fetch_deps: #{inspect(error)}"}
+        )
+    end
+  end
+
+  defp prompt_deps_fetch(lsp, project) do
+    project_name = Project.name(project)
+
+    prompt_with_actions(
+      lsp,
+      "The Expert engine failed with errors on dependencies for project #{project_name}. Would you like to fetch them?",
+      ["Yes", "No"]
+    )
+  end
+
+  defp prompt_deps_fetch_retry(lsp, project, message) do
+    Logger.error(message, project: project)
+
+    response =
+      prompt_with_actions(
+        lsp,
+        "Fetching dependencies for project #{Project.name(project)} failed. #{message}. Would you like to retry?",
+        ["Retry", "Cancel"]
+      )
+
+    handle_deps_fetch_retry_result(response, lsp, project)
+  end
+
+  defp handle_deps_fetch_retry_result(
+         %Structures.MessageActionItem{title: "Retry"},
+         lsp,
+         project
+       ) do
+    start_deps_fetch_task(lsp, project)
+  end
+
+  defp handle_deps_fetch_retry_result(
+         %Structures.MessageActionItem{title: "Cancel"},
+         lsp,
+         project
+       ) do
+    Store.transition(project, :pending)
+
+    state = assigns(lsp).state
+    new_state = State.mark_deps_declined(state, project)
+
+    Logger.info("Cancelled dependency fetch retry for #{Project.name(project)}", project: project)
+
+    assign(lsp, state: new_state)
+  end
+
+  defp handle_deps_fetch_retry_result(_, lsp, project) do
+    Store.transition(project, :pending)
+
+    state = assigns(lsp).state
+    new_state = State.mark_deps_declined(state, project)
+
+    Logger.info("Dismissed dependency fetch retry prompt for #{Project.name(project)}",
+      project: project
+    )
+
+    assign(lsp, state: new_state)
+  end
+
+  defp prompt_with_actions(lsp, message, actions) do
+    GenLSP.request(
+      lsp,
+      %Requests.WindowShowMessageRequest{
+        id: Id.next(),
+        params: %Structures.ShowMessageRequestParams{
+          type: Enumerations.MessageType.error(),
+          message: message,
+          actions: Enum.map(actions, &%Structures.MessageActionItem{title: &1})
+        }
+      },
+      :infinity
+    )
   end
 
   # When logging errors we also notify the client to display the message

@@ -51,7 +51,7 @@ defmodule Expert.Project.Supervisor do
   def ensure_node_started(%Project{} = project, opts) when is_list(opts) do
     blocked? = Keyword.get(opts, :blocked?, true)
 
-    if blocked? and ActiveProjects.blocked?(project) do
+    if blocked? and Store.blocked?(project) do
       Logger.info("Project node start blocked for #{Project.name(project)}")
       {:error, :deps_error}
     else
