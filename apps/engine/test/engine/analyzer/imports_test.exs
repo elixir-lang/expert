@@ -169,6 +169,21 @@ defmodule Engine.Ast.Analysis.ImportsTest do
       assert_imported(imports, ImportedModule)
     end
 
+    test "an import inside a module that shares a prefix with the imported module" do
+      # import Parent.Child.ImportedModule inside defmodule Parent — [:Parent] ends up
+      # in the alias map at the import line, so resolve_at must not apply the suffix twice
+      imports =
+        ~q[
+          defmodule Parent do
+            import Parent.Child.ImportedModule
+            |
+          end
+          ]
+        |> imports_at_cursor()
+
+      assert_imported(imports, ImportedModule)
+    end
+
     test "import with a leading __MODULE__" do
       imports =
         ~q[
