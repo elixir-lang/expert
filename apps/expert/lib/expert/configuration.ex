@@ -112,6 +112,10 @@ defmodule Expert.Configuration do
     maybe_watched_extensions_request(new_config, settings)
   end
 
+  defp apply_config_change(%__MODULE__{} = old_config, _settings) do
+    {:ok, old_config}
+  end
+
   defp set_lsp_log_level(%__MODULE__{} = config, settings) do
     %__MODULE__{config | log_level: parse_lsp_log_level(settings)}
   end

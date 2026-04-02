@@ -8,6 +8,8 @@ defmodule Expert.ExpertTest do
   alias Expert.State
   alias Forge.Project
   alias Forge.Test.Fixtures
+  alias GenLSP.Notifications.WorkspaceDidChangeConfiguration
+  alias GenLSP.Structures.DidChangeConfigurationParams
 
   setup do
     :persistent_term.erase(Expert.Configuration)
@@ -102,6 +104,22 @@ defmodule Expert.ExpertTest do
                         message: ^error_message
                       }
                     }}
+  end
+
+  test "accepts didChangeConfiguration notifications with null settings" do
+    project = Fixtures.project()
+
+    {:ok, _response, state} = State.initialize(State.new(), initialize_request(project, []))
+
+    notification = %WorkspaceDidChangeConfiguration{
+      params: %DidChangeConfigurationParams{settings: nil}
+    }
+
+    assert {:ok, ^state} = State.apply(state, notification)
+
+    config = Expert.Configuration.get()
+    assert config.log_level == :info
+    assert config.workspace_symbols.min_query_length == 2
   end
 
   defp initialize_lsp(project, opts \\ []) do
