@@ -88,10 +88,14 @@ defmodule Engine.Build.State do
         Logger.warning("Failed to remove build path #{path}: #{inspect(reason)}")
     end
 
-    Engine.Build.Project.fetch_deps(project)
+    result = Engine.Build.Project.fetch_deps(project)
 
-    state
+    {state, normalize_fetch_deps_result(result)}
   end
+
+  defp normalize_fetch_deps_result({:ok, :ok}), do: :ok
+  defp normalize_fetch_deps_result({:ok, result}), do: {:ok, result}
+  defp normalize_fetch_deps_result(result), do: result
 
   defp compile_project(%__MODULE__{} = state, initial?) do
     state = increment_build_number(state)

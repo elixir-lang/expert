@@ -162,7 +162,6 @@ defmodule Engine.Build.StateTest do
       assert_called(Build.Project.compile(_, _))
     end
   end
-
   describe "bare project compilation" do
     setup [:with_bare_project_state, :with_a_valid_document]
 
@@ -183,6 +182,26 @@ defmodule Engine.Build.StateTest do
       assert Engine.Build.Project.compile(state.project, true) == :ok
 
       refute_called(Engine.Mix.in_project(_, _))
+    end
+  end
+
+  describe "fetching deps" do
+    test "returns :ok when deps fetch succeeds" do
+      {:ok, state} = with_project_state(:project_metadata)
+
+      patch(File, :rm_rf, fn _path -> {:ok, []} end)
+      patch(Build.Project, :fetch_deps, fn _project -> :ok end)
+
+      assert {^state, :ok} = State.fetch_deps(state, state.project)
+    end
+
+    test "returns error when deps fetch fails" do
+      {:ok, state} = with_project_state(:project_metadata)
+
+      patch(File, :rm_rf, fn _path -> {:ok, []} end)
+      patch(Build.Project, :fetch_deps, fn _project -> {:error, "deps failed"} end)
+
+      assert {^state, {:error, "deps failed"}} = State.fetch_deps(state, state.project)
     end
   end
 end

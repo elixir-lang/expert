@@ -245,6 +245,9 @@ defmodule Expert do
   end
 
   def handle_info({:engine_initialized, project, {:ok, _pid}}, lsp) do
+    ActiveProjects.set_blocked(project, false)
+    ActiveProjects.set_ready(project, true)
+
     Logger.info(
       "Engine initialized for project #{Project.name(project)}",
       project: project
@@ -258,7 +261,8 @@ defmodule Expert do
   end
 
   def handle_info({:engine_initialized, project, {:error, {:shutdown, :deps_error}}}, lsp) do
-    Store.transition(project, :pending)
+    ActiveProjects.set_blocked(project, false)
+    ActiveProjects.set_ready(project, false)
 
     log_error(
       lsp,
@@ -270,7 +274,8 @@ defmodule Expert do
   end
 
   def handle_info({:engine_initialized, project, {:error, reason}}, lsp) do
-    Store.transition(project, :pending)
+    ActiveProjects.set_blocked(project, false)
+    ActiveProjects.set_ready(project, false)
 
     error_message = initialization_error_message(reason)
     log_error(lsp, project, error_message)
@@ -282,14 +287,16 @@ defmodule Expert do
     state = assigns(lsp).state
 
     supports_show_message = Expert.Configuration.client_support(:show_message)
+    blocked = ActiveProjects.blocked?(project)
 
     # Avoids spamming the user with the same prompt if they already declined
     deps_declined = State.deps_declined?(state, project)
 
-    if supports_show_message && not deps_declined do
+    if supports_show_message && not deps_declined && not blocked do
       project_name = Project.name(project)
 
-      Store.transition(project, :blocked)
+      ActiveProjects.set_blocked(project, true)
+      ActiveProjects.set_ready(project, false)
 
       response =
         GenLSP.request(
@@ -347,16 +354,19 @@ defmodule Expert do
           Logger.info("mix deps.get completed successfully", project: project)
 
           Expert.Project.Supervisor.stop_node(project)
-          Store.transition(project, :pending)
+
 
           Logger.info("Restarting engine for #{Project.name(project)}", project: project)
-          start_result = Expert.Project.Supervisor.ensure_node_started(project)
+          start_result = Expert.Project.Supervisor.ensure_node_started(project, blocked?: false)
           send(lsp.pid, {:engine_initialized, project, start_result})
 
         {:error, msg} ->
+          ActiveProjects.set_blocked(project, false)
           log_error(lsp, project, "mix deps.get failed: #{inspect(msg)}")
 
         error ->
+          ActiveProjects.set_blocked(project, false)
+
           log_error(
             lsp,
             project,
@@ -369,7 +379,8 @@ defmodule Expert do
   end
 
   defp handle_deps_fetch_result(%Structures.MessageActionItem{title: "No"}, lsp, project) do
-    Store.transition(project, :ready)
+    ActiveProjects.set_blocked(project, false)
+    ActiveProjects.set_ready(project, true)
 
     Logger.info("User declined to run mix deps.get for #{Project.name(project)}",
       project: project
