@@ -1,2 +1,16 @@
+# List of commits to ignore when using `git blame`
+# GitHub will automatically use this file inside blame views
+#
+# This should only include commits that made formatting changes, but did
+# not result in any functionality change anywhere
+#
+# To add more commits to this list, you **must** write each commit with
+# its full, _unabbreviated_ hash ID on a separate line
+#
+# To use this file locally, run the following command:
+#   git blame --ignore-revs-file .gitblame-ignore-revs
+# Alternatively, to use it by default, add it to your local config file:
+#   git config set blame.ignoreRevsFile .git-blame-ignore-revs
+
 # style: add quokka and format code (#511)
-059b64df
+059b64df1e4da1a7ddc8b407e7d9725f19ef7d56
