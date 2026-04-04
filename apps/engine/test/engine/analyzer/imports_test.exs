@@ -37,6 +37,11 @@ defmodule WithSigils do
   end
 end
 
+defmodule ShadowsKernel do
+  # to_string/1 exists in Kernel — used to test that explicit imports shadow Kernel
+  def to_string(x), do: x
+end
+
 defmodule Engine.Ast.Analysis.ImportsTest do
   use ExUnit.Case
 
@@ -53,6 +58,14 @@ defmodule Engine.Ast.Analysis.ImportsTest do
     document
     |> Ast.analyze()
     |> Analyzer.imports_at(position)
+  end
+
+  def module_for_cursor(text, function, arity) do
+    {position, document} = pop_cursor(text, as: :document)
+
+    document
+    |> Ast.analyze()
+    |> Analyzer.import_module_for(position, function, arity)
   end
 
   def assert_imported(imports, module) do
@@ -370,6 +383,31 @@ defmodule Engine.Ast.Analysis.ImportsTest do
         |> imports_at_cursor()
 
       refute_imported(imports, ImportedModule)
+    end
+  end
+
+  describe "module_for/4" do
+    test "finds kernel functions without any explicit import" do
+      assert {:ok, Kernel} = module_for_cursor(~q[
+        defmodule Foo do
+          |
+        end
+      ], :to_string, 1)
+    end
+
+    test "explicit import shadows kernel for the same function" do
+      assert {:ok, ShadowsKernel} = module_for_cursor(~q[
+        import ShadowsKernel
+        |
+      ], :to_string, 1)
+    end
+
+    test "returns error when function does not exist in any import" do
+      assert :error = module_for_cursor(~q[
+        defmodule Foo do
+          |
+        end
+      ], :does_not_exist_function, 0)
     end
   end
 
