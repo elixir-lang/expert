@@ -13,6 +13,7 @@ defmodule Engine.Analyzer do
 
   defdelegate aliases_at(analysis, position), to: Aliases, as: :at
   defdelegate imports_at(analysis, position), to: Imports, as: :at
+  defdelegate import_module_for(analysis, position, fun, arity), to: Imports, as: :module_for
 
   @spec requires_at(Analysis.t(), Position.t()) :: [module()]
   def requires_at(%Analysis{} = analysis, %Position{} = position) do
@@ -39,20 +40,14 @@ defmodule Engine.Analyzer do
   end
 
   def resolve_local_call(%Analysis{} = analysis, %Position{} = position, function_name, arity) do
-    maybe_imported_mfa =
-      analysis
-      |> imports_at(position)
-      |> Enum.find(fn
-        {_, ^function_name, ^arity} -> true
-        _ -> false
-      end)
+    case import_module_for(analysis, position, function_name, arity) do
+      {:ok, module} ->
+        {module, function_name, arity}
 
-    if is_nil(maybe_imported_mfa) do
-      aliases = aliases_at(analysis, position)
-      current_module = aliases[[:__MODULE__]]
-      {current_module, function_name, arity}
-    else
-      maybe_imported_mfa
+      :error ->
+        aliases = aliases_at(analysis, position)
+        current_module = aliases[[:__MODULE__]]
+        {current_module, function_name, arity}
     end
   end
 
