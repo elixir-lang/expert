@@ -100,8 +100,9 @@ defmodule Forge.EPMD do
   defp format_host({a, b, c, d}), do: "#{a}.#{b}.#{c}.#{d}"
   defp format_host(host) when is_list(host), do: List.to_string(host)
 
+  def names(_host_name), do: {:error, :address}
+
   defdelegate start_link, to: :erl_epmd
   defdelegate listen_port_please(name, host), to: :erl_epmd
   defdelegate address_please(name, host, family), to: :erl_epmd
-  defdelegate names(host_name), to: :erl_epmd
 end
