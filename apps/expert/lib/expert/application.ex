@@ -45,7 +45,13 @@ defmodule Expert.Application do
 
     {opts, _argv, _invalid} =
       OptionParser.parse(argv,
-        strict: [version: :boolean, help: :boolean, stdio: :boolean, port: :integer]
+        strict: [
+          version: :boolean,
+          help: :boolean,
+          stdio: :boolean,
+          port: :integer,
+          log_level: :string
+        ]
       )
 
     help_text = """
@@ -63,6 +69,7 @@ defmodule Expert.Application do
 
       --stdio             Use stdio as the transport mechanism
       --port <port>       Use TCP as the transport mechanism, with the given port
+      --log-level <level> Set log level for log files (debug, info, warning, error). Default: debug
       --help              Show this help message
       --version           Show Expert version
 
@@ -85,19 +92,26 @@ defmodule Expert.Application do
         :noop
     end
 
+    log_level = parse_log_level(opts[:log_level])
+    Application.put_env(:expert, :log_level, log_level)
+
     buffer_opts =
       cond do
         opts[:stdio] ->
           :ok = Expert.Logging.ProjectLogFile.attach()
           :ok = mute_default_log_handler()
           Logger.info("Expert v#{Expert.vsn()} starting on stdio")
+          apply_log_level(log_level)
           []
 
         is_integer(opts[:port]) ->
           :ok = Expert.Logging.ProjectLogFile.attach()
           :ok = mute_default_log_handler()
           IO.puts("Starting on port #{opts[:port]}")
+
           Logger.info("Expert v#{Expert.vsn()} starting on port #{opts[:port]}")
+
+          apply_log_level(log_level)
           [communication: {GenLSP.Communication.TCP, [port: opts[:port]]}]
 
         true ->
@@ -150,6 +164,25 @@ defmodule Expert.Application do
   @doc false
   def document_store_child_spec do
     {Document.Store, derive: [analysis: &Forge.Ast.analyze/1]}
+  end
+
+  defp apply_log_level(log_level) do
+    Logger.info("Log level set to #{log_level}")
+
+    handler_name = Expert.Logging.ProjectLogFile.handler_name()
+    :logger.update_handler_config(handler_name, :level, log_level)
+    :logger.set_primary_config(:level, log_level)
+  end
+
+  defp parse_log_level(nil), do: :debug
+  defp parse_log_level("debug"), do: :debug
+  defp parse_log_level("info"), do: :info
+  defp parse_log_level("warning"), do: :warning
+  defp parse_log_level("error"), do: :error
+
+  defp parse_log_level(other) do
+    Logger.error("Invalid log level '#{other}'. Must be one of: debug, info, warning, error")
+    System.halt(2)
   end
 
   defp mute_default_log_handler do

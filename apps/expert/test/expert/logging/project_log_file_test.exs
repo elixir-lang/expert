@@ -17,7 +17,7 @@ defmodule Expert.Logging.ProjectLogFileTest do
     log_path = Path.join([tmp_dir, ".expert", "expert.log"])
     gitignore_path = Path.join([tmp_dir, ".expert", ".gitignore"])
 
-    assert :ok = ProjectLogFile.attach(tmp_dir)
+    assert :ok = ProjectLogFile.attach(root_path: tmp_dir)
 
     Logger.info("project log file test")
     Logger.flush()
@@ -25,5 +25,13 @@ defmodule Expert.Logging.ProjectLogFileTest do
     assert File.dir?(Path.join(tmp_dir, ".expert"))
     assert File.read!(gitignore_path) == "*\n"
     assert File.regular?(log_path)
+  end
+
+  @tag :tmp_dir
+  test "attach/1 applies the given log level to the handler", %{tmp_dir: tmp_dir} do
+    assert :ok = ProjectLogFile.attach(root_path: tmp_dir, level: :warning)
+
+    {:ok, config} = :logger.get_handler_config(ProjectLogFile.handler_name())
+    assert config.level == :warning
   end
 end

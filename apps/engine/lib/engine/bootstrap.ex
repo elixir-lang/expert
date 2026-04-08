@@ -16,7 +16,8 @@ defmodule Engine.Bootstrap do
         document_store_entropy,
         app_configs,
         manager_node,
-        logger_global_metadata
+        logger_global_metadata,
+        log_level \\ :debug
       ) do
     :logger.update_primary_config(%{metadata: logger_global_metadata})
 
@@ -40,7 +41,7 @@ defmodule Engine.Bootstrap do
         Mix.env(:test)
         set_mix_build_path(project)
         ExUnit.start()
-        start_logger(project)
+        start_logger(project, log_level)
         maybe_change_directory(project)
         :ok
       end
@@ -73,7 +74,7 @@ defmodule Engine.Bootstrap do
     end
   end
 
-  defp start_logger(%Project{} = project) do
+  defp start_logger(%Project{} = project, log_level) do
     log_file_name =
       project
       |> Project.workspace_path("project.log")
@@ -88,7 +89,7 @@ defmodule Engine.Bootstrap do
         max_no_files: 1
       },
       formatter: Logger.Formatter.new(metadata: [:instance_id]),
-      level: :info
+      level: log_level
     }
 
     :logger.add_handler(handler_name, :logger_std_h, config)

@@ -218,7 +218,8 @@ defmodule Expert.EngineNode do
       Node.self(),
       # Copy logger global metadata to engine instances.
       # Everything spawned from single expert instance will use same `instance_id`
-      :logger.get_primary_config().metadata
+      :logger.get_primary_config().metadata,
+      Application.get_env(:expert, :log_level, :debug)
     ]
 
     with {:ok, node_pid} <- EngineSupervisor.start_project_node(project),

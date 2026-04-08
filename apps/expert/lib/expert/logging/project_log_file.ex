@@ -8,9 +8,12 @@ defmodule Expert.Logging.ProjectLogFile do
     :expert_project_log
   end
 
-  def attach(root_path \\ File.cwd!()) when is_binary(root_path) do
+  def attach(opts \\ []) do
+    root_path = Keyword.get(opts, :root_path, File.cwd!())
+    level = Keyword.get(opts, :level, :debug)
+
     with :ok <- ensure_workspace(root_path) do
-      add_handler(log_config(root_path))
+      add_handler(log_config(root_path, level))
     end
   end
 
@@ -36,7 +39,7 @@ defmodule Expert.Logging.ProjectLogFile do
     |> :logger.add_handler(:logger_std_h, config)
   end
 
-  defp log_config(root_path) do
+  defp log_config(root_path, level) do
     log_file_name =
       root_path
       |> Path.join(".expert")
@@ -50,7 +53,7 @@ defmodule Expert.Logging.ProjectLogFile do
         max_no_files: @max_no_files
       },
       formatter: Logger.Formatter.new(metadata: [:instance_id]),
-      level: :debug
+      level: level
     }
   end
 end
