@@ -1,6 +1,8 @@
 defmodule Expert.CodeIntelligence.Completion do
   alias Expert.CodeIntelligence.Completion.Builder
   alias Expert.CodeIntelligence.Completion.Translatable
+  alias Expert.CodeIntelligence.Hex
+  alias Expert.CodeIntelligence.Hex.Context, as: HexContext
   alias Expert.Configuration
   alias Expert.EngineApi
   alias Expert.Project.Intelligence
@@ -33,14 +35,43 @@ defmodule Expert.CodeIntelligence.Completion do
       ) do
     case Env.new(project, analysis, position) do
       {:ok, env} ->
-        completions = completions(project, env, context)
-        log_candidates(completions)
-        maybe_to_completion_list(completions)
+        hex_context =
+          if Hex.project_file?(project, analysis.document) do
+            HexContext.detect(analysis, position)
+          else
+            :error
+          end
+
+        hex_items = hex_items_for_context(hex_context, project, env)
+        regular_items = completions(project, env, context)
+        all = hex_items ++ regular_items
+        log_candidates(all)
+
+        case hex_context do
+          {:ok, _} ->
+            # Hex prefixes (package names, version requirements) need a
+            # fresh server round-trip on every keystroke — otherwise
+            # `blink.cmp` locally filters a stale `phoe` list even after
+            # the user has typed `phantom`. Returning a CompletionList
+            # with `is_incomplete: true` forces the client to re-query.
+            %CompletionList{items: all, is_incomplete: true}
+
+          :error ->
+            maybe_to_completion_list(all)
+        end
 
       {:error, _} = error ->
         Logger.error("Failed to build completion env #{inspect(error)}")
         maybe_to_completion_list()
     end
+  end
+
+  defp hex_items_for_context(:error, _project, _env), do: []
+
+  defp hex_items_for_context({:ok, ctx}, %Project{} = project, %Env{} = env) do
+    ctx
+    |> Hex.candidates_for_context(project)
+    |> Enum.map(&Translatable.translate(&1, Builder, env))
   end
 
   defp log_candidates(candidates) do

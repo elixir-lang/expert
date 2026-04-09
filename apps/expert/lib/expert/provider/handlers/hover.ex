@@ -2,6 +2,7 @@ defmodule Expert.Provider.Handlers.Hover do
   @behaviour Expert.Provider.Handler
 
   alias Engine.Search.Store
+  alias Expert.CodeIntelligence.Hex
   alias Expert.Document.Context
   alias Expert.EngineApi
   alias Expert.Provider.Markdown
@@ -25,11 +26,15 @@ defmodule Expert.Provider.Handlers.Hover do
     maybe_hover =
       with {:ok, _document, %Ast.Analysis{} = analysis} <-
              Document.Store.fetch(document.uri, :analysis),
+           nil <- hex_hover(document, analysis, params.position, project),
            {:ok, entity, range} <- resolve_entity(project, analysis, params.position),
            {:ok, markdown} <- hover_content(entity, project) do
         content = Markdown.to_content(markdown)
         %Structures.Hover{contents: content, range: range}
       else
+        %Structures.Hover{} = hover ->
+          hover
+
         {:error, reason} when reason in [:no_code, :no_doc, :no_type] ->
           nil
 
@@ -41,6 +46,15 @@ defmodule Expert.Provider.Handlers.Hover do
       end
 
     {:ok, maybe_hover}
+  end
+
+  defp hex_hover(%Document{} = document, analysis, %Position{} = position, project) do
+    with true <- Hex.project_file?(project, document),
+         {:ok, markdown} <- Hex.Hover.content(analysis, position, project) do
+      %Structures.Hover{contents: Markdown.to_content(markdown)}
+    else
+      _ -> nil
+    end
   end
 
   defp resolve_entity(%Project{} = project, %Analysis{} = analysis, %Position{} = position) do
