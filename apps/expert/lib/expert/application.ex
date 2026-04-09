@@ -19,6 +19,7 @@ defmodule Expert.Application do
 
     argv = Burrito.Util.Args.argv()
 
+    # Handle engine subcommand first (before starting the LSP server)
     case argv do
       ["engine" | engine_args] ->
         engine_args
@@ -105,6 +106,7 @@ defmodule Expert.Application do
 
           IO.puts(help_text)
 
+          # Status code 2 is often used for invalid CLI argument
           System.halt(2)
       end
 

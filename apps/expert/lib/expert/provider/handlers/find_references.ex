@@ -13,7 +13,7 @@ defmodule Expert.Provider.Handlers.FindReferences do
   @impl Expert.Provider.Handler
   def handle(
         %TextDocumentReferences{params: %Structures.ReferenceParams{} = params},
-        %Context{kind: :project} = context
+        %Context{} = context
       ) do
     %Context{document: document, project: project} = context
     include_declaration? = !!params.context.include_declaration
@@ -28,9 +28,5 @@ defmodule Expert.Provider.Handlers.FindReferences do
       end
 
     {:ok, locations}
-  end
-
-  def handle(%TextDocumentReferences{}, %Context{kind: :bare}) do
-    {:ok, nil}
   end
 end

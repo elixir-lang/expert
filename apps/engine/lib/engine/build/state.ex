@@ -145,11 +145,7 @@ defmodule Engine.Build.State do
     Build.with_lock(fn ->
       Engine.broadcast(file_compile_requested(uri: document.uri))
 
-      safe_compile_func = fn ->
-        Engine.Mix.in_project(fn _ -> Build.Document.compile(document) end)
-      end
-
-      {elapsed_us, result} = :timer.tc(fn -> safe_compile_func.() end)
+      {elapsed_us, result} = :timer.tc(fn -> compile_document(project, document) end)
 
       elapsed_ms = to_ms(elapsed_us)
 
@@ -194,6 +190,14 @@ defmodule Engine.Build.State do
     end)
 
     state
+  end
+
+  defp compile_document(%Project{kind: :mix}, document) do
+    Engine.Mix.in_project(fn _ -> Build.Document.compile(document) end)
+  end
+
+  defp compile_document(%Project{}, document) do
+    Build.Document.compile(document)
   end
 
   def set_compiler_options do

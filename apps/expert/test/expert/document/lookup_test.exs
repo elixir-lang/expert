@@ -25,7 +25,9 @@ defmodule Expert.Document.LookupTest do
 
     project_root = fixtures_path() |> Path.join("workspace_folders")
 
-    Workspace.set_workspace(Workspace.new(project_root, [project_root]))
+    [project_root]
+    |> Workspace.new()
+    |> Workspace.set_workspace()
 
     on_exit(fn ->
       Workspace.set_workspace(nil)
@@ -102,12 +104,12 @@ defmodule Expert.Document.LookupTest do
       assert project.root_uri == root_project.root_uri
     end
 
-    test "returns bare context when no projects contain an Elixir URI" do
+    test "returns bare project when no projects contain an Elixir URI" do
       uri = Document.Path.to_uri("/some/other/path/file.ex")
 
       ctx = Lookup.resolve(uri, [])
 
-      assert %Context{kind: :bare, project: nil} = ctx
+      assert %Context{project: %Project{kind: :bare}} = ctx
     end
 
     test "returns closest project for a document" do
@@ -126,7 +128,7 @@ defmodule Expert.Document.LookupTest do
   end
 
   describe "resolve/2 with URI" do
-    test "returns :project context when project is active", %{
+    test "returns context with project when project is active", %{
       project_a: project_a,
       project_root: root
     } do
@@ -136,11 +138,11 @@ defmodule Expert.Document.LookupTest do
 
       ctx = Lookup.resolve(uri, projects)
 
-      assert %Context{kind: :project, uri: ^uri, project: %Project{}} = ctx
+      assert %Context{uri: ^uri, project: %Project{}} = ctx
       assert ctx.project.root_uri == project_a.root_uri
     end
 
-    test "returns :project context when project exists but is pending", %{
+    test "returns context with project when project exists but is pending", %{
       project_a: project_a,
       project_root: root
     } do
@@ -149,11 +151,11 @@ defmodule Expert.Document.LookupTest do
 
       ctx = Lookup.resolve(uri, projects)
 
-      assert %Context{kind: :project, uri: ^uri, project: %Project{}} = ctx
+      assert %Context{uri: ^uri, project: %Project{}} = ctx
       assert ctx.project.root_uri == project_a.root_uri
     end
 
-    test "returns :project context when project is blocked", %{
+    test "returns context with project when project is blocked", %{
       project_a: project_a,
       project_root: root
     } do
@@ -163,34 +165,34 @@ defmodule Expert.Document.LookupTest do
 
       ctx = Lookup.resolve(uri, projects)
 
-      assert %Context{kind: :project, uri: ^uri, project: %Project{}} = ctx
+      assert %Context{uri: ^uri, project: %Project{}} = ctx
     end
 
-    test "returns :bare context for .ex file outside any project" do
+    test "returns bare project for .ex file outside any project" do
       uri = "file:///tmp/standalone_script.ex"
       projects = Store.projects()
 
       ctx = Lookup.resolve(uri, projects)
 
-      assert %Context{kind: :bare, uri: ^uri, project: nil} = ctx
+      assert %Context{uri: ^uri, project: %Project{kind: :bare}} = ctx
     end
 
-    test "returns :bare context for .exs file outside any project" do
+    test "returns bare project for .exs file outside any project" do
       uri = "file:///tmp/standalone_script.exs"
       projects = Store.projects()
 
       ctx = Lookup.resolve(uri, projects)
 
-      assert %Context{kind: :bare, uri: ^uri, project: nil} = ctx
+      assert %Context{uri: ^uri, project: %Project{kind: :bare}} = ctx
     end
 
-    test "returns :bare context for non-elixir file outside any project" do
+    test "returns bare project for non-elixir file outside any project" do
       uri = "file:///tmp/readme.md"
       projects = Store.projects()
 
       ctx = Lookup.resolve(uri, projects)
 
-      assert %Context{kind: :bare, uri: ^uri, project: nil} = ctx
+      assert %Context{uri: ^uri, project: %Project{kind: :bare}} = ctx
     end
 
     test "populates document from store when available", %{
@@ -205,13 +207,13 @@ defmodule Expert.Document.LookupTest do
 
       ctx = Lookup.resolve(uri, projects)
 
-      assert %Context{kind: :project, document: %Document{}} = ctx
+      assert %Context{document: %Document{}} = ctx
       assert ctx.document.uri == uri
 
       Document.Store.close(uri)
     end
 
-    test "document is nil when not in store", %{
+    test "loads the document when it is not already in the store", %{
       project_a: project_a,
       project_root: root
     } do
@@ -221,7 +223,9 @@ defmodule Expert.Document.LookupTest do
 
       ctx = Lookup.resolve(uri, projects)
 
-      assert %Context{kind: :project, document: nil} = ctx
+      assert %Context{document: %Document{uri: ^uri}} = ctx
+
+      assert :ok = Document.Store.close(uri)
     end
   end
 
@@ -238,7 +242,7 @@ defmodule Expert.Document.LookupTest do
           Path.join([umbrella_root, "apps", "first", "lib", "umbrella", "first.ex"])
         )
 
-      with_workspace(Workspace.new(umbrella_root, [umbrella_root]), fn ->
+      with_workspace(Workspace.new([umbrella_root]), fn ->
         assert Lookup.find_project_root_uri(file_uri) == Document.Path.to_uri(umbrella_root)
       end)
     end
@@ -249,7 +253,7 @@ defmodule Expert.Document.LookupTest do
       file_uri =
         Document.Path.to_uri(Path.join([umbrella_root, "packages", "search", "lib", "search.ex"]))
 
-      with_workspace(Workspace.new(umbrella_root, [umbrella_root]), fn ->
+      with_workspace(Workspace.new([umbrella_root]), fn ->
         assert Lookup.find_project_root_uri(file_uri) ==
                  Document.Path.to_uri(Path.join([umbrella_root, "packages", "search"]))
       end)
@@ -261,7 +265,7 @@ defmodule Expert.Document.LookupTest do
       file_uri =
         Document.Path.to_uri(Path.join([umbrella_root, "packages", "first", "lib", "first.ex"]))
 
-      with_workspace(Workspace.new(umbrella_root, [umbrella_root]), fn ->
+      with_workspace(Workspace.new([umbrella_root]), fn ->
         assert Lookup.find_project_root_uri(file_uri) == Document.Path.to_uri(umbrella_root)
       end)
     end
@@ -270,36 +274,36 @@ defmodule Expert.Document.LookupTest do
       project_path = Path.join(fixtures_path(), "project")
       file_uri = Document.Path.to_uri(Path.join([project_path, "lib", "project.ex"]))
 
-      with_workspace(Workspace.new(project_path, [project_path]), fn ->
+      with_workspace(Workspace.new([project_path]), fn ->
         assert Lookup.find_project_root_uri(file_uri) == Document.Path.to_uri(project_path)
       end)
     end
 
-    test "does not traverse above workspace root while discovering" do
+    test "resolves to the umbrella root even when the workspace folder is a sub-app" do
       umbrella_root = Path.join(fixtures_path(), "umbrella")
       sub_app_path = Path.join([umbrella_root, "apps", "first"])
       file_uri = Document.Path.to_uri(Path.join([sub_app_path, "lib", "umbrella", "first.ex"]))
 
-      with_workspace(Workspace.new(sub_app_path, [sub_app_path]), fn ->
-        assert Lookup.find_project_root_uri(file_uri) == Document.Path.to_uri(sub_app_path)
+      with_workspace(Workspace.new([sub_app_path]), fn ->
+        assert Lookup.find_project_root_uri(file_uri) == Document.Path.to_uri(umbrella_root)
       end)
     end
 
-    test "uses the containing workspace folder as boundary when root_path is nil" do
+    test "uses the containing workspace folder as boundary" do
       project_root = Path.join(fixtures_path(), "workspace_folders")
       main_path = Path.join(project_root, "main")
       secondary_path = Path.join(project_root, "secondary")
 
       file_uri = Document.Path.to_uri(Path.join([secondary_path, "lib", "secondary.ex"]))
 
-      with_workspace(Workspace.new(nil, [main_path, secondary_path]), fn ->
+      with_workspace(Workspace.new([main_path, secondary_path]), fn ->
         assert Lookup.find_project_root_uri(file_uri) == Document.Path.to_uri(secondary_path)
       end)
     end
   end
 
   describe "resolve/2 with Document" do
-    test "returns :project context for document in active project", %{
+    test "returns context with project for document in active project", %{
       project_a: project_a,
       project_root: root
     } do
@@ -313,13 +317,13 @@ defmodule Expert.Document.LookupTest do
       projects = Store.projects()
       ctx = Lookup.resolve(document, projects)
 
-      assert %Context{kind: :project, document: %Document{}, project: %Project{}} = ctx
+      assert %Context{document: %Document{}, project: %Project{}} = ctx
       assert ctx.project.root_uri == project_a.root_uri
 
       Document.Store.close(uri)
     end
 
-    test "returns :project context for document in pending project", %{
+    test "returns context with project for document in pending project", %{
       project_root: root
     } do
       path = Path.join([root, "main", "lib", "main.ex"])
@@ -331,23 +335,23 @@ defmodule Expert.Document.LookupTest do
       projects = Store.projects()
       ctx = Lookup.resolve(document, projects)
 
-      assert %Context{kind: :project} = ctx
+      assert %Context{project: %Project{}} = ctx
 
       Document.Store.close(uri)
     end
 
-    test "returns :bare context for document not in any project" do
+    test "returns bare project for document not in any project" do
       uri = "file:///tmp/orphan.ex"
       document = %Document{uri: uri, path: "/tmp/orphan.ex"}
 
       ctx = Lookup.resolve(document, Store.projects())
 
-      assert %Context{kind: :bare, project: nil} = ctx
+      assert %Context{project: %Project{kind: :bare}} = ctx
     end
   end
 
   describe "resolve_from_request/2" do
-    test "resolves from a params struct with text_document.uri", %{
+    test "loads a document for a params struct with text_document.uri", %{
       project_a: project_a,
       project_root: root
     } do
@@ -356,18 +360,19 @@ defmodule Expert.Document.LookupTest do
 
       params = %{text_document: %{uri: uri}}
 
-      ctx = Lookup.resolve_from_request(params, Store.projects())
+      assert {:ok, ctx} = Lookup.resolve_from_request(params, Store.projects())
 
       assert %Context{uri: ^uri} = ctx
+      assert %Document{uri: ^uri} = ctx.document
       assert ctx.project.root_uri == project_a.root_uri
+
+      assert :ok = Document.Store.close(uri)
     end
 
-    test "returns bare context when no URI can be extracted" do
-      params = %{some: :random_struct}
+    test "returns an error when the request document cannot be loaded" do
+      params = %{text_document: %{uri: "file:///tmp/does-not-exist.ex"}}
 
-      ctx = Lookup.resolve_from_request(params, Store.projects())
-
-      assert %Context{kind: :bare, uri: nil} = ctx
+      assert {:error, :document_not_found} = Lookup.resolve_from_request(params, Store.projects())
     end
   end
 end

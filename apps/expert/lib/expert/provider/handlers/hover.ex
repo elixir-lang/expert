@@ -18,7 +18,7 @@ defmodule Expert.Provider.Handlers.Hover do
   @impl Expert.Provider.Handler
   def handle(
         %Requests.TextDocumentHover{params: %Structures.HoverParams{} = params},
-        %Context{kind: :project} = context
+        %Context{} = context
       ) do
     %Context{document: document, project: project} = context
 
@@ -44,10 +44,6 @@ defmodule Expert.Provider.Handlers.Hover do
       end
 
     {:ok, maybe_hover}
-  end
-
-  def handle(%Requests.TextDocumentHover{}, %Context{kind: :bare}) do
-    {:ok, nil}
   end
 
   defp resolve_entity(%Project{} = project, %Analysis{} = analysis, %Position{} = position) do

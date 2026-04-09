@@ -14,7 +14,7 @@ defmodule Expert.Provider.Handlers.Formatting do
         %Requests.TextDocumentFormatting{
           params: %Structures.DocumentFormattingParams{}
         },
-        %Context{kind: :project} = context
+        %Context{} = context
       ) do
     %Context{document: document, project: project} = context
 
@@ -26,9 +26,5 @@ defmodule Expert.Provider.Handlers.Formatting do
         Logger.error("Formatter failed #{inspect(reason)}")
         {:ok, nil}
     end
-  end
-
-  def handle(%Requests.TextDocumentFormatting{}, %Context{kind: :bare}) do
-    {:ok, nil}
   end
 end

@@ -11,7 +11,7 @@ defmodule Expert.Provider.Handlers.GoToDefinition do
   @impl Expert.Provider.Handler
   def handle(
         %Requests.TextDocumentDefinition{params: %Structures.DefinitionParams{} = params},
-        %Context{kind: :project} = context
+        %Context{} = context
       ) do
     %Context{document: document, project: project} = context
 
@@ -23,9 +23,5 @@ defmodule Expert.Provider.Handlers.GoToDefinition do
         Logger.error("GoToDefinition failed: #{inspect(reason)}")
         {:ok, nil}
     end
-  end
-
-  def handle(%Requests.TextDocumentDefinition{}, %Context{kind: :bare}) do
-    {:ok, nil}
   end
 end

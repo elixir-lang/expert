@@ -12,7 +12,7 @@ defmodule Forge.Project do
 
   defstruct root_uri: nil,
             mix_exs_uri: nil,
-            mix_project?: false,
+            kind: :bare,
             mix_env: nil,
             mix_target: nil,
             env_variables: %{},
@@ -24,6 +24,7 @@ defmodule Forge.Project do
   @type t :: %__MODULE__{
           root_uri: Forge.uri() | nil,
           mix_exs_uri: Forge.uri() | nil,
+          kind: :mix | :bare,
           entropy: non_neg_integer(),
           mix_env: atom(),
           mix_target: atom(),
@@ -40,6 +41,7 @@ defmodule Forge.Project do
     %__MODULE__{entropy: entropy}
     |> maybe_set_root_uri(root_uri)
     |> maybe_set_mix_exs_uri()
+    |> set_kind()
   end
 
   @spec from_folders([%{uri: Forge.uri()}]) :: [t()]
@@ -48,8 +50,12 @@ defmodule Forge.Project do
     |> Enum.flat_map(fn %{uri: uri} ->
       project = new(uri)
 
-      if project.mix_project? or elixir_project?(project), do: [project], else: []
+      if project.kind == :mix or elixir_project?(project), do: [project], else: []
     end)
+  end
+
+  def bare(root_uri) do
+    %__MODULE__{new(root_uri) | kind: :bare, mix_exs_uri: nil}
   end
 
   @spec set_project_module(t(), module() | nil) :: t()
@@ -95,16 +101,22 @@ defmodule Forge.Project do
   end
 
   def config(%__MODULE__{} = project) do
-    config_key = {__MODULE__, project.root_uri, :config}
+    case project.project_module do
+      nil ->
+        []
 
-    case :persistent_term.get(config_key, :not_found) do
-      :not_found ->
-        config = project.project_module.project()
-        :persistent_term.put(config_key, config)
-        config
+      project_module ->
+        config_key = {__MODULE__, project.root_uri, :config}
 
-      config ->
-        config
+        case :persistent_term.get(config_key, :not_found) do
+          :not_found ->
+            config = project_module.project()
+            :persistent_term.put(config_key, config)
+            config
+
+          config ->
+            config
+        end
     end
   end
 
@@ -180,7 +192,7 @@ defmodule Forge.Project do
     workspace_name =
       case workspace do
         nil -> name(project)
-        %{root_path: nil} -> name(project)
+        %Forge.Workspace{workspace_folders: []} -> name(project)
         _ -> Forge.Workspace.name(workspace)
       end
 
@@ -310,12 +322,20 @@ defmodule Forge.Project do
     if mix_exs_exists?(possible_mix_exs_path) do
       %__MODULE__{
         project
-        | mix_exs_uri: Document.Path.to_uri(possible_mix_exs_path),
-          mix_project?: true
+        | mix_exs_uri: Document.Path.to_uri(possible_mix_exs_path)
       }
     else
       project
     end
+  end
+
+  defp set_kind(%__MODULE__{mix_exs_uri: mix_exs_uri} = project)
+       when is_binary(mix_exs_uri) do
+    %__MODULE__{project | kind: :mix}
+  end
+
+  defp set_kind(%__MODULE__{} = project) do
+    %__MODULE__{project | kind: :bare}
   end
 
   # Project Path
@@ -381,6 +401,10 @@ defmodule Forge.Project do
 
         ex_files != [] or exs_files != []
     end
+  end
+
+  def kind(%__MODULE__{} = project) do
+    project.kind
   end
 
   def ensure_hex_and_rebar do

@@ -12,7 +12,7 @@ defmodule Engine.Search.Indexer do
 
   def create_index(%Project{} = project) do
     ProcessCache.with_cleanup do
-      deps_dir = deps_dir()
+      deps_dir = deps_dir(project)
 
       entries =
         project
@@ -61,7 +61,7 @@ defmodule Engine.Search.Indexer do
 
     paths_to_reindex = changed_paths ++ Enum.to_list(new_paths)
 
-    entries = async_chunks(paths_to_reindex, &index_path(&1, deps_dir()))
+    entries = async_chunks(paths_to_reindex, &index_path(&1, deps_dir(project)))
 
     {:ok, entries, paths_to_delete}
   end
@@ -70,7 +70,7 @@ defmodule Engine.Search.Indexer do
     with {:ok, contents} <- File.read(path),
          {:ok, entries} <- Indexer.Source.index(path, contents) do
       Enum.filter(entries, fn entry ->
-        if Forge.Path.contains?(path, deps_dir) do
+        if is_binary(deps_dir) and Forge.Path.contains?(path, deps_dir) do
           entry.subtype == :definition
         else
           true
@@ -182,7 +182,7 @@ defmodule Engine.Search.Indexer do
 
   def indexable_files(%Project{} = project) do
     root_dir = Project.root_path(project)
-    build_dir = build_dir()
+    build_dir = build_dir(project)
 
     [root_dir, "**", @indexable_extensions]
     |> Forge.Path.glob()
@@ -194,17 +194,23 @@ defmodule Engine.Search.Indexer do
     File.stat(path)
   end
 
-  defp deps_dir do
+  defp deps_dir(%Project{kind: :mix}) do
     case Engine.Mix.in_project(&Mix.Project.deps_path/0) do
       {:ok, path} -> path
       _ -> Mix.Project.deps_path()
     end
   end
 
-  defp build_dir do
+  defp deps_dir(%Project{}), do: nil
+
+  defp build_dir(%Project{kind: :mix}) do
     case Engine.Mix.in_project(&Mix.Project.build_path/0) do
       {:ok, path} -> path
       _ -> Mix.Project.build_path()
     end
+  end
+
+  defp build_dir(%Project{} = project) do
+    Path.join(Project.root_path(project), "_build")
   end
 end

@@ -1,6 +1,10 @@
 defmodule Engine.Mix do
   alias Forge.Project
 
+  def loaded? do
+    not is_nil(Mix.Project.get())
+  end
+
   def in_project(fun) do
     if Engine.project_node?() do
       in_project(Engine.get_project(), fun)

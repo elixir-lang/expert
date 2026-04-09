@@ -69,7 +69,7 @@ defmodule Expert.Provider.Handlers.CodeLensTest do
   def handle(request, project) do
     Expert.Project.Store.add_projects([project])
     document = Document.Container.context_document(request, nil)
-    context = Context.project(document.uri, document, project)
+    context = Context.new(document.uri, document, project)
     Handlers.CodeLens.handle(request, context)
   end
 

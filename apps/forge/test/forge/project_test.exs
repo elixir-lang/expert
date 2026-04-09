@@ -44,7 +44,7 @@ defmodule Forge.ProjectTest do
     end
 
     test "produces valid node name when workspace has dots in name" do
-      workspace = Workspace.new("/path/to/expert-lsp.org")
+      workspace = Workspace.new(["/path/to/expert-lsp.org"])
       Workspace.set_workspace(workspace)
 
       project = test_project()
@@ -55,7 +55,7 @@ defmodule Forge.ProjectTest do
     end
 
     test "produces valid node name when workspace has dashes in name" do
-      workspace = Workspace.new("/path/to/my-cool-project")
+      workspace = Workspace.new(["/path/to/my-cool-project"])
       Workspace.set_workspace(workspace)
 
       project = test_project()
@@ -65,7 +65,7 @@ defmodule Forge.ProjectTest do
     end
 
     test "uses sanitized workspace name in node name" do
-      workspace = Workspace.new("/path/to/expert-lsp.org")
+      workspace = Workspace.new(["/path/to/expert-lsp.org"])
       Workspace.set_workspace(workspace)
 
       project = test_project()
@@ -114,6 +114,14 @@ defmodule Forge.ProjectTest do
              |> Project.from_folders()
              |> Enum.map(&Project.root_path/1)
              |> Enum.sort() == Enum.sort([mix_project_path, bare_project_path])
+
+      [bare_project, mix_project] =
+        folders
+        |> Project.from_folders()
+        |> Enum.sort_by(&Project.root_path/1)
+
+      assert Project.kind(bare_project) == :bare
+      assert Project.kind(mix_project) == :mix
     end
 
     @tag :tmp_dir
@@ -144,6 +152,36 @@ defmodule Forge.ProjectTest do
 
       assert :ok = Project.ensure_workspace(project)
       assert File.regular?(gitignore_path)
+    end
+  end
+
+  describe "new/1" do
+    @tag :tmp_dir
+    test "assigns bare kind to non-mix elixir projects", %{tmp_dir: tmp_dir} do
+      File.write!(Path.join(tmp_dir, "file.ex"), "defmodule BareProject do\nend\n")
+
+      project = tmp_dir |> Document.Path.to_uri() |> Project.new()
+
+      assert Project.kind(project) == :bare
+    end
+
+    @tag :tmp_dir
+    test "assigns mix kind to mix projects", %{tmp_dir: tmp_dir} do
+      File.write!(Path.join(tmp_dir, "mix.exs"), "defmodule MixProject do\nend\n")
+
+      project = tmp_dir |> Document.Path.to_uri() |> Project.new()
+
+      assert Project.kind(project) == :mix
+    end
+
+    @tag :tmp_dir
+    test "never produces nil kind, even for non-elixir directories", %{tmp_dir: tmp_dir} do
+      File.write!(Path.join(tmp_dir, "README.md"), "hello\n")
+
+      project = tmp_dir |> Document.Path.to_uri() |> Project.new()
+
+      assert project.kind in [:mix, :bare]
+      assert Project.kind(project) == :bare
     end
   end
 end

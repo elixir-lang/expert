@@ -27,9 +27,6 @@ defmodule Expert.Project.Store do
     {:ok, nil}
   end
 
-  @doc """
-  Returns all tracked projects.
-  """
   @spec projects() :: [Project.t()]
   def projects do
     @table
@@ -60,9 +57,6 @@ defmodule Expert.Project.Store do
     :ok
   end
 
-  @doc """
-  Removes projects from the store.
-  """
   @spec remove_projects([Project.t()]) :: :ok
   def remove_projects(removed_projects) when is_list(removed_projects) do
     for %Project{} = project <- removed_projects do
@@ -81,9 +75,6 @@ defmodule Expert.Project.Store do
     add_projects(new_projects)
   end
 
-  @doc """
-  Returns true if the project's status is `:ready`.
-  """
   @spec ready?(Project.t()) :: boolean()
   def ready?(%Project{} = project) do
     case :ets.lookup(@table, project.root_uri) do
@@ -92,9 +83,6 @@ defmodule Expert.Project.Store do
     end
   end
 
-  @doc """
-  Returns true if the project's status is `:blocked`.
-  """
   @spec blocked?(Project.t()) :: boolean()
   def blocked?(%Project{} = project) do
     case :ets.lookup(@table, project.root_uri) do

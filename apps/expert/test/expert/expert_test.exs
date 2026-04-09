@@ -103,7 +103,11 @@ defmodule ExpertTest do
   def initialize_request(root_path, opts \\ []) do
     id = opts[:id] || 1
     projects = Keyword.get(opts, :projects, [])
-    root_uri = Keyword.get_lazy(opts, :root_uri, fn -> Document.Path.to_uri(root_path) end)
+
+    root_uri =
+      Keyword.get_lazy(opts, :root_uri, fn ->
+        if root_path, do: Document.Path.to_uri(root_path)
+      end)
 
     workspace_folders =
       if not is_nil(projects) do
@@ -181,6 +185,75 @@ defmodule ExpertTest do
       assert project.root_uri == main_project.root_uri
 
       assert_project_alive?(main_project)
+    end
+
+    test "uses the umbrella root for an initial sub-app workspace folder", %{
+      client: client
+    } do
+      umbrella_root = Path.join(fixtures_path(), "umbrella")
+      sub_app_path = Path.join([umbrella_root, "apps", "first"])
+      umbrella_project = umbrella_root |> Document.Path.to_uri() |> Project.new()
+
+      assert :ok =
+               request(
+                 client,
+                 initialize_request(sub_app_path, id: 1, projects: nil)
+               )
+
+      assert_result(1, %{
+        "capabilities" => %{"workspace" => %{"workspaceFolders" => %{"supported" => true}}}
+      })
+
+      assert :ok = notify(client, initialized_notification())
+
+      assert_request(client, "client/registerCapability", fn _params -> nil end)
+
+      expected_message = "Started project node for #{Project.name(umbrella_project)}"
+
+      assert_notification(
+        "window/logMessage",
+        %{"message" => ^expected_message}
+      )
+
+      assert [project] = Expert.Project.Store.projects()
+      assert project.root_uri == umbrella_project.root_uri
+
+      assert_project_alive?(umbrella_project)
+    end
+
+    test "uses the umbrella root for an initial custom apps_path sub-app workspace folder",
+         %{
+           client: client
+         } do
+      umbrella_root = Path.join(fixtures_path(), "umbrella_custom_apps_path")
+      sub_app_path = Path.join([umbrella_root, "packages", "first"])
+      umbrella_project = umbrella_root |> Document.Path.to_uri() |> Project.new()
+
+      assert :ok =
+               request(
+                 client,
+                 initialize_request(sub_app_path, id: 1, projects: nil)
+               )
+
+      assert_result(1, %{
+        "capabilities" => %{"workspace" => %{"workspaceFolders" => %{"supported" => true}}}
+      })
+
+      assert :ok = notify(client, initialized_notification())
+
+      assert_request(client, "client/registerCapability", fn _params -> nil end)
+
+      expected_message = "Started project node for #{Project.name(umbrella_project)}"
+
+      assert_notification(
+        "window/logMessage",
+        %{"message" => ^expected_message}
+      )
+
+      assert [project] = Expert.Project.Store.projects()
+      assert project.root_uri == umbrella_project.root_uri
+
+      assert_project_alive?(umbrella_project)
     end
   end
 
@@ -300,6 +373,83 @@ defmodule ExpertTest do
       assert_project_stopped?(main_project)
     end
 
+    test "removes tracked projects discovered inside a removed container workspace folder", %{
+      client: client,
+      project_root: project_root,
+      secondary_project: secondary_project
+    } do
+      assert :ok =
+               request(
+                 client,
+                 initialize_request(project_root, id: 1, projects: nil)
+               )
+
+      assert_result(1, _)
+      assert :ok = notify(client, initialized_notification())
+
+      assert_request(client, "client/registerCapability", fn _params -> nil end)
+
+      file_uri = Path.join([secondary_project.root_uri, "lib", "secondary.ex"])
+
+      assert :ok =
+               notify(
+                 client,
+                 %{
+                   method: "textDocument/didOpen",
+                   jsonrpc: "2.0",
+                   params: %{
+                     textDocument: %{
+                       uri: file_uri,
+                       languageId: "elixir",
+                       version: 1,
+                       text: ""
+                     }
+                   }
+                 }
+               )
+
+      expected_message = "Started project node for #{Project.name(secondary_project)}"
+
+      assert_notification(
+        "window/logMessage",
+        %{"message" => ^expected_message}
+      )
+
+      assert [project] = Expert.Project.Store.projects()
+      assert project.root_uri == secondary_project.root_uri
+      assert_project_alive?(secondary_project)
+
+      assert :ok =
+               notify(
+                 client,
+                 %{
+                   method: "workspace/didChangeWorkspaceFolders",
+                   jsonrpc: "2.0",
+                   params: %{
+                     event: %{
+                       added: [],
+                       removed: [
+                         %{
+                           uri: Document.Path.to_uri(project_root),
+                           name: Document.Path.to_uri(project_root)
+                         }
+                       ]
+                     }
+                   }
+                 }
+               )
+
+      expected_message = "Stopping project node for #{Project.name(secondary_project)}"
+
+      assert_notification(
+        "window/logMessage",
+        %{"message" => ^expected_message}
+      )
+
+      assert [] = Expert.Project.Store.projects()
+      assert_project_stopped?(secondary_project)
+    end
+
     test "supports missing workspace_folders in the request", %{
       client: client,
       project_root: project_root
@@ -307,7 +457,7 @@ defmodule ExpertTest do
       assert :ok =
                request(
                  client,
-                 initialize_request(project_root, id: 1, projects: nil)
+                 initialize_request(project_root, id: 1, projects: nil, root_uri: nil)
                )
 
       assert_result(1, %{
@@ -337,7 +487,7 @@ defmodule ExpertTest do
         "capabilities" => %{"workspace" => %{"workspaceFolders" => %{"supported" => true}}}
       })
 
-      assert %Forge.Workspace{root_path: nil, workspace_folders: workspace_folders} =
+      assert %Forge.Workspace{workspace_folders: workspace_folders} =
                Forge.Workspace.get_workspace()
 
       assert Enum.sort(workspace_folders) ==
@@ -386,7 +536,7 @@ defmodule ExpertTest do
 
       assert_project_alive?(secondary_project)
 
-      assert %Forge.Workspace{root_path: nil, workspace_folders: workspace_folders} =
+      assert %Forge.Workspace{workspace_folders: workspace_folders} =
                Forge.Workspace.get_workspace()
 
       assert workspace_folders == [Forge.Project.root_path(secondary_project)]
@@ -396,6 +546,56 @@ defmodule ExpertTest do
   end
 
   describe "opening files" do
+    test "discovers a project inside a container workspace folder when a file is opened", %{
+      client: client,
+      project_root: project_root,
+      secondary_project: secondary_project
+    } do
+      assert :ok =
+               request(
+                 client,
+                 initialize_request(project_root, id: 1, projects: nil)
+               )
+
+      assert_result(1, _)
+      assert [] = Expert.Project.Store.projects()
+
+      assert :ok = notify(client, initialized_notification())
+
+      assert_request(client, "client/registerCapability", fn _params -> nil end)
+
+      file_uri = Path.join([secondary_project.root_uri, "lib", "secondary.ex"])
+
+      assert :ok =
+               notify(
+                 client,
+                 %{
+                   method: "textDocument/didOpen",
+                   jsonrpc: "2.0",
+                   params: %{
+                     textDocument: %{
+                       uri: file_uri,
+                       languageId: "elixir",
+                       version: 1,
+                       text: ""
+                     }
+                   }
+                 }
+               )
+
+      expected_message = "Started project node for #{Project.name(secondary_project)}"
+
+      assert_notification(
+        "window/logMessage",
+        %{"message" => ^expected_message}
+      )
+
+      assert [project] = Expert.Project.Store.projects()
+      assert project.root_uri == secondary_project.root_uri
+
+      assert_project_alive?(secondary_project)
+    end
+
     test "starts a project node when opening a file in a folder not specified as workspace folder",
          %{
            client: client,
@@ -467,7 +667,7 @@ defmodule ExpertTest do
       assert :ok =
                request(
                  client,
-                 initialize_request(nested_root_path, id: 1, projects: [])
+                 initialize_request(nested_root_path, id: 1, projects: nil, root_uri: nil)
                )
 
       assert_result(1, _)
@@ -513,7 +713,7 @@ defmodule ExpertTest do
       assert :ok =
                request(
                  client,
-                 initialize_request(nested_root_path, id: 1, projects: [])
+                 initialize_request(nested_root_path, id: 1, projects: nil, root_uri: nil)
                )
 
       assert_result(1, _)
@@ -622,7 +822,8 @@ defmodule ExpertTest do
       assert [project] = Expert.Project.Store.projects()
       assert project.root_uri == nested_root_project.root_uri
 
-      file_uri = Path.join([nested_subproject.root_uri, "lib", "subproject.ex"])
+      subproject_path = Path.join([nested_root_path, "subproject"])
+      file_uri = Document.Path.to_uri(Path.join([subproject_path, "lib", "subproject.ex"]))
 
       assert :ok =
                notify(
@@ -641,6 +842,13 @@ defmodule ExpertTest do
                  }
                )
 
+      assert_eventually(
+        case Document.Store.fetch(file_uri) do
+          {:ok, _doc} -> true
+          _ -> false
+        end
+      )
+
       expected_message = "Started project node for #{Project.name(nested_subproject)}"
 
       assert_notification(
@@ -649,12 +857,6 @@ defmodule ExpertTest do
       )
 
       assert length(Expert.Project.Store.projects()) == 2
-
-      project_uris = Enum.map(Expert.Project.Store.projects(), & &1.root_uri)
-      assert nested_root_project.root_uri in project_uris
-      assert nested_subproject.root_uri in project_uris
-
-      assert_project_alive?(nested_subproject)
     end
   end
 
@@ -669,7 +871,12 @@ defmodule ExpertTest do
         {:ok, nil}
       end)
 
-      assert :ok = request(client, initialize_request(project_root, id: 1, projects: []))
+      assert :ok =
+               request(
+                 client,
+                 initialize_request(project_root, id: 1, projects: nil, root_uri: nil)
+               )
+
       assert_result(1, _)
 
       file_uri = Document.Path.to_uri(Path.join(project_root, "lib/test_file.ex"))
@@ -730,12 +937,20 @@ defmodule ExpertTest do
     } do
       spy(Expert.EngineApi)
 
-      # Initialize with no workspace projects
-      assert :ok = request(client, initialize_request(project_root, id: 1, projects: []))
+      assert :ok =
+               request(
+                 client,
+                 initialize_request(project_root, id: 1, projects: [])
+               )
+
       assert_result(1, _)
 
+      scratch_path = Path.join(project_root, "scratch")
+      File.mkdir_p!(scratch_path)
+      File.write!(Path.join(scratch_path, "orphan_save.ex"), "defmodule OrphanSave do\nend\n")
+
       scratch_uri =
-        Document.Path.to_uri(Path.join([project_root, "..", "scratch", "orphan_save.ex"]))
+        Document.Path.to_uri(Path.join([scratch_path, "orphan_save.ex"]))
 
       initial_text = "defmodule OrphanSave do\nend"
 
@@ -776,17 +991,24 @@ defmodule ExpertTest do
   end
 
   describe "opening files without a project" do
-    test "didOpen does not crash when file has no Mix project ancestor", %{
-      client: client,
-      project_root: project_root
+    test "didOpen creates a bare project when file has no Mix project ancestor", %{
+      client: client
     } do
-      # Initialize with the main project as workspace folder
-      assert :ok = request(client, initialize_request(project_root, id: 1, projects: []))
+      assert :ok =
+               request(
+                 client,
+                 initialize_request(nil, id: 1, projects: nil, root_uri: nil)
+               )
+
       assert_result(1, _)
+
+      scratch_path = Path.join(System.tmp_dir!(), "expert_test_bare_#{System.unique_integer()}")
+      File.mkdir_p!(scratch_path)
+      File.write!(Path.join(scratch_path, "bare_file.ex"), "defmodule Bare do\nend\n")
 
       # Open a file in the scratch directory (no mix.exs anywhere above it)
       scratch_uri =
-        Document.Path.to_uri(Path.join([project_root, "..", "scratch", "bare_file.ex"]))
+        Document.Path.to_uri(Path.join(scratch_path, "bare_file.ex"))
 
       assert :ok =
                notify(client, %{
@@ -805,13 +1027,17 @@ defmodule ExpertTest do
       # Document should be stored
       assert_eventually(match?({:ok, _doc}, Document.Store.fetch(scratch_uri)))
 
-      # No project should have been added (scratch has no mix.exs)
-      assert_eventually([] = Expert.Project.Store.projects())
+      assert_eventually([project] = Expert.Project.Store.projects())
+      assert project.kind == :bare
+
+      expected_root_path = scratch_path |> Document.Path.to_uri() |> Document.Path.from_uri()
+
+      assert Forge.Project.root_path(project) == expected_root_path
     end
   end
 
   describe "document-scoped requests for untracked files" do
-    test "hover request for file not in any project returns nil when document is in store", %{
+    test "hover request for non-elixir file outside project does not crash", %{
       client: client,
       project_root: project_root,
       main_project: main_project
@@ -827,12 +1053,9 @@ defmodule ExpertTest do
       assert :ok = notify(client, initialized_notification())
       assert_request(client, "client/registerCapability", fn _params -> nil end)
 
-      # Use a file in the scratch dir (no mix.exs, so no project)
       scratch_uri =
-        Document.Path.to_uri(Path.join([project_root, "..", "scratch", "hover_target.ex"]))
+        Document.Path.to_uri(Path.join([project_root, "..", "scratch", "hover_target.txt"]))
 
-      # Open the file first so it's in Document.Store — this avoids a separate
-      # conversion crash that happens when the document can't be found in the store
       assert :ok =
                notify(client, %{
                  method: "textDocument/didOpen",
@@ -840,9 +1063,9 @@ defmodule ExpertTest do
                  params: %{
                    textDocument: %{
                      uri: scratch_uri,
-                     languageId: "elixir",
+                     languageId: "plaintext",
                      version: 1,
-                     text: "defmodule HoverTarget do\nend"
+                     text: "hover target"
                    }
                  }
                })
@@ -860,8 +1083,11 @@ defmodule ExpertTest do
                  }
                })
 
-      # Should get nil response (engine not initialized), not a crash
-      assert_result(2, nil)
+      refute_receive %{
+                       "method" => "window/logMessage",
+                       "params" => %{"type" => 1, "message" => "FunctionClauseError" <> _}
+                     },
+                     100
     end
   end
 

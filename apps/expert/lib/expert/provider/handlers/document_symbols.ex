@@ -10,7 +10,7 @@ defmodule Expert.Provider.Handlers.DocumentSymbols do
   alias GenLSP.Structures
 
   @impl Expert.Provider.Handler
-  def handle(%Requests.TextDocumentDocumentSymbol{}, %Context{kind: :project} = context) do
+  def handle(%Requests.TextDocumentDocumentSymbol{}, %Context{} = context) do
     %Context{document: document, project: project} = context
 
     symbols =
@@ -19,10 +19,6 @@ defmodule Expert.Provider.Handlers.DocumentSymbols do
       |> Enum.map(&to_response(&1, document))
 
     {:ok, symbols}
-  end
-
-  def handle(%Requests.TextDocumentDocumentSymbol{}, %Context{kind: :bare}) do
-    {:ok, []}
   end
 
   def to_response(%Symbols.Document{} = root, %Document{} = document) do

@@ -95,14 +95,18 @@ defmodule Engine.Build.Document.Compilers.Quoted do
   end
 
   defp prepare_compile(path) do
-    # If we're compiling a mix.exs file, the after compile callback from
-    # `use Mix.Project` will blow up if we add the same project to the project stack
-    # twice. Preemptively popping it prevents that error from occurring.
-    if Path.basename(path) == "mix.exs" do
-      Mix.ProjectStack.pop()
-    end
+    if Engine.Mix.loaded?() do
+      # If we're compiling a mix.exs file, the after compile callback from
+      # `use Mix.Project` will blow up if we add the same project to the project stack
+      # twice. Preemptively popping it prevents that error from occurring.
+      if Path.basename(path) == "mix.exs" do
+        Mix.ProjectStack.pop()
+      end
 
-    Mix.Task.run(:loadconfig)
+      Mix.Task.run(:loadconfig)
+    else
+      :ok
+    end
   end
 
   @dialyzer {:nowarn_function, compile_quoted_with_diagnostics: 2}

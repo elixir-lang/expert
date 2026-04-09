@@ -14,7 +14,7 @@ defmodule Expert.Provider.Handlers.Completion do
   @impl Expert.Provider.Handler
   def handle(
         %Requests.TextDocumentCompletion{params: %Structures.CompletionParams{} = params},
-        %Context{kind: :project} = context
+        %Context{} = context
       ) do
     %Context{document: document, project: project} = context
 
@@ -27,10 +27,6 @@ defmodule Expert.Provider.Handlers.Completion do
       )
 
     {:ok, completions}
-  end
-
-  def handle(%Requests.TextDocumentCompletion{}, %Context{kind: :bare}) do
-    {:ok, []}
   end
 
   defp document_analysis(%Document{} = document, %Position{} = position) do

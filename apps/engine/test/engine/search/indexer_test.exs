@@ -56,6 +56,16 @@ defmodule Engine.Search.IndexerTest do
       assert {:ok, entries} = Indexer.create_index(project)
       assert Enum.all?(entries, fn entry -> Path.extname(entry.path) in [".ex", ".exs"] end)
     end
+
+    test "indexes bare projects without treating root/deps as a dependency directory" do
+      bare_root = Path.join(fixtures_path(), "scratch")
+      bare_project = bare_root |> Forge.Document.Path.to_uri() |> Project.bare()
+
+      patch(Engine, :get_project, fn -> bare_project end)
+
+      assert {:ok, entries} = Indexer.create_index(bare_project)
+      assert Enum.any?(entries, &(&1.path == Path.join(bare_root, "bare_file.ex")))
+    end
   end
 
   @ephemeral_file_name "ephemeral.ex"

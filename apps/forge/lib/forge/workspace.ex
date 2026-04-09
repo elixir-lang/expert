@@ -1,20 +1,19 @@
 defmodule Forge.Workspace do
   @moduledoc """
-  The representation of the root directory where the server is running.
+  Represents the editor's workspace, which may contain one or more root folders.
   """
 
   alias Forge.Document
 
-  defstruct [:root_path, workspace_folders: []]
+  defstruct workspace_folders: []
 
   @type t :: %__MODULE__{
-          root_path: String.t() | nil,
           workspace_folders: [String.t()]
         }
 
-  @spec new(String.t() | nil, [String.t()]) :: t()
-  def new(root_path, workspace_folders \\ []) do
-    %__MODULE__{root_path: root_path, workspace_folders: workspace_folders}
+  @spec new([String.t()]) :: t()
+  def new(workspace_folders \\ []) when is_list(workspace_folders) do
+    %__MODULE__{workspace_folders: workspace_folders}
   end
 
   @spec add_folders(t(), [String.t()]) :: t()
@@ -44,9 +43,8 @@ defmodule Forge.Workspace do
     Document.Path.from_uri(uri)
   end
 
-  def name(workspace) do
-    Path.basename(workspace.root_path)
-  end
+  def name(%__MODULE__{workspace_folders: [first | _]}), do: Path.basename(first)
+  def name(%__MODULE__{workspace_folders: []}), do: "workspace"
 
   def set_workspace(workspace) do
     :persistent_term.put({__MODULE__, :workspace}, workspace)

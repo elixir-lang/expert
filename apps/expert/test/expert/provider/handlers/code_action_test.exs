@@ -73,7 +73,7 @@ defmodule Expert.Provider.Handlers.CodeActionTest do
 
   def handle(request, project) do
     document = Document.Container.context_document(request, nil)
-    context = Context.project(document.uri, document, project)
+    context = Context.new(document.uri, document, project)
     Handlers.CodeAction.handle(request, context)
   end
 

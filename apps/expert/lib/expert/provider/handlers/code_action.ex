@@ -10,7 +10,7 @@ defmodule Expert.Provider.Handlers.CodeAction do
   @impl Expert.Provider.Handler
   def handle(
         %Requests.TextDocumentCodeAction{params: %Structures.CodeActionParams{} = params},
-        %Context{kind: :project} = context
+        %Context{} = context
       ) do
     %Context{document: document, project: project} = context
     diagnostics = Enum.map(params.context.diagnostics, &to_code_action_diagnostic/1)
@@ -28,10 +28,6 @@ defmodule Expert.Provider.Handlers.CodeAction do
     results = Enum.map(code_actions, &to_result/1)
 
     {:ok, results}
-  end
-
-  def handle(%Requests.TextDocumentCodeAction{}, %Context{kind: :bare}) do
-    {:ok, []}
   end
 
   defp to_code_action_diagnostic(%Structures.Diagnostic{} = diagnostic) do

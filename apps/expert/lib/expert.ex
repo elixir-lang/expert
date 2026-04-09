@@ -1,7 +1,6 @@
 defmodule Expert do
   use GenLSP
 
-  alias Expert.Document.Context
   alias Expert.Document.Lookup
   alias Expert.Project.Store
   alias Expert.Protocol.Convert
@@ -58,9 +57,8 @@ defmodule Expert do
 
     with {:ok, response, state} <- State.initialize(state, request),
          {:ok, response} <- Expert.Protocol.Convert.to_lsp(response) do
-      workspace_folders = request.params.workspace_folders || []
-
-      projects = Project.from_folders(workspace_folders)
+      normalized_folders = State.normalize_workspace_folders(request.params)
+      projects = Lookup.projects_for_folders(normalized_folders)
 
       Store.set_projects(projects)
 
@@ -128,6 +126,15 @@ defmodule Expert do
 
         {:reply, nil, lsp}
 
+      {:error, :document_not_found} ->
+        Logger.info("Received request #{request.method} for a document that could not be loaded.")
+
+        {:reply,
+         %GenLSP.ErrorResponse{
+           code: GenLSP.Enumerations.ErrorCodes.invalid_request(),
+           message: "Document could not be loaded"
+         }, lsp}
+
       error ->
         message = "Failed to handle #{request.method}, #{inspect(error)}"
         Logger.error(message)
@@ -143,18 +150,13 @@ defmodule Expert do
   defp check_engine_initialized(request) do
     if document_request?(request) do
       projects = Store.projects()
-      context = Lookup.resolve_from_request(request, projects)
 
-      case context do
-        %Context{kind: :project, project: project} ->
-          if Store.ready?(project) do
-            {:ok, context}
-          else
-            {:error, :engine_not_initialized, project}
-          end
-
-        %Context{kind: :bare} ->
+      with {:ok, context} <- Lookup.resolve_from_request(request, projects) do
+        if Store.ready?(context.project) do
           {:ok, context}
+        else
+          {:error, :engine_not_initialized, context.project}
+        end
       end
     else
       {:ok, nil}

@@ -142,11 +142,11 @@ defmodule Expert.ExpertTest do
 
     assert {:ok, _response, _state} = State.initialize(State.new(), request)
 
-    assert %Forge.Workspace{root_path: nil, workspace_folders: []} =
+    assert %Forge.Workspace{workspace_folders: []} =
              Forge.Workspace.get_workspace()
   end
 
-  test "document requests fail when the document is not open for conversion" do
+  test "document requests return an error when the document cannot be loaded" do
     project = Fixtures.project()
     lsp = initialize_lsp(project)
 
@@ -169,11 +169,16 @@ defmodule Expert.ExpertTest do
       }
     }
 
-    assert_raise FunctionClauseError,
-                 ~r/no function clause matching in Expert\.Protocol\.Conversions\.to_elixir\/2/,
-                 fn ->
-                   Expert.handle_request(request, lsp)
-                 end
+    assert {
+             :reply,
+             %GenLSP.ErrorResponse{
+               code: code,
+               message: "Document could not be loaded"
+             },
+             ^lsp
+           } = Expert.handle_request(request, lsp)
+
+    assert code == GenLSP.Enumerations.ErrorCodes.invalid_request()
   end
 
   defp initialize_lsp(project, opts \\ []) do

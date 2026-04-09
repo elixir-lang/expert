@@ -9,7 +9,7 @@ defmodule Engine.Build.Project do
 
   require Logger
 
-  def compile(%Project{} = project, initial?) do
+  def compile(%Project{kind: :mix} = project, initial?) do
     Engine.Mix.in_project(fn _ ->
       Logger.info("Building #{Project.display_name(project)}")
 
@@ -25,7 +25,11 @@ defmodule Engine.Build.Project do
     end)
   end
 
-  def fetch_deps(%Project{} = project) do
+  def compile(%Project{}, _initial?) do
+    :ok
+  end
+
+  def fetch_deps(%Project{kind: :mix} = project) do
     Engine.Mix.in_project(project, fn _ ->
       Logger.info("Fetching dependencies for #{Project.display_name(project)}")
 
@@ -43,6 +47,10 @@ defmodule Engine.Build.Project do
         end
       )
     end)
+  end
+
+  def fetch_deps(%Project{}) do
+    :ok
   end
 
   defp do_compile(project, initial?, token) do

@@ -18,12 +18,16 @@ defmodule Engine.Build.Document.Compilers.Config do
 
   @impl true
   def recognizes?(%Document{} = document) do
-    in_config_dir? =
-      document.path
-      |> Path.dirname()
-      |> String.starts_with?(config_dir())
+    if Engine.Mix.loaded?() do
+      in_config_dir? =
+        document.path
+        |> Path.dirname()
+        |> String.starts_with?(config_dir())
 
-    in_config_dir? and Path.extname(document.path) == ".exs"
+      in_config_dir? and Path.extname(document.path) == ".exs"
+    else
+      false
+    end
   end
 
   @impl true

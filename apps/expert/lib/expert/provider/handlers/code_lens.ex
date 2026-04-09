@@ -18,7 +18,7 @@ defmodule Expert.Provider.Handlers.CodeLens do
   @impl Expert.Provider.Handler
   def handle(
         %Requests.TextDocumentCodeLens{params: %Structures.CodeLensParams{}},
-        %Context{kind: :project} = context
+        %Context{} = context
       ) do
     %Context{document: document, project: project} = context
 
@@ -29,10 +29,6 @@ defmodule Expert.Provider.Handlers.CodeLens do
       end
 
     {:ok, lenses}
-  end
-
-  def handle(%Requests.TextDocumentCodeLens{}, %Context{kind: :bare}) do
-    {:ok, []}
   end
 
   defp reindex_lens(%Project{} = project, %Document{} = document) do

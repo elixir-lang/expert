@@ -1,0 +1,2 @@
+defmodule Bare do
+end
