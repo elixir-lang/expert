@@ -11,21 +11,25 @@ defmodule Expert.Configuration do
   alias GenLSP.Structures
 
   @default_lsp_log_level :info
+  @default_file_log_level :debug
 
   @type lsp_level :: :error | :warning | :info | :log
+  @type file_level :: :debug | :info | :warning | :error
 
   defstruct support: nil,
             client_name: nil,
             additional_watched_extensions: nil,
             workspace_symbols: %WorkspaceSymbols{},
-            log_level: @default_lsp_log_level
+            log_level: @default_lsp_log_level,
+            file_log_level: @default_file_log_level
 
   @type t :: %__MODULE__{
           support: support | nil,
           client_name: String.t() | nil,
           additional_watched_extensions: [String.t()] | nil,
           workspace_symbols: WorkspaceSymbols.t(),
-          log_level: lsp_level()
+          log_level: lsp_level(),
+          file_log_level: file_level()
         }
 
   @opaque support :: Support.t()
@@ -61,6 +65,11 @@ defmodule Expert.Configuration do
   @spec log_level() :: lsp_level()
   def log_level do
     get().log_level
+  end
+
+  @spec file_log_level() :: file_level()
+  def file_log_level do
+    get().file_log_level
   end
 
   @spec window_log_message_enabled?() :: boolean()
@@ -106,9 +115,11 @@ defmodule Expert.Configuration do
     new_config =
       old_config
       |> set_lsp_log_level(settings)
+      |> set_file_log_level(settings)
       |> set_workspace_symbols(settings)
       |> set()
 
+    apply_file_log_level(new_config)
     maybe_watched_extensions_request(new_config, settings)
   end
 
@@ -125,6 +136,29 @@ defmodule Expert.Configuration do
   defp parse_lsp_log_level(%{"logLevel" => "info"}), do: :info
   defp parse_lsp_log_level(%{"logLevel" => "log"}), do: :log
   defp parse_lsp_log_level(_), do: @default_lsp_log_level
+
+  defp set_file_log_level(%__MODULE__{} = config, %{"fileLogLevel" => value}) do
+    %__MODULE__{config | file_log_level: parse_file_log_level(value)}
+  end
+
+  defp set_file_log_level(%__MODULE__{} = config, _settings) do
+    config
+  end
+
+  defp parse_file_log_level("debug"), do: :debug
+  defp parse_file_log_level("info"), do: :info
+  defp parse_file_log_level("warning"), do: :warning
+  defp parse_file_log_level("error"), do: :error
+  defp parse_file_log_level(_), do: @default_file_log_level
+
+  defp apply_file_log_level(%__MODULE__{file_log_level: level}) do
+    handler_name = Expert.Logging.ProjectLogFile.handler_name()
+
+    case :logger.set_handler_config(handler_name, :level, level) do
+      :ok -> :ok
+      {:error, _} -> :ok
+    end
+  end
 
   defp set_workspace_symbols(%__MODULE__{} = config, settings) do
     %__MODULE__{config | workspace_symbols: WorkspaceSymbols.new(settings)}

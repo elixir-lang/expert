@@ -73,6 +73,20 @@ defmodule Expert.ConfigurationTest do
     end
   end
 
+  describe "file_log_level/0" do
+    test "defaults to :debug" do
+      assert Configuration.file_log_level() == :debug
+    end
+
+    test "can be set via new/1" do
+      [file_log_level: :warning]
+      |> Configuration.new()
+      |> Configuration.set()
+
+      assert Configuration.file_log_level() == :warning
+    end
+  end
+
   describe "on_change/1 with logLevel" do
     test "parses the 4 valid LSP log level strings" do
       for {string, atom} <- [
@@ -115,6 +129,101 @@ defmodule Expert.ConfigurationTest do
         assert updated.log_level == :warning
         assert updated.workspace_symbols.min_query_length == 2
       end
+    end
+  end
+
+  describe "on_change/1 with fileLogLevel" do
+    test "parses valid file log level strings" do
+      for {string, atom} <- [
+            {"debug", :debug},
+            {"info", :info},
+            {"warning", :warning},
+            {"error", :error}
+          ] do
+        change = build_change(%{"fileLogLevel" => string})
+
+        {:ok, updated} = Configuration.on_change(change)
+
+        assert updated.file_log_level == atom
+      end
+    end
+
+    test "preserves previous value when setting is missing" do
+      change = build_change(%{"fileLogLevel" => "error"})
+      {:ok, _} = Configuration.on_change(change)
+
+      change = build_change(%{})
+      {:ok, updated} = Configuration.on_change(change)
+
+      assert updated.file_log_level == :error
+    end
+
+    test "resets to default when explicit null is sent" do
+      change = build_change(%{"fileLogLevel" => "error"})
+      {:ok, _} = Configuration.on_change(change)
+
+      change = build_change(%{"fileLogLevel" => nil})
+      {:ok, updated} = Configuration.on_change(change)
+
+      assert updated.file_log_level == :debug
+    end
+
+    test "resets to default for invalid string values" do
+      change = build_change(%{"fileLogLevel" => "verbose"})
+      {:ok, updated} = Configuration.on_change(change)
+
+      assert updated.file_log_level == :debug
+    end
+
+    test "updates the project log file handler level" do
+      handler_name = Expert.Logging.ProjectLogFile.handler_name()
+      had_handler = match?({:ok, _}, :logger.get_handler_config(handler_name))
+
+      if !had_handler do
+        :logger.add_handler(handler_name, :logger_std_h, %{
+          config: %{file: ~c"/dev/null"},
+          level: :debug
+        })
+      end
+
+      on_exit(fn ->
+        if had_handler do
+          :logger.set_handler_config(handler_name, :level, :debug)
+        else
+          :logger.remove_handler(handler_name)
+        end
+      end)
+
+      change = build_change(%{"fileLogLevel" => "warning"})
+      {:ok, _updated} = Configuration.on_change(change)
+
+      {:ok, handler_config} = :logger.get_handler_config(handler_name)
+      assert handler_config.level == :warning
+    end
+
+    test "does not crash when handler is not attached" do
+      handler_name = Expert.Logging.ProjectLogFile.handler_name()
+
+      previous_config =
+        case :logger.get_handler_config(handler_name) do
+          {:ok, config} ->
+            :logger.remove_handler(handler_name)
+            config
+
+          {:error, _} ->
+            nil
+        end
+
+      on_exit(fn ->
+        if previous_config do
+          :logger.add_handler(handler_name, previous_config.module, previous_config)
+        end
+      end)
+
+      change = build_change(%{"fileLogLevel" => "error"})
+      {:ok, updated} = Configuration.on_change(change)
+
+      assert updated.file_log_level == :error
     end
   end
 
