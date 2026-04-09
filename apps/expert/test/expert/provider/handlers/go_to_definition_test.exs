@@ -4,6 +4,7 @@ defmodule Expert.Provider.Handlers.GoToDefinitionTest do
   import Forge.EngineApi.Messages
   import Forge.Test.Fixtures
 
+  alias Expert.Document.Context
   alias Expert.EngineApi
   alias Expert.Protocol.Convert
   alias Expert.Provider.Handlers
@@ -17,7 +18,7 @@ defmodule Expert.Provider.Handlers.GoToDefinitionTest do
 
     start_supervised!({Forge.NodePortMapper, []})
     start_supervised!(Expert.Application.document_store_child_spec())
-    start_supervised!({Expert.ActiveProjects, []})
+    start_supervised!({Expert.Project.Store, []})
     start_supervised!({DynamicSupervisor, Expert.Project.DynamicSupervisor.options()})
     start_supervised!({Expert.Project.Supervisor, project})
 
@@ -62,8 +63,10 @@ defmodule Expert.Provider.Handlers.GoToDefinitionTest do
   end
 
   def handle(request, project) do
-    Expert.ActiveProjects.add_projects([project])
-    Handlers.GoToDefinition.handle(request)
+    Expert.Project.Store.add_projects([project])
+    document = Document.Container.context_document(request, nil)
+    context = Context.project(document.uri, document, project)
+    Handlers.GoToDefinition.handle(request, context)
   end
 
   describe "go to definition" do

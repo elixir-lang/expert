@@ -1,22 +1,22 @@
 defmodule Expert.Provider.Handlers.Completion do
   @behaviour Expert.Provider.Handler
 
-  alias Expert.ActiveProjects
   alias Expert.CodeIntelligence
+  alias Expert.Document.Context
   alias Forge.Ast
   alias Forge.Document
   alias Forge.Document.Position
-  alias Forge.Project
   alias GenLSP.Enumerations.CompletionTriggerKind
   alias GenLSP.Requests
   alias GenLSP.Structures
   alias GenLSP.Structures.CompletionContext
 
   @impl Expert.Provider.Handler
-  def handle(%Requests.TextDocumentCompletion{params: %Structures.CompletionParams{} = params}) do
-    document = Document.Container.context_document(params, nil)
-    projects = ActiveProjects.projects()
-    project = Project.project_for_document(projects, document)
+  def handle(
+        %Requests.TextDocumentCompletion{params: %Structures.CompletionParams{} = params},
+        %Context{kind: :project} = context
+      ) do
+    %Context{document: document, project: project} = context
 
     completions =
       CodeIntelligence.Completion.complete(
@@ -27,6 +27,10 @@ defmodule Expert.Provider.Handlers.Completion do
       )
 
     {:ok, completions}
+  end
+
+  def handle(%Requests.TextDocumentCompletion{}, %Context{kind: :bare}) do
+    {:ok, []}
   end
 
   defp document_analysis(%Document{} = document, %Position{} = position) do

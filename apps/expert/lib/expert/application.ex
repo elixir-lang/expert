@@ -1,6 +1,4 @@
 defmodule Expert.Application do
-  # See https://hexdocs.pm/elixir/Application.html
-  # for more information on OTP Applications
   @moduledoc false
 
   use Application
@@ -21,7 +19,6 @@ defmodule Expert.Application do
 
     argv = Burrito.Util.Args.argv()
 
-    # Handle engine subcommand first (before starting the LSP server)
     case argv do
       ["engine" | engine_args] ->
         engine_args
@@ -108,7 +105,6 @@ defmodule Expert.Application do
 
           IO.puts(help_text)
 
-          # Status code 2 is often used for invalid CLI argument
           System.halt(2)
       end
 
@@ -137,7 +133,7 @@ defmodule Expert.Application do
       {GenLSP.Assigns, [name: Expert.Assigns]},
       {Task.Supervisor, name: :expert_task_queue},
       {GenLSP.Buffer, [name: Expert.Buffer] ++ buffer_opts},
-      {Expert.ActiveProjects, []},
+      {Expert.Project.Store, []},
       {Expert,
        name: Expert,
        buffer: Expert.Buffer,

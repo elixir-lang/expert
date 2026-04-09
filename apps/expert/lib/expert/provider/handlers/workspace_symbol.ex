@@ -1,10 +1,10 @@
 defmodule Expert.Provider.Handlers.WorkspaceSymbol do
   @behaviour Expert.Provider.Handler
 
-  alias Expert.ActiveProjects
   alias Expert.Configuration
   alias Expert.Configuration.WorkspaceSymbols
   alias Expert.EngineApi
+  alias Expert.Project.Store
   alias Forge.CodeIntelligence.Symbols
   alias Forge.Project
   alias GenLSP.Enumerations.SymbolKind
@@ -13,10 +13,11 @@ defmodule Expert.Provider.Handlers.WorkspaceSymbol do
 
   @impl Expert.Provider.Handler
   def handle(
-        %Requests.WorkspaceSymbol{params: %Structures.WorkspaceSymbolParams{} = params} = request
+        %Requests.WorkspaceSymbol{params: %Structures.WorkspaceSymbolParams{} = params} = request,
+        _context
       ) do
     config = Configuration.get()
-    projects = ActiveProjects.projects()
+    projects = Store.projects()
 
     symbols =
       if should_return_symbols?(params.query, config) do

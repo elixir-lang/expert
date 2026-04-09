@@ -3,8 +3,6 @@ defmodule Forge.ProjectTest do
   use ExUnitProperties
   use Patch
 
-  import Forge.Test.Fixtures
-
   alias Forge.Document
   alias Forge.Project
   alias Forge.Workspace
@@ -12,165 +10,6 @@ defmodule Forge.ProjectTest do
   defp test_project do
     root = Forge.Document.Path.to_uri(__DIR__)
     Project.new(root)
-  end
-
-  defp make_document(path) do
-    %Document{
-      uri: Document.Path.to_uri(path),
-      path: path,
-      version: 1,
-      lines: nil
-    }
-  end
-
-  defp setup_nested_projects(_context) do
-    root_path = Path.join(fixtures_path(), "nested_projects")
-    subproject_path = Path.join(root_path, "subproject")
-
-    root_project =
-      root_path
-      |> Document.Path.to_uri()
-      |> Project.new()
-
-    subproject =
-      subproject_path
-      |> Document.Path.to_uri()
-      |> Project.new()
-
-    %{
-      root_path: root_path,
-      subproject_path: subproject_path,
-      root_project: root_project,
-      subproject: subproject
-    }
-  end
-
-  describe "project_for_uri/2" do
-    setup :setup_nested_projects
-
-    test "returns the closest project when file is in a nested subproject", %{
-      root_project: root_project,
-      subproject: subproject,
-      subproject_path: subproject_path
-    } do
-      projects = [root_project, subproject]
-      file_uri = Document.Path.to_uri(Path.join(subproject_path, "lib/subproject.ex"))
-
-      result = Project.project_for_uri(projects, file_uri)
-
-      assert result.root_uri == subproject.root_uri
-    end
-
-    test "returns the closest project regardless of list order", %{
-      root_project: root_project,
-      subproject: subproject,
-      subproject_path: subproject_path
-    } do
-      # Test with subproject first in list
-      projects = [subproject, root_project]
-      file_uri = Document.Path.to_uri(Path.join(subproject_path, "lib/subproject.ex"))
-
-      result = Project.project_for_uri(projects, file_uri)
-
-      assert result.root_uri == subproject.root_uri
-    end
-
-    test "returns the root project when file is outside subproject", %{
-      root_project: root_project,
-      subproject: subproject,
-      root_path: root_path
-    } do
-      projects = [root_project, subproject]
-      file_uri = Document.Path.to_uri(Path.join(root_path, "lib/nested_projects.ex"))
-
-      result = Project.project_for_uri(projects, file_uri)
-
-      assert result.root_uri == root_project.root_uri
-    end
-
-    test "returns nil when no projects contain the file", %{
-      root_project: root_project,
-      subproject: subproject
-    } do
-      projects = [root_project, subproject]
-      file_uri = Document.Path.to_uri("/some/other/path/file.ex")
-
-      result = Project.project_for_uri(projects, file_uri)
-
-      assert result == nil
-    end
-
-    test "returns nil when projects list is empty" do
-      file_uri = Document.Path.to_uri("/some/path/file.ex")
-
-      result = Project.project_for_uri([], file_uri)
-
-      assert result == nil
-    end
-  end
-
-  describe "project_for_document/2" do
-    setup :setup_nested_projects
-
-    test "returns the closest project when document is in a nested subproject", %{
-      root_project: root_project,
-      subproject: subproject,
-      subproject_path: subproject_path
-    } do
-      projects = [root_project, subproject]
-      document = make_document(Path.join(subproject_path, "lib/subproject.ex"))
-
-      result = Project.project_for_document(projects, document)
-
-      assert result.root_uri == subproject.root_uri
-    end
-
-    test "returns the closest project regardless of list order", %{
-      root_project: root_project,
-      subproject: subproject,
-      subproject_path: subproject_path
-    } do
-      # Test with subproject first in list
-      projects = [subproject, root_project]
-      document = make_document(Path.join(subproject_path, "lib/subproject.ex"))
-
-      result = Project.project_for_document(projects, document)
-
-      assert result.root_uri == subproject.root_uri
-    end
-
-    test "returns the root project when document is outside subproject", %{
-      root_project: root_project,
-      subproject: subproject,
-      root_path: root_path
-    } do
-      projects = [root_project, subproject]
-      document = make_document(Path.join(root_path, "lib/nested_projects.ex"))
-
-      result = Project.project_for_document(projects, document)
-
-      assert result.root_uri == root_project.root_uri
-    end
-
-    test "returns nil when no projects contain the document", %{
-      root_project: root_project,
-      subproject: subproject
-    } do
-      projects = [root_project, subproject]
-      document = make_document("/some/other/path/file.ex")
-
-      result = Project.project_for_document(projects, document)
-
-      assert result == nil
-    end
-
-    test "returns nil when projects list is empty" do
-      document = make_document("/some/path/file.ex")
-
-      result = Project.project_for_document([], document)
-
-      assert result == nil
-    end
   end
 
   describe "name/1" do
@@ -243,6 +82,54 @@ defmodule Forge.ProjectTest do
 
       sanitized_name = Forge.Node.sanitize(Project.name(project))
       assert Atom.to_string(node_name) =~ sanitized_name
+    end
+  end
+
+  describe "from_folders/1" do
+    test "returns an empty list for no folders" do
+      assert Project.from_folders([]) == []
+    end
+
+    @tag :tmp_dir
+    test "returns only mix and bare elixir projects", %{tmp_dir: tmp_dir} do
+      mix_project_path = Path.join(tmp_dir, "mix_project")
+      bare_project_path = Path.join(tmp_dir, "bare_project")
+      other_project_path = Path.join(tmp_dir, "other_project")
+
+      File.mkdir_p!(mix_project_path)
+      File.mkdir_p!(bare_project_path)
+      File.mkdir_p!(other_project_path)
+
+      File.write!(Path.join(mix_project_path, "mix.exs"), "defmodule MixProject do\nend\n")
+      File.write!(Path.join(bare_project_path, "test.ex"), "defmodule BareProject do\nend\n")
+      File.write!(Path.join(other_project_path, "README.md"), "hello\n")
+
+      folders = [
+        %{uri: Document.Path.to_uri(mix_project_path)},
+        %{uri: Document.Path.to_uri(bare_project_path)},
+        %{uri: Document.Path.to_uri(other_project_path)}
+      ]
+
+      assert folders
+             |> Project.from_folders()
+             |> Enum.map(&Project.root_path/1)
+             |> Enum.sort() == Enum.sort([mix_project_path, bare_project_path])
+    end
+
+    @tag :tmp_dir
+    test "ignores folders that do not exist or are not elixir projects", %{tmp_dir: tmp_dir} do
+      other_project_path = Path.join(tmp_dir, "other_project")
+      missing_project_path = Path.join(tmp_dir, "missing_project")
+
+      File.mkdir_p!(other_project_path)
+      File.write!(Path.join(other_project_path, "README.md"), "hello\n")
+
+      folders = [
+        %{uri: Document.Path.to_uri(other_project_path)},
+        %{uri: Document.Path.to_uri(missing_project_path)}
+      ]
+
+      assert Project.from_folders(folders) == []
     end
   end
 

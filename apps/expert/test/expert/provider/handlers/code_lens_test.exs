@@ -6,6 +6,7 @@ defmodule Expert.Provider.Handlers.CodeLensTest do
   import Forge.Test.Fixtures
   import Forge.Test.RangeSupport
 
+  alias Expert.Document.Context
   alias Expert.EngineApi
   alias Expert.Protocol.Convert
   alias Expert.Protocol.Id
@@ -20,7 +21,7 @@ defmodule Expert.Provider.Handlers.CodeLensTest do
     start_supervised(Document.Store)
     project = project(:umbrella)
 
-    start_supervised!({Expert.ActiveProjects, []})
+    start_supervised!({Expert.Project.Store, []})
     start_supervised!({DynamicSupervisor, Expert.Project.DynamicSupervisor.options()})
     start_supervised!({Expert.Project.Supervisor, project})
 
@@ -66,8 +67,10 @@ defmodule Expert.Provider.Handlers.CodeLensTest do
   end
 
   def handle(request, project) do
-    Expert.ActiveProjects.add_projects([project])
-    Handlers.CodeLens.handle(request)
+    Expert.Project.Store.add_projects([project])
+    document = Document.Container.context_document(request, nil)
+    context = Context.project(document.uri, document, project)
+    Handlers.CodeLens.handle(request, context)
   end
 
   describe "code lens for mix.exs" do

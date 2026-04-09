@@ -3,7 +3,7 @@ defmodule Expert.Provider.Handlers.CodeLens do
 
   import Forge.Document.Line
 
-  alias Expert.ActiveProjects
+  alias Expert.Document.Context
   alias Expert.EngineApi
   alias Expert.Provider.Handlers
   alias Forge.Document
@@ -16,12 +16,11 @@ defmodule Expert.Provider.Handlers.CodeLens do
   require Logger
 
   @impl Expert.Provider.Handler
-  def handle(%Requests.TextDocumentCodeLens{params: %Structures.CodeLensParams{} = params}) do
-    document = Document.Container.context_document(params, nil)
-    projects = ActiveProjects.projects()
-    project = Project.project_for_document(projects, document)
-
-    document = Document.Container.context_document(params, nil)
+  def handle(
+        %Requests.TextDocumentCodeLens{params: %Structures.CodeLensParams{}},
+        %Context{kind: :project} = context
+      ) do
+    %Context{document: document, project: project} = context
 
     lenses =
       case reindex_lens(project, document) do
@@ -30,6 +29,10 @@ defmodule Expert.Provider.Handlers.CodeLens do
       end
 
     {:ok, lenses}
+  end
+
+  def handle(%Requests.TextDocumentCodeLens{}, %Context{kind: :bare}) do
+    {:ok, []}
   end
 
   defp reindex_lens(%Project{} = project, %Document{} = document) do

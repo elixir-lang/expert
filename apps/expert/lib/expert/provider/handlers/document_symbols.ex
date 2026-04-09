@@ -1,20 +1,17 @@
 defmodule Expert.Provider.Handlers.DocumentSymbols do
   @behaviour Expert.Provider.Handler
 
-  alias Expert.ActiveProjects
+  alias Expert.Document.Context
   alias Expert.EngineApi
   alias Forge.CodeIntelligence.Symbols
   alias Forge.Document
-  alias Forge.Project
   alias GenLSP.Enumerations.SymbolKind
   alias GenLSP.Requests
   alias GenLSP.Structures
 
   @impl Expert.Provider.Handler
-  def handle(%Requests.TextDocumentDocumentSymbol{} = request) do
-    document = Document.Container.context_document(request.params, nil)
-    projects = ActiveProjects.projects()
-    project = Project.project_for_document(projects, document)
+  def handle(%Requests.TextDocumentDocumentSymbol{}, %Context{kind: :project} = context) do
+    %Context{document: document, project: project} = context
 
     symbols =
       project
@@ -22,6 +19,10 @@ defmodule Expert.Provider.Handlers.DocumentSymbols do
       |> Enum.map(&to_response(&1, document))
 
     {:ok, symbols}
+  end
+
+  def handle(%Requests.TextDocumentDocumentSymbol{}, %Context{kind: :bare}) do
+    {:ok, []}
   end
 
   def to_response(%Symbols.Document{} = root, %Document{} = document) do

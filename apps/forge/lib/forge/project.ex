@@ -42,6 +42,16 @@ defmodule Forge.Project do
     |> maybe_set_mix_exs_uri()
   end
 
+  @spec from_folders([%{uri: Forge.uri()}]) :: [t()]
+  def from_folders(folders) do
+    folders
+    |> Enum.flat_map(fn %{uri: uri} ->
+      project = new(uri)
+
+      if project.mix_project? or elixir_project?(project), do: [project], else: []
+    end)
+  end
+
   @spec set_project_module(t(), module() | nil) :: t()
   def set_project_module(%__MODULE__{} = project, nil) do
     project
@@ -170,6 +180,7 @@ defmodule Forge.Project do
     workspace_name =
       case workspace do
         nil -> name(project)
+        %{root_path: nil} -> name(project)
         _ -> Forge.Workspace.name(workspace)
       end
 
@@ -358,107 +369,17 @@ defmodule Forge.Project do
     |> Path.basename()
   end
 
+  @spec elixir_project?(t()) :: boolean()
   def elixir_project?(%__MODULE__{} = project) do
-    ex_files = project |> root_path() |> Path.join("*.ex") |> Path.wildcard()
-    exs_files = project |> root_path() |> Path.join("*.exs") |> Path.wildcard()
+    case root_path(project) do
+      nil ->
+        false
 
-    ex_files != [] or exs_files != []
-  end
+      root_path ->
+        ex_files = root_path |> Path.join("*.ex") |> Path.wildcard()
+        exs_files = root_path |> Path.join("*.exs") |> Path.wildcard()
 
-  @doc """
-  Finds the closest project that contains the given URI.
-  """
-  def project_for_uri(projects, uri) do
-    path = Document.Path.from_uri(uri)
-    closest_project_for_path(projects, path)
-  end
-
-  @doc """
-  Finds the closest project that contains the given document.
-  """
-  def project_for_document(projects, %Document{} = document) do
-    closest_project_for_path(projects, document.path)
-  end
-
-  # Finds the most specific project containing the path (longest root path wins).
-  defp closest_project_for_path(projects, path) do
-    projects
-    |> Enum.filter(fn project ->
-      Forge.Path.parent_path?(path, root_path(project))
-    end)
-    |> Enum.max_by(fn project -> byte_size(root_path(project)) end, fn -> nil end)
-  end
-
-  @doc """
-  Checks if the given path is within the project directory.
-
-  If the path is within a subdirectory of the project and a
-  mix file exists, it returns false.
-  """
-  def within_project?(%__MODULE__{} = project, path) do
-    root_path = if project.mix_project?, do: find_parent_root_dir(path), else: root_path(project)
-    project_path = root_path(project)
-
-    Forge.Path.parent_path?(root_path, project_path)
-  end
-
-  @doc """
-  Finds or creates the project for the given path.
-  """
-  def find_project(path) do
-    project_root = find_parent_root_dir(path)
-
-    if !is_nil(project_root) do
-      new(project_root)
-    end
-  end
-
-  @doc """
-  Returns the `apps_path` configured in `mix.exs` when `project_path` is an
-  umbrella root, otherwise returns `nil`.
-  """
-  def umbrella_apps_path(project_path) when is_binary(project_path) do
-    mix_exs_path = Path.join(project_path, "mix.exs")
-
-    with true <- File.exists?(mix_exs_path),
-         {:ok, source} <- File.read(mix_exs_path),
-         {:ok, ast} <- Code.string_to_quoted(source),
-         apps_path when is_binary(apps_path) <- extract_apps_path(ast) do
-      apps_path
-    else
-      _ -> nil
-    end
-  end
-
-  def find_parent_root_dir(path) do
-    path = Forge.Document.Path.from_uri(path)
-    path = path |> Path.expand() |> path_or_parent_dir()
-    boundary = workspace_boundary_path()
-
-    segments = Path.split(path)
-
-    case traverse_path(segments, boundary) do
-      nil -> nil
-      root -> Document.Path.to_uri(root)
-    end
-  end
-
-  defp traverse_path([], _boundary), do: nil
-
-  defp traverse_path(segments, boundary) do
-    path = Path.join(segments)
-    mix_exs_path = Path.join(path, "mix.exs")
-
-    cond do
-      boundary_reached?(path, boundary) ->
-        nil
-
-      File.exists?(mix_exs_path) ->
-        umbrella_root_for(path, boundary) || path
-
-      true ->
-        {_, rest} = List.pop_at(segments, -1)
-        traverse_path(rest, boundary)
+        ex_files != [] or exs_files != []
     end
   end
 
@@ -471,79 +392,5 @@ defmodule Forge.Project do
       Logger.warning("Could not connect to hex.pm, dependencies will not be fetched")
       :ok
     end
-  end
-
-  defp workspace_boundary_path do
-    case Forge.Workspace.get_workspace() do
-      %Forge.Workspace{root_path: root_path} when is_binary(root_path) ->
-        Path.expand(root_path)
-
-      _ ->
-        nil
-    end
-  end
-
-  defp boundary_reached?(_path, nil), do: false
-
-  defp boundary_reached?(path, boundary) do
-    expanded_path = Path.expand(path)
-
-    not Forge.Path.parent_path?(expanded_path, boundary)
-  end
-
-  defp path_or_parent_dir(path) do
-    if File.dir?(path) do
-      path
-    else
-      Path.dirname(path)
-    end
-  end
-
-  defp umbrella_root_for(project_path, boundary) do
-    project_path = Path.expand(project_path)
-    do_find_umbrella_root(Path.dirname(project_path), project_path, boundary)
-  end
-
-  defp do_find_umbrella_root(current_path, project_path, boundary) do
-    if !boundary_reached?(current_path, boundary) do
-      case umbrella_apps_path(current_path) do
-        apps_path when is_binary(apps_path) ->
-          apps_root = Path.expand(Path.join(current_path, apps_path))
-
-          if project_path == apps_root or Forge.Path.parent_path?(project_path, apps_root) do
-            current_path
-          else
-            next_parent(current_path, project_path, boundary)
-          end
-
-        _ ->
-          next_parent(current_path, project_path, boundary)
-      end
-    end
-  end
-
-  defp next_parent(current_path, project_path, boundary) do
-    parent = Path.dirname(current_path)
-
-    cond do
-      parent == current_path ->
-        nil
-
-      boundary_reached?(parent, boundary) ->
-        nil
-
-      true ->
-        do_find_umbrella_root(parent, project_path, boundary)
-    end
-  end
-
-  defp extract_apps_path(ast) do
-    {_ast, apps_path} =
-      Macro.prewalk(ast, nil, fn
-        {:apps_path, value} = node, nil when is_binary(value) -> {node, value}
-        node, acc -> {node, acc}
-      end)
-
-    apps_path
   end
 end

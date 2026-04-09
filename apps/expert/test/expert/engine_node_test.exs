@@ -10,7 +10,7 @@ defmodule Expert.EngineNodeTest do
 
   setup do
     project = project()
-    start_supervised!(Expert.ActiveProjects)
+    start_supervised!(Expert.Project.Store)
     start_supervised!({Forge.NodePortMapper, []})
     start_supervised!({EngineSupervisor, project})
     {:ok, %{project: project}}

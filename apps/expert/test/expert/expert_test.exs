@@ -1,5 +1,6 @@
 defmodule ExpertTest do
   use ExUnit.Case, async: false
+  use Forge.Test.EventualAssertions
   use Patch
 
   import Forge.Test.Fixtures
@@ -54,6 +55,7 @@ defmodule ExpertTest do
   setup do
     # Clear any leftover configuration from previous tests
     :persistent_term.erase(Expert.Configuration)
+    Forge.Workspace.set_workspace(nil)
 
     # window/logMessage is emitted by a Logger handler; keep :info enabled
     # so integration assertions can observe those notifications.
@@ -63,6 +65,7 @@ defmodule ExpertTest do
     :logger.update_handler_config(:default, :level, :none)
 
     on_exit(fn ->
+      Forge.Workspace.set_workspace(nil)
       Logger.configure(level: :none)
       :logger.update_handler_config(:default, :level, :all)
     end)
@@ -82,7 +85,7 @@ defmodule ExpertTest do
       :ok
     end)
 
-    start_supervised!({Expert.ActiveProjects, []})
+    start_supervised!({Expert.Project.Store, []})
 
     server =
       server(Expert,
@@ -92,7 +95,7 @@ defmodule ExpertTest do
 
     client = client(server)
 
-    Process.sleep(100)
+    assert Process.alive?(server.lsp)
 
     [server: server, client: client]
   end
@@ -100,6 +103,7 @@ defmodule ExpertTest do
   def initialize_request(root_path, opts \\ []) do
     id = opts[:id] || 1
     projects = Keyword.get(opts, :projects, [])
+    root_uri = Keyword.get_lazy(opts, :root_uri, fn -> Document.Path.to_uri(root_path) end)
 
     workspace_folders =
       if not is_nil(projects) do
@@ -113,7 +117,7 @@ defmodule ExpertTest do
       id: id,
       jsonrpc: "2.0",
       params: %{
-        rootUri: Document.Path.to_uri(root_path),
+        rootUri: root_uri,
         initializationOptions: %{},
         capabilities: %{
           workspace: %{
@@ -173,7 +177,7 @@ defmodule ExpertTest do
         %{"message" => ^expected_message}
       )
 
-      assert [project] = Expert.ActiveProjects.projects()
+      assert [project] = Expert.Project.Store.projects()
       assert project.root_uri == main_project.root_uri
 
       assert_project_alive?(main_project)
@@ -206,7 +210,7 @@ defmodule ExpertTest do
         %{"message" => ^expected_message}
       )
 
-      assert [_project_1] = Expert.ActiveProjects.projects()
+      assert [_project_1] = Expert.Project.Store.projects()
 
       assert :ok =
                notify(
@@ -232,7 +236,7 @@ defmodule ExpertTest do
         %{"message" => ^expected_message}
       )
 
-      assert [_, _] = projects = Expert.ActiveProjects.projects()
+      assert [_, _] = projects = Expert.Project.Store.projects()
 
       for project <- projects do
         assert project.root_uri in [main_project.root_uri, secondary_project.root_uri]
@@ -264,7 +268,7 @@ defmodule ExpertTest do
         %{"message" => ^expected_message}
       )
 
-      assert [project] = Expert.ActiveProjects.projects()
+      assert [project] = Expert.Project.Store.projects()
       assert project.root_uri == main_project.root_uri
       assert_project_alive?(main_project)
 
@@ -292,7 +296,7 @@ defmodule ExpertTest do
         %{"message" => ^expected_message}
       )
 
-      assert [] = Expert.ActiveProjects.projects()
+      assert [] = Expert.Project.Store.projects()
       assert_project_stopped?(main_project)
     end
 
@@ -310,7 +314,84 @@ defmodule ExpertTest do
         "capabilities" => %{"workspace" => %{"workspaceFolders" => %{"supported" => true}}}
       })
 
-      assert [] = Expert.ActiveProjects.projects()
+      assert [] = Expert.Project.Store.projects()
+    end
+
+    test "creates a workspace when rootUri is nil and workspaceFolders are present", %{
+      client: client,
+      project_root: project_root,
+      main_project: main_project,
+      secondary_project: secondary_project
+    } do
+      assert :ok =
+               request(
+                 client,
+                 initialize_request(project_root,
+                   id: 1,
+                   root_uri: nil,
+                   projects: [main_project, secondary_project]
+                 )
+               )
+
+      assert_result(1, %{
+        "capabilities" => %{"workspace" => %{"workspaceFolders" => %{"supported" => true}}}
+      })
+
+      assert %Forge.Workspace{root_path: nil, workspace_folders: workspace_folders} =
+               Forge.Workspace.get_workspace()
+
+      assert Enum.sort(workspace_folders) ==
+               Enum.sort([
+                 Forge.Project.root_path(main_project),
+                 Forge.Project.root_path(secondary_project)
+               ])
+
+      assert [_, _] = projects = Expert.Project.Store.projects()
+
+      assert Enum.sort(Enum.map(projects, & &1.root_uri)) ==
+               Enum.sort([main_project.root_uri, secondary_project.root_uri])
+    end
+
+    test "creates a workspace from folder changes when none exists", %{
+      client: client,
+      project_root: project_root,
+      secondary_project: secondary_project
+    } do
+      assert :ok =
+               request(
+                 client,
+                 initialize_request(project_root, id: 1, projects: nil)
+               )
+
+      assert_result(1, _)
+
+      Forge.Workspace.set_workspace(nil)
+
+      assert :ok =
+               notify(
+                 client,
+                 %{
+                   method: "workspace/didChangeWorkspaceFolders",
+                   jsonrpc: "2.0",
+                   params: %{
+                     event: %{
+                       added: [
+                         %{uri: secondary_project.root_uri, name: secondary_project.root_uri}
+                       ],
+                       removed: []
+                     }
+                   }
+                 }
+               )
+
+      assert_project_alive?(secondary_project)
+
+      assert %Forge.Workspace{root_path: nil, workspace_folders: workspace_folders} =
+               Forge.Workspace.get_workspace()
+
+      assert workspace_folders == [Forge.Project.root_path(secondary_project)]
+      assert [project] = Expert.Project.Store.projects()
+      assert project.root_uri == secondary_project.root_uri
     end
   end
 
@@ -367,7 +448,7 @@ defmodule ExpertTest do
         %{"message" => ^expected_message}
       )
 
-      assert [_, _] = projects = Expert.ActiveProjects.projects()
+      assert [_, _] = projects = Expert.Project.Store.projects()
 
       for project <- projects do
         assert project.root_uri in [main_project.root_uri, secondary_project.root_uri]
@@ -417,7 +498,7 @@ defmodule ExpertTest do
         %{"message" => ^expected_message}
       )
 
-      assert [project] = Expert.ActiveProjects.projects()
+      assert [project] = Expert.Project.Store.projects()
       assert project.root_uri == nested_subproject.root_uri
       refute project.root_uri == nested_root_project.root_uri
 
@@ -463,7 +544,7 @@ defmodule ExpertTest do
         %{"message" => ^expected_message}
       )
 
-      assert [project] = Expert.ActiveProjects.projects()
+      assert [project] = Expert.Project.Store.projects()
       assert project.root_uri == nested_root_project.root_uri
 
       assert_project_alive?(nested_root_project)
@@ -486,7 +567,7 @@ defmodule ExpertTest do
 
       assert_result(1, _)
 
-      assert length(Expert.ActiveProjects.projects()) == 2
+      assert length(Expert.Project.Store.projects()) == 2
 
       file_uri = Path.join([nested_subproject.root_uri, "lib", "subproject.ex"])
 
@@ -507,7 +588,7 @@ defmodule ExpertTest do
                  }
                )
 
-      assert length(Expert.ActiveProjects.projects()) == 2
+      assert length(Expert.Project.Store.projects()) == 2
     end
 
     test "starts subproject when root is already active and file in subproject is opened", %{
@@ -538,7 +619,7 @@ defmodule ExpertTest do
         %{"message" => ^expected_message}
       )
 
-      assert [project] = Expert.ActiveProjects.projects()
+      assert [project] = Expert.Project.Store.projects()
       assert project.root_uri == nested_root_project.root_uri
 
       file_uri = Path.join([nested_subproject.root_uri, "lib", "subproject.ex"])
@@ -567,9 +648,9 @@ defmodule ExpertTest do
         %{"message" => ^expected_message}
       )
 
-      assert length(Expert.ActiveProjects.projects()) == 2
+      assert length(Expert.Project.Store.projects()) == 2
 
-      project_uris = Enum.map(Expert.ActiveProjects.projects(), & &1.root_uri)
+      project_uris = Enum.map(Expert.Project.Store.projects(), & &1.root_uri)
       assert nested_root_project.root_uri in project_uris
       assert nested_subproject.root_uri in project_uris
 
@@ -608,10 +689,12 @@ defmodule ExpertTest do
                  }
                })
 
-      Process.sleep(50)
-
-      assert {:ok, doc} = Document.Store.fetch(file_uri)
-      assert Document.to_string(doc) == initial_text
+      assert_eventually(
+        case Document.Store.fetch(file_uri) do
+          {:ok, doc} -> Document.to_string(doc) == initial_text
+          _ -> false
+        end
+      )
 
       new_text = "defmodule Updated do\nend"
 
@@ -625,14 +708,160 @@ defmodule ExpertTest do
                  }
                })
 
-      Process.sleep(50)
+      assert_eventually(
+        case Document.Store.fetch(file_uri) do
+          {:ok, updated_doc} ->
+            updated_doc.version == 2 and Document.to_string(updated_doc) == new_text
 
-      assert {:ok, updated_doc} = Document.Store.fetch(file_uri)
-      assert updated_doc.version == 2
-      assert Document.to_string(updated_doc) == new_text
+          _ ->
+            false
+        end
+      )
 
       refute_any_call(Expert.EngineApi.broadcast())
       refute_any_call(Expert.EngineApi.compile_document())
+    end
+  end
+
+  describe "text document save" do
+    test "didSave does not crash when file is not in any active project", %{
+      client: client,
+      project_root: project_root
+    } do
+      spy(Expert.EngineApi)
+
+      # Initialize with no workspace projects
+      assert :ok = request(client, initialize_request(project_root, id: 1, projects: []))
+      assert_result(1, _)
+
+      scratch_uri =
+        Document.Path.to_uri(Path.join([project_root, "..", "scratch", "orphan_save.ex"]))
+
+      initial_text = "defmodule OrphanSave do\nend"
+
+      # Open the file so it's in Document.Store
+      assert :ok =
+               notify(client, %{
+                 method: "textDocument/didOpen",
+                 jsonrpc: "2.0",
+                 params: %{
+                   textDocument: %{
+                     uri: scratch_uri,
+                     languageId: "elixir",
+                     version: 1,
+                     text: initial_text
+                   }
+                 }
+               })
+
+      # This must not crash — same root cause as #549: nil project to active?/1
+      assert :ok =
+               notify(client, %{
+                 method: "textDocument/didSave",
+                 jsonrpc: "2.0",
+                 params: %{
+                   textDocument: %{uri: scratch_uri}
+                 }
+               })
+
+      # No engine calls should have been made
+      refute_receive %{
+                       "method" => "window/logMessage",
+                       "params" => %{"type" => 1, "message" => "FunctionClauseError" <> _}
+                     },
+                     100
+
+      refute_any_call(Expert.EngineApi.schedule_compile())
+    end
+  end
+
+  describe "opening files without a project" do
+    test "didOpen does not crash when file has no Mix project ancestor", %{
+      client: client,
+      project_root: project_root
+    } do
+      # Initialize with the main project as workspace folder
+      assert :ok = request(client, initialize_request(project_root, id: 1, projects: []))
+      assert_result(1, _)
+
+      # Open a file in the scratch directory (no mix.exs anywhere above it)
+      scratch_uri =
+        Document.Path.to_uri(Path.join([project_root, "..", "scratch", "bare_file.ex"]))
+
+      assert :ok =
+               notify(client, %{
+                 method: "textDocument/didOpen",
+                 jsonrpc: "2.0",
+                 params: %{
+                   textDocument: %{
+                     uri: scratch_uri,
+                     languageId: "elixir",
+                     version: 1,
+                     text: "defmodule Bare do\nend"
+                   }
+                 }
+               })
+
+      # Document should be stored
+      assert_eventually(match?({:ok, _doc}, Document.Store.fetch(scratch_uri)))
+
+      # No project should have been added (scratch has no mix.exs)
+      assert_eventually([] = Expert.Project.Store.projects())
+    end
+  end
+
+  describe "document-scoped requests for untracked files" do
+    test "hover request for file not in any project returns nil when document is in store", %{
+      client: client,
+      project_root: project_root,
+      main_project: main_project
+    } do
+      assert :ok =
+               request(
+                 client,
+                 initialize_request(project_root, id: 1, projects: [main_project])
+               )
+
+      assert_result(1, _)
+
+      assert :ok = notify(client, initialized_notification())
+      assert_request(client, "client/registerCapability", fn _params -> nil end)
+
+      # Use a file in the scratch dir (no mix.exs, so no project)
+      scratch_uri =
+        Document.Path.to_uri(Path.join([project_root, "..", "scratch", "hover_target.ex"]))
+
+      # Open the file first so it's in Document.Store — this avoids a separate
+      # conversion crash that happens when the document can't be found in the store
+      assert :ok =
+               notify(client, %{
+                 method: "textDocument/didOpen",
+                 jsonrpc: "2.0",
+                 params: %{
+                   textDocument: %{
+                     uri: scratch_uri,
+                     languageId: "elixir",
+                     version: 1,
+                     text: "defmodule HoverTarget do\nend"
+                   }
+                 }
+               })
+
+      assert_eventually(match?({:ok, _doc}, Document.Store.fetch(scratch_uri)))
+
+      assert :ok =
+               request(client, %{
+                 method: "textDocument/hover",
+                 id: 2,
+                 jsonrpc: "2.0",
+                 params: %{
+                   textDocument: %{uri: scratch_uri},
+                   position: %{line: 0, character: 0}
+                 }
+               })
+
+      # Should get nil response (engine not initialized), not a crash
+      assert_result(2, nil)
     end
   end
 

@@ -19,7 +19,7 @@ defmodule Expert.Test.Expert.CompletionCase do
   setup_all do
     project = project()
 
-    start_supervised!(Expert.ActiveProjects)
+    start_supervised!(Expert.Project.Store)
     start_supervised!({Forge.NodePortMapper, []})
     start_supervised!({DynamicSupervisor, Expert.Project.DynamicSupervisor.options()})
     start_supervised!({Expert.Project.Supervisor, project})

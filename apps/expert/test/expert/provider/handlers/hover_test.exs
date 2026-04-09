@@ -6,6 +6,7 @@ defmodule Expert.Provider.Handlers.HoverTest do
   import Forge.Test.RangeSupport
 
   alias Engine.Search
+  alias Expert.Document.Context
   alias Expert.EngineApi
   alias Expert.Protocol.Convert
   alias Expert.Provider.Handlers
@@ -23,7 +24,7 @@ defmodule Expert.Provider.Handlers.HoverTest do
 
     start_supervised!({Forge.NodePortMapper, []})
     start_supervised!(Expert.Application.document_store_child_spec())
-    start_supervised!({Expert.ActiveProjects, []})
+    start_supervised!({Expert.Project.Store, []})
     start_supervised!({DynamicSupervisor, Expert.Project.DynamicSupervisor.options()})
     start_supervised!({Expert.Project.Supervisor, project})
 
@@ -945,12 +946,13 @@ defmodule Expert.Provider.Handlers.HoverTest do
   end
 
   defp hover(project, hovered) do
-    Expert.ActiveProjects.add_projects([project])
+    Expert.Project.Store.add_projects([project])
 
     with {position, hovered} <- pop_cursor(hovered),
          {:ok, document} <- document_with_content(project, hovered),
          {:ok, request} <- hover_request(document.uri, position) do
-      Handlers.Hover.handle(request)
+      context = Context.project(document.uri, document, project)
+      Handlers.Hover.handle(request, context)
     end
   end
 
