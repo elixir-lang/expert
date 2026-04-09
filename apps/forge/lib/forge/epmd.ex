@@ -61,14 +61,12 @@ defmodule Forge.EPMD do
 
   def register_node(name, port), do: register_node(name, port, :inet)
 
-  def register_node(name, port, family) do
+  def register_node(_name, port, _family) do
+    # We never connect to EPMD, so we pretend the registration is successful without doing anything.
+    # We only care about the distribution port
     :persistent_term.put(:expert_dist_port, port)
 
-    # We don't care if EPMD is not running
-    case :erl_epmd.register_node(name, port, family) do
-      {:error, _} -> {:ok, -1}
-      {:ok, _} = ok -> ok
-    end
+    {:ok, -1}
   end
 
   def port_please(name, host), do: port_please(name, host, :infinity)
@@ -95,15 +93,16 @@ defmodule Forge.EPMD do
     end
   end
 
-  def port_please(name, host, timeout) do
-    :erl_epmd.port_please(name, host, timeout)
+  def port_please(_name, _host, _timeout) do
+    :noport
   end
 
   defp format_host({a, b, c, d}), do: "#{a}.#{b}.#{c}.#{d}"
   defp format_host(host) when is_list(host), do: List.to_string(host)
 
+  def names(_host_name), do: {:error, :address}
+
   defdelegate start_link, to: :erl_epmd
   defdelegate listen_port_please(name, host), to: :erl_epmd
   defdelegate address_please(name, host, family), to: :erl_epmd
-  defdelegate names(host_name), to: :erl_epmd
 end
