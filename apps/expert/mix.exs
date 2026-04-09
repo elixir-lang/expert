@@ -88,6 +88,7 @@ defmodule Expert.MixProject do
       {:engine, path: "../engine", only: [:test]},
       {:forge, path: "../forge"},
       {:gen_lsp, "~> 0.11.3"},
+      {:hex_core, "~> 0.10"},
       {:jason, "~> 1.4"},
       {:patch, "~> 0.15", runtime: false, only: [:dev, :test]},
       {:quokka, "~> 2.12", only: [:dev, :test], runtime: false},
