@@ -21,7 +21,8 @@ defmodule Expert.Configuration do
             additional_watched_extensions: nil,
             workspace_symbols: %WorkspaceSymbols{},
             log_level: @default_lsp_log_level,
-            file_log_level: @default_file_log_level
+            file_log_level: @default_file_log_level,
+            elixir_src: nil
 
   @type t :: %__MODULE__{
           support: support | nil,
@@ -29,7 +30,8 @@ defmodule Expert.Configuration do
           additional_watched_extensions: [String.t()] | nil,
           workspace_symbols: WorkspaceSymbols.t(),
           log_level: lsp_level(),
-          file_log_level: file_level()
+          file_log_level: file_level(),
+          elixir_src: String.t() | nil
         }
 
   @opaque support :: Support.t()
@@ -117,6 +119,7 @@ defmodule Expert.Configuration do
       |> set_lsp_log_level(settings)
       |> set_file_log_level(settings)
       |> set_workspace_symbols(settings)
+      |> set_elixir_src(settings)
       |> set()
 
     apply_file_log_level(new_config)
@@ -158,6 +161,18 @@ defmodule Expert.Configuration do
       :ok -> :ok
       {:error, _} -> :ok
     end
+  end
+
+  defp set_elixir_src(%__MODULE__{} = config, %{"elixirSrc" => value}) when is_binary(value) do
+    %__MODULE__{config | elixir_src: value}
+  end
+
+  defp set_elixir_src(%__MODULE__{} = config, %{"elixirSrc" => _}) do
+    %__MODULE__{config | elixir_src: nil}
+  end
+
+  defp set_elixir_src(%__MODULE__{} = config, _settings) do
+    config
   end
 
   defp set_workspace_symbols(%__MODULE__{} = config, settings) do
