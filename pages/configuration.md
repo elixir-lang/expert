@@ -9,7 +9,8 @@ Expert supports the following configuration options.
   "workspaceSymbols": {
     "minQueryLength": 2
   },
-  "logLevel": "info"
+  "logLevel": "info",
+  "fileLogLevel": "info"
 }
 ```
 
@@ -19,3 +20,4 @@ Expert supports the following configuration options.
 |---------|------|---------|-------------|
 | `workspaceSymbols.minQueryLength` | integer | `2` | Minimum characters required before workspace symbol search returns results. Set to `0` to return all symbols with an empty query. |
 | `logLevel` | string | `"info"` | Minimum severity of log messages forwarded to the editor. Valid values: `"error"`, `"warning"`, `"info"`, `"log"`. |
+| `fileLogLevel` | string | `"debug"` | Minimum severity of log messages written to the log file (`.expert/expert.log`). Valid values: `"debug"`, `"info"`, `"warning"`, `"error"`, `null`. Sending `null` resets log level to default. |
