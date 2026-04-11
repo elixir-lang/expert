@@ -293,6 +293,49 @@ defmodule Expert.ConfigurationTest do
     end
   end
 
+  describe "on_change/1 with elixirSourcePath" do
+    test "parses a valid directory path" do
+      change = build_change(%{"elixirSourcePath" => "/path/to/elixir/source"})
+      {:ok, updated} = Configuration.on_change(change)
+
+      assert updated.elixir_source_path == "/path/to/elixir/source"
+    end
+
+    test "preserves previous value when setting is missing" do
+      change = build_change(%{"elixirSourcePath" => "/some/path"})
+      {:ok, _} = Configuration.on_change(change)
+
+      change = build_change(%{})
+      {:ok, updated} = Configuration.on_change(change)
+
+      assert updated.elixir_source_path == "/some/path"
+    end
+
+    test "clears the value when explicit null is sent" do
+      change = build_change(%{"elixirSourcePath" => "/some/path"})
+      {:ok, _} = Configuration.on_change(change)
+
+      change = build_change(%{"elixirSourcePath" => nil})
+      {:ok, updated} = Configuration.on_change(change)
+
+      assert updated.elixir_source_path == nil
+    end
+
+    test "defaults to nil" do
+      change = build_change(%{})
+      {:ok, updated} = Configuration.on_change(change)
+
+      assert updated.elixir_source_path == nil
+    end
+
+    test "ignores non-string values" do
+      change = build_change(%{"elixirSourcePath" => 123})
+      {:ok, updated} = Configuration.on_change(change)
+
+      assert updated.elixir_source_path == nil
+    end
+  end
+
   describe "race condition prevention" do
     defmodule DummyServer do
       use GenServer

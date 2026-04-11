@@ -10,7 +10,8 @@ Expert supports the following configuration options.
     "minQueryLength": 2
   },
   "logLevel": "info",
-  "fileLogLevel": "info"
+  "fileLogLevel": "info",
+  "elixirSourcePath": "/path/to/elixir/source"
 }
 ```
 
@@ -21,3 +22,4 @@ Expert supports the following configuration options.
 | `workspaceSymbols.minQueryLength` | integer | `2` | Minimum characters required before workspace symbol search returns results. Set to `0` to return all symbols with an empty query. |
 | `logLevel` | string | `"info"` | Minimum severity of log messages forwarded to the editor. Valid values: `"error"`, `"warning"`, `"info"`, `"log"`. |
 | `fileLogLevel` | string | `"debug"` | Minimum severity of log messages written to the log file (`.expert/expert.log`). Valid values: `"debug"`, `"info"`, `"warning"`, `"error"`, `null`. Sending `null` resets log level to default. |
+| `elixirSourcePath` | string | `null` | Path to a local Elixir source directory. When set, go-to-definition on Elixir standard library modules will navigate to source files in this directory instead of returning no result. Should be an absolute path. |

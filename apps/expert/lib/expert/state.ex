@@ -88,11 +88,19 @@ defmodule Expert.State do
   end
 
   def apply(%__MODULE__{} = state, %Notifications.WorkspaceDidChangeConfiguration{} = event) do
+    old_elixir_source_path = Configuration.get().elixir_source_path
+
     case Configuration.on_change(event) do
-      {:ok, _config} ->
+      {:ok, config} ->
+        if config.elixir_source_path != old_elixir_source_path,
+          do: propagate_elixir_source_path(config)
+
         {:ok, state}
 
-      {:ok, _config, request} ->
+      {:ok, config, request} ->
+        if config.elixir_source_path != old_elixir_source_path,
+          do: propagate_elixir_source_path(config)
+
         GenLSP.request(Expert.get_lsp(), request)
         {:ok, state}
     end
@@ -262,6 +270,26 @@ defmodule Expert.State do
         %Project{} = project
       ) do
     %__MODULE__{state | deps_declined_projects: MapSet.put(declined, project.root_uri)}
+  end
+
+  defp propagate_elixir_source_path(%Configuration{elixir_source_path: nil}) do
+    for project <- ActiveProjects.projects(), ActiveProjects.active?(project) do
+      EngineApi.call(project, Application, :delete_env, [:language_server, :elixir_source_path])
+    end
+  rescue
+    _ -> :ok
+  end
+
+  defp propagate_elixir_source_path(%Configuration{elixir_source_path: elixir_source_path}) do
+    for project <- ActiveProjects.projects(), ActiveProjects.active?(project) do
+      EngineApi.call(project, Application, :put_env, [
+        :language_server,
+        :elixir_source_path,
+        elixir_source_path
+      ])
+    end
+  rescue
+    _ -> :ok
   end
 
   def initialize_result do

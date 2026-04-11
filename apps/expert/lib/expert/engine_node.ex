@@ -398,8 +398,17 @@ defmodule Expert.EngineNode do
 
   @deps_apps Mix.Project.deps_apps()
   defp all_app_configs do
-    Enum.map(@deps_apps, fn app_name ->
-      {app_name, Application.get_all_env(app_name)}
-    end)
+    configs =
+      Enum.map(@deps_apps, fn app_name ->
+        {app_name, Application.get_all_env(app_name)}
+      end)
+
+    case Expert.Configuration.get().elixir_source_path do
+      nil ->
+        configs
+
+      elixir_source_path ->
+        [{:language_server, [elixir_source_path: elixir_source_path]} | configs]
+    end
   end
 end
