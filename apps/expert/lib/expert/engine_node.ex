@@ -403,9 +403,12 @@ defmodule Expert.EngineNode do
         {app_name, Application.get_all_env(app_name)}
       end)
 
-    case Expert.Configuration.get().elixir_src do
-      nil -> configs
-      elixir_src -> [{:language_server, [elixir_src: elixir_src]} | configs]
+    case Expert.Configuration.get().elixir_source_path do
+      nil ->
+        configs
+
+      elixir_source_path ->
+        [{:language_server, [elixir_source_path: elixir_source_path]} | configs]
     end
   end
 end

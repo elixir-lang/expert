@@ -22,7 +22,7 @@ defmodule Expert.Configuration do
             workspace_symbols: %WorkspaceSymbols{},
             log_level: @default_lsp_log_level,
             file_log_level: @default_file_log_level,
-            elixir_src: nil
+            elixir_source_path: nil
 
   @type t :: %__MODULE__{
           support: support | nil,
@@ -31,7 +31,7 @@ defmodule Expert.Configuration do
           workspace_symbols: WorkspaceSymbols.t(),
           log_level: lsp_level(),
           file_log_level: file_level(),
-          elixir_src: String.t() | nil
+          elixir_source_path: String.t() | nil
         }
 
   @opaque support :: Support.t()
@@ -119,7 +119,7 @@ defmodule Expert.Configuration do
       |> set_lsp_log_level(settings)
       |> set_file_log_level(settings)
       |> set_workspace_symbols(settings)
-      |> set_elixir_src(settings)
+      |> set_elixir_source_path(settings)
       |> set()
 
     apply_file_log_level(new_config)
@@ -163,15 +163,16 @@ defmodule Expert.Configuration do
     end
   end
 
-  defp set_elixir_src(%__MODULE__{} = config, %{"elixirSrc" => value}) when is_binary(value) do
-    %__MODULE__{config | elixir_src: value}
+  defp set_elixir_source_path(%__MODULE__{} = config, %{"elixirSourcePath" => value})
+       when is_binary(value) do
+    %__MODULE__{config | elixir_source_path: value}
   end
 
-  defp set_elixir_src(%__MODULE__{} = config, %{"elixirSrc" => _}) do
-    %__MODULE__{config | elixir_src: nil}
+  defp set_elixir_source_path(%__MODULE__{} = config, %{"elixirSourcePath" => _}) do
+    %__MODULE__{config | elixir_source_path: nil}
   end
 
-  defp set_elixir_src(%__MODULE__{} = config, _settings) do
+  defp set_elixir_source_path(%__MODULE__{} = config, _settings) do
     config
   end
 
