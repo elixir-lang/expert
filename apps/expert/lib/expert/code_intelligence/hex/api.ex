@@ -165,7 +165,7 @@ defmodule Expert.CodeIntelligence.Hex.Api do
   """
   @spec tarball_metadata(String.t()) :: {:ok, map()} | {:error, term()}
   def tarball_metadata(path) when is_binary(path) do
-    case :hex_tarball.unpack({:file, path}, :none) do
+    case :hex_tarball.unpack({:file, String.to_charlist(path)}, :none) do
       {:ok, %{metadata: metadata}} when is_map(metadata) -> {:ok, metadata}
       {:error, _} = error -> error
     end

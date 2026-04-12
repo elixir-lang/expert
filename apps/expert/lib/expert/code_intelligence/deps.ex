@@ -90,6 +90,7 @@ defmodule Expert.CodeIntelligence.Deps do
   end
 
   defp tuple_opts({:__block__, _meta, [{_first, _second}]}), do: []
+
   defp tuple_opts({:{}, _meta, args}) when is_list(args) do
     args
     |> Enum.reverse()

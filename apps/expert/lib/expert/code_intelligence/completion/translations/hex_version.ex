@@ -98,7 +98,6 @@ defmodule Expert.CodeIntelligence.Completion.Translations.HexVersion do
     end
 
     defp maybe_put(options, _key, nil), do: options
-    defp maybe_put(options, _key, []), do: options
     defp maybe_put(options, key, value), do: Keyword.put(options, key, value)
   end
 end
