@@ -16,7 +16,8 @@ defmodule Engine.DepsTest do
     end
 
     test "returns :error for a binary that has never been interned as an atom" do
-      assert :error = Deps.dep_version("definitely_not_a_real_atom_xyz_#{System.unique_integer()}")
+      assert :error =
+               Deps.dep_version("definitely_not_a_real_atom_xyz_#{System.unique_integer()}")
     end
   end
 
