@@ -4,8 +4,7 @@ defmodule Expert.CodeIntelligence.Deps do
   @default_repo "hexpm"
 
   @doc """
-  Walks `ast` looking for a `def deps` or `defp deps` arity-0 function and
-  returns the literal list of dep tuple AST nodes inside its body.
+  Walks `ast` looking for a `def deps` or `defp deps` arity-0 function.
   """
   @spec list(Macro.t()) :: {:ok, [Macro.t()]} | :error
   def list(ast) do
@@ -56,16 +55,7 @@ defmodule Expert.CodeIntelligence.Deps do
   end
 
   # Deeply walks the deps function body and collects every AST node that
-  # *looks* like a dep tuple:
-  #
-  #   * `{:__block__, _, [{first, second}]}` — a literal 2-tuple, where
-  #     `first` is an atom literal (the package name).
-  #   * `{:{}, _, [first | _]}` — an explicit n-tuple with 3+ elements.
-  #
-  # Walking deeply (rather than matching a single list-shaped body) is what
-  # makes this robust to Sourceror's parse-error recovery, which scatters the
-  # surviving tuples into `:comma` / `:__block__` fragments when the user is
-  # mid-edit.
+  # *looks* like a dep tuple.
   defp collect_dep_tuples(body) do
     {_, tuples} =
       Macro.prewalk(body, [], fn
@@ -87,14 +77,6 @@ defmodule Expert.CodeIntelligence.Deps do
 
   @doc """
   Returns the hex repo name for a single dep tuple AST node.
-
-  The conventions match Mix:
-    * `repo: "name"` → `"name"` (literal repo name)
-    * `organization: "org"` → `"hexpm:org"`
-    * absent → `"hexpm"`
-
-  `:repo` takes precedence over `:organization` when both are present, since
-  Mix interprets `:repo` directly.
   """
   @spec repo_of(Macro.t()) :: String.t()
   def repo_of(tuple_ast) do
@@ -107,11 +89,7 @@ defmodule Expert.CodeIntelligence.Deps do
     end
   end
 
-  # 2-tuple literal: {:atom, "version"} — never has opts.
   defp tuple_opts({:__block__, _meta, [{_first, _second}]}), do: []
-
-  # N-tuple via {:{}, meta, args}: opts may be the last positional arg as a
-  # keyword list AST.
   defp tuple_opts({:{}, _meta, args}) when is_list(args) do
     args
     |> Enum.reverse()

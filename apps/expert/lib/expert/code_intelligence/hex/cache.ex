@@ -24,9 +24,6 @@ defmodule Expert.CodeIntelligence.Hex.Cache do
   @doc """
   Returns a value from the cache, calling `fetcher` on a miss or when the
   cached entry is older than `ttl_ms`.
-
-  When `fetcher` returns `{:error, _}` and a stale entry exists, the stale
-  value is returned instead.
   """
   @spec get_or_fetch(GenServer.server(), key(), non_neg_integer(), fetcher()) ::
           {:ok, value()} | {:error, term()}
@@ -47,8 +44,6 @@ defmodule Expert.CodeIntelligence.Hex.Cache do
 
   @doc """
   Returns the currently-cached value for `key`, or `:miss` if there is none.
-  Never invokes a fetcher — safe for synchronous, latency-sensitive callers
-  like CodeLens that must not block on the network.
   """
   @spec peek(GenServer.server(), key()) :: {:ok, value()} | :miss
   def peek(server, key) do

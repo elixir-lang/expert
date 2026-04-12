@@ -33,18 +33,7 @@ defmodule Expert.CodeIntelligence.Hex.Candidate do
             package: String.t(),
             version: String.t(),
             index: non_neg_integer(),
-            # The text the user has already typed inside the version
-            # literal (e.g. `"~> 3"` for cursor at `"~> 3|`), used by the
-            # completion translator to compute an explicit text-edit
-            # range. `nil` when the candidate was constructed without
-            # cursor context, in which case the translator falls back to
-            # `Code.Fragment.cursor_context`-based insertion.
             prefix: String.t() | nil,
-            # Retirement metadata for versions hex has marked retired —
-            # `nil` for active releases. The `reason` is normalized into
-            # one of `"invalid"`, `"renamed"`, `"security"`,
-            # `"deprecated"`, `"other"`; `message` is whatever the
-            # maintainer supplied on hex.pm.
             retirement: retirement() | nil
           }
   end

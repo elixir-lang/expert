@@ -59,8 +59,6 @@ defmodule Expert.CodeIntelligence.Hex.Context do
     end
   end
 
-  # Parse `document` via Sourceror, accepting partial ASTs from error
-  # recovery. Returns `nil` if even Sourceror can't recover anything.
   defp permissive_ast(%Document{} = document) do
     case Ast.from(document) do
       {:ok, ast, _comments} -> ast
@@ -134,10 +132,6 @@ defmodule Expert.CodeIntelligence.Hex.Context do
           {pl, pc} >= {ol, oc} and {pl, pc} <= {cl, cc + 1}
 
         :error ->
-          # No closing metadata — Sourceror couldn't find a `}`, which is the
-          # normal state while the user is mid-typing a package name. Treat
-          # the tuple as extending to "the rest of the opening line" so the
-          # cursor still resolves into a slot.
           pl == ol and pc >= oc
       end
     else
@@ -177,11 +171,6 @@ defmodule Expert.CodeIntelligence.Hex.Context do
       length(args) >= 3 ->
         {:ok, :opts, package}
 
-      # Fallback: Sourceror's parse-error recovery often collapses the
-      # second argument into a non-literal shape (e.g. `{:~>, _, _}` when
-      # the user is mid-typing an unclosed version string). We still know
-      # the package atom and can tell the cursor is past it, so treat it
-      # as the version slot.
       version_node != nil and is_binary(package) and
         not clean_binary_arg?(version_node) and
           past_first_arg?(args, position) ->
@@ -215,14 +204,12 @@ defmodule Expert.CodeIntelligence.Hex.Context do
   defp package_name({:__block__, _, [atom]}) when is_atom(atom), do: Atom.to_string(atom)
   defp package_name(_), do: nil
 
-  # Whether `node`'s source range covers `position`. Uses an inclusive
-  # upper bound that differs per literal kind — see `cursor_max_offset/2`.
   defp node_covers?({:__block__, meta, [value]}, %Position{} = position) do
     line = Keyword.get(meta, :line)
     col = Keyword.get(meta, :column)
 
     cond do
-      line == nil or col == nil ->
+      is_nil(line) or is_nil(col) ->
         false
 
       position.line != line ->
@@ -236,22 +223,12 @@ defmodule Expert.CodeIntelligence.Hex.Context do
 
   defp node_covers?(_, _), do: false
 
-  # How far past `col` a cursor can sit and still count as "inside" this
-  # literal. Atoms have no closing delimiter — the user typically lands the
-  # cursor immediately after the last character (the next token is what ends
-  # the atom), so the last valid offset is one past the final char. Binaries
-  # are bounded by their closing delimiter; a cursor past the closing `"` is
-  # outside.
   defp cursor_max_offset(value, _meta) when is_atom(value) do
-    # Leading `:` + atom name, then +1 for the "just after the last char"
-    # typing position.
     String.length(Atom.to_string(value)) + 1
   end
 
   defp cursor_max_offset(value, meta) when is_binary(value) do
     delim = Keyword.get(meta, :delimiter, "\"")
-    # Characters occupy [col, col + total_len - 1]; the max valid cursor
-    # offset is `total_len - 1`, which lands on the closing delimiter.
     String.length(value) + 2 * String.length(delim) - 1
   end
 
@@ -266,7 +243,6 @@ defmodule Expert.CodeIntelligence.Hex.Context do
   end
 
   defp slot_prefix(:name, before) do
-    # Walk back to the most recent ":" (the atom marker).
     case :binary.matches(before, ":") do
       [] ->
         ""
@@ -289,7 +265,6 @@ defmodule Expert.CodeIntelligence.Hex.Context do
   end
 
   defp slot_prefix(:opts, before) do
-    # Walk back to the most recent token boundary (`,` or `{`).
     boundary =
       before
       |> :binary.matches([",", "{"])

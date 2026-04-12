@@ -65,11 +65,6 @@ defmodule Expert.CodeIntelligence.Hex.Api do
     end
   end
 
-  # For custom repos, the repo protocol only returns versions and deps —
-  # no description, licenses, or links. When the tarball is cached locally
-  # (i.e. the user has already fetched the dep), we extract that rich
-  # metadata from `metadata.config` inside the tarball without any network
-  # call.
   defp enrich_from_tarball(data, repo, name, %Project{} = project) do
     data
     |> sorted_versions()
@@ -87,7 +82,6 @@ defmodule Expert.CodeIntelligence.Hex.Api do
 
   defp enrich_from_tarball(data, _repo, _name, _project), do: data
 
-  # Returns version strings sorted newest-first for tarball probing.
   defp sorted_versions(%{"releases" => releases}) when is_list(releases) do
     releases
     |> Enum.map(& &1["version"])
@@ -150,10 +144,6 @@ defmodule Expert.CodeIntelligence.Hex.Api do
 
   @doc """
   Returns the list of package names available in a repo.
-
-  Uses `:hex_repo.get_names/1` which fetches a single compressed
-  protobuf containing all package names — very lightweight even for
-  repos with many packages.
   """
   @spec fetch_repo_names(:hex_core.config()) :: {:ok, [String.t()]} | {:error, term()}
   def fetch_repo_names(config) do
@@ -170,14 +160,8 @@ defmodule Expert.CodeIntelligence.Hex.Api do
   end
 
   @doc """
-  Extracts metadata from a locally cached hex tarball at `path`.
-
   Uses `:hex_tarball.unpack({:file, path}, :none)` to read only the
   `metadata.config` entry — source contents are never decompressed.
-
-  Returns `{:ok, metadata}` where `metadata` is a string-keyed map
-  with keys like `"name"`, `"version"`, `"description"`, `"licenses"`,
-  `"links"`, `"requirements"`, and `"build_tools"`.
   """
   @spec tarball_metadata(String.t()) :: {:ok, map()} | {:error, term()}
   def tarball_metadata(path) when is_binary(path) do
@@ -190,15 +174,7 @@ defmodule Expert.CodeIntelligence.Hex.Api do
   @doc """
   Returns the list of releases for `name` with retirement metadata,
   using the repo protocol (`:hex_repo.get_package/2`) regardless of
-  whether `config` is a hexpm or self-hosted repo config. The API
-  endpoint (`:hex_api_package.get/2`) only returns summary release
-  info and does not expose per-release retirement status, so we route
-  all version-list queries through the repo protocol — it's the one
-  source of truth for retirement.
-
-  Each element of the returned list is a map with `"version"` and
-  `"retirement"` keys. `"retirement"` is `nil` for active releases, or
-  `%{"reason" => <string>, "message" => <string>}` for retired ones.
+  whether `config` is a hexpm or self-hosted repo config.
   """
   @spec fetch_releases(:hex_core.config(), String.t()) :: {:ok, [map()]} | {:error, term()}
   def fetch_releases(_config, ""), do: {:error, :empty_name}

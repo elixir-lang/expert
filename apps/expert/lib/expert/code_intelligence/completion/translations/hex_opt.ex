@@ -10,10 +10,6 @@ defmodule Expert.CodeIntelligence.Completion.Translations.HexOpt do
 
   defimpl Translatable, for: Candidate.Opt do
     def translate(%Candidate.Opt{} = opt, builder, %Env{} = env) do
-      # Surface the opt's short description inline in the menu via
-      # `labelDetails.description` (faint, right-aligned), so users can
-      # tell `only:` from `organization:` from `github:` at a glance
-      # without expanding the documentation popup.
       label_details = %CompletionItemLabelDetails{description: opt.description}
 
       env
