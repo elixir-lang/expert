@@ -38,8 +38,6 @@ defmodule Expert.CodeIntelligence.Completion do
         hex_context =
           if Hex.project_file?(project, analysis.document) do
             HexContext.detect(analysis, position)
-          else
-            :error
           end
 
         hex_items = hex_items_for_context(hex_context, project, env)
@@ -47,17 +45,10 @@ defmodule Expert.CodeIntelligence.Completion do
         all = hex_items ++ regular_items
         log_candidates(all)
 
-        case hex_context do
-          {:ok, _} ->
-            # Hex prefixes (package names, version requirements) need a
-            # fresh server round-trip on every keystroke — otherwise
-            # `blink.cmp` locally filters a stale `phoe` list even after
-            # the user has typed `phantom`. Returning a CompletionList
-            # with `is_incomplete: true` forces the client to re-query.
-            %CompletionList{items: all, is_incomplete: true}
-
-          :error ->
-            maybe_to_completion_list(all)
+        if hex_context do
+          %CompletionList{items: all, is_incomplete: true}
+        else
+          maybe_to_completion_list(all)
         end
 
       {:error, _} = error ->
@@ -66,7 +57,7 @@ defmodule Expert.CodeIntelligence.Completion do
     end
   end
 
-  defp hex_items_for_context(:error, _project, _env), do: []
+  defp hex_items_for_context(nil, _project, _env), do: []
 
   defp hex_items_for_context({:ok, ctx}, %Project{} = project, %Env{} = env) do
     ctx

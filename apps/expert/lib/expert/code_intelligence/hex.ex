@@ -67,15 +67,6 @@ defmodule Expert.CodeIntelligence.Hex do
   Returns `true` if `document` is a Mix project file (`mix.exs` by
   convention, but anything returned by `Mix.Project.project_file/0`)
   for `project` — including any umbrella child project files.
-
-  Hex-aware features (completion, hover, code lens) gate on this so
-  they only fire when the user is editing an actual Mix project file,
-  not a random `.exs` that happens to have a `defp deps do` function.
-
-  The list of project files is fetched once per project via an RPC to
-  the project's engine node (`Engine.Deps.project_files/0`) and
-  memoized in `:persistent_term` — the project layout is stable for
-  the life of the engine.
   """
   @spec project_file?(Project.t() | nil, Document.t() | String.t() | nil) :: boolean()
   def project_file?(project, document_or_path)
@@ -97,12 +88,6 @@ defmodule Expert.CodeIntelligence.Hex do
     case :persistent_term.get(key, :__miss__) do
       :__miss__ ->
         files = fetch_project_files(project)
-        # Only cache non-empty results. An empty set almost always
-        # means the engine wasn't ready yet or the RPC transiently
-        # failed — if we cached that, `project_file?/2` would return
-        # `false` for the entire lifetime of the LSP process and hex
-        # completion/hover/lens would stay disabled even after the
-        # engine recovered.
         if not Enum.empty?(files), do: :persistent_term.put(key, files)
         files
 
@@ -129,19 +114,6 @@ defmodule Expert.CodeIntelligence.Hex do
     path |> Path.expand() |> Forge.Path.normalize()
   end
 
-  @doc """
-  Returns the currently installed version of `package` in `project`, as
-  seen by the project's running BEAM — the same value
-  `Application.spec(app, :vsn)` would return inside the project. Used
-  by hover to show the user what version they actually have locked,
-  alongside the latest available on hex.
-
-  Returns `nil` when we don't have a project context, when the engine
-  RPC fails, or when the app isn't loaded (dev-only dep, brand-new
-  dep that hasn't been `mix deps.get`'d yet, etc.). All failures are
-  treated uniformly as "no installed version available" so callers
-  can decorate the rendering with it optionally.
-  """
   @spec installed_version(Project.t() | nil, String.t()) :: String.t() | nil
   def installed_version(nil, _package), do: nil
 
@@ -164,11 +136,6 @@ defmodule Expert.CodeIntelligence.Hex do
     end
   end
 
-  @doc """
-  Returns candidates for a context that has already been detected by
-  `Context.detect/2`. Used by the completion orchestrator so we don't
-  re-parse the document just to classify the cursor a second time.
-  """
   @spec candidates_for_context(Context.t(), Project.t() | nil) :: [struct()]
   def candidates_for_context(ctx, project \\ nil)
 
@@ -187,13 +154,6 @@ defmodule Expert.CodeIntelligence.Hex do
 
   def candidates_for_context(_ctx, _project), do: []
 
-  @doc """
-  Returns the parsed hex metadata for `package_name` from `repo`, going
-  through the cache. Used by hover and code lens.
-
-  When `project` is given, the project's own `HEX_HOME` (read via the
-  engine node) decides which local hex config is consulted.
-  """
   @spec fetch_package(String.t(), String.t(), Project.t() | nil) ::
           {:ok, map()} | {:error, term()}
   def fetch_package(repo, package_name, project \\ nil)
@@ -214,15 +174,6 @@ defmodule Expert.CodeIntelligence.Hex do
     end
   end
 
-  @doc """
-  Returns the list of releases for `package_name`, each carrying
-  optional retirement metadata. Always fetched via the repo protocol
-  because the hex.pm API endpoint only returns release summaries
-  without retirement status.
-
-  Cached independently from `fetch_package/3` under `{:releases, ...}`
-  so hover and version completion can evolve separately.
-  """
   @spec fetch_releases(String.t(), String.t(), Project.t() | nil) ::
           {:ok, [map()]} | {:error, term()}
   def fetch_releases(repo, package_name, project \\ nil)
@@ -271,11 +222,6 @@ defmodule Expert.CodeIntelligence.Hex do
     end
   end
 
-  # Returns completion candidates from custom repos (like "oban") whose
-  # package names match `prefix`. Package name lists are fetched once per
-  # repo via `:hex_repo.get_names/1` and cached in DETS. This lets the
-  # user get completions for `{:oban_pro, ...}` without needing to type
-  # `repo: "oban"` first.
   defp custom_repo_candidates(nil, _prefix), do: []
 
   defp custom_repo_candidates(%Project{} = project, prefix) do
@@ -365,22 +311,10 @@ defmodule Expert.CodeIntelligence.Hex do
     end
   end
 
-  # Cap on exact versions surfaced. Packages like `phoenix` have 150+
-  # historical releases; the completion menu is unnavigable at that
-  # length. 50 releases (newest by semver) is enough for users to find
-  # any realistically recent version they might pin.
   @max_versions 50
 
-  # Produces an ordered list of `Candidate.Version` entries sorted by
-  # semver descending, capped at `@max_versions`. Each input
-  # release is a map with `"version"` and optional `"retirement"` keys
-  # (as returned by `Hex.fetch_releases/3`). Unparseable version strings
-  # (rare, but defensive) are emitted at the end in their original order.
-  # We deliberately do NOT synthesize tilde requirements like `~> 1.7` —
-  # the user can type `~> ` themselves and still get live completion
-  # against the exact versions, or complete to an exact release and
-  # edit it down by hand.
   defp build_version_candidates(releases, package, prefix) do
+    # compound statements are more difficult to provide completions
     if is_binary(prefix) and Regex.match?(~r/\b(?:or|and)\b/, prefix) do
       []
     else
@@ -389,15 +323,10 @@ defmodule Expert.CodeIntelligence.Hex do
   end
 
   defp do_build_version_candidates(releases, package, prefix) do
-    filter = version_prefix_filter(prefix)
-
     filtered =
-      if filter == "" do
-        releases
-      else
-        Enum.filter(releases, fn release ->
-          String.starts_with?(Map.get(release, "version") || "", filter)
-        end)
+      case version_prefix_filter(prefix) do
+        "" -> releases
+        filter -> Enum.filter(releases, &String.starts_with?(&1["version"] || "", filter))
       end
 
     parsed =
@@ -436,17 +365,6 @@ defmodule Expert.CodeIntelligence.Hex do
     end)
   end
 
-  # Extracts the trailing version-like substring from the user's typed
-  # prefix so we can server-side filter releases to ones that share that
-  # prefix. Everything before the version-like tail — `~> `, `>=`, or any
-  # other operator the user might type — is ignored, so `"~> 2."`, `">= 2."`,
-  # and `"2."` all produce the same filter `"2."`. Returns `""` when the
-  # prefix has no trailing version chars (e.g., `"~>"` with no number yet),
-  # which disables filtering entirely.
-  #
-  # Version chars are `\w` (digits, letters, underscore — letters cover
-  # pre-release tags like `rc`, `alpha`), `.`, `-`, and `+` (for build
-  # metadata in semver).
   defp version_prefix_filter(nil), do: ""
 
   defp version_prefix_filter(prefix) when is_binary(prefix) do
@@ -456,9 +374,6 @@ defmodule Expert.CodeIntelligence.Hex do
     end
   end
 
-  # Convert the Api-shape retirement map (`%{"reason" => _, "message" => _}`)
-  # into atom-keyed form for easier downstream consumption. Nil passes
-  # through unchanged.
   defp normalize_retirement(nil), do: nil
 
   defp normalize_retirement(%{"reason" => reason} = retirement) do
