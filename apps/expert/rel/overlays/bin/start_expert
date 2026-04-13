@@ -1,3 +1,16 @@
 #!/bin/sh
 
-exec "$(dirname -- "$0")"/plain eval "System.no_halt(true); Application.ensure_all_started(:xp_expert)" "$@"
+readlink_f () {
+  cd "$(dirname "$1")" > /dev/null || exit 1
+  filename="$(basename "$1")"
+  if [ -h "$filename" ]; then
+    readlink_f "$(readlink "$filename")"
+  else
+    echo "$(pwd -P)/$filename"
+  fi
+}
+
+self=$(readlink_f "$0")
+bin_dir=$(dirname "$self")
+expr_arg="System.no_halt(true); Application.ensure_all_started(:xp_expert)"
+exec "$bin_dir/plain" eval "$expr_arg" "$@"
