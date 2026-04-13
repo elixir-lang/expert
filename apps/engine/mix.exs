@@ -51,7 +51,7 @@ defmodule Engine.MixProject do
       {:elixir_sense,
        github: "elixir-lsp/elixir_sense", ref: "e3ddc403554050221a2fd19a10a896fa7525bc02"},
       {:forge, path: "../forge"},
-      {:gen_lsp, "~> 0.11.3"},
+      {:gen_lsp, github: "Draggu/gen_lsp", branch: "exit"},
       {:patch, "~> 0.15", only: [:dev, :test], runtime: false},
       {:quokka, "~> 2.12", only: [:dev, :test], runtime: false},
       {:path_glob, "~> 0.2"},
