@@ -6,7 +6,7 @@ defmodule Engine.Search.Indexer.Extractors.FunctionDefinition do
   alias Forge.Ast.Analysis
   alias Forge.Search.Indexer.Entry
 
-  @function_definitions [:def, :defp]
+  @function_definitions [:def, :defp, :defmacro, :defmacrop]
 
   def extract({definition, _, [{fn_name, _, args} = def_ast, body]} = ast, %Reducer{} = reducer)
       when is_atom(fn_name) and definition in @function_definitions do
@@ -102,6 +102,8 @@ defmodule Engine.Search.Indexer.Extractors.FunctionDefinition do
 
   defp type(:def), do: {:function, :public}
   defp type(:defp), do: {:function, :private}
+  defp type(:defmacro), do: {:macro, :public}
+  defp type(:defmacrop), do: {:macro, :private}
 
   defp fun_name_and_arity({:when, _, [{fun_name, _, fun_args} | _]}) do
     # a function with guards

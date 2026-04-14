@@ -48,6 +48,7 @@ defmodule Expert.Provider.Handlers.DocumentSymbols do
   defp to_kind(:module), do: SymbolKind.module()
   defp to_kind(:variable), do: SymbolKind.variable()
   defp to_kind({:function, _}), do: SymbolKind.function()
+  defp to_kind({:macro, _}), do: SymbolKind.function()
   defp to_kind({:protocol, _}), do: SymbolKind.module()
   defp to_kind(:module_attribute), do: SymbolKind.constant()
   defp to_kind(:ex_unit_test), do: SymbolKind.method()

@@ -15,6 +15,12 @@ defmodule Engine.Search.Indexer.Extractors.FunctionDefinitionTest do
     end)
   end
 
+  def index_macros(source) do
+    do_index(source, fn %Entry{type: type} = entry ->
+      match?({:macro, _}, type) and entry.subtype == :definition
+    end)
+  end
+
   describe "indexing public function definitions" do
     test "finds zero arity public functions (no parens)" do
       code =
@@ -499,6 +505,76 @@ defmodule Engine.Search.Indexer.Extractors.FunctionDefinitionTest do
                "Parent.create/1",
                "Parent.create/2"
              ]
+    end
+  end
+
+  describe "indexing public macro definitions" do
+    test "finds zero arity public macro (no parens)" do
+      {:ok, [my_macro], doc} =
+        ~q[
+          defmacro my_macro do
+          end
+        ]
+        |> in_a_module()
+        |> index_macros()
+
+      assert my_macro.type == {:macro, :public}
+      assert my_macro.subtype == :definition
+      assert my_macro.subject == "Parent.my_macro/0"
+      assert "my_macro" = extract(doc, my_macro.range)
+      assert decorate(doc, my_macro.block_range) =~ "«defmacro my_macro do\nend»"
+    end
+
+    test "finds one arity public macro" do
+      {:ok, [my_macro], doc} =
+        ~q[
+          defmacro my_macro(ast) do
+            ast
+          end
+        ]
+        |> in_a_module()
+        |> index_macros()
+
+      assert my_macro.type == {:macro, :public}
+      assert my_macro.subtype == :definition
+      assert my_macro.subject == "Parent.my_macro/1"
+      assert "my_macro(ast)" = extract(doc, my_macro.range)
+      assert decorate(doc, my_macro.range) =~ "defmacro «my_macro(ast)» do"
+    end
+  end
+
+  describe "indexing private macro definitions" do
+    test "finds zero arity private macro (no parens)" do
+      {:ok, [my_macro], doc} =
+        ~q[
+          defmacrop my_macro do
+          end
+        ]
+        |> in_a_module()
+        |> index_macros()
+
+      assert my_macro.type == {:macro, :private}
+      assert my_macro.subtype == :definition
+      assert my_macro.subject == "Parent.my_macro/0"
+      assert "my_macro" = extract(doc, my_macro.range)
+      assert decorate(doc, my_macro.block_range) =~ "«defmacrop my_macro do\nend»"
+    end
+
+    test "finds one arity private macro" do
+      {:ok, [my_macro], doc} =
+        ~q[
+          defmacrop my_macro(ast) do
+            ast
+          end
+        ]
+        |> in_a_module()
+        |> index_macros()
+
+      assert my_macro.type == {:macro, :private}
+      assert my_macro.subtype == :definition
+      assert my_macro.subject == "Parent.my_macro/1"
+      assert "my_macro(ast)" = extract(doc, my_macro.range)
+      assert decorate(doc, my_macro.range) =~ "defmacrop «my_macro(ast)» do"
     end
   end
 
