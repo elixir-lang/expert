@@ -85,7 +85,7 @@ defmodule Forge.Project do
   end
 
   def config(%__MODULE__{} = project) do
-    config_key = {__MODULE__, name(project), :config}
+    config_key = {__MODULE__, project.root_uri, :config}
 
     case :persistent_term.get(config_key, :not_found) do
       :not_found ->
