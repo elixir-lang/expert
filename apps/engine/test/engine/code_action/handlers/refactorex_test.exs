@@ -1,10 +1,12 @@
 defmodule Engine.CodeAction.Handlers.RefactorexTest do
   use Forge.Test.CodeMod.Case
+  use Patch
 
   import Forge.Test.CodeSigil
   import Forge.Test.RangeSupport
 
   alias Engine.CodeAction.Handlers.Refactorex
+  alias Engine.CodeMod.Format
   alias Forge.Document
 
   def apply_code_mod(original_text, _ast, options) do
@@ -79,6 +81,53 @@ defmodule Engine.CodeAction.Handlers.RefactorexTest do
 
         defp extracted_function(i) do
           i + 20
+        end
+      end]
+    )
+  end
+
+  test "Refactorex respects formatter line length" do
+    patch(Format, :formatter_for_file, fn _project, _path ->
+      {nil, [line_length: 120, locals_without_parens: []]}
+    end)
+
+    assert_refactored(
+      "Remove pipe",
+      ~q[
+      defmodule Foo do
+        def my_func(%{} = map, %{key1: _key1, key2: _key2, key3: _key3, key4: _key4, key5: _key5} = other) do
+          «»map |> Map.merge(other)
+        end
+      end],
+      ~q[
+      defmodule Foo do
+        def my_func(%{} = map, %{key1: _key1, key2: _key2, key3: _key3, key4: _key4, key5: _key5} = other) do
+          Map.merge(map, other)
+        end
+      end]
+    )
+  end
+
+  test "Refactorex formats when formatter line length is missing" do
+    patch(Format, :formatter_for_file, fn _project, _path ->
+      {nil, [locals_without_parens: []]}
+    end)
+
+    assert_refactored(
+      "Remove pipe",
+      ~q[
+      defmodule Foo do
+        def my_func(%{} = map, %{key1: _key1, key2: _key2, key3: _key3, key4: _key4, key5: _key5} = other) do
+          «»map |> Map.merge(other)
+        end
+      end],
+      ~q[
+      defmodule Foo do
+        def my_func(
+              %{} = map,
+              %{key1: _key1, key2: _key2, key3: _key3, key4: _key4, key5: _key5} = other
+            ) do
+          Map.merge(map, other)
         end
       end]
     )

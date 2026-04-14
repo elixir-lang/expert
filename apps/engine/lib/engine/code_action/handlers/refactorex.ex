@@ -46,11 +46,18 @@ defmodule Engine.CodeAction.Handlers.Refactorex do
   defp ast_to_changes(doc, ast) do
     {formatter, opts} = CodeMod.Format.formatter_for_file(Engine.get_project(), doc.uri)
 
+    sourceror_opts =
+      Keyword.reject(
+        [
+          formatter: formatter,
+          locals_without_parens: opts[:locals_without_parens] || [],
+          line_length: opts[:line_length]
+        ],
+        fn {_k, v} -> is_nil(v) end
+      )
+
     ast
-    |> Sourceror.to_string(
-      formatter: formatter,
-      locals_without_parens: opts[:locals_without_parens] || []
-    )
+    |> Sourceror.to_string(sourceror_opts)
     |> then(&CodeMod.Diff.diff(doc, &1))
     |> then(&Changes.new(doc, &1))
   end
