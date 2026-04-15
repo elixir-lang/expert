@@ -1,6 +1,8 @@
 defmodule Expert.CodeIntelligence.Completion do
   alias Expert.CodeIntelligence.Completion.Builder
   alias Expert.CodeIntelligence.Completion.Translatable
+  alias Expert.CodeIntelligence.Hex
+  alias Expert.CodeIntelligence.Hex.Context, as: HexContext
   alias Expert.Configuration
   alias Expert.EngineApi
   alias Expert.Project.Intelligence
@@ -33,14 +35,34 @@ defmodule Expert.CodeIntelligence.Completion do
       ) do
     case Env.new(project, analysis, position) do
       {:ok, env} ->
-        completions = completions(project, env, context)
-        log_candidates(completions)
-        maybe_to_completion_list(completions)
+        hex_context =
+          if Hex.project_file?(project, analysis.document) do
+            HexContext.detect(analysis, position)
+          end
+
+        hex_items = hex_items_for_context(hex_context, project, env)
+        regular_items = completions(project, env, context)
+        all = hex_items ++ regular_items
+        log_candidates(all)
+
+        if hex_context do
+          %CompletionList{items: all, is_incomplete: true}
+        else
+          maybe_to_completion_list(all)
+        end
 
       {:error, _} = error ->
         Logger.error("Failed to build completion env #{inspect(error)}")
         maybe_to_completion_list()
     end
+  end
+
+  defp hex_items_for_context(nil, _project, _env), do: []
+
+  defp hex_items_for_context({:ok, ctx}, %Project{} = project, %Env{} = env) do
+    ctx
+    |> Hex.candidates_for_context(project)
+    |> Enum.map(&Translatable.translate(&1, Builder, env))
   end
 
   defp log_candidates(candidates) do

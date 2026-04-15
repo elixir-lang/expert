@@ -5,6 +5,7 @@ defmodule Expert.Application do
 
   use Application
 
+  alias Expert.CodeIntelligence.Hex.Cache
   alias Forge.Document
   alias Forge.LogFilter
 
@@ -138,6 +139,7 @@ defmodule Expert.Application do
       {Task.Supervisor, name: :expert_task_queue},
       {GenLSP.Buffer, [name: Expert.Buffer] ++ buffer_opts},
       {Expert.ActiveProjects, []},
+      hex_cache_child_spec(),
       {Expert,
        name: Expert,
        buffer: Expert.Buffer,
@@ -145,6 +147,17 @@ defmodule Expert.Application do
        dynamic_supervisor: Expert.DynamicSupervisor,
        assigns: Expert.Assigns}
     ]
+  end
+
+  @doc false
+  def hex_cache_child_spec do
+    cache_dir = :user_cache |> :filename.basedir(~c"expert") |> List.to_string()
+    path = Path.join(cache_dir, "hex.dets")
+
+    Supervisor.child_spec(
+      {Cache, name: Cache, path: path},
+      id: Cache
+    )
   end
 
   @doc false

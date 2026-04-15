@@ -21,8 +21,6 @@ defmodule Expert.Provider.Handlers.CodeLens do
     projects = ActiveProjects.projects()
     project = Project.project_for_document(projects, document)
 
-    document = Document.Container.context_document(params, nil)
-
     lenses =
       case reindex_lens(project, document) do
         nil -> []
