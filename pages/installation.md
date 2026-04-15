@@ -2,13 +2,11 @@
 
 The following instructions document how to install Expert after
 building from source. Some editors, like Visual Studio Code, have the
-ability to automatically install the latest version of Expert for you.
+ability to automatically install the latest version of Expert for
+you.
 
 Expert aims to support Elixir versions `1.15.3` with Erlang `25.0` and later.
-
-> [!NOTE]
-> You must compile Expert under the lowest version of Elixir and Erlang that you
-> intend to use in your projects.
+**You must compile Expert under the lowest version of Elixir and Erlang that you intend to use in your projects.**
 
 Caveats with the following versions of Elixir and Erlang are documented below:
 
@@ -96,7 +94,6 @@ appropriate binary name.
 8. [Zed](#zed)
 
 ### Vanilla Emacs with lsp-mode
-
 The emacs instructions assume you're using `use-package`, which you
 really should be. In your `.emacs.d/init.el` (or wherever you put your
 emacs configuration), insert the following code:
@@ -119,6 +116,7 @@ emacs configuration), insert the following code:
 
 Restart emacs, and Expert should start when you open a file with a
 `.ex` extension.
+
 
 ### Vanilla Emacs with eglot
 
@@ -171,12 +169,13 @@ for Eglot:
 Clone and build the [Expert VS Code extension](https://github.com/expert-lsp/vscode-expert).
 Once you have the `.vsix` file, you can install it by using the `Extensions: Install from VSIX...` command in the command palette.
 
-To change to a local executable, go to `Settings -> Extensions -> Expert` and
-type `/my/home/projects/expert/apps/expert/burrito_out/expert_linux_amd64` into the
-text box in the `Server: Release path override` section.
 
-To run in TCP mode, you can add `--port PORT` in the `Server: Startup Flags Override`
-section.
+To change to a local executable, go to `Settings -> Extensions -> Expert` and
+type `/my/home/projects/expert/apps/expert/burrito_out/expert_linux_amd64` into the text box in
+the `Server: Release path override` section.
+
+To run in TCP mode, you can add `--port PORT` in the `Server: Startup Flags Override` section.
+
 
 > [!TIP]
 > If you are using the Lexical extension for VS Code, you will need to wrap the
@@ -184,12 +183,10 @@ section.
 > does not currently support passing additional arguments to language servers.
 >
 > For example, create a file called `expert_wrapper.sh` with the following content:
->
 > ```bash
 > #!/bin/bash
 > ~/.local/bin/expert_linux_amd64 --stdio
 > ```
->
 > Make the script executable with `chmod +x expert_wrapper.sh`, and then
 > set the `Server: Release path override` to the path of the script.
 
@@ -205,7 +202,7 @@ configuration below as a reference:
 
 ```lua
 require('lspconfig').lexical.setup {
-  cmd = { "/my/home/projects/expert/apps/expert/burrito_out/expert_linux_amd64", "--stdio" },
+  cmd = { "my/home/projects/expert/apps/expert/burrito_out/expert_linux_amd64", "--stdio" },
   root_dir = function(fname)
     return require('lspconfig').util.root_pattern("mix.exs", ".git")(fname) or vim.loop.cwd()
   end,
@@ -216,7 +213,6 @@ require('lspconfig').lexical.setup {
 ```
 
 As of neovim `0.11.3`, you can use the built-in lsp config:
-
 ```lua
 vim.lsp.config('expert', {
   cmd = { 'expert', '--stdio' },
@@ -236,6 +232,7 @@ An example of configuring Expert as the Elixir language server for
 can be converted to Vim 8 etc (`:h vim9script`).
 
 ```vim9script
+
 # Loading vim-lsp with minpac:
 call minpac#add("prabirshrestha/vim-lsp")
 # ...or use your package manager of choice/Vim native packages
@@ -253,13 +250,15 @@ if executable("elixir")
     autocmd FileType eelixir setlocal omnifunc=lsp#complete
     augroup end
 endif
+
 ```
 
-If you use [Vim-LSP-Settings](mattn/vim-lsp-settings) for installing and configuring
-language servers, you can use the following flag to disable prompts to install elixir-ls:
+If you use [Vim-LSP-Settings](mattn/vim-lsp-settings) for installing and configuring language servers,
+you can use the following flag to disable prompts to install elixir-ls:
 
 ```viml
 g:lsp_settings_filetype_elixir = ["expert"]
+
 ```
 
 For more config, debugging help, or getting vim-lsp to work with ALE, see
@@ -268,7 +267,7 @@ For more config, debugging help, or getting vim-lsp to work with ALE, see
 ### Helix
 
 > [!NOTE]
-> This configuration is applicable for Helix version 23.09 and above.
+> This co!nfiguration is applicable for Helix version 23.09 and above.*
 
 Add the language server to your `~/.config/helix/languages.toml` config.
 In the case that the file doesn't exist yet, you can create a new file at this location.
@@ -289,20 +288,18 @@ language-servers = ["expert"]
 
 ### Sublime Text
 
-Expert can be used with Sublime Text via the [LSP-Sublime](https://lsp.sublimetext.io/)
-package, which integrates Language Servers with Sublime Text. If you don't have the
-LSP-Sublime package installed already, [install it with Package Control](https://packagecontrol.io/packages/LSP).
+#### Background
 
-> [!NOTE]
-> There is currently no [language server package](https://lsp.sublimetext.io/language_servers/)
-> specifically for Expert that works with LSP-Sublime so we'll need to create a
-> [custom client configuration](https://lsp.sublimetext.io/client_configuration/).
+Expert can be used with Sublime Text via the [LSP-Sublime](https://lsp.sublimetext.io/) package, which integrates Language Servers with Sublime Text. If you don't have the LSP-Sublime package installed already, [install it with Package Control](https://packagecontrol.io/packages/LSP).
 
-Then, open up the LSP settings in Sublime. You can do this by invoking the command palette
-(`ctrl/cmd + shift + p`) and selecting `Preferences: LSP Settings`.
+There is currently no [language server package](https://lsp.sublimetext.io/language_servers/) specifically for Expert that works with LSP-Sublime so we'll need to create a [custom client configuration](https://lsp.sublimetext.io/client_configuration/).
 
-You'll need to add a key called `"clients"` in the top-level `LSP.sublime-settings` JSON
-dictionary that is as follows:
+#### Installation
+First, install LSP-Sublime with Package Control if you haven't already.
+
+Next, open up the LSP settings in Sublime. You can do this by invoking the command palette (`ctrl/cmd + shift + p`) and selecting `Preferences: LSP Settings`.
+
+You'll need to add a key called `"clients"` in the top-level `LSP.sublime-settings` JSON dictionary that is as follows:
 
 ```json
 "clients": {
@@ -313,22 +310,37 @@ dictionary that is as follows:
   }
 }
 ```
+_note: you can name elixir-expert whatever you like, it's just for your own identification_
 
-> [!NOTE]
-> You can name elixir-expert whatever you like, it's just for your own identification.
-
-Upon saving the configuration, LSP-Sublime should enable the new `elixir-expert` LSP server.
-Go into an Elixir file and you should now see `elixir-expert` in the lower left of the
-status bar. If not, invoke the command palette and select `LSP: Enable Language Server
-Globally/In Project` and it should run.
+Upon saving the configuration, LSP-Sublime should enable the new `elixir-expert` LSP server. Go into an Elixir file and you should now see `elixir-expert` in the lower left of the status bar. If not, invoke the command palette and select `LSP: Enable Language Server Globally/In Project` and it should run.
 
 ### Zed
 
 Zed [supports Expert](https://zed.dev/docs/languages/elixir) through the [Elixir extension](https://github.com/zed-extensions/elixir).
 
-Install the extension and then update your `settings.json` to use Expert as
-the main language server as specified by the [documentation](https://zed.dev/docs/languages/elixir#using-expert).
+So, first install the extension and then update your `settings.json` to use Expert as language server:
 
-The Elixir extension will [download the latest Expert release](https://github.com/zed-extensions/elixir/blob/96fd0581d84cfac857a23c1351e2405836de39fd/src/language_servers/expert.rs#L65)
-and keep it updated. So, you don't need to manually download and update the expert
-release yourself.
+```json
+{
+  "lsp": {
+    "expert": {
+      "binary": {
+        "arguments": ["--stdio"]
+      }
+    }
+  },
+  "languages": {
+    "Elixir": {
+      "language_servers": [
+        "expert",
+        "!elixir-ls",
+        "!next-ls",
+        "!lexical",
+        "..."
+      ]
+    }
+  }
+}
+```
+
+The Elixir extension will [download the latest Expert release](https://github.com/zed-extensions/elixir/blob/96fd0581d84cfac857a23c1351e2405836de39fd/src/language_servers/expert.rs#L65) and keep it updated. So, you don't need to manually download and update the expert release yourself.
