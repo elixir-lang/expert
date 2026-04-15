@@ -64,7 +64,9 @@ defmodule Expert.MixProject do
       plain: [
         strip_beams: false,
         cookie: "expert",
-        steps: release_steps() ++ [&Expert.Release.plain_assemble/1]
+        steps: release_steps() ++ [&Expert.Release.plain_assemble/1],
+        include_executables_for: executables(),
+        overlays: overlays()
       ]
     ]
   end
@@ -74,6 +76,18 @@ defmodule Expert.MixProject do
       :assemble,
       &Expert.Release.assemble/1
     ]
+  end
+
+  defp executables do
+    if windows?(), do: [:windows], else: [:unix]
+  end
+
+  defp overlays do
+    if windows?(), do: ["rel/windows"], else: ["rel/unix"]
+  end
+
+  defp windows? do
+    :os.type() |> elem(0) == :win32
   end
 
   defp deps do
