@@ -33,7 +33,7 @@ If you see errors while building a release, please file a bug.
 - Install git LFS by [following these instructions](https://docs.github.com/en/repositories/working-with-files/managing-large-files/installing-git-large-file-storage).
 - Install [`just`](https://github.com/casey/just?tab=readme-ov-file#cross-platform)
 - Install [`zig`](https://ziglang.org/learn/getting-started/) if not already installed.
-  **Important:** version 0.15.2 is required.
+  **Important:** version 0.15.2 is required. Later versions will not work. If you are on macOS, this version will only work with Xcode 26.3 **at most**.
 
 Then, clone the git repository. Do this with
 
