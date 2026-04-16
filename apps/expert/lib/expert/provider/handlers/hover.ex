@@ -2,7 +2,7 @@ defmodule Expert.Provider.Handlers.Hover do
   @behaviour Expert.Provider.Handler
 
   alias Engine.Search.Store
-  alias Expert.ActiveProjects
+  alias Expert.Document.Context
   alias Expert.EngineApi
   alias Expert.Provider.Markdown
   alias Forge.Ast
@@ -16,10 +16,11 @@ defmodule Expert.Provider.Handlers.Hover do
   alias GenLSP.Structures
 
   @impl Expert.Provider.Handler
-  def handle(%Requests.TextDocumentHover{params: %Structures.HoverParams{} = params}) do
-    document = Document.Container.context_document(params, nil)
-    projects = ActiveProjects.projects()
-    project = Project.project_for_document(projects, document)
+  def handle(
+        %Requests.TextDocumentHover{params: %Structures.HoverParams{} = params},
+        %Context{} = context
+      ) do
+    %Context{document: document, project: project} = context
 
     maybe_hover =
       with {:ok, _document, %Ast.Analysis{} = analysis} <-

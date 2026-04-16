@@ -19,7 +19,7 @@ defmodule Expert.Test.Expert.CompletionCase do
   setup_all do
     project = project()
 
-    start_supervised!(Expert.ActiveProjects)
+    start_supervised!(Expert.Project.Store)
     start_supervised!({Forge.NodePortMapper, []})
     start_supervised!({DynamicSupervisor, Expert.Project.DynamicSupervisor.options()})
     start_supervised!({Expert.Project.Supervisor, project})
@@ -29,7 +29,7 @@ defmodule Expert.Test.Expert.CompletionCase do
       project_index_ready()
     ])
 
-    EngineApi.schedule_compile(project, true)
+    Expert.Project.Node.trigger_build(project)
     assert_receive project_compiled(), 5000
     assert_receive project_index_ready(), 5000
     {:ok, project: project}

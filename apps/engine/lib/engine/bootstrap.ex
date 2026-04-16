@@ -95,7 +95,7 @@ defmodule Engine.Bootstrap do
     LogFilter.hook_into_logger()
   end
 
-  defp maybe_change_directory(%Project{} = project) do
+  defp maybe_change_directory(%Project{kind: :mix} = project) do
     current_dir = File.cwd!()
 
     # Note about the following code:
@@ -114,6 +114,10 @@ defmodule Engine.Bootstrap do
     if current_dir != configured_root do
       File.cd!(configured_root)
     end
+  end
+
+  defp maybe_change_directory(%Project{}) do
+    :ok
   end
 
   defp maybe_load_mix_exs(%Project{} = project) do
