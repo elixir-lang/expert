@@ -120,7 +120,7 @@ install prefix="$HOME/.local": release
   set -euxo pipefail
 
   mkdir -p "{{ prefix }}"/bin "{{ prefix }}"/libexec
-  cp -R ./apps/expert/_build/prod/rel/plain "{{ prefix }}"/libexec/expert
+  cp -a ./apps/expert/_build/prod/rel/plain "{{ prefix }}"/libexec/expert
   ln -sf ../libexec/expert/bin/start_expert "{{ prefix }}"/bin/expert
 
 clean-engine:
