@@ -4,7 +4,7 @@ This project uses a considerable amount of jargon, some adopted from the Languag
 This glossary attempts to define jargon used in this codebase.
 Though it is not exhaustive, we hope it helps contributors more easily navigate and understand existing code and the goal, and that it provides some guidance for naming new things.
 
-**You can help!** If you run across a new term while working on Expert and you think it should be defined here, please [open an issue](https://github.com/elixir-lang/expert/issues) suggesting it!
+**You can help!** If you run across a new term while working on Expert and you think it should be defined here, please [open an issue](https://github.com/expert-lsp/expert/issues) suggesting it!
 
 ## Language Server Protocol (LSP)
 
