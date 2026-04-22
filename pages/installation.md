@@ -41,7 +41,7 @@ If you see errors while building a release, please file a bug.
 Then, clone the git repository. Do this with
 
 ```sh
-git clone git@github.com:elixir-lang/expert.git
+git clone git@github.com:expert-lsp/expert.git
 ```
 
 Then, change to the expert directory

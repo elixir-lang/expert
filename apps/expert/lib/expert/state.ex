@@ -1,11 +1,13 @@
 defmodule Expert.State do
   import Forge.EngineApi.Messages
 
-  alias Expert.ActiveProjects
   alias Expert.CodeIntelligence
   alias Expert.Configuration
+  alias Expert.Document.Context
+  alias Expert.Document.Lookup
   alias Expert.EngineApi
   alias Expert.Project
+  alias Expert.Project.Store
   alias Expert.Provider.Handlers
   alias Forge.Document
   alias Forge.Project
@@ -48,13 +50,16 @@ defmodule Expert.State do
         _ -> nil
       end
 
-    if event.root_uri do
-      root_path = Document.Path.from_uri(event.root_uri)
+    normalized_folders = normalize_workspace_folders(event)
 
-      root_path
-      |> Forge.Workspace.new()
-      |> Forge.Workspace.set_workspace()
-    end
+    folder_paths =
+      Enum.map(normalized_folders, fn %Structures.WorkspaceFolder{uri: uri} ->
+        Forge.Workspace.folder_path_from_uri(uri)
+      end)
+
+    folder_paths
+    |> Forge.Workspace.new()
+    |> Forge.Workspace.set_workspace()
 
     event.capabilities
     |> Configuration.new(client_name)
@@ -106,29 +111,61 @@ defmodule Expert.State do
     end
   end
 
-  def apply(%__MODULE__{} = state, %Notifications.WorkspaceDidChangeWorkspaceFolders{
-        params: %Structures.DidChangeWorkspaceFoldersParams{
-          event: %Structures.WorkspaceFoldersChangeEvent{added: added, removed: removed}
+  def apply(
+        %__MODULE__{} = state,
+        %Notifications.WorkspaceDidChangeWorkspaceFolders{
+          params: %Structures.DidChangeWorkspaceFoldersParams{
+            event: %Structures.WorkspaceFoldersChangeEvent{added: added, removed: removed}
+          }
         }
-      }) do
-    removed_projects =
-      for %{uri: uri} <- removed do
-        project = Project.new(uri)
+      ) do
+    added_paths = Enum.map(added, fn %{uri: uri} -> Forge.Workspace.folder_path_from_uri(uri) end)
 
-        Expert.Project.Supervisor.stop_node(project)
+    removed_paths =
+      Enum.map(removed, fn %{uri: uri} -> Forge.Workspace.folder_path_from_uri(uri) end)
 
-        project
-      end
+    workspace = Forge.Workspace.get_workspace() || Forge.Workspace.new([])
+
+    workspace
+    |> Forge.Workspace.add_folders(added_paths)
+    |> Forge.Workspace.remove_folders(removed_paths)
+    |> Forge.Workspace.set_workspace()
 
     added_projects =
-      for %{uri: uri} <- added do
-        project = Project.new(uri)
-        Expert.Project.Supervisor.ensure_node_started(project)
-        project
+      added
+      |> Lookup.projects_for_folders()
+      |> Enum.map(fn project -> Store.find_by_root_uri(project.root_uri) || project end)
+
+    remaining_workspace_paths =
+      case Forge.Workspace.get_workspace() do
+        %Forge.Workspace{workspace_folders: workspace_folders} -> workspace_folders
+        _ -> []
       end
 
-    ActiveProjects.add_projects(added_projects)
-    ActiveProjects.remove_projects(removed_projects)
+    remaining_root_uris =
+      Lookup.project_root_uris_for_paths(remaining_workspace_paths)
+
+    removed_root_uris = Lookup.project_root_uris_for_paths(removed_paths)
+
+    removed_projects =
+      Store.projects()
+      |> Enum.filter(fn project ->
+        removed_from_workspace?(project, removed_paths, removed_root_uris) and
+          not in_workspace?(project, remaining_workspace_paths, remaining_root_uris)
+      end)
+
+    for project <- removed_projects do
+      Expert.Project.Supervisor.stop_node(project)
+    end
+
+    Store.add_projects(added_projects)
+    Store.remove_projects(removed_projects)
+
+    for project <- added_projects do
+      Task.Supervisor.start_child(:expert_task_queue, fn ->
+        Expert.Project.Supervisor.ensure_node_started(project)
+      end)
+    end
 
     {:ok, state}
   end
@@ -136,25 +173,24 @@ defmodule Expert.State do
   def apply(%__MODULE__{} = state, %GenLSP.Notifications.TextDocumentDidChange{params: params}) do
     uri = params.text_document.uri
     version = params.text_document.version
-    projects = ActiveProjects.projects()
-    project = Project.project_for_uri(projects, uri)
+    context = Lookup.resolve(uri, Store.projects())
 
     case Document.Store.get_and_update(
            uri,
            &Document.apply_content_changes(&1, version, params.content_changes)
          ) do
       {:ok, updated_source} ->
-        updated_message =
-          file_changed(
-            uri: updated_source.uri,
-            open?: true,
-            from_version: version,
-            to_version: updated_source.version
-          )
+        if Store.ready?(context.project) do
+          updated_message =
+            file_changed(
+              uri: updated_source.uri,
+              open?: true,
+              from_version: version,
+              to_version: updated_source.version
+            )
 
-        if ActiveProjects.active?(project) do
-          EngineApi.broadcast(project, updated_message)
-          EngineApi.compile_document(project, updated_source)
+          EngineApi.broadcast(context.project, updated_message)
+          EngineApi.compile_document(context.project, updated_source)
         end
 
         {:ok, state}
@@ -172,18 +208,7 @@ defmodule Expert.State do
       language_id: language_id
     } = did_open.params.text_document
 
-    project =
-      with %Project{} = closest <- Project.find_project(uri) do
-        ActiveProjects.find_by_root_uri(closest.root_uri) || closest
-      end
-
-    if project && not ActiveProjects.blocked?(project) do
-      Task.Supervisor.start_child(:expert_task_queue, fn ->
-        Expert.Project.Supervisor.ensure_node_started(project)
-      end)
-
-      ActiveProjects.add_projects([project])
-    end
+    start_project_for_uri(uri)
 
     case Document.Store.open(uri, text, version, language_id) do
       :ok ->
@@ -216,12 +241,16 @@ defmodule Expert.State do
 
   def apply(%__MODULE__{} = state, %GenLSP.Notifications.TextDocumentDidSave{params: params}) do
     uri = params.text_document.uri
-    project = Forge.Project.project_for_uri(ActiveProjects.projects(), uri)
+    context = Lookup.resolve(uri, Store.projects())
 
     case Document.Store.save(uri) do
       :ok ->
-        if ActiveProjects.active?(project) do
-          EngineApi.schedule_compile(project, false)
+        case context do
+          %Context{project: %Project{kind: :mix} = project} ->
+            EngineApi.schedule_compile(project, false)
+
+          %Context{project: %Project{kind: :bare}} ->
+            :ok
         end
 
         {:ok, state}
@@ -232,11 +261,6 @@ defmodule Expert.State do
     end
   end
 
-  def apply(%__MODULE__{} = state, %Notifications.Initialized{}) do
-    Logger.info("Expert Initialized")
-    {:ok, %__MODULE__{state | initialized?: true}}
-  end
-
   def apply(%__MODULE__{} = state, %GenLSP.Requests.Shutdown{}) do
     Logger.info("Shutting down")
 
@@ -244,11 +268,11 @@ defmodule Expert.State do
   end
 
   def apply(%__MODULE__{} = state, %Notifications.WorkspaceDidChangeWatchedFiles{params: params}) do
-    for project <- ActiveProjects.projects(),
+    for project <- Store.projects(),
         change <- params.changes do
-      params = filesystem_event(project: Project, uri: change.uri, event_type: change.type)
+      params = filesystem_event(project: project, uri: change.uri, event_type: change.type)
 
-      if ActiveProjects.active?(project) do
+      if Store.ready?(project) do
         EngineApi.broadcast(project, params)
       end
     end
@@ -273,7 +297,7 @@ defmodule Expert.State do
   end
 
   defp propagate_elixir_source_path(%Configuration{elixir_source_path: nil}) do
-    for project <- ActiveProjects.projects(), ActiveProjects.active?(project) do
+    for project <- Store.projects(), Store.ready?(project) do
       EngineApi.call(project, Application, :delete_env, [:language_server, :elixir_source_path])
     end
   rescue
@@ -281,7 +305,7 @@ defmodule Expert.State do
   end
 
   defp propagate_elixir_source_path(%Configuration{elixir_source_path: elixir_source_path}) do
-    for project <- ActiveProjects.projects(), ActiveProjects.active?(project) do
+    for project <- Store.projects(), Store.ready?(project) do
       EngineApi.call(project, Application, :put_env, [
         :language_server,
         :elixir_source_path,
@@ -345,5 +369,52 @@ defmodule Expert.State do
         version: Expert.vsn()
       }
     }
+  end
+
+  defp start_project_for_uri(uri) do
+    project = Lookup.discover_project(uri)
+
+    if !(Store.blocked?(project) or Store.find_by_root_uri(project.root_uri) != nil) do
+      Store.add_projects([project])
+
+      Task.Supervisor.start_child(:expert_task_queue, fn ->
+        Expert.Project.Supervisor.ensure_node_started(project)
+      end)
+    end
+
+    :ok
+  end
+
+  defp removed_from_workspace?(%Project{} = project, removed_paths, removed_root_uris) do
+    MapSet.member?(removed_root_uris, project.root_uri) or
+      Enum.any?(removed_paths, &project_in_folder?(&1, project))
+  end
+
+  defp in_workspace?(%Project{} = project, workspace_paths, workspace_root_uris) do
+    MapSet.member?(workspace_root_uris, project.root_uri) or
+      Enum.any?(workspace_paths, &project_in_folder?(&1, project))
+  end
+
+  defp project_in_folder?(folder_path, %Project{} = project) do
+    folder_path = Path.expand(folder_path)
+    project_root_path = Project.root_path(project)
+
+    is_binary(project_root_path) and Forge.Path.parent_path?(project_root_path, folder_path)
+  end
+
+  @spec normalize_workspace_folders(GenLSP.Structures.InitializeParams.t()) ::
+          [Structures.WorkspaceFolder.t()]
+  def normalize_workspace_folders(%GenLSP.Structures.InitializeParams{} = event) do
+    cond do
+      is_list(event.workspace_folders) and event.workspace_folders != [] ->
+        event.workspace_folders
+
+      is_binary(event.root_uri) and event.root_uri != "" ->
+        path = Forge.Workspace.folder_path_from_uri(event.root_uri)
+        [%Structures.WorkspaceFolder{uri: event.root_uri, name: Path.basename(path)}]
+
+      true ->
+        []
+    end
   end
 end

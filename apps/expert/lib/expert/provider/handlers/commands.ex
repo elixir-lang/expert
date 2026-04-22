@@ -1,8 +1,8 @@
 defmodule Expert.Provider.Handlers.Commands do
   @behaviour Expert.Provider.Handler
 
-  alias Expert.ActiveProjects
   alias Expert.EngineApi
+  alias Expert.Project.Store
   alias Forge.Project
   alias GenLSP.Enumerations.ErrorCodes
   alias GenLSP.Requests
@@ -26,10 +26,13 @@ defmodule Expert.Provider.Handlers.Commands do
   end
 
   @impl Expert.Provider.Handler
-  def handle(%Requests.WorkspaceExecuteCommand{
-        params: %Structures.ExecuteCommandParams{} = params
-      }) do
-    projects = ActiveProjects.projects()
+  def handle(
+        %Requests.WorkspaceExecuteCommand{
+          params: %Structures.ExecuteCommandParams{} = params
+        },
+        _context
+      ) do
+    projects = Store.projects()
 
     response =
       case params.command do

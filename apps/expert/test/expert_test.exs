@@ -13,11 +13,13 @@ defmodule Expert.ExpertTest do
 
   setup do
     :persistent_term.erase(Expert.Configuration)
+    Forge.Workspace.set_workspace(nil)
     with_patched_transport()
 
     # These tests call `Expert.handle_info/2` directly (bypassing `Expert.Application`),
-    # so we must start `Expert.ActiveProjects` to create its ETS tables first.
-    start_supervised!({Expert.ActiveProjects, []})
+    # so we must start the stores that runtime boot normally provides.
+    start_supervised!({Forge.Document.Store, derive: [analysis: &Forge.Ast.analyze/1]})
+    start_supervised!({Expert.Project.Store, []})
 
     # window/logMessage comes from Logger via WindowLogHandler,
     # so tests that assert on log notifications must allow :info events through.
@@ -27,6 +29,7 @@ defmodule Expert.ExpertTest do
     :logger.update_handler_config(:default, :level, :none)
 
     on_exit(fn ->
+      Forge.Workspace.set_workspace(nil)
       Logger.configure(level: :none)
       :logger.update_handler_config(:default, :level, :all)
     end)
@@ -67,7 +70,7 @@ defmodule Expert.ExpertTest do
     project = Fixtures.project()
     lsp = initialize_lsp(project)
 
-    patch(Expert.ActiveProjects, :projects, [project])
+    patch(Expert.Project.Store, :projects, [project])
     patch(Task.Supervisor, :start_child, fn _sup, _fun -> {:error, :max_children} end)
 
     Logger.configure(level: :error)
@@ -120,6 +123,62 @@ defmodule Expert.ExpertTest do
     config = Expert.Configuration.get()
     assert config.log_level == :info
     assert config.workspace_symbols.min_query_length == 2
+  end
+
+  test "initialization stores an empty workspace when root_uri and workspace_folders are nil" do
+    request = %GenLSP.Requests.Initialize{
+      id: 1,
+      jsonrpc: "2.0",
+      method: "initialize",
+      params: %GenLSP.Structures.InitializeParams{
+        capabilities: %GenLSP.Structures.ClientCapabilities{},
+        client_info: nil,
+        process_id: "",
+        root_uri: nil,
+        root_path: nil,
+        workspace_folders: nil
+      }
+    }
+
+    assert {:ok, _response, _state} = State.initialize(State.new(), request)
+
+    assert %Forge.Workspace{workspace_folders: []} =
+             Forge.Workspace.get_workspace()
+  end
+
+  test "document requests return an error when the document cannot be loaded" do
+    project = Fixtures.project()
+    lsp = initialize_lsp(project)
+
+    Expert.Project.Store.add_projects([project])
+    Expert.Project.Store.transition(project, :ready)
+
+    request = %GenLSP.Requests.TextDocumentHover{
+      id: 1,
+      jsonrpc: "2.0",
+      method: "textDocument/hover",
+      params: %GenLSP.Structures.HoverParams{
+        text_document: %GenLSP.Structures.TextDocumentIdentifier{
+          uri:
+            project
+            |> Forge.Project.root_path()
+            |> Path.join("lib/not_open.ex")
+            |> Forge.Document.Path.to_uri()
+        },
+        position: %GenLSP.Structures.Position{line: 0, character: 0}
+      }
+    }
+
+    assert {
+             :reply,
+             %GenLSP.ErrorResponse{
+               code: code,
+               message: "Document could not be loaded"
+             },
+             ^lsp
+           } = Expert.handle_request(request, lsp)
+
+    assert code == GenLSP.Enumerations.ErrorCodes.invalid_request()
   end
 
   defp initialize_lsp(project, opts \\ []) do

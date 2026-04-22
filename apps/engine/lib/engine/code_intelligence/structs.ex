@@ -1,10 +1,19 @@
 defmodule Engine.CodeIntelligence.Structs do
   alias Engine.Module.Loader
   alias Engine.Search.Store
+  alias Forge.Project
   alias Forge.Search.Indexer.Entry
 
   def for_project do
-    if Mix.Project.get() do
+    for_project(Engine.get_project())
+  end
+
+  defp for_project(%Project{kind: :bare}) do
+    {:ok, structs_from_index()}
+  end
+
+  defp for_project(%Project{kind: :mix}) do
+    if Engine.Mix.loaded?() do
       {:ok, structs_from_index()}
     else
       Engine.Mix.in_project(fn _ -> structs_from_index() end)

@@ -1,7 +1,8 @@
 defmodule Expert do
   use GenLSP
 
-  alias Expert.ActiveProjects
+  alias Expert.Document.Lookup
+  alias Expert.Project.Store
   alias Expert.Protocol.Convert
   alias Expert.Protocol.Id
   alias Expert.Provider.Handlers
@@ -56,20 +57,10 @@ defmodule Expert do
 
     with {:ok, response, state} <- State.initialize(state, request),
          {:ok, response} <- Expert.Protocol.Convert.to_lsp(response) do
-      workspace_folders = request.params.workspace_folders || []
+      normalized_folders = State.normalize_workspace_folders(request.params)
+      projects = Lookup.projects_for_folders(normalized_folders)
 
-      projects =
-        for %{uri: uri} <- workspace_folders,
-            project = Project.new(uri),
-            # Only include Mix projects, or include single-folder workspaces with
-            # bare elixir files.
-            project.mix_project? || Project.elixir_project?(project) do
-          project
-        end
-
-      ActiveProjects.set_projects(projects)
-
-      # Projects will be started when we receive the initialized notification
+      Store.set_projects(projects)
 
       {:reply, response, assign(lsp, state: state)}
     else
@@ -113,9 +104,9 @@ defmodule Expert do
 
   def handle_request(request, lsp) do
     with {:ok, handler} <- fetch_handler(request),
+         {:ok, context} <- check_engine_initialized(request),
          {:ok, request} <- Convert.to_native(request),
-         :ok <- check_engine_initialized(request),
-         {:ok, response} <- handler.handle(request),
+         {:ok, response} <- handler.handle(request, context),
          {:ok, response} <- Expert.Protocol.Convert.to_lsp(response) do
       {:reply, response, lsp}
     else
@@ -135,6 +126,15 @@ defmodule Expert do
 
         {:reply, nil, lsp}
 
+      {:error, :document_not_found} ->
+        Logger.info("Received request #{request.method} for a document that could not be loaded.")
+
+        {:reply,
+         %GenLSP.ErrorResponse{
+           code: GenLSP.Enumerations.ErrorCodes.invalid_request(),
+           message: "Document could not be loaded"
+         }, lsp}
+
       error ->
         message = "Failed to handle #{request.method}, #{inspect(error)}"
         Logger.error(message)
@@ -149,22 +149,17 @@ defmodule Expert do
 
   defp check_engine_initialized(request) do
     if document_request?(request) do
-      case Forge.Document.Container.context_document(request, nil) do
-        %Forge.Document{} = document ->
-          projects = ActiveProjects.projects()
-          project = Project.project_for_document(projects, document)
+      projects = Store.projects()
 
-          if project && ActiveProjects.active?(project) do
-            :ok
-          else
-            {:error, :engine_not_initialized, project}
-          end
-
-        nil ->
-          {:error, :engine_not_initialized, nil}
+      with {:ok, context} <- Lookup.resolve_from_request(request, projects) do
+        if Store.ready?(context.project) do
+          {:ok, context}
+        else
+          {:error, :engine_not_initialized, context.project}
+        end
       end
     else
-      :ok
+      {:ok, nil}
     end
   end
 
@@ -185,8 +180,8 @@ defmodule Expert do
       Logger.error("Failed to register capability")
     end
 
-    for project <- ActiveProjects.projects() do
-      if !ActiveProjects.blocked?(project) do
+    for project <- Store.projects() do
+      if !Store.blocked?(project) do
         started =
           Task.Supervisor.start_child(:expert_task_queue, fn ->
             Logger.info("Starting project", project: project)
@@ -233,7 +228,7 @@ defmodule Expert do
   def handle_notification(notification, lsp) do
     with {:ok, handler} <- fetch_handler(notification),
          {:ok, notification} <- Convert.to_native(notification),
-         {:ok, _response} <- handler.handle(notification) do
+         {:ok, _response} <- handler.handle(notification, nil) do
       {:noreply, lsp}
     else
       {:error, {:unhandled, _}} ->
@@ -263,7 +258,7 @@ defmodule Expert do
   end
 
   def handle_info({:engine_initialized, project, {:error, {:shutdown, :deps_error}}}, lsp) do
-    ActiveProjects.set_ready(project, false)
+    Store.transition(project, :pending)
 
     log_error(
       lsp,
@@ -275,7 +270,7 @@ defmodule Expert do
   end
 
   def handle_info({:engine_initialized, project, {:error, reason}}, lsp) do
-    ActiveProjects.set_ready(project, false)
+    Store.transition(project, :pending)
 
     error_message = initialization_error_message(reason)
     log_error(lsp, project, error_message)
@@ -294,8 +289,7 @@ defmodule Expert do
     if supports_show_message && not deps_declined do
       project_name = Project.name(project)
 
-      ActiveProjects.set_blocked(project, true)
-      ActiveProjects.set_ready(project, false)
+      Store.transition(project, :blocked)
 
       response =
         GenLSP.request(
@@ -353,7 +347,7 @@ defmodule Expert do
           Logger.info("mix deps.get completed successfully", project: project)
 
           Expert.Project.Supervisor.stop_node(project)
-          ActiveProjects.set_blocked(project, false)
+          Store.transition(project, :pending)
 
           Logger.info("Restarting engine for #{Project.name(project)}", project: project)
           start_result = Expert.Project.Supervisor.ensure_node_started(project)
@@ -375,8 +369,7 @@ defmodule Expert do
   end
 
   defp handle_deps_fetch_result(%Structures.MessageActionItem{title: "No"}, lsp, project) do
-    ActiveProjects.set_blocked(project, false)
-    ActiveProjects.set_ready(project, true)
+    Store.transition(project, :ready)
 
     Logger.info("User declined to run mix deps.get for #{Project.name(project)}",
       project: project

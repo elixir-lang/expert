@@ -19,7 +19,7 @@ defmodule Expert.Provider.Handlers.WorkspaceSymbolTest do
 
     start_supervised!({Forge.NodePortMapper, []})
     start_supervised!(Expert.Application.document_store_child_spec())
-    start_supervised!({Expert.ActiveProjects, []})
+    start_supervised!({Expert.Project.Store, []})
     start_supervised!({DynamicSupervisor, Expert.Project.DynamicSupervisor.options()})
     start_supervised!({Expert.Project.Supervisor, project})
 
@@ -32,7 +32,7 @@ defmodule Expert.Provider.Handlers.WorkspaceSymbolTest do
     assert_receive Messages.project_compiled(), 5000
     assert_receive Messages.project_index_ready(), 5000
 
-    Expert.ActiveProjects.add_projects([project])
+    Expert.Project.Store.add_projects([project])
 
     {:ok, project: project}
   end
@@ -42,14 +42,14 @@ defmodule Expert.Provider.Handlers.WorkspaceSymbolTest do
     :ok
   end
 
-  describe "handle/1 with default configuration (minQueryLength: 2)" do
+  describe "handle/2 with default configuration (minQueryLength: 2)" do
     test "returns empty list when query is empty", %{project: _project} do
       Configuration.new()
       |> Configuration.set()
 
       {:ok, request} = build_request("")
 
-      {:ok, symbols} = Handlers.WorkspaceSymbol.handle(request)
+      {:ok, symbols} = Handlers.WorkspaceSymbol.handle(request, nil)
 
       assert symbols == []
     end
@@ -60,7 +60,7 @@ defmodule Expert.Provider.Handlers.WorkspaceSymbolTest do
 
       {:ok, request} = build_request("a")
 
-      {:ok, symbols} = Handlers.WorkspaceSymbol.handle(request)
+      {:ok, symbols} = Handlers.WorkspaceSymbol.handle(request, nil)
 
       assert symbols == []
     end
@@ -71,13 +71,13 @@ defmodule Expert.Provider.Handlers.WorkspaceSymbolTest do
 
       {:ok, request} = build_request("Pro")
 
-      {:ok, [_ | _] = symbols} = Handlers.WorkspaceSymbol.handle(request)
+      {:ok, [_ | _] = symbols} = Handlers.WorkspaceSymbol.handle(request, nil)
 
       assert Enum.any?(symbols, &String.contains?(&1.name, "Project"))
     end
   end
 
-  describe "handle/1 with minQueryLength: 0" do
+  describe "handle/2 with minQueryLength: 0" do
     test "returns symbols when query is empty", %{project: _project} do
       [workspace_symbols: %WorkspaceSymbols{min_query_length: 0}]
       |> Configuration.new()
@@ -85,7 +85,7 @@ defmodule Expert.Provider.Handlers.WorkspaceSymbolTest do
 
       {:ok, request} = build_request("")
 
-      {:ok, [_ | _]} = Handlers.WorkspaceSymbol.handle(request)
+      {:ok, [_ | _]} = Handlers.WorkspaceSymbol.handle(request, nil)
     end
 
     test "returns symbols when query is single character", %{project: _project} do
@@ -95,11 +95,11 @@ defmodule Expert.Provider.Handlers.WorkspaceSymbolTest do
 
       {:ok, request} = build_request("a")
 
-      {:ok, [_ | _]} = Handlers.WorkspaceSymbol.handle(request)
+      {:ok, [_ | _]} = Handlers.WorkspaceSymbol.handle(request, nil)
     end
   end
 
-  describe "handle/1 with minQueryLength: 1" do
+  describe "handle/2 with minQueryLength: 1" do
     test "returns empty list when query is empty", %{project: _project} do
       [workspace_symbols: %WorkspaceSymbols{min_query_length: 1}]
       |> Configuration.new()
@@ -107,7 +107,7 @@ defmodule Expert.Provider.Handlers.WorkspaceSymbolTest do
 
       {:ok, request} = build_request("")
 
-      {:ok, symbols} = Handlers.WorkspaceSymbol.handle(request)
+      {:ok, symbols} = Handlers.WorkspaceSymbol.handle(request, nil)
 
       assert symbols == []
     end
@@ -119,7 +119,7 @@ defmodule Expert.Provider.Handlers.WorkspaceSymbolTest do
 
       {:ok, request} = build_request("F")
 
-      {:ok, [_ | _]} = Handlers.WorkspaceSymbol.handle(request)
+      {:ok, [_ | _]} = Handlers.WorkspaceSymbol.handle(request, nil)
     end
   end
 

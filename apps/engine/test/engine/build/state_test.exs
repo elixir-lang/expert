@@ -52,6 +52,19 @@ defmodule Engine.Build.StateTest do
     {:ok, state: state}
   end
 
+  def with_bare_project_state(_) do
+    test = self()
+
+    patch(Engine.Dispatch, :broadcast, &send(test, &1))
+
+    fixture_dir = fixtures_path()
+    project = Project.bare("file://#{fixture_dir}")
+    state = State.new(project)
+
+    Engine.set_project(project)
+    {:ok, state: state}
+  end
+
   def with_a_valid_document(%{state: state}) do
     source = ~S[
       defmodule Testing.ValidSource do
@@ -147,6 +160,29 @@ defmodule Engine.Build.StateTest do
 
       assert_called(Build.Document.compile(_))
       assert_called(Build.Project.compile(_, _))
+    end
+  end
+
+  describe "bare project compilation" do
+    setup [:with_bare_project_state, :with_a_valid_document]
+
+    test "document compilation does not enter Mix project context", %{
+      state: state,
+      document: document
+    } do
+      patch(Engine.Mix, :in_project, fn _fun -> {:error, :should_not_be_called} end)
+
+      State.compile_file(state, document)
+
+      refute_called(Engine.Mix.in_project(_))
+    end
+
+    test "project compilation returns :ok without calling Mix", %{state: state} do
+      patch(Engine.Mix, :in_project, fn _project, _fun -> {:error, :should_not_be_called} end)
+
+      assert Engine.Build.Project.compile(state.project, true) == :ok
+
+      refute_called(Engine.Mix.in_project(_, _))
     end
   end
 end

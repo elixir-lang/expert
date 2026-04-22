@@ -4,6 +4,7 @@ defmodule Expert.Provider.Handlers.CodeActionTest do
   import Forge.EngineApi.Messages
   import Forge.Test.Fixtures
 
+  alias Expert.Document.Context
   alias Expert.EngineApi
   alias Expert.Protocol.Convert
   alias Expert.Provider.Handlers
@@ -16,11 +17,11 @@ defmodule Expert.Provider.Handlers.CodeActionTest do
     start_supervised!({Document.Store, derive: [analysis: &Forge.Ast.analyze/1]})
     project = project(:navigations)
 
-    start_supervised!({Expert.ActiveProjects, []})
+    start_supervised!({Expert.Project.Store, []})
     start_supervised!({DynamicSupervisor, Expert.Project.DynamicSupervisor.options()})
     start_supervised!({Expert.Project.Supervisor, project})
 
-    Expert.ActiveProjects.set_projects([project])
+    Expert.Project.Store.set_projects([project])
     Expert.Configuration.new() |> Expert.Configuration.set()
 
     EngineApi.register_listener(project, self(), [project_compiled()])
@@ -70,8 +71,10 @@ defmodule Expert.Provider.Handlers.CodeActionTest do
     end
   end
 
-  def handle(request, _project) do
-    Handlers.CodeAction.handle(request)
+  def handle(request, project) do
+    document = Document.Container.context_document(request, nil)
+    context = Context.new(document.uri, document, project)
+    Handlers.CodeAction.handle(request, context)
   end
 
   describe "handle code actions" do

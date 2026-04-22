@@ -1,12 +1,12 @@
 defmodule Expert.Project.Supervisor do
   use Supervisor
 
-  alias Expert.ActiveProjects
   alias Expert.EngineSupervisor
   alias Expert.Project.Diagnostics
   alias Expert.Project.Intelligence
   alias Expert.Project.Node
   alias Expert.Project.SearchListener
+  alias Expert.Project.Store
   alias Forge.Project
 
   require Logger
@@ -45,17 +45,18 @@ defmodule Expert.Project.Supervisor do
   end
 
   def ensure_node_started(%Project{} = project) do
-    if ActiveProjects.blocked?(project) do
+    if Store.blocked?(project) do
       Logger.info("Project node start blocked for #{Project.name(project)}")
       {:error, :deps_error}
     else
       case start(project) do
         {:ok, pid} ->
-          ActiveProjects.set_ready(project, true)
+          Store.transition(project, :ready)
           Logger.info("Started project node for #{Project.name(project)}")
           {:ok, pid}
 
         {:error, {reason, pid}} when reason in [:already_started, :already_present] ->
+          Store.transition(project, :ready)
           {:ok, pid}
 
         {:error, reason} ->
@@ -70,7 +71,7 @@ defmodule Expert.Project.Supervisor do
 
   def stop_node(%Project{} = project) do
     stop(project)
-    ActiveProjects.set_ready(project, false)
+    Store.transition(project, :pending)
 
     Logger.info("Stopping project node for #{Project.name(project)}")
   end

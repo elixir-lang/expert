@@ -1,6 +1,4 @@
 defmodule Expert.Application do
-  # See https://hexdocs.pm/elixir/Application.html
-  # for more information on OTP Applications
   @moduledoc false
 
   use Application
@@ -54,7 +52,7 @@ defmodule Expert.Application do
     The official language server for Elixir
 
       Home page: https://expert-lsp.org
-    Source code: https://github.com/elixir-lang/expert
+    Source code: https://github.com/expert-lsp/expert
 
     expert [flags]
     expert engine <subcommand> [options]
@@ -137,7 +135,7 @@ defmodule Expert.Application do
       {GenLSP.Assigns, [name: Expert.Assigns]},
       {Task.Supervisor, name: :expert_task_queue},
       {GenLSP.Buffer, [name: Expert.Buffer] ++ buffer_opts},
-      {Expert.ActiveProjects, []},
+      {Expert.Project.Store, []},
       {Expert,
        name: Expert,
        buffer: Expert.Buffer,
