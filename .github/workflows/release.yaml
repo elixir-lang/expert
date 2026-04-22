@@ -38,7 +38,7 @@ jobs:
     steps:
       - env:
           TAG_NAME: ${{ needs.release.outputs.tag_name }}
-        run: gh release edit "${TAG_NAME}" --draft=true --repo='elixir-lang/expert'
+        run: gh release edit "${TAG_NAME}" --draft=true --repo='expert-lsp/expert'
 
   build:
     needs: [release, draft]
@@ -120,4 +120,4 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
           TAG_NAME: ${{ needs.release.outputs.tag_name }}
-        run: gh release edit "${TAG_NAME}" --draft=false --repo='elixir-lang/expert'
+        run: gh release edit "${TAG_NAME}" --draft=false --repo='expert-lsp/expert'

@@ -12,7 +12,7 @@ defmodule Expert.Engine.ModulesTest do
   describe "Engine.Modules with custom time zone database config" do
     @tag timeout: :timer.seconds(60)
     test "with_prefix/1 works when project configures custom time_zone_database" do
-      # Regression test for https://github.com/elixir-lang/expert/issues/317
+      # Regression test for https://github.com/expert-lsp/expert/issues/317
       #
       # When a project configures a custom time_zone_database (e.g. Tzdata),
       # the engine node inherits this config when Mix.Task.run(:loadconfig)

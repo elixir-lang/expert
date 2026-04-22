@@ -293,7 +293,7 @@ defmodule Engine.CodeIntelligence.EntityTest do
       assert resolved_range =~ ~S[get "/foo", «FooController», :index]
     end
 
-    # Regression test for https://github.com/elixir-lang/expert/issues/360
+    # Regression test for https://github.com/expert-lsp/expert/issues/360
     # Sibling scope aliases were being concatenated into the module path,
     # causing resolution to fail (or crash with :system_limit for many siblings).
     test "does not include sibling scope aliases" do
