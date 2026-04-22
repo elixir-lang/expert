@@ -34,7 +34,7 @@ Next, [install `zig`](https://ziglang.org/learn/getting-started/) if not already
 Then, clone the git repository. Do this with
 
 ```elixir
-git clone git@github.com:elixir-lang/expert.git
+git clone git@github.com:expert-lsp/expert.git
 ```
 
 Then change to the expert directory

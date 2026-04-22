@@ -82,7 +82,7 @@ defmodule Expert.Configuration do
 
       client_name ->
         # Workaround for Eglot/Emacs behavior discussed in:
-        # https://github.com/elixir-lang/expert/issues/382
+        # https://github.com/expert-lsp/expert/issues/382
         client_name
         |> String.trim()
         |> String.downcase()
