@@ -82,9 +82,42 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-    env:
-      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
-      - env:
+      - uses: actions/create-github-app-token@f8d387b68d61c58ab83c6c016672934102569859 # v3.0.0
+        if: ${{ needs.release.outputs.release_created }}
+        id: app-token
+        with:
+          app-id: ${{ vars.APP_ID }}
+          private-key: ${{ secrets.PRIVATE_KEY }}
+
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        if: ${{ needs.release.outputs.release_created }}
+        with:
+          persist-credentials: true
+          token: ${{ steps.app-token.outputs.token }}
+
+      - name: Create release branch
+        shell: bash
+        if: ${{ needs.release.outputs.release_created }}
+        env:
+          BRANCH: v${{ needs.release.outputs.major }}.${{  needs.release.outputs.minor }}
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email github-actions[bot]@users.noreply.github.com
+          git checkout -b "$BRANCH"
+          git push -u origin "$BRANCH"
+
+      - name: Create backport label
+        shell: bash
+        if: ${{ needs.release.outputs.release_created }}
+        env:
+          LABEL: v${{ needs.release.outputs.major }}.${{  needs.release.outputs.minor }}
+          GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          gh label create "release:backport $LABEL"
+
+      - name: Publish draft release
+        env:
+          GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
           TAG_NAME: ${{ needs.release.outputs.tag_name }}
         run: gh release edit "${TAG_NAME}" --draft=false --repo='elixir-lang/expert'
