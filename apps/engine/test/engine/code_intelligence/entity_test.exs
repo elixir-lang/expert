@@ -899,6 +899,106 @@ defmodule Engine.CodeIntelligence.EntityTest do
       assert {:ok, {:call, Parent, :from, 1}, resolved_range} = resolve(code)
       assert resolved_range =~ ~S[«from»(doc)]
     end
+
+    test "imported from unloaded module (local_call)" do
+      code = ~q[
+        defmodule MyProject.B do
+          def foo(), do: 1
+        end
+
+        defmodule MyProject do
+          import MyProject.B
+
+          def test() do
+            |foo()
+          end
+        end
+      ]
+
+      assert {:ok, {:call, MyProject.B, :foo, 0}, _} = resolve(code)
+    end
+
+    test "imported from unloaded module (local_or_var)" do
+      code = ~q[
+        defmodule MyProject.B do
+          def foo(), do: 1
+        end
+
+        defmodule MyProject do
+          import MyProject.B
+
+          def test() do
+            |foo
+          end
+        end
+      ]
+
+      assert {:ok, {:call, MyProject.B, :foo, 0}, _} = resolve(code)
+    end
+
+    test "imported from unloaded module (module-level call)" do
+      code = ~q[
+        defmodule MyProject.B do
+          def foo(), do: 1
+        end
+
+        defmodule MyProject do
+          import MyProject.B
+
+          |foo()
+        end
+      ]
+
+      assert {:ok, {:call, MyProject.B, :foo, 0}, _} = resolve(code)
+    end
+
+    test "imported from unloaded module (capture)" do
+      code = ~q[
+        defmodule MyProject.B do
+          def foo(), do: 1
+        end
+
+        defmodule MyProject do
+          import MyProject.B
+
+          def test() do
+            &foo|/0
+          end
+        end
+      ]
+
+      assert {:ok, {:call, MyProject.B, :foo, 0}, _} = resolve(code)
+    end
+
+    test "imported function in a capture" do
+      code = ~q[
+        defmodule Parent do
+          import Forge.Ast
+
+          def function do
+            &from|/1
+          end
+        end
+      ]
+
+      assert {:ok, {:call, Forge.Ast, :from, 1}, resolved_range} = resolve(code)
+      assert resolved_range =~ ~S[&«from»/1]
+    end
+
+    test "imported function in a capture (cursor before name)" do
+      code = ~q[
+        defmodule Parent do
+          import Forge.Ast
+
+          def function do
+            &|from/1
+          end
+        end
+      ]
+
+      assert {:ok, {:call, Forge.Ast, :from, 1}, resolved_range} = resolve(code)
+      assert resolved_range =~ ~S[&«from»/1]
+    end
   end
 
   describe "type resolve/2" do

@@ -19,6 +19,68 @@ defmodule Engine.Analyzer.Imports do
     end
   end
 
+  @doc """
+  Returns the source module for an imported function by walking import declarations in scope.
+  """
+  @spec module_for(Analysis.t(), Position.t(), atom(), non_neg_integer()) ::
+          {:ok, module()} | :error
+  def module_for(%Analysis{} = analysis, %Position{} = position, function_name, arity) do
+    case Analysis.scopes_at(analysis, position) do
+      [%Scope{} = scope | _] ->
+        end_line = Scope.end_line(scope, position)
+
+        scope.imports
+        |> Enum.sort_by(& &1.range.start.line)
+        |> Enum.take_while(&(&1.range.start.line <= end_line))
+        |> Enum.reverse(kernel_imports(scope))
+        |> Enum.find_value(:error, fn %Import{} = import ->
+          module = Aliases.resolve_at(scope, import.module, import.range.start.line)
+
+          if import_allows?(module, import.selector, function_name, arity) do
+            {:ok, module}
+          else
+            false
+          end
+        end)
+
+      _ ->
+        :error
+    end
+  end
+
+  defp import_allows?(module, :all, fun, arity) do
+    not Loader.ensure_loaded?(module) or
+      {fun, arity} in function_and_arities_for_module(module, :functions) or
+      {fun, arity} in function_and_arities_for_module(module, :macros)
+  end
+
+  defp import_allows?(module, [only: :functions], fun, arity) do
+    not Loader.ensure_loaded?(module) or
+      {fun, arity} in function_and_arities_for_module(module, :functions)
+  end
+
+  defp import_allows?(module, [only: :macros], fun, arity) do
+    not Loader.ensure_loaded?(module) or
+      {fun, arity} in function_and_arities_for_module(module, :macros)
+  end
+
+  defp import_allows?(module, [only: :sigils], fun, arity) do
+    not Loader.ensure_loaded?(module) or
+      {fun, arity} in function_and_arities_for_module(module, :sigils)
+  end
+
+  defp import_allows?(_module, [only: fns], fun, arity) when is_list(fns),
+    do: {fun, arity} in fns
+
+  defp import_allows?(module, [except: fns], fun, arity) when is_list(fns) do
+    {fun, arity} not in fns and
+      (not Loader.ensure_loaded?(module) or
+         {fun, arity} in function_and_arities_for_module(module, :functions) or
+         {fun, arity} in function_and_arities_for_module(module, :macros))
+  end
+
+  defp import_allows?(_module, _selector, _fun, _arity), do: false
+
   @spec imports(Scope.t(), Scope.scope_position()) :: [Scope.import_mfa()]
   def imports(%Scope{} = scope, position \\ :end) do
     scope
