@@ -83,7 +83,7 @@ defmodule Expert.CodeIntelligence.Hex do
   end
 
   defp project_files(%Project{} = project) do
-    key = {__MODULE__, :project_files, Project.name(project)}
+    key = {__MODULE__, :project_files, project.root_uri}
 
     case :persistent_term.get(key, :__miss__) do
       :__miss__ ->
@@ -194,10 +194,8 @@ defmodule Expert.CodeIntelligence.Hex do
     end
   end
 
-  @doc false
-  @spec project_scope(Project.t() | nil) :: atom() | String.t()
-  def project_scope(nil), do: :__local__
-  def project_scope(%Project{} = project), do: Project.name(project)
+  defp project_scope(nil), do: :__local__
+  defp project_scope(%Project{} = project), do: project.root_uri
 
   defp package_candidates(_project, _repo, ""), do: []
   defp package_candidates(_project, _repo, prefix) when byte_size(prefix) < 2, do: []

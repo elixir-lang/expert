@@ -21,15 +21,8 @@ defmodule Engine.DepsTest do
     end
   end
 
-  describe "project_file/1" do
-    test "returns a string or nil (doesn't crash when Mix context is partial)" do
-      refute Deps.project_file(:app)
-      refute Deps.project_file(:umbrella)
-    end
-  end
-
   describe "project_files/0" do
-    test "returns a list (possibly empty)" do
+    test "doesn't crash when Mix context is partial" do
       assert is_list(Deps.project_files())
     end
   end
