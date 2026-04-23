@@ -112,15 +112,16 @@ release: (deps "engine") (deps "expert")
 compile-ci-matrix:
   elixir matrix.exs
 
+[arg("prefix", long="prefix")]
 [doc('Build and install binary locally')]
 [unix]
-install: burrito-local
+install prefix="$HOME/.local": release
   #!/usr/bin/env bash
   set -euxo pipefail
 
-  mkdir -p ~/.local/bin
-  cp ./apps/expert/burrito_out/expert_{{ local_target }} ~/.local/bin/expert
-  chmod +x ~/.local/bin/expert
+  mkdir -p "{{ prefix }}"/bin "{{ prefix }}"/libexec
+  cp -a ./apps/expert/_build/prod/rel/plain "{{ prefix }}"/libexec/expert
+  ln -sf ../libexec/expert/bin/start_expert "{{ prefix }}"/bin/expert
 
 clean-engine:
   elixir -e ':filename.basedir(:user_cache, "expert") |> File.rm_rf!() |> IO.inspect()'
