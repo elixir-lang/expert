@@ -13,7 +13,8 @@ defmodule Engine.Build.State do
   defstruct project: nil,
             build_number: 0,
             uri_to_document: %{},
-            project_compile: :none
+            project_compile: :none,
+            last_deps_fetch_result: nil
 
   def new(%Project{} = project) do
     %__MODULE__{project: project}
@@ -88,10 +89,18 @@ defmodule Engine.Build.State do
         Logger.warning("Failed to remove build path #{path}: #{inspect(reason)}")
     end
 
-    Engine.Build.Project.fetch_deps(project)
+    result =
+      project
+      |> Engine.Build.Project.fetch_deps()
+      |> normalize_fetch_deps_result()
 
-    state
+    %{state | last_deps_fetch_result: result}
   end
+
+  def last_deps_fetch_result(%__MODULE__{last_deps_fetch_result: result}), do: result
+
+  defp normalize_fetch_deps_result({:ok, :ok}), do: :ok
+  defp normalize_fetch_deps_result(result), do: result
 
   defp compile_project(%__MODULE__{} = state, initial?) do
     state = increment_build_number(state)

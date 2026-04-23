@@ -185,4 +185,28 @@ defmodule Engine.Build.StateTest do
       refute_called(Engine.Mix.in_project(_, _))
     end
   end
+
+  describe "fetching deps" do
+    test "stores :ok when deps fetch succeeds" do
+      {:ok, state} = with_project_state(:project_metadata)
+
+      patch(File, :rm_rf, fn _path -> {:ok, []} end)
+      patch(Build.Project, :fetch_deps, fn _project -> :ok end)
+
+      state = State.fetch_deps(state, state.project)
+
+      assert State.last_deps_fetch_result(state) == :ok
+    end
+
+    test "stores error when deps fetch fails" do
+      {:ok, state} = with_project_state(:project_metadata)
+
+      patch(File, :rm_rf, fn _path -> {:ok, []} end)
+      patch(Build.Project, :fetch_deps, fn _project -> {:error, "deps failed"} end)
+
+      state = State.fetch_deps(state, state.project)
+
+      assert State.last_deps_fetch_result(state) == {:error, "deps failed"}
+    end
+  end
 end

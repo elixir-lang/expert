@@ -78,9 +78,9 @@ defmodule Engine.Build do
 
   @impl GenServer
   def handle_call({:clean_and_fetch_deps, %Project{} = project}, _from, %State{} = state) do
-    State.fetch_deps(state, project)
+    state = State.fetch_deps(state, project)
 
-    {:reply, :ok, state}
+    {:reply, State.last_deps_fetch_result(state), state}
   end
 
   @impl GenServer

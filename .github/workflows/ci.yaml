@@ -247,3 +247,15 @@ jobs:
         env:
           PROJECT: ${{ matrix.project }}
         run: just test "${PROJECT}" --warnings-as-errors
+
+  run-tests-failure-alert:
+    runs-on: ubuntu-latest
+    needs: [static-analysis, dialyzer, release-test, test]
+    if: ${{ cancelled() || contains(needs.*.result, 'cancelled') || contains(needs.*.result, 'failure') }}
+    steps:
+      - name: Conditionally Fail Required Check
+        shell: bash
+        run: |
+          echo "::error Some required job has failed!"
+          exit 1
+

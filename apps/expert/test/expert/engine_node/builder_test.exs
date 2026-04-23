@@ -67,6 +67,41 @@ defmodule Expert.EngineNode.BuilderTest do
              Task.await(task, 5_000)
   end
 
+  test "retries with --force when hex dependency resolution fails", %{project: project} do
+    test_pid = self()
+    attempt_counter = :counters.new(1, [])
+
+    patch(Builder, :start_build, fn _project, from, opts ->
+      :counters.add(attempt_counter, 1, 1)
+      current_attempt = :counters.get(attempt_counter, 1)
+
+      case current_attempt do
+        1 ->
+          refute opts[:force]
+          send(test_pid, {:attempt, 1, from})
+
+        2 ->
+          assert opts[:force]
+          GenServer.reply(from, {:ok, {test_ebin_entries(), nil}})
+          send(test_pid, {:attempt, 2, from})
+      end
+
+      {:ok, :fake_port}
+    end)
+
+    {:ok, builder_pid} = Builder.start_link(project)
+    task = Task.async(fn -> GenServer.call(builder_pid, :build, :infinity) end)
+
+    assert_receive {:attempt, 1, _from}, 1_000
+
+    send(builder_pid, {nil, {:data, {:eol, "** (Mix.Error) Hex dependency resolution failed"}}})
+
+    assert_receive {:attempt, 2, _from}, 1_000
+
+    assert {:ok, {paths, nil}} = Task.await(task, 5_000)
+    assert paths == test_ebin_entries()
+  end
+
   test "parses engine_meta after unrelated output", %{project: project} do
     patch(Builder, :start_build, fn _project, _from, _opts ->
       {:ok, :fake_port}

@@ -38,7 +38,11 @@ jobs:
 
             ```
             feat(engine): add new completions styles
-            bug: correctly index project symbols
+            fix: correctly index project symbols
+            test: fixing flaky test
+            docs: updating readme
+            ci: changing a github action
+            chore: changing something like tool versions or non code related thing
             ```
 
             Details:

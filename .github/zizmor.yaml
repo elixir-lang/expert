@@ -1,0 +1,5 @@
+rules:
+  dangerous-triggers:
+    ignore:
+      - lint-commit.yaml
+      - backport.yaml
