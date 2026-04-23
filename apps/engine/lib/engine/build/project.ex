@@ -1,6 +1,7 @@
 defmodule Engine.Build.Project do
   alias Engine.Build
   alias Engine.Build.Isolation
+  alias Engine.Module.Loader
   alias Engine.Plugin
   alias Engine.Progress
   alias Forge.Internet
@@ -62,6 +63,7 @@ defmodule Engine.Build.Project do
       Mix.Task.clear()
       Progress.report(token, message: "Compiling #{Project.display_name(project)}")
       result = compile_in_isolation()
+      maybe_load_modules()
       Project.ensure_hex_and_rebar()
       Mix.Task.run(:loadpaths)
       result
@@ -84,6 +86,18 @@ defmodule Engine.Build.Project do
         )
 
         Build.Error.refine_diagnostics(diagnostics)
+    end
+  end
+
+  defp maybe_load_modules do
+    if Elixir.Features.lazy_loading?() do
+      modules_to_load =
+        for {mod, _, false} <- :code.all_available() do
+          List.to_atom(mod)
+        end
+
+      Logger.info("Loading #{length(modules_to_load)} modules")
+      Loader.load_all(modules_to_load)
     end
   end
 
