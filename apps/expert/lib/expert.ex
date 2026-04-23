@@ -226,6 +226,10 @@ defmodule Expert do
     end
   end
 
+  def handle_notification(%GenLSP.Notifications.DollarSetTrace{}, lsp) do
+    {:noreply, lsp}
+  end
+
   def handle_notification(notification, lsp) do
     with {:ok, handler} <- fetch_handler(notification),
          {:ok, notification} <- Convert.to_native(notification),
