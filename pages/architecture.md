@@ -17,7 +17,7 @@ Since the `engine` app only depends on `forge`, `path_glob` and `elixir_sense`, 
 
 The language server (the `expert` app) is the entry point to Expert. When started, it sets up a transport via GenLSP that reads JsonRPC and responds to it. The default transport is Standard IO, but it can be configured to use TCP.
 
-When a message is received, it is parsed into either a LSP Request or a LSP Notification and then it's handed to the [language server](https://github.com/elixir-lang/expert/blob/main/apps/expert/lib/expert.ex) to process.
+When a message is received, it is parsed into either a LSP Request or a LSP Notification and then it's handed to the [language server](https://github.com/expert-lsp/expert/blob/main/apps/expert/lib/expert.ex) to process.
 
 The only messages the Expert server process handles directly are those related to the lifecycle of the language server itself:
 

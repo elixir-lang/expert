@@ -54,7 +54,7 @@ defmodule Expert.Application do
     The official language server for Elixir
 
       Home page: https://expert-lsp.org
-    Source code: https://github.com/elixir-lang/expert
+    Source code: https://github.com/expert-lsp/expert
 
     expert [flags]
     expert engine <subcommand> [options]

@@ -4,7 +4,7 @@ Expert is the official language server implementation for the Elixir programming
 
 ## Installation
 
-You can download Expert from the [releases page](https://github.com/elixir-lang/expert/releases) for your
+You can download Expert from the [releases page](https://github.com/expert-lsp/expert/releases) for your
 operating system and architecture. Put the executable somewhere on your `$PATH`, like `~/.local/bin/expert`
 
 For editor specific installation instructions, please refer to the [Installation Instructions](pages/installation.md)
@@ -16,7 +16,7 @@ If you want to try out the latest features, you can download a nightly build.
 Using the GH CLI, you can run the following command to download the latest nightly build:
 
 ```shell
-gh release download nightly --pattern 'expert_linux_amd64' --repo elixir-lang/expert
+gh release download nightly --pattern 'expert_linux_amd64' --repo expert-lsp/expert
 ```
 
 Then point your editor to the downloaded binary.
@@ -55,7 +55,7 @@ You can find more information in the [Installation Instructions](pages/installat
 
 ## Sponsorship
 
-Thank you to our corporate sponsors! Expert is currently in alpha and [we have organized all future work, including the first release, as milestones](https://github.com/elixir-lang/expert/milestones). If you'd like to start sponsoring the project, please read more below.
+Thank you to our corporate sponsors! Expert is currently in alpha and [we have organized all future work, including the first release, as milestones](https://github.com/expert-lsp/expert/milestones). If you'd like to start sponsoring the project, please read more below.
 
 <div>
   <img height="100" src="./assets/sponsors/fly.png">
