@@ -102,6 +102,20 @@ defmodule Expert.ConfigurationTest do
 
       assert updated.log_level == :info
     end
+
+    test "ignores non-map settings values" do
+      change = build_change(%{"logLevel" => "warning"})
+      {:ok, updated} = Configuration.on_change(change)
+
+      assert updated.log_level == :warning
+
+      for settings <- [nil, [], "bad", 123, true] do
+        assert {:ok, updated} = Configuration.on_change(build_change(settings))
+
+        assert updated.log_level == :warning
+        assert updated.workspace_symbols.min_query_length == 2
+      end
+    end
   end
 
   describe "on_change/1 with workspace_symbols.min_query_length" do
@@ -224,6 +238,31 @@ defmodule Expert.ConfigurationTest do
 
       # The update should persist, not be overwritten by the slow handler
       assert Configuration.get().workspace_symbols.min_query_length == 0
+    end
+  end
+
+  describe "on_change/1 watched files registration" do
+    test "does not register watched files for non-map settings" do
+      assert {:ok, updated} = Configuration.on_change(build_change(nil))
+
+      assert updated.additional_watched_extensions == nil
+    end
+
+    test "nil settings do not reset previously configured values" do
+      change =
+        build_change(%{
+          "logLevel" => "warning",
+          "workspaceSymbols" => %{"minQueryLength" => 5}
+        })
+
+      {:ok, updated} = Configuration.on_change(change)
+      assert updated.log_level == :warning
+      assert updated.workspace_symbols.min_query_length == 5
+
+      {:ok, after_nil} = Configuration.on_change(build_change(nil))
+
+      assert after_nil.log_level == :warning
+      assert after_nil.workspace_symbols.min_query_length == 5
     end
   end
 
