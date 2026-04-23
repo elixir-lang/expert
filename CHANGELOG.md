@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.1.1](https://github.com/expert-lsp/expert/compare/v0.1.0...v0.1.1) (2026-04-23)
+
+
+### Bug Fixes
+
+* don't connect to the epmd daemon ([#589](https://github.com/expert-lsp/expert/issues/589)) ([84523c8](https://github.com/expert-lsp/expert/commit/84523c811f8faf2feced6013cd6b11bde0c8ccf6))
+* **engine:** respect formatter line length in Refactorex actions ([#590](https://github.com/expert-lsp/expert/issues/590)) ([33a897d](https://github.com/expert-lsp/expert/commit/33a897d2408a9ab4e0c2dfb421d998912f1d69c2))
+* **engine:** stop double applying alias suffix when prefix is aliased ([#591](https://github.com/expert-lsp/expert/issues/591)) ([d1fc3b0](https://github.com/expert-lsp/expert/commit/d1fc3b0a7ae22da9b801e02bedaea0821b4b7b48))
+* **engine:** unify import lookup to correctly resolve local calls ([#592](https://github.com/expert-lsp/expert/issues/592)) ([5421f92](https://github.com/expert-lsp/expert/commit/5421f9202133906d042ac3cb3f023bda7b9e9581))
+* **expert:** add no-op handler for $/setTrace ([#593](https://github.com/expert-lsp/expert/issues/593)) ([9bb4f0d](https://github.com/expert-lsp/expert/commit/9bb4f0dd94b271db178e968f9cb96111299295fa))
+* **forge:** use `project.root_uri` for cache key in `Forge.Project.config` ([#594](https://github.com/expert-lsp/expert/issues/594)) ([950e5e0](https://github.com/expert-lsp/expert/commit/950e5e0f7ab011363e08a477efec1ad74bf2aba3))
+* handle LSP supported invalid configuration values ([#595](https://github.com/expert-lsp/expert/issues/595)) ([ac6913e](https://github.com/expert-lsp/expert/commit/ac6913ef3560b12d45739da5c3688ee04f7cca2c))
+* hang at startup if .bashrc contains exec call ([#596](https://github.com/expert-lsp/expert/issues/596)) ([fb361d6](https://github.com/expert-lsp/expert/commit/fb361d6a857c471fc7abc15d4e53c730f18513d2))
+* improve release overlays ([#603](https://github.com/expert-lsp/expert/issues/603)) ([c56cb9a](https://github.com/expert-lsp/expert/commit/c56cb9a7f4cabccc531a80a0498794038c8570ce))
+* improve startup time and module introspection ([#605](https://github.com/expert-lsp/expert/issues/605)) ([e67f370](https://github.com/expert-lsp/expert/commit/e67f370329b96fe72564761a2f0aa2255d53388f))
+* **release:** ensure start_expert works if symlinked ([#597](https://github.com/expert-lsp/expert/issues/597)) ([62ef114](https://github.com/expert-lsp/expert/commit/62ef114242187a91e7489520271f2008d70b6e40))
+
 ## [0.1.0](https://github.com/expert-lsp/expert/compare/v0.1.0-rc.6...v0.1.0) (2026-03-27)
 
 
