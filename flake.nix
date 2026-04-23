@@ -75,6 +75,7 @@
             just
             _7zz
             git
+            zizmor
           ];
         };
       };
