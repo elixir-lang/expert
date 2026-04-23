@@ -1140,8 +1140,8 @@ defmodule ExpertTest do
         :ok
       end)
 
-      patch(Expert.Project.Supervisor, :ensure_node_started, fn _project ->
-        send(test_pid, :project_restarted)
+      patch(Expert.Project.Supervisor, :ensure_node_started, fn _project, opts ->
+        send(test_pid, {:project_restarted, opts})
         {:ok, self()}
       end)
 
@@ -1163,7 +1163,63 @@ defmodule ExpertTest do
 
       assert_receive :deps_fetched, 5000
       assert_receive :project_stopped, 5000
-      assert_receive :project_restarted, 5000
+      assert_receive {:project_restarted, [blocked?: false]}, 5000
+    end
+
+    test "does not prompt again while deps fetch is already in progress", %{
+      client: client,
+      server: server,
+      project_root: project_root,
+      main_project: main_project
+    } do
+      test_pid = self()
+
+      patch(Expert.EngineApi, :clean_and_fetch_deps, fn _project ->
+        send(test_pid, {:deps_fetch_started, self()})
+
+        receive do
+          :continue_deps_fetch -> :ok
+        after
+          5000 -> {:error, :timeout}
+        end
+      end)
+
+      patch(Expert.Project.Supervisor, :stop_node, fn _project ->
+        send(test_pid, :project_stopped)
+        :ok
+      end)
+
+      patch(Expert.Project.Supervisor, :ensure_node_started, fn _project, opts ->
+        send(test_pid, {:project_restarted, opts})
+        {:ok, self()}
+      end)
+
+      assert :ok =
+               request(client, initialize_request(project_root, id: 1, projects: [main_project]))
+
+      assert_result(1, _)
+      assert :ok = notify(client, initialized_notification())
+
+      assert_request(client, "client/registerCapability", fn _params -> nil end)
+
+      send(server.lsp, {:deps_error, main_project, %{last_message: "deps failed"}})
+
+      assert_request(
+        client,
+        "window/showMessageRequest",
+        fn _params -> %{"title" => "Yes"} end
+      )
+
+      assert_receive {:deps_fetch_started, fetch_pid}, 5000
+
+      send(server.lsp, {:deps_error, main_project, %{last_message: "deps failed again"}})
+
+      refute_receive {:request, "window/showMessageRequest", _}, 1000
+
+      send(fetch_pid, :continue_deps_fetch)
+
+      assert_receive :project_stopped, 5000
+      assert_receive {:project_restarted, [blocked?: false]}, 5000
     end
 
     test "does not run deps.get when user declines", %{
@@ -1235,17 +1291,29 @@ defmodule ExpertTest do
       refute_receive :unexpected_deps_fetch, 1000
     end
 
-    test "logs error when mix deps.get fails", %{
+    test "prompts to retry when mix deps.get fails", %{
       client: client,
       server: server,
       project_root: project_root,
       main_project: main_project
     } do
+      test_pid = self()
+
       patch(Expert.EngineApi, :clean_and_fetch_deps, fn _project ->
         {:error, "Could not resolve dependency foo"}
       end)
 
+      patch(Expert.Project.Supervisor, :stop_node, fn _project ->
+        send(test_pid, :unexpected_project_stopped)
+        :ok
+      end)
+
       patch(Expert.Project.Supervisor, :ensure_node_started, fn _project ->
+        {:ok, self()}
+      end)
+
+      patch(Expert.Project.Supervisor, :ensure_node_started, fn _project, _opts ->
+        send(test_pid, :unexpected_project_restarted)
         {:ok, self()}
       end)
 
@@ -1265,12 +1333,84 @@ defmodule ExpertTest do
         fn _params -> %{"title" => "Yes"} end
       )
 
-      assert_notification(
-        "window/showMessage",
-        %{"type" => 1, "message" => message}
+      assert_request(
+        client,
+        "window/showMessageRequest",
+        fn params ->
+          assert params["message"] =~ "mix deps.get failed"
+          assert params["message"] =~ "retry"
+          assert Enum.map(params["actions"], & &1["title"]) == ["Retry", "Cancel"]
+
+          %{"title" => "Cancel"}
+        end
       )
 
-      assert message =~ "mix deps.get failed"
+      refute_receive :unexpected_project_stopped, 1000
+      refute_receive :unexpected_project_restarted, 1000
+    end
+
+    test "reruns mix deps.get when user retries after a fetch failure", %{
+      client: client,
+      server: server,
+      project_root: project_root,
+      main_project: main_project
+    } do
+      test_pid = self()
+      attempt_counter = :counters.new(1, [])
+
+      patch(Expert.EngineApi, :clean_and_fetch_deps, fn _project ->
+        :counters.add(attempt_counter, 1, 1)
+
+        case :counters.get(attempt_counter, 1) do
+          1 ->
+            send(test_pid, :deps_fetch_failed)
+            {:error, "Could not resolve dependency foo"}
+
+          2 ->
+            send(test_pid, :deps_fetch_succeeded)
+            :ok
+        end
+      end)
+
+      patch(Expert.Project.Supervisor, :stop_node, fn _project ->
+        send(test_pid, :project_stopped)
+        :ok
+      end)
+
+      patch(Expert.Project.Supervisor, :ensure_node_started, fn _project, opts ->
+        send(test_pid, {:project_restarted, opts})
+        {:ok, self()}
+      end)
+
+      assert :ok =
+               request(client, initialize_request(project_root, id: 1, projects: [main_project]))
+
+      assert_result(1, _)
+      assert :ok = notify(client, initialized_notification())
+
+      assert_request(client, "client/registerCapability", fn _params -> nil end)
+
+      send(server.lsp, {:deps_error, main_project, %{last_message: "deps failed"}})
+
+      assert_request(
+        client,
+        "window/showMessageRequest",
+        fn _params -> %{"title" => "Yes"} end
+      )
+
+      assert_request(
+        client,
+        "window/showMessageRequest",
+        fn params ->
+          assert params["message"] =~ "Would you like to retry?"
+          %{"title" => "Retry"}
+        end
+      )
+
+      assert_receive :deps_fetch_failed, 5000
+      assert_receive :deps_fetch_succeeded, 5000
+      assert_receive :project_stopped, 5000
+      assert_receive {:project_restarted, [blocked?: false]}, 5000
     end
   end
 

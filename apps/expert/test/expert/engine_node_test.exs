@@ -91,6 +91,7 @@ defmodule Expert.EngineNodeTest do
            )
 
     assert EngineNode.State.detect_deps_error("Unchecked dependencies for dependency_foo")
+    assert EngineNode.State.detect_deps_error("** (Mix.Error) Hex dependency resolution failed")
     refute EngineNode.State.detect_deps_error("Compiling 1 file (.ex)")
     refute EngineNode.State.detect_deps_error("")
   end
