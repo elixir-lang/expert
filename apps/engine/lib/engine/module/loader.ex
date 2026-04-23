@@ -17,6 +17,25 @@ defmodule Engine.Module.Loader do
     Agent.start_link(initialize, name: __MODULE__)
   end
 
+  def load_all(module_list) do
+    Agent.update(__MODULE__, fn modules ->
+      loaded_modules =
+        case Code.ensure_all_loaded(module_list) do
+          :ok ->
+            modules
+
+          {:error, errors} ->
+            failed_modules = MapSet.new(errors, &elem(&1, 0))
+            Enum.reject(module_list, &MapSet.member?(failed_modules, &1))
+        end
+
+      newly_loaded =
+        Map.new(loaded_modules, fn module_name -> {module_name, {:module, module_name}} end)
+
+      Map.merge(modules, newly_loaded)
+    end)
+  end
+
   def ensure_loaded(module_name) do
     Agent.get_and_update(__MODULE__, fn
       %{^module_name => result} = state ->

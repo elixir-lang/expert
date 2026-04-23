@@ -25,6 +25,10 @@ defmodule Elixir.Features do
     Versions.current_elixir_matches?(">= 1.17.0")
   end
 
+  def lazy_loading? do
+    Versions.current_elixir_matches?(">= 1.19.0")
+  end
+
   @doc """
   Whether the `:compressed` ETS table option can be safely used.
 
