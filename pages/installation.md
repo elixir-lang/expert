@@ -24,75 +24,77 @@ Caveats with the following versions of Elixir and Erlang are documented below:
 |  26         | `>= 26.0.2`      |        |
 |  25         | `>= 25.0`        |        |
 
-## Prerequisites
-First, Install git LFS by [following these instructions](https://docs.github.com/en/repositories/working-with-files/managing-large-files/installing-git-large-file-storage).
+## Building a release
 
-Next, [install `just`](https://github.com/casey/just?tab=readme-ov-file#cross-platform)
+If you see errors while building a release, please file a bug.
 
-Next, [install `zig`](https://ziglang.org/learn/getting-started/) if not already installed. **Important:** version 0.15.2 is required, which is currently _not_ the latest version.
+### Prerequisites
+
+- Install Git LFS by [following these instructions](https://docs.github.com/en/repositories/working-with-files/managing-large-files/installing-git-large-file-storage)
+- Install [`just`](https://github.com/casey/just?tab=readme-ov-file#cross-platform)
+- (Burrito only) Install [Zig `0.15.2`](https://ziglang.org/learn/getting-started/)
+
+> [!IMPORTANT]
+> Later versions of Zig will not work. If you are on macOS,
+> this version will only work with Xcode 26.3 **at most**.
 
 Then, clone the git repository. Do this with
 
-```elixir
+```sh
 git clone git@github.com:expert-lsp/expert.git
 ```
 
-Then change to the expert directory
+Then, change to the expert directory
 
-```shell
+```sh
 cd expert
 ```
 
-Then fetch expert's dependencies
+### Plain release
 
-```shell
-just deps forge
-just deps engine
-just deps expert
+Build the project as a plain release with
+
+```sh
+just release
 ```
 
-...and build the project
+If things complete successfully, you will then find the generated `start_expert`
+executable in your `apps/expert/_build/prod/rel/plain/bin` directory.
 
-```shell
+In case you want to build and install it locally, you can run `just install`,
+which will install the release to `~/.local/libexec/expert` and symlink `start_expert`
+to `~/.local/bin/expert`. You can install it somewhere other than `~/.local` with the
+`--prefix` flag.
+
+### Burrito release
+
+Build the project as a burrito release with
+
+```sh
 just burrito-local
 ```
 
-> [!NOTE]
-> If you want to skip burrito and build Expert only for your own system, you can
-> build a "plain" release instead by running:
->
-> ```shell
-> just release
-> ```
->
-> You can then find the generated `start_expert` executable in the
-> generated release directory. For the next steps, point your editor to
-> this executable instead.
+If things complete successfully, you will then have a binary with the name
+`expert_<os>_<arch>` in your `apps/expert/burrito_out` directory. You will need
+to run `chmod +x expert_<os>_<arch>` to be able to use it.
 
-If things complete successfully, you will then have a release in your
-`apps/expert/burrito_out` directory. If you see errors, please file a
-bug.
+## Editor-specific setup
 
-To launch expert, you need to specify one of the `--stdio` or `--port <port>`. The
-examples below assume you want to use `--stdio`.
+To launch expert, you need to specify `--stdio` or `--port <port>`.
 
-In case you want to build and install it locally you can run `just install`,
-which will install the generated binary inside `~/.local/bin`.
-
-For the following examples, assume the absolute path to your Expert
-source code is `/my/home/projects/expert` and that you are running an amd64
+The examples below assume you want to use `--stdio`, that the absolute path to your
+Expert source code is `/my/home/projects/expert`, and that you are running an amd64
 Linux system. For other systems, replace the `expert_linux_amd64` with the
 appropriate binary name.
 
-## Editor-specific setup
 1. [Vanilla Emacs with lsp-mode](#vanilla-emacs-with-lsp-mode)
 2. [Vanilla Emacs with eglot](#vanilla-emacs-with-eglot)
 3. [Visual Studio Code](#visual-studio-code)
 4. [neovim](#neovim)
-7. [Vim + Vim-LSP](#vim--vim-lsp)
-8. [Helix](#helix)
-9. [Sublime Text](#sublime-text)
-10. [Zed](#zed)
+5. [Vim + Vim-LSP](#vim--vim-lsp)
+6. [Helix](#helix)
+7. [Sublime Text](#sublime-text)
+8. [Zed](#zed)
 
 ### Vanilla Emacs with lsp-mode
 The emacs instructions assume you're using `use-package`, which you
