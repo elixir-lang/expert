@@ -18,22 +18,20 @@ defmodule Engine.Module.Loader do
   end
 
   def load_all(module_list) do
-    Agent.update(__MODULE__, fn modules ->
-      loaded_modules =
-        case Code.ensure_all_loaded(module_list) do
-          :ok ->
-            modules
+    loaded_modules =
+      case Code.ensure_all_loaded(module_list) do
+        :ok ->
+          module_list
 
-          {:error, errors} ->
-            failed_modules = MapSet.new(errors, &elem(&1, 0))
-            Enum.reject(module_list, &MapSet.member?(failed_modules, &1))
-        end
+        {:error, errors} ->
+          failed_modules = MapSet.new(errors, &elem(&1, 0))
+          Enum.reject(module_list, &MapSet.member?(failed_modules, &1))
+      end
 
-      newly_loaded =
-        Map.new(loaded_modules, fn module_name -> {module_name, {:module, module_name}} end)
+    newly_loaded =
+      Map.new(loaded_modules, fn module_name -> {module_name, {:module, module_name}} end)
 
-      Map.merge(modules, newly_loaded)
-    end)
+    Agent.update(__MODULE__, fn modules -> Map.merge(modules, newly_loaded) end)
   end
 
   def ensure_loaded(module_name) do
