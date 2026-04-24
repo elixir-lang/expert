@@ -119,8 +119,9 @@ install prefix="$HOME/.local": release
   #!/usr/bin/env bash
   set -euxo pipefail
 
+  rm -rf "{{ prefix }}"/libexec/expert
   mkdir -p "{{ prefix }}"/bin "{{ prefix }}"/libexec
-  cp -a ./apps/expert/_build/prod/rel/plain "{{ prefix }}"/libexec/expert
+  cp -a ./apps/expert/_build/{{ env('MIX_ENV', 'prod') }}/rel/plain "{{ prefix }}"/libexec/expert
   ln -sf ../libexec/expert/bin/start_expert "{{ prefix }}"/bin/expert
 
 clean-engine:
