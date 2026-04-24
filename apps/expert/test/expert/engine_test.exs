@@ -121,6 +121,36 @@ defmodule Expert.EngineTest do
       assert Enum.at(attempted_dirs, 0) =~ "0.1.0/foobar"
       assert Enum.at(attempted_dirs, 1) =~ "0.2.0/bazbeau"
     end
+
+    test "skips regular file at top level of cache dir", %{tmp_dir: tmp_dir} do
+      dir = Path.join(tmp_dir, "0.1.0/foobar")
+      file = Path.join(tmp_dir, ".DS_Store")
+      File.mkdir_p!(dir)
+      File.write!(file, "")
+
+      capture_io(fn ->
+        exit_code = Engine.run(["clean", "--force"])
+        assert exit_code == 0
+      end)
+
+      refute File.exists?(dir)
+      assert File.exists?(file)
+    end
+
+    test "skips regular file inside an engine version dir", %{tmp_dir: tmp_dir} do
+      dir = Path.join(tmp_dir, "0.1.0/foobar")
+      file = Path.join(tmp_dir, "0.1.0/.DS_Store")
+      File.mkdir_p!(dir)
+      File.write!(file, "")
+
+      capture_io(fn ->
+        exit_code = Engine.run(["clean", "--force"])
+        assert exit_code == 0
+      end)
+
+      refute File.exists?(dir)
+      assert File.exists?(file)
+    end
   end
 
   describe "run/1 - clean subcommand interactive mode" do
