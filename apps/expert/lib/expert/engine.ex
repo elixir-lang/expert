@@ -100,8 +100,10 @@ defmodule Expert.Engine do
 
     if File.exists?(base) do
       for expert_ver_dir <- File.ls!(base),
-          tool_ver_dir <- File.ls!(Path.join(base, expert_ver_dir)),
-          path = Path.join([base, expert_ver_dir, tool_ver_dir]),
+          expert_ver_path = Path.join(base, expert_ver_dir),
+          File.dir?(expert_ver_path),
+          tool_ver_dir <- File.ls!(expert_ver_path),
+          path = Path.join(expert_ver_path, tool_ver_dir),
           File.dir?(path) do
         path
       end
