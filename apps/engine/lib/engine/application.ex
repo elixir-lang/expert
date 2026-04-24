@@ -10,6 +10,7 @@ defmodule Engine.Application do
     children =
       if Engine.project_node?() do
         [
+          Engine.ApplicationCache,
           Engine.Api.Proxy,
           Engine.Commands.Reindex,
           Engine.Module.Loader,

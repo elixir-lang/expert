@@ -51,7 +51,7 @@ defmodule Engine.Search.Indexer.Extractors.EctoSchema do
           :struct,
           block_range,
           detail_range,
-          Application.get_application(struct_module)
+          Engine.ApplicationCache.application(struct_module)
         )
 
       {:ok, definition}
@@ -83,7 +83,7 @@ defmodule Engine.Search.Indexer.Extractors.EctoSchema do
           :struct,
           range,
           detail_range,
-          Application.get_application(current_module)
+          Engine.ApplicationCache.application(current_module)
         )
 
       {:ok, definition_entry}

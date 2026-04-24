@@ -9,7 +9,6 @@ defmodule Engine.Search.Indexer.Extractors.Module do
   alias Forge.Ast
   alias Forge.Document.Position
   alias Forge.Document.Range
-  alias Forge.ProcessCache
   alias Forge.Search.Indexer.Entry
   alias Forge.Search.Indexer.Source.Block
 
@@ -40,7 +39,7 @@ defmodule Engine.Search.Indexer.Extractors.Module do
           @definition_mappings[definition],
           block_range(reducer.analysis.document, defmodule_ast),
           detail_range,
-          Application.get_application(aliased_module)
+          Engine.ApplicationCache.application(aliased_module)
         )
 
       module_name_meta = Reducer.skip(module_name_meta)
@@ -75,7 +74,7 @@ defmodule Engine.Search.Indexer.Extractors.Module do
           {:protocol, :implementation},
           block_range(reducer.analysis.document, defimpl_ast),
           detail_range,
-          Application.get_application(protocol_module)
+          Engine.ApplicationCache.application(protocol_module)
         )
 
       module_entry =
@@ -105,7 +104,7 @@ defmodule Engine.Search.Indexer.Extractors.Module do
           Subject.module(module),
           :module,
           range,
-          Application.get_application(module)
+          Engine.ApplicationCache.application(module)
         )
 
       {:ok, entry, nil}
@@ -132,7 +131,7 @@ defmodule Engine.Search.Indexer.Extractors.Module do
           Subject.module(current_module),
           :module,
           range,
-          Application.get_application(current_module)
+          Engine.ApplicationCache.application(current_module)
         )
 
       {:ok, entry}
@@ -155,7 +154,7 @@ defmodule Engine.Search.Indexer.Extractors.Module do
           Subject.module(module),
           :module,
           range,
-          Application.get_application(module)
+          Engine.ApplicationCache.application(module)
         )
 
       {:ok, entry}
@@ -187,7 +186,7 @@ defmodule Engine.Search.Indexer.Extractors.Module do
           Subject.module(module),
           :module,
           range,
-          Application.get_application(module)
+          Engine.ApplicationCache.application(module)
         )
 
       {:ok, entry}
@@ -254,7 +253,7 @@ defmodule Engine.Search.Indexer.Extractors.Module do
   end
 
   defp module(%Reducer{}, maybe_erlang_module) when is_atom(maybe_erlang_module) do
-    if available_module?(maybe_erlang_module) do
+    if Engine.ApplicationCache.available_module?(maybe_erlang_module) do
       {:ok, maybe_erlang_module}
     else
       :error
@@ -276,18 +275,6 @@ defmodule Engine.Search.Indexer.Extractors.Module do
   defp module_part?({:__MODULE__, _, context}) when is_atom(context), do: true
 
   defp module_part?(_), do: false
-
-  defp available_module?(potential_module) do
-    MapSet.member?(all_modules(), potential_module)
-  end
-
-  defp all_modules do
-    ProcessCache.trans(:all_modules, fn ->
-      MapSet.new(:code.all_available(), fn {module_charlist, _, _} ->
-        List.to_atom(module_charlist)
-      end)
-    end)
-  end
 
   defp module_range(%Reducer{} = reducer, module_name, metadata) do
     case Metadata.position(metadata) do

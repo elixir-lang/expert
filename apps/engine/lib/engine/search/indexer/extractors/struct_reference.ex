@@ -69,7 +69,7 @@ defmodule Engine.Search.Indexer.Extractors.StructReference do
       subject,
       :struct,
       Ast.Range.fetch!(reference, document),
-      Application.get_application(struct_module)
+      Engine.ApplicationCache.application(struct_module)
     )
   end
 
