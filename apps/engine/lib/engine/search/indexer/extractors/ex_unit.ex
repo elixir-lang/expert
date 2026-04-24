@@ -160,7 +160,7 @@ defmodule Engine.Search.Indexer.Extractors.ExUnit do
         )
 
       {:expression, {start_line, start_column}} ->
-        %{end: [line: end_line, column: end_column]} = Sourceror.get_range(ast)
+        %{end: {end_line, end_column}} = Ast.Range.extract(ast)
 
         Range.new(
           Position.new(analysis.document, start_line, start_column),

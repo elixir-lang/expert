@@ -48,6 +48,12 @@ defmodule Forge.Ast.Parser.Spitfire do
       {:error, :crashed, e, __STACKTRACE__}
   end
 
+  def range({_, metadata, _} = ast) when is_list(metadata) do
+    Keyword.get(metadata, :range) || Sourceror.get_range(ast)
+  end
+
+  def range(ast), do: Sourceror.get_range(ast)
+
   defp opts do
     [
       literal_encoder: &{:ok, {:__block__, &2, [&1]}},

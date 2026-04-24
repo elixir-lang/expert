@@ -23,14 +23,15 @@ defmodule Engine.Search.Indexer.Extractors.Module do
   # extract a module definition
   def extract(
         {definition, defmodule_meta,
-         [{:__aliases__, module_name_meta, module_name}, module_block]} = defmodule_ast,
+         [{:__aliases__, module_name_meta, module_name} = module_ast, module_block]} =
+          defmodule_ast,
         %Reducer{} = reducer
       )
       when definition in @module_definitions do
     %Block{} = block = Reducer.current_block(reducer)
 
     with {:ok, aliased_module} <- resolve_alias(reducer, module_name),
-         {:ok, detail_range} <- module_range(reducer, module_name, module_name_meta) do
+         {:ok, detail_range} <- module_range(reducer, module_ast) do
       entry =
         Entry.block_definition(
           reducer.analysis.document.path,
@@ -91,10 +92,10 @@ defmodule Engine.Search.Indexer.Extractors.Module do
   end
 
   # This matches an elixir module reference
-  def extract({:__aliases__, metadata, maybe_module}, %Reducer{} = reducer)
+  def extract({:__aliases__, _metadata, maybe_module} = module_ast, %Reducer{} = reducer)
       when is_list(maybe_module) do
     with {:ok, module} <- module(reducer, maybe_module),
-         {:ok, range} <- module_range(reducer, maybe_module, metadata) do
+         {:ok, range} <- module_range(reducer, module_ast) do
       %Block{} = current_block = Reducer.current_block(reducer)
 
       entry =
@@ -113,15 +114,12 @@ defmodule Engine.Search.Indexer.Extractors.Module do
     end
   end
 
-  @module_length String.length("__MODULE__")
   # This matches __MODULE__ references
   def extract({:__MODULE__, metadata, _} = ast, %Reducer{} = reducer) do
-    line = Sourceror.get_line(ast)
-    pos = Position.new(reducer.analysis.document, line - 1, 1)
-
-    with {:ok, current_module} <- Engine.Analyzer.current_module(reducer.analysis, pos),
-         {:ok, start_pos, end_pos} <- module_positions(reducer, metadata) do
-      range = Range.new(start_pos, end_pos)
+    with {line, _column} <- Metadata.position(metadata),
+         pos = Position.new(reducer.analysis.document, line - 1, 1),
+         {:ok, current_module} <- Engine.Analyzer.current_module(reducer.analysis, pos),
+         {:ok, range} <- module_range(reducer, ast) do
       %Block{} = current_block = Reducer.current_block(reducer)
 
       entry =
@@ -141,10 +139,10 @@ defmodule Engine.Search.Indexer.Extractors.Module do
   end
 
   # This matches an erlang module, which is just an atom
-  def extract({:__block__, metadata, [atom_literal]}, %Reducer{} = reducer)
+  def extract({:__block__, _metadata, [atom_literal]} = atom_ast, %Reducer{} = reducer)
       when is_atom(atom_literal) do
     with {:ok, module} <- module(reducer, atom_literal),
-         {:ok, range} <- module_range(reducer, module, metadata) do
+         {:ok, range} <- module_range(reducer, atom_ast) do
       %Block{} = current_block = Reducer.current_block(reducer)
 
       entry =
@@ -169,14 +167,16 @@ defmodule Engine.Search.Indexer.Extractors.Module do
          [
            {:/, _,
             [
-              {{:., _, [{:__aliases__, start_metadata, maybe_module}, _function_name]}, _, []},
+              {{:., _,
+                [{:__aliases__, _start_metadata, maybe_module} = module_ast, _function_name]}, _,
+               []},
               _
             ]}
          ]},
         %Reducer{} = reducer
       ) do
     with {:ok, module} <- module(reducer, maybe_module),
-         {:ok, range} <- module_range(reducer, maybe_module, start_metadata) do
+         {:ok, range} <- module_range(reducer, module_ast) do
       %Block{} = current_block = Reducer.current_block(reducer)
 
       entry =
@@ -200,23 +200,21 @@ defmodule Engine.Search.Indexer.Extractors.Module do
   end
 
   defp defimpl_range(%Reducer{} = reducer, {_, protocol_meta, _} = protocol_ast) do
-    start = Sourceror.get_start_position(protocol_ast)
-
-    case Metadata.position(protocol_meta, :do) do
-      {finish_line, finish_column} ->
+    case {Ast.Range.extract(protocol_ast), Metadata.position(protocol_meta, :do)} do
+      {%{start: {start_line, start_column}}, {finish_line, finish_column}} ->
         # add two to include the do
         finish_column = finish_column + 2
         document = reducer.analysis.document
 
         range =
           Range.new(
-            Position.new(document, start[:line], start[:column]),
+            Position.new(document, start_line, start_column),
             Position.new(document, finish_line, finish_column)
           )
 
         {:ok, range}
 
-      nil ->
+      _ ->
         :error
     end
   end
@@ -276,53 +274,8 @@ defmodule Engine.Search.Indexer.Extractors.Module do
 
   defp module_part?(_), do: false
 
-  defp module_range(%Reducer{} = reducer, module_name, metadata) do
-    case Metadata.position(metadata) do
-      {line, column} -> {:ok, to_range(reducer, module_name, {line, column})}
-      nil -> :error
-    end
-  end
-
-  defp module_positions(%Reducer{} = reducer, metadata) do
-    case Metadata.position(metadata) do
-      {start_line, start_col} ->
-        start_pos = Position.new(reducer.analysis.document, start_line, start_col)
-        end_pos = Position.new(reducer.analysis.document, start_line, start_col + @module_length)
-        {:ok, start_pos, end_pos}
-
-      nil ->
-        :error
-    end
-  end
-
-  # handles @protocol and @for in defimpl blocks
-  defp to_range(%Reducer{} = reducer, [{:@, _, [{type, _, _} | _]} = attribute | segments], _)
-       when type in @protocol_module_attribute_names do
-    range = Sourceror.get_range(attribute)
-
-    document = reducer.analysis.document
-    module_length = segments |> Ast.Module.name() |> String.length()
-    # add one because we're off by the @ sign
-    end_column = range.end[:column] + module_length + 1
-
-    Range.new(
-      Position.new(document, range.start[:line], range.start[:column]),
-      Position.new(document, range.end[:line], end_column)
-    )
-  end
-
-  defp to_range(%Reducer{} = reducer, module_name, {line, column}) do
-    document = reducer.analysis.document
-
-    module_length =
-      module_name
-      |> Ast.Module.name()
-      |> String.length()
-
-    Range.new(
-      Position.new(document, line, column),
-      Position.new(document, line, column + module_length)
-    )
+  defp module_range(%Reducer{} = reducer, ast) do
+    Ast.Range.fetch(ast, reducer.analysis.document)
   end
 
   defp block_range(document, ast) do

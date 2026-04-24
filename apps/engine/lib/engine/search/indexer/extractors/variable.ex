@@ -55,12 +55,13 @@ defmodule Engine.Search.Indexer.Extractors.Variable do
   def extract(
         {:test, _metadata,
          [
-           {:__block__, [delimiter: "\"", line: 3, column: 8], ["my test"]},
+           {:__block__, string_metadata, [test_name]},
            args,
            body
          ]},
         %Reducer{} = reducer
-      ) do
+      )
+      when is_list(string_metadata) and is_binary(test_name) do
     entries = extract_definitions(args, reducer)
     {:ok, entries, body}
   end

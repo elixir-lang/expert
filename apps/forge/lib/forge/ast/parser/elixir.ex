@@ -19,4 +19,8 @@ defmodule Forge.Ast.Parser.Elixir do
   def container_cursor_to_quoted(fragment) when is_binary(fragment) do
     Code.Fragment.container_cursor_to_quoted(fragment, opts())
   end
+
+  def range(ast) do
+    Sourceror.get_range(ast)
+  end
 end

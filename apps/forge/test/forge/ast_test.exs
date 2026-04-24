@@ -43,8 +43,13 @@ defmodule Forge.AstTest do
         end
       ]
 
-      path = cursor_path(text)
-      assert path == [{:__cursor__, [closing: [line: 1, column: 12], line: 1, column: 1], []}]
+      assert [{:__cursor__, metadata, []}] = cursor_path(text)
+
+      assert Keyword.take(metadata, [:closing, :line, :column]) == [
+               closing: [line: 1, column: 12],
+               line: 1,
+               column: 1
+             ]
     end
 
     test "returns cursor path even for incomplete code" do

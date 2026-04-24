@@ -6,6 +6,7 @@ defmodule Engine.Search.Indexer.Extractors.ModuleAttribute do
   alias Engine.Analyzer
   alias Engine.Search.Indexer.Source.Reducer
   alias Engine.Search.Subject
+  alias Forge.Ast
   alias Forge.Document.Position
   alias Forge.Document.Range
   alias Forge.Search.Indexer.Entry
@@ -92,9 +93,9 @@ defmodule Engine.Search.Indexer.Extractors.ModuleAttribute do
   defp definition_range(%Reducer{} = reducer, attr_ast) do
     document = reducer.analysis.document
 
-    [line: start_line, column: start_column] = Sourceror.get_start_position(attr_ast)
+    %{start: {start_line, start_column}, end: {end_line, _end_column}} =
+      Ast.Range.extract(attr_ast)
 
-    end_line = Sourceror.get_end_line(attr_ast)
     {:ok, line_text} = Forge.Document.fetch_text_at(document, end_line)
     # add one because lsp positions are one-based
     end_column = String.length(line_text) + 1

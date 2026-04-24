@@ -2,6 +2,7 @@ defmodule Engine.Search.Indexer.Metadata do
   @moduledoc """
   Utilities for extracting location information from AST metadata nodes.
   """
+
   def location({_, metadata, _} = ast) do
     if Keyword.has_key?(metadata, :do) do
       position = position(metadata)
@@ -17,18 +18,9 @@ defmodule Engine.Search.Indexer.Metadata do
     {:expression, nil}
   end
 
-  def position(keyword) do
-    line = Keyword.get(keyword, :line)
-    column = Keyword.get(keyword, :column)
+  def position(keyword) when is_list(keyword), do: Forge.Ast.Range.position(keyword)
 
-    case {line, column} do
-      {nil, nil} ->
-        nil
-
-      position ->
-        position
-    end
-  end
+  def position(_), do: nil
 
   def position(keyword, key) do
     keyword
@@ -52,23 +44,13 @@ defmodule Engine.Search.Indexer.Metadata do
   end
 
   defp block_location(block, metadata) do
-    case Sourceror.get_range(block) do
-      %{start: start_pos, end: end_pos} ->
+    case Forge.Ast.Range.extract(block) do
+      %{start: {start_line, start_column}, end: {end_line, end_column}} ->
         position = position(metadata)
-        {:block, position, keyword_to_position(start_pos), keyword_to_position(end_pos)}
+        {:block, position, {start_line, start_column}, {end_line, end_column}}
 
       _ ->
         {:expression, position(metadata)}
-    end
-  end
-
-  defp keyword_to_position(keyword) do
-    case Keyword.take(keyword, [:line, :column]) do
-      [line: line, column: column] when is_number(line) and is_number(column) ->
-        {line, column}
-
-      _ ->
-        nil
     end
   end
 end
