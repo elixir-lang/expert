@@ -6,16 +6,94 @@ on:
       - v[0-9]+\.[0-9]+
 
 permissions:
-  contents: write
-  issues: write
-  pull-requests: write
+  contents: read
+
+defaults:
+  run:
+    shell: bash
 
 jobs:
-  release-please:
+  release:
     runs-on: ubuntu-latest
     steps:
-      - uses: googleapis/release-please-action@16a9c90856f42705d54a6fda1823352bdc62cf38 # v4.4.0
+      - uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
+        id: release
         with:
           target-branch: ${{ github.ref_name }}
           config-file: release-please-config-backports.json
 
+  draft:
+    name: draft
+    needs: release
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+    runs-on: ubuntu-latest
+    if: ${{ needs.release.outputs.release_created }}
+    steps:
+      - env:
+          TAG_NAME: ${{ needs.release.outputs.tag_name }}
+        run: gh release edit "${TAG_NAME}" --draft=true --repo='expert-lsp/expert'
+
+  build:
+    needs: [release, draft]
+    runs-on: macos-14
+    permissions:
+      contents: write
+    if: ${{ needs.release.outputs.release_created }}
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4.0.0
+      - uses: erlef/setup-beam@fc68ffb90438ef2936bbb3251622353b3dcb2f93 # v1.24.0
+        with:
+          otp-version: "27.3.4.1"
+          elixir-version: "1.17.3"
+          version-type: strict
+      - uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29 # v2.2.1
+        with:
+          version: "0.15.2"
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - env:
+          MIX_ENV: prod
+        run: just burrito
+      - name: Create Checksum
+        run: |
+          cd ./apps/expert/burrito_out
+          chmod +x ./*
+          shasum -a 256 ./* > expert_checksums.txt
+          cd ../../../
+      - name: Upload to release
+        env:
+          GITHUB_TOKEN: ${{ secrets.token }}
+          TAG_NAME: ${{ needs.release.outputs.tag_name }}
+        run: gh release upload "${TAG_NAME}" ./apps/expert/burrito_out/*
+
+  publish:
+    name: publish
+    needs: [release, draft, build]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v3.1.1
+        if: ${{ needs.release.outputs.release_created }}
+        id: app-token
+        with:
+          app-id: ${{ vars.APP_ID }}
+          private-key: ${{ secrets.PRIVATE_KEY }}
+
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        if: ${{ needs.release.outputs.release_created }}
+        with:
+          persist-credentials: true
+          token: ${{ steps.app-token.outputs.token }}
+
+      - name: Publish draft release
+        env:
+          GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
+          TAG_NAME: ${{ needs.release.outputs.tag_name }}
+        run: gh release edit "${TAG_NAME}" --draft=false --repo='expert-lsp/expert'
