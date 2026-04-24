@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.2](https://github.com/expert-lsp/expert/compare/v0.1.1...v0.1.2) (2026-04-24)
+
+
+### Bug Fixes
+
+* eager loading for large projects ([#618](https://github.com/expert-lsp/expert/issues/618)) ([74af23f](https://github.com/expert-lsp/expert/commit/74af23f1ec5cb50a2e10d61de826147d083b048f))
+* skip regular files on engine clean ([#620](https://github.com/expert-lsp/expert/issues/620)) ([2f70d10](https://github.com/expert-lsp/expert/commit/2f70d10fd0988081dee2feea36e2914d1e499377))
+
 ## [0.1.1](https://github.com/expert-lsp/expert/compare/v0.1.0...v0.1.1) (2026-04-23)
 
 
