@@ -111,7 +111,7 @@ defmodule Engine.Search.Indexer.Extractors.ExUnit do
     block = Reducer.current_block(reducer)
 
     {:ok, module} = Analyzer.current_module(reducer.analysis, Reducer.position(reducer))
-    app = Application.get_application(module)
+    app = Engine.ApplicationCache.application(module)
 
     case detail_range(reducer.analysis, ast) do
       nil -> :ignored
@@ -124,7 +124,7 @@ defmodule Engine.Search.Indexer.Extractors.ExUnit do
     block = Reducer.current_block(reducer)
 
     {:ok, module} = Analyzer.current_module(reducer.analysis, Reducer.position(reducer))
-    app = Application.get_application(module)
+    app = Engine.ApplicationCache.application(module)
 
     case detail_range(reducer.analysis, ast) do
       nil ->

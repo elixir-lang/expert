@@ -25,7 +25,7 @@ defmodule Engine.Search.Indexer.Extractors.ModuleAttribute do
             Subject.module_attribute(current_module, attr_name),
             :module_attribute,
             reference_range(reducer, attr_name),
-            Application.get_application(current_module)
+            Engine.ApplicationCache.application(current_module)
           )
 
         {:ok, reference}
@@ -56,7 +56,7 @@ defmodule Engine.Search.Indexer.Extractors.ModuleAttribute do
             Subject.module_attribute(current_module, attr_name),
             :module_attribute,
             definition_range(reducer, attr),
-            Application.get_application(current_module)
+            Engine.ApplicationCache.application(current_module)
           )
 
         {:ok, definition}

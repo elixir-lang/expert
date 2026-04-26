@@ -42,6 +42,7 @@ defmodule Expert.Provider.Handlers.HoverTest do
   end
 
   setup do
+    start_supervised!(Engine.ApplicationCache)
     :persistent_term.erase(Expert.Configuration)
     :ok
   end

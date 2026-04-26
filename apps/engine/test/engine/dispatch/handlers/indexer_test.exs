@@ -31,6 +31,7 @@ defmodule Engine.Dispatch.Handlers.IndexingTest do
 
     patch(Engine.Dispatch, :erpc_cast, fn Expert.Progress, _function, _args -> true end)
 
+    start_supervised!(Engine.ApplicationCache)
     start_supervised!(Engine.Dispatch)
     start_supervised!(Commands.Reindex)
     start_supervised!(Search.Store.Backends.Ets)
