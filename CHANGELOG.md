@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.3](https://github.com/expert-lsp/expert/compare/v0.1.2...v0.1.3) (2026-04-26)
+
+
+### Performance Improvements
+
+* **indexer:** cache application and available modules ([#635](https://github.com/expert-lsp/expert/issues/635)) ([fbe8fcd](https://github.com/expert-lsp/expert/commit/fbe8fcd5cd0a7b6e02ddbb4cfe567039e91aad3c))
+
 ## [0.1.2](https://github.com/expert-lsp/expert/compare/v0.1.1...v0.1.2) (2026-04-24)
 
 
