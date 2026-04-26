@@ -16,7 +16,7 @@ defmodule Engine.Search.Indexer.Extractors.FunctionDefinition do
       min_arity = arity - count_defaults(extract_args(def_ast))
       block_r = block_range(reducer.analysis, ast)
       fun_type = type(definition)
-      app = Application.get_application(module)
+      app = Engine.ApplicationCache.application(module)
 
       entries =
         for a <- min_arity..arity do
@@ -56,7 +56,7 @@ defmodule Engine.Search.Indexer.Extractors.FunctionDefinition do
           Subject.mfa(module, delegate_name, arity),
           {:function, :delegate},
           detail_range,
-          Application.get_application(module)
+          Engine.ApplicationCache.application(module)
         )
 
       {:ok, Entry.put_metadata(entry, metadata)}

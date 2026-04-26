@@ -1,4 +1,5 @@
 defmodule Engine.Search.Indexer do
+  alias Engine.ApplicationCache
   alias Engine.Progress
   alias Engine.Search.Indexer
   alias Forge.Identifier
@@ -11,6 +12,8 @@ defmodule Engine.Search.Indexer do
   @indexable_extensions "*.{ex,exs}"
 
   def create_index(%Project{} = project) do
+    :ok = ApplicationCache.clear()
+
     ProcessCache.with_cleanup do
       deps_dir = deps_dir()
 
@@ -21,12 +24,18 @@ defmodule Engine.Search.Indexer do
 
       {:ok, entries}
     end
+  after
+    ApplicationCache.clear()
   end
 
   def update_index(%Project{} = project, backend) do
+    :ok = ApplicationCache.clear()
+
     ProcessCache.with_cleanup do
       do_update_index(project, backend)
     end
+  after
+    ApplicationCache.clear()
   end
 
   defp do_update_index(%Project{} = project, backend) do

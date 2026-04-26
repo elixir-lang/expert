@@ -10,6 +10,11 @@ defmodule Engine.CodeIntelligence.SymbolsTest do
   alias Engine.Search.Indexer.Source
   alias Forge.CodeIntelligence.Symbols.Document
 
+  setup do
+    start_supervised!(Engine.ApplicationCache)
+    :ok
+  end
+
   def document_symbols(code) do
     doc = Forge.Document.new("file:///file.ex", code, 1)
     symbols = Symbols.for_document(doc)

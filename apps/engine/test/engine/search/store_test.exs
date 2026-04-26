@@ -33,6 +33,11 @@ defmodule Engine.Search.StoreTest do
     {:ok, project: project}
   end
 
+  setup do
+    start_supervised!(Engine.ApplicationCache)
+    :ok
+  end
+
   def all_entries(backend) do
     []
     |> backend.reduce(fn entry, acc -> [entry | acc] end)
