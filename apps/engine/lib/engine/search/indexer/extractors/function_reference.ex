@@ -113,7 +113,7 @@ defmodule Engine.Search.Indexer.Extractors.FunctionReference do
             Forge.Formats.mfa(module, function_name, arity),
             {:function, :usage},
             Ast.Range.get(ast, analysis.document),
-            Application.get_application(module)
+            Engine.ApplicationCache.application(module)
           )
 
         {:ok, entry, []}
@@ -181,7 +181,7 @@ defmodule Engine.Search.Indexer.Extractors.FunctionReference do
                mfa,
                {:function, :usage},
                range,
-               Application.get_application(module)
+               Engine.ApplicationCache.application(module)
              )}
 
           _ ->

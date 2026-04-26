@@ -59,6 +59,8 @@ defmodule Expert.Engine.CodeIntelligence.DefinitionTest do
   end
 
   setup %{project: project} do
+    start_supervised!(Engine.ApplicationCache)
+
     uri = subject_module_uri(project)
 
     # NOTE: We need to make sure every tests start with fresh caller content file
