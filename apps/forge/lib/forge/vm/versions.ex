@@ -196,6 +196,7 @@ defmodule Forge.VM.Versions do
     version_components =
       erlang_version
       |> String.split(".")
+      |> Enum.map(&strip_pre_release/1)
       |> Enum.take(3)
 
     normalized =
@@ -207,6 +208,13 @@ defmodule Forge.VM.Versions do
       end
 
     Enum.join(normalized, ".")
+  end
+
+  defp strip_pre_release(component) do
+    case Integer.parse(component) do
+      {int, _rest} -> Integer.to_string(int)
+      :error -> "0"
+    end
   end
 
   defp code_find_file(file_name) when is_binary(file_name) do
