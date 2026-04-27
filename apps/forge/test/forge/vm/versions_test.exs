@@ -79,6 +79,19 @@ defmodule Forge.VM.VersionTest do
       assert "25.3.2" == private(Versions.normalize("25.3.2.1.2"))
       assert "25.3.2" == private(Versions.normalize("25.3.2.4.2.3"))
     end
+
+    test "strips pre-release suffixes from components and produces a parseable version" do
+      # Erlang OTP release candidates expose versions like "29.0-rc3" or
+      # "29.0-rc3.0" (the latter is what the OTP_VERSION file contains for
+      # OTP 29.0-rc3). Both must produce a SemVer-parseable string.
+      assert "29.0.0" == private(Versions.normalize("29.0-rc3"))
+      assert "29.0.0" == private(Versions.normalize("29.0-rc3.0"))
+      assert {:ok, _} = Version.parse(private(Versions.normalize("29.0-rc3.0")))
+    end
+
+    test "falls back to 0 when a component has no leading digits" do
+      assert "0.0.0" == private(Versions.normalize("rc3"))
+    end
   end
 
   test "an untagged directory is not compatible" do
@@ -112,6 +125,23 @@ defmodule Forge.VM.VersionTest do
       patch_tagged_versions("1.15.8", "25.0")
 
       assert compatible?("/foo/bar/baz")
+    end
+
+    test "release candidate erlang versions do not crash compatibility checks" do
+      # Reproduces the crash hit on OTP 29.0-rc3 + Elixir 1.20.0-rc.4, where
+      # `Version.parse!/1` rejected "29.0-rc3.0" because the pre-release tag
+      # appeared before patch.
+      patch_system_versions("1.20.0-rc.4", "29.0-rc3.0")
+      patch_tagged_versions("1.18.4", "28.0.2")
+
+      assert compatible?("/foo/bar/baz")
+    end
+
+    test "release candidate erlang versions are compared by major version" do
+      patch_system_versions("1.20.0-rc.4", "29.0-rc3.0")
+      patch_tagged_versions("1.20.0-rc.4", "30.0.0")
+
+      refute compatible?("/foo/bar/baz")
     end
   end
 end
