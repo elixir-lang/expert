@@ -8,6 +8,8 @@ defmodule Engine.CodeAction.Handlers.RefactorexTest do
   alias Engine.CodeAction.Handlers.Refactorex
   alias Engine.CodeMod.Format
   alias Forge.Document
+  alias Forge.Document.Position
+  alias Forge.Document.Range
 
   def apply_code_mod(original_text, _ast, options) do
     document = Document.new("file:///file.ex", original_text, 0)
@@ -131,5 +133,39 @@ defmodule Engine.CodeAction.Handlers.RefactorexTest do
         end
       end]
     )
+  end
+
+  describe "line_or_selection field-level comparison" do
+    test "detects cursor position when start and end share same line/character but differ in metadata" do
+      code = ~q[
+        def my_func(unused) do
+        end
+      ]
+
+      document = Document.new("file:///file.ex", code, 0)
+
+      start_pos = Position.new(document, 1, 5)
+
+      end_pos = %Position{
+        line: start_pos.line,
+        character: start_pos.character,
+        valid?: start_pos.valid?,
+        context_line: start_pos.context_line,
+        document_line_count: start_pos.document_line_count,
+        starting_index: 0
+      }
+
+      assert start_pos.line == end_pos.line
+      assert start_pos.character == end_pos.character
+      refute start_pos == end_pos
+
+      range = Range.new(start_pos, end_pos)
+
+      actions = Refactorex.actions(document, range, [])
+
+      assert Enum.any?(actions, &(&1.title == "Underscore variables not used")),
+             "Expected 'Underscore variables not used' in actions #{inspect(Enum.map(actions, & &1.title))} — " <>
+               "line_or_selection fell through to the selection path because start != end despite same line/character"
+    end
   end
 end
