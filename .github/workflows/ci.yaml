@@ -163,7 +163,7 @@ jobs:
 
         include:
           - elixir: "1.17.3"
-            otp: "27.3.4.1"
+            otp: "27.3.4.10"
 
     steps:
       - name: Checkout code
