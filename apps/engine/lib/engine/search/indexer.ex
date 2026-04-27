@@ -2,6 +2,7 @@ defmodule Engine.Search.Indexer do
   alias Engine.ApplicationCache
   alias Engine.Progress
   alias Engine.Search.Indexer
+  alias Engine.Search.Indexer.Extractors
   alias Forge.Identifier
   alias Forge.ProcessCache
   alias Forge.Project
@@ -10,6 +11,18 @@ defmodule Engine.Search.Indexer do
   require ProcessCache
 
   @indexable_extensions "*.{ex,exs}"
+
+  # Deps files only contribute definitions to the index, so we skip pure-reference
+  # extractors (the most expensive one being FunctionReference, which resolves
+  # aliases and arity on every call site). ModuleAttribute stays because it
+  # produces both definitions and references; the post-filter drops its references.
+  @deps_extractors [
+    Extractors.Module,
+    Extractors.ModuleAttribute,
+    Extractors.FunctionDefinition,
+    Extractors.StructDefinition,
+    Extractors.EctoSchema
+  ]
 
   def create_index(%Project{} = project) do
     :ok = ApplicationCache.clear()
@@ -76,15 +89,16 @@ defmodule Engine.Search.Indexer do
   end
 
   defp index_path(path, deps_dir) do
+    in_deps? = is_binary(deps_dir) and Forge.Path.contains?(path, deps_dir)
+    extractors = if in_deps?, do: @deps_extractors
+
     with {:ok, contents} <- File.read(path),
-         {:ok, entries} <- Indexer.Source.index(path, contents) do
-      Enum.filter(entries, fn entry ->
-        if is_binary(deps_dir) and Forge.Path.contains?(path, deps_dir) do
-          entry.subtype == :definition
-        else
-          true
-        end
-      end)
+         {:ok, entries} <- Indexer.Source.index(path, contents, extractors) do
+      if in_deps? do
+        Enum.filter(entries, &(&1.subtype == :definition))
+      else
+        entries
+      end
     else
       _ ->
         []
