@@ -146,14 +146,7 @@ defmodule Engine.CodeAction.Handlers.RefactorexTest do
 
       start_pos = Position.new(document, 1, 5)
 
-      end_pos = %Position{
-        line: start_pos.line,
-        character: start_pos.character,
-        valid?: start_pos.valid?,
-        context_line: start_pos.context_line,
-        document_line_count: start_pos.document_line_count,
-        starting_index: 0
-      }
+      end_pos = %Position{start_pos | starting_index: 0}
 
       assert start_pos.line == end_pos.line
       assert start_pos.character == end_pos.character
@@ -163,9 +156,7 @@ defmodule Engine.CodeAction.Handlers.RefactorexTest do
 
       actions = Refactorex.actions(document, range, [])
 
-      assert Enum.any?(actions, &(&1.title == "Underscore variables not used")),
-             "Expected 'Underscore variables not used' in actions #{inspect(Enum.map(actions, & &1.title))} — " <>
-               "line_or_selection fell through to the selection path because start != end despite same line/character"
+      assert Enum.any?(actions, &(&1.title == "Underscore variables not used"))
     end
   end
 end
