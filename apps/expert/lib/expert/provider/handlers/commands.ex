@@ -46,18 +46,43 @@ defmodule Expert.Provider.Handlers.Commands do
           {:ok, _} = Expert.Clustering.start_net_kernel()
 
           epmd_module = Forge.EPMD
-          ebin_path = Path.dirname(to_string(:code.which(epmd_module)))
-          priv_dir = :code.priv_dir(Application.get_application(__MODULE__))
-          script_ext = if Forge.OS.windows?(), do: ".bat", else: ".sh"
 
-          %{
-            "nodeName" => to_string(Node.self()),
-            "port" => Forge.EPMD.dist_port(),
-            "cookie" => to_string(Node.get_cookie()),
-            "epmdModule" => Atom.to_string(epmd_module),
-            "epmdEbinPath" => ebin_path,
-            "debugScriptPath" => Path.join(priv_dir, "debug_shell#{script_ext}")
-          }
+          case :code.which(epmd_module) do
+            module_path when is_list(module_path) ->
+              ebin_path = module_path |> to_string() |> Path.dirname()
+              priv_dir = :code.priv_dir(Application.get_application(__MODULE__))
+              script_ext = if Forge.OS.windows?(), do: ".bat", else: ".sh"
+              debug_script_path = Path.join(priv_dir, "debug_shell#{script_ext}")
+              node_name = to_string(Node.self())
+              port = Forge.EPMD.dist_port()
+              cookie = to_string(Node.get_cookie())
+              epmd_module_name = Atom.to_string(epmd_module)
+
+              %{
+                "nodeName" => node_name,
+                "port" => port,
+                "cookie" => cookie,
+                "epmdModule" => epmd_module_name,
+                "epmdEbinPath" => ebin_path,
+                "debugScriptPath" => debug_script_path,
+                "command" =>
+                  Enum.map_join(
+                    [
+                      debug_script_path,
+                      node_name,
+                      port,
+                      epmd_module_name,
+                      ebin_path,
+                      cookie
+                    ],
+                    " ",
+                    &shell_quote/1
+                  )
+              }
+
+            :non_existing ->
+              internal_error("failed to find ebin path for #{epmd_module}")
+          end
 
         invalid ->
           message = "#{invalid} is not a valid command"
@@ -90,5 +115,9 @@ defmodule Expert.Provider.Handlers.Commands do
 
   defp internal_error(message) do
     %GenLSP.ErrorResponse{code: ErrorCodes.internal_error(), message: message}
+  end
+
+  defp shell_quote(value) do
+    "'" <> (value |> to_string() |> String.replace("'", "'\\''")) <> "'"
   end
 end

@@ -64,7 +64,8 @@ the connection info needed to attach a remote shell:
   "cookie": "expert",
   "epmdModule": "Elixir.XPForge.EPMD",
   "epmdEbinPath": "/path/to/forge/ebin",
-  "debugScriptPath": "/path/to/debug_shell.sh"
+  "debugScriptPath": "/path/to/debug_shell.sh",
+  "command": "'/path/to/debug_shell.sh' 'expert-manager-core-41110@127.0.0.1' '59345' 'Elixir.XPForge.EPMD' '/path/to/forge/ebin' 'expert'"
 }
 ```
 
@@ -104,17 +105,9 @@ vim.api.nvim_create_autocmd("LspAttach", {
             vim.notify('connectionDetails failed: ' .. vim.inspect(err), vim.log.levels.ERROR)
             return
           end
-          local cmd = string.format(
-            '%s %s %s %s %s %s',
-            result.debugScriptPath,
-            result.nodeName,
-            tostring(result.port),
-            result.epmdModule,
-            result.epmdEbinPath,
-            result.cookie
-          )
 
-          vim.cmd('belowright split | terminal ' .. cmd)
+          vim.cmd('belowright split | terminal')
+          vim.api.nvim_chan_send(vim.b.terminal_job_id, result.command .. '\n')
         end)
       end, "Expert debug shell")
     end
