@@ -643,7 +643,7 @@ defmodule Engine.CodeIntelligence.EntityTest do
         end
       ]
 
-      assert {:error, :not_found} = resolve(code)
+      assert {:error, :no_code} = resolve(code)
     end
   end
 
@@ -1311,6 +1311,32 @@ defmodule Engine.CodeIntelligence.EntityTest do
       ]
 
       assert {:ok, {:call, Kernel, :to_string, 1}, _} = resolve(code)
+    end
+  end
+
+  describe "resolve/2 inside a string" do
+    test "does not resolve an ident inside a plain string (not interpolation)" do
+      code = ~q[
+        defmodule MyModule do
+          def my_fun do
+            "hello {wor|ld}"
+          end
+        end
+      ]
+
+      assert {:error, :no_code} = resolve(code)
+    end
+
+    test "resolves an ident inside string interpolation" do
+      code = ~S[
+        defmodule MyModule do
+          def my_fun(world) do
+            "hello #{wor|ld}"
+          end
+        end
+      ]
+
+      assert {:ok, {:variable, :world}, _} = resolve(code)
     end
   end
 
