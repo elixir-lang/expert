@@ -30,10 +30,7 @@ defmodule Expert.Provider.Handlers.Hover do
         content = Markdown.to_content(markdown)
         %Structures.Hover{contents: content, range: range}
       else
-        {:error, :no_doc} ->
-          nil
-
-        {:error, :no_type} ->
+        {:error, reason} when reason in [:no_code, :no_doc, :no_type] ->
           nil
 
         :error ->
