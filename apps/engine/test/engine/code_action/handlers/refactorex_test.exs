@@ -8,6 +8,8 @@ defmodule Engine.CodeAction.Handlers.RefactorexTest do
   alias Engine.CodeAction.Handlers.Refactorex
   alias Engine.CodeMod.Format
   alias Forge.Document
+  alias Forge.Document.Position
+  alias Forge.Document.Range
 
   def apply_code_mod(original_text, _ast, options) do
     document = Document.new("file:///file.ex", original_text, 0)
@@ -131,5 +133,30 @@ defmodule Engine.CodeAction.Handlers.RefactorexTest do
         end
       end]
     )
+  end
+
+  describe "line_or_selection field-level comparison" do
+    test "detects cursor position when start and end share same line/character but differ in metadata" do
+      code = ~q[
+        def my_func(unused) do
+        end
+      ]
+
+      document = Document.new("file:///file.ex", code, 0)
+
+      %Position{} = start_pos = Position.new(document, 1, 5)
+
+      end_pos = %Position{start_pos | starting_index: 0}
+
+      assert start_pos.line == end_pos.line
+      assert start_pos.character == end_pos.character
+      refute start_pos == end_pos
+
+      range = Range.new(start_pos, end_pos)
+
+      actions = Refactorex.actions(document, range, [])
+
+      assert Enum.any?(actions, &(&1.title == "Underscore variables not used"))
+    end
   end
 end
