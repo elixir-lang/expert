@@ -350,6 +350,7 @@ defmodule Expert.State do
         document_formatting_provider: true,
         document_symbol_provider: true,
         execute_command_provider: command_options,
+        folding_range_provider: true,
         hover_provider: true,
         references_provider: true,
         text_document_sync: sync_options,

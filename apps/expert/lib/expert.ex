@@ -536,6 +536,9 @@ defmodule Expert do
       %Requests.TextDocumentDocumentSymbol{} ->
         {:ok, Handlers.DocumentSymbols}
 
+      %Requests.TextDocumentFoldingRange{} ->
+        {:ok, Handlers.CodeFolding}
+
       %GenLSP.Requests.WorkspaceSymbol{} ->
         {:ok, Handlers.WorkspaceSymbol}
 
