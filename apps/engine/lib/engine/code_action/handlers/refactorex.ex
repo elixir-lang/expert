@@ -35,8 +35,11 @@ defmodule Engine.CodeAction.Handlers.Refactorex do
   @impl CodeAction.Handler
   def trigger_kind, do: :all
 
-  defp line_or_selection(_, %{start: %{line: line, character: char}, end: %{line: line, character: char}}),
-    do: {:ok, line}
+  defp line_or_selection(_, %{
+         start: %{line: line, character: char},
+         end: %{line: line, character: char}
+       }),
+       do: {:ok, line}
 
   defp line_or_selection(doc, %{start: start} = range) do
     doc
