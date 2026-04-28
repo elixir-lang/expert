@@ -144,7 +144,7 @@ defmodule Engine.CodeAction.Handlers.RefactorexTest do
 
       document = Document.new("file:///file.ex", code, 0)
 
-      start_pos = Position.new(document, 1, 5)
+      %Position{} = start_pos = Position.new(document, 1, 5)
 
       end_pos = %Position{start_pos | starting_index: 0}
 
