@@ -14,6 +14,6 @@ export ERL_LIBS="$lib_dir${ERL_LIBS:+:$ERL_LIBS}"
 
 exec iex \
   --erl "-start_epmd false -epmd_module ${epmd_module} -connect_all false" \
-  --name "expert-debug-$$@127.0.0.1" \
+  --name "expert-remote-shell-$$@127.0.0.1" \
   --cookie "$cookie" \
   --remsh "$node_name"

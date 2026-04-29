@@ -52,7 +52,7 @@ defmodule Expert.Provider.Handlers.Commands do
               ebin_path = module_path |> to_string() |> Path.dirname()
               priv_dir = :code.priv_dir(Application.get_application(__MODULE__))
               script_ext = if Forge.OS.windows?(), do: ".bat", else: ".sh"
-              debug_script_path = Path.join(priv_dir, "debug_shell#{script_ext}")
+              remote_shell_script_path = Path.join(priv_dir, "remote_shell#{script_ext}")
               node_name = to_string(Node.self())
               port = Forge.EPMD.dist_port()
               cookie = to_string(Node.get_cookie())
@@ -64,11 +64,11 @@ defmodule Expert.Provider.Handlers.Commands do
                 "cookie" => cookie,
                 "epmdModule" => epmd_module_name,
                 "epmdEbinPath" => ebin_path,
-                "debugScriptPath" => debug_script_path,
+                "debugScriptPath" => remote_shell_script_path,
                 "command" =>
                   Enum.map_join(
                     [
-                      debug_script_path,
+                      remote_shell_script_path,
                       node_name,
                       port,
                       epmd_module_name,

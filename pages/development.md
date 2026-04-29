@@ -47,9 +47,9 @@ tail -f .expert/*.log
 Note: These log files roll over when they reach 1 megabyte, so after a
 time, it will be necessary to re-run the above command.
 
-## Debugging
+## Remote Shell
 
-Expert supports a debug shell, which will connect a remote IEx session to a
+Expert supports a remote shell, which will connect a remote IEx session to a
 currently-running language server process.
 
 ### connectionDetails command
@@ -64,13 +64,13 @@ the connection info needed to attach a remote shell:
   "cookie": "expert",
   "epmdModule": "Elixir.XPForge.EPMD",
   "epmdEbinPath": "/path/to/forge/ebin",
-  "debugScriptPath": "/path/to/debug_shell.sh",
-  "command": "'/path/to/debug_shell.sh' 'expert-manager-core-41110@127.0.0.1' '59345' 'Elixir.XPForge.EPMD' '/path/to/forge/ebin' 'expert'"
+  "debugScriptPath": "/path/to/remote_shell.sh",
+  "command": "'/path/to/remote_shell.sh' 'expert-manager-core-41110@127.0.0.1' '59345' 'Elixir.XPForge.EPMD' '/path/to/forge/ebin' 'expert'"
 }
 ```
 
 Editor extensions can use `debugScriptPath` to spawn a terminal running the
-debug shell with the connection details as arguments:
+remote shell with the connection details as arguments:
 
 ```sh
 <debugScriptPath> <nodeName> <port> <epmdModule> <epmdEbinPath> [cookie]
@@ -80,12 +80,12 @@ This will connect you to a remote IEx session _inside_ the language server,
 where all evaluation happens on the manager node. You can investigate processes,
 make changes to the running code, or run `:observer`.
 
-Editor integrations can use these details to launch a debug shell and some of
+Editor integrations can use these details to launch a remote shell and some of
 them may already have a builtin integration for it.
 
 If your editor does not include one, you can manually configure it to launch the
 shell on demand, for example you can add this to your neovim+lsp-config configuration
-to open a new terminal pane with the debug shell, assuming you have configured the
+to open a new terminal pane with the remote shell, assuming you have configured the
 Expert LSP client with the name `expert`:
 
 ```lua
@@ -109,7 +109,7 @@ vim.api.nvim_create_autocmd("LspAttach", {
           vim.cmd('belowright split | terminal')
           vim.api.nvim_chan_send(vim.b.terminal_job_id, result.command .. '\n')
         end)
-      end, "Expert debug shell")
+      end, "Expert remote shell")
     end
   end,
 })
