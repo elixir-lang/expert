@@ -47,23 +47,70 @@ tail -f .expert/*.log
 Note: These log files roll over when they reach 1 megabyte, so after a
 time, it will be necessary to re-run the above command.
 
-## Debugging
+## Remote Shell
 
-Expert supports a debug shell, which will connect a remote shell to a
-currently-running language server process. To use it, `cd` into your expert
-installation directory and run
+Expert supports a remote shell, which will connect a remote IEx session to a
+currently-running language server process.
 
-```sh
-./apps/expert/bin/debug_server.sh <name of project>
+### connectionDetails command
+
+The `connectionDetails` LSP command (via `workspace/executeCommand`) returns
+the connection info needed to attach a remote shell:
+
+```json
+{
+  "nodeName": "expert-manager-core-41110@127.0.0.1",
+  "port": 59345,
+  "cookie": "expert",
+  "epmdModule": "Elixir.XPForge.EPMD",
+  "epmdEbinPath": "/path/to/forge/ebin",
+  "debugScriptPath": "/path/to/remote_shell.sh",
+  "command": "'/path/to/remote_shell.sh' 'expert-manager-core-41110@127.0.0.1' '59345' 'Elixir.XPForge.EPMD' '/path/to/forge/ebin' 'expert'"
+}
 ```
 
-For example, if I would like to run the debug server for a server running in
-your `my_project` project, run:
+Editor extensions can use `debugScriptPath` to spawn a terminal running the
+remote shell with the connection details as arguments:
 
 ```sh
-./apps/expert/bin/debug_server.sh my_project
+<debugScriptPath> <nodeName> <port> <epmdModule> <epmdEbinPath> [cookie]
 ```
 
-...and you will be connected to a remote IEx session _inside_ the language
-server for `my_project`. This allows you to investigate processes, make changes
-to the running code, or run `:observer`.
+This will connect you to a remote IEx session _inside_ the language server,
+where all evaluation happens on the manager node. You can investigate processes,
+make changes to the running code, or run `:observer`.
+
+Editor integrations can use these details to launch a remote shell and some of
+them may already have a builtin integration for it.
+
+If your editor does not include one, you can manually configure it to launch the
+shell on demand, for example you can add this to your neovim+lsp-config configuration
+to open a new terminal pane with the remote shell, assuming you have configured the
+Expert LSP client with the name `expert`:
+
+```lua
+vim.api.nvim_create_autocmd("LspAttach", {
+  group = vim.api.nvim_create_augroup("kickstart-lsp-attach", { clear = true }),
+
+  callback = function(event)
+    local client = vim.lsp.get_client_by_id(event.data.client_id)
+
+    if client.name == "expert" then
+      map("<leader>ed", function()
+        client:request('workspace/executeCommand', {
+          command = 'connectionDetails',
+          arguments = {},
+        }, function(err, result)
+          if err then
+            vim.notify('connectionDetails failed: ' .. vim.inspect(err), vim.log.levels.ERROR)
+            return
+          end
+
+          vim.cmd('belowright split | terminal')
+          vim.api.nvim_chan_send(vim.b.terminal_job_id, result.command .. '\n')
+        end)
+      end, "Expert remote shell")
+    end
+  end,
+})
+```
