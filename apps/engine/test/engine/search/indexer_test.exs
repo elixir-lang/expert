@@ -6,22 +6,72 @@ defmodule Engine.Search.IndexerTest do
 
   alias Engine.Dispatch
   alias Engine.Search.Indexer
+  alias Engine.Search.Indexer.Manifest
+  alias Engine.Search.Indexer.Manifest.Entry, as: ManifestEntry
+  alias Engine.Search.Indexer.ManifestStore
   alias Forge.Project
   alias Forge.Search.Indexer.Entry
 
   defmodule FakeBackend do
+    @behaviour Engine.Search.Store.Backend
+
+    def new(_project), do: {:ok, :new}
+
+    def prepare(_backend_result) do
+      if entries() == [] do
+        {:ok, :empty}
+      else
+        {:ok, :stale}
+      end
+    end
+
     def set_entries(entries) when is_list(entries) do
       :persistent_term.put({__MODULE__, :entries}, entries)
+    end
+
+    def entries do
+      :persistent_term.get({__MODULE__, :entries}, [])
+    end
+
+    def replace_all(entries) when is_list(entries) do
+      set_entries(entries)
+      :ok
+    end
+
+    def delete_by_path(path) do
+      {deleted_entries, kept_entries} =
+        {__MODULE__, :entries}
+        |> :persistent_term.get([])
+        |> Enum.split_with(&(&1.path == path))
+
+      set_entries(kept_entries)
+
+      {:ok, Enum.flat_map(deleted_entries, &List.wrap(&1.id))}
+    end
+
+    def insert(entries) when is_list(entries) do
+      current_entries = :persistent_term.get({__MODULE__, :entries}, [])
+      set_entries(current_entries ++ entries)
+      :ok
     end
 
     def reduce(accumulator, reducer_fun) do
       {__MODULE__, :entries}
       |> :persistent_term.get([])
       |> Enum.reduce(accumulator, fn
-        %{id: id} = entry, acc when is_integer(id) -> reducer_fun.(entry, acc)
+        %Entry{} = entry, acc -> reducer_fun.(entry, acc)
         _, acc -> acc
       end)
     end
+
+    def find_by_subject(_subject, _type, _subtype), do: []
+    def find_by_prefix(_prefix, _type, _subtype), do: []
+    def find_by_ids(_ids, _type, _subtype), do: []
+    def siblings(_entry), do: []
+    def parent(_entry), do: nil
+    def structure_for_path(_path), do: :error
+    def drop, do: set_entries([])
+    def destroy(_project), do: :ok
   end
 
   setup do
@@ -40,18 +90,54 @@ defmodule Engine.Search.IndexerTest do
     end)
 
     patch(Dispatch, :erpc_cast, fn Expert.Progress, _function, _args -> true end)
+    FakeBackend.set_entries([])
+    ManifestStore.invalidate(project)
     {:ok, project: project}
   end
 
-  defp with_env(name, value) do
-    original = System.fetch_env(name)
-    System.put_env(name, value)
-
-    on_exit(fn -> restore_env(name, original) end)
+  defp create_index(project) do
+    assert :ok = Indexer.create_index(project, FakeBackend)
+    FakeBackend.entries()
   end
 
-  defp restore_env(name, {:ok, value}), do: System.put_env(name, value)
-  defp restore_env(name, :error), do: System.delete_env(name)
+  defp update_index(project, backend \\ FakeBackend) do
+    before_entries = backend.entries()
+
+    assert :ok = Indexer.update_index(project, backend)
+
+    after_entries = backend.entries()
+
+    {changed_entries(before_entries, after_entries), deleted_paths(before_entries, after_entries)}
+  end
+
+  defp changed_entries(before_entries, after_entries) do
+    before_by_path = entries_by_path(before_entries)
+
+    after_entries
+    |> entries_by_path()
+    |> Enum.flat_map(fn {path, entries} ->
+      if Map.get(before_by_path, path, []) == entries do
+        []
+      else
+        entries
+      end
+    end)
+  end
+
+  defp deleted_paths(before_entries, after_entries) do
+    before_paths = before_entries |> entries_by_path() |> Map.keys() |> MapSet.new()
+    after_paths = after_entries |> entries_by_path() |> Map.keys() |> MapSet.new()
+
+    before_paths
+    |> MapSet.difference(after_paths)
+    |> Enum.to_list()
+  end
+
+  defp entries_by_path(entries) do
+    entries
+    |> Enum.reject(&is_nil(&1.path))
+    |> Enum.group_by(& &1.path)
+  end
 
   defp write_file!(path, contents) do
     File.mkdir_p!(Path.dirname(path))
@@ -71,7 +157,7 @@ defmodule Engine.Search.IndexerTest do
     """)
   end
 
-  defp mix_build_file!(root, relative_path, config \\ []) do
+  defp mix_build_file!(root, relative_path, config) do
     build_root =
       File.cd!(root, fn ->
         config
@@ -83,9 +169,9 @@ defmodule Engine.Search.IndexerTest do
     Path.join([build_root | List.wrap(relative_path)])
   end
 
-  describe "create_index/1" do
+  describe "create_index/2" do
     test "returns a list of entries", %{project: project} do
-      assert {:ok, entry_stream} = Indexer.create_index(project)
+      entry_stream = create_index(project)
       entries = Enum.to_list(entry_stream)
       project_root = Project.root_path(project)
 
@@ -94,7 +180,7 @@ defmodule Engine.Search.IndexerTest do
     end
 
     test "entries are either .ex or .exs files", %{project: project} do
-      assert {:ok, entries} = Indexer.create_index(project)
+      entries = create_index(project)
       assert Enum.all?(entries, fn entry -> Path.extname(entry.path) in [".ex", ".exs"] end)
     end
 
@@ -104,97 +190,104 @@ defmodule Engine.Search.IndexerTest do
 
       patch(Engine, :get_project, fn -> bare_project end)
 
-      assert {:ok, entries} = Indexer.create_index(bare_project)
+      entries = create_index(bare_project)
       assert Enum.any?(entries, &(&1.path == Path.join(bare_root, "bare_file.ex")))
     end
 
-    test "does not index project-local default build files", %{project: project} do
-      with_env(
-        "MIX_BUILD_PATH",
-        Path.join([Project.root_path(project), ".expert", "build", "dev"])
-      )
+    @tag :tmp_dir
+    test "indexes active path dependency beams", %{tmp_dir: tmp_dir} do
+      %{module: module, project: project} = with_beam_dependency(tmp_dir)
 
-      build_file = mix_build_file!(Project.root_path(project), "generated.ex")
+      entries = create_index(project)
+      entries = Enum.to_list(entries)
 
-      write_file!(build_file, "defmodule GeneratedBuildFile do end")
-
-      on_exit(fn -> File.rm_rf(Path.dirname(build_file)) end)
-
-      refute build_file in Indexer.indexable_files(project)
+      assert Enum.any?(entries, &(&1.subject == module and &1.subtype == :definition))
     end
 
     @tag :tmp_dir
-    test "does not index files under a configured build path", %{tmp_dir: tmp_dir} do
-      with_env("MIX_BUILD_PATH", Path.join([tmp_dir, ".expert", "build", "dev"]))
+    test "does not index dependency beams when the dependency has app false", %{tmp_dir: tmp_dir} do
+      %{module: module, project: project} =
+        with_beam_dependency(tmp_dir, dep_opts: [path: "deps/beam_dep", app: false])
 
-      source_file = Path.join([tmp_dir, "lib", "source_file.ex"])
-      build_file = mix_build_file!(tmp_dir, "generated.ex", build_path: "custom_build")
+      entries = create_index(project)
+      entries = Enum.to_list(entries)
 
-      write_mix_project!(
-        tmp_dir,
-        "ConfiguredBuildPathIndexerTest.MixProject",
-        ~s([app: :configured_build_path_indexer_test, version: "0.1.0", build_path: "custom_build"])
-      )
-
-      write_file!(source_file, "defmodule SourceFile do end")
-      write_file!(build_file, "defmodule GeneratedBuildFile do end")
-
-      project = tmp_dir |> Forge.Document.Path.to_uri() |> Project.new()
-
-      assert source_file in Indexer.indexable_files(project)
-      refute build_file in Indexer.indexable_files(project)
+      refute Enum.any?(entries, &(&1.subject == module and &1.subtype == :definition))
     end
 
     @tag :tmp_dir
-    test "does not index files under MIX_BUILD_ROOT", %{tmp_dir: tmp_dir} do
-      build_root = Path.join(tmp_dir, "custom_build_root")
-      with_env("MIX_BUILD_ROOT", build_root)
-      with_env("MIX_BUILD_PATH", Path.join([tmp_dir, ".expert", "build", "dev"]))
+    test "caches dependency beams with no debug metadata", %{tmp_dir: tmp_dir} do
+      %{beam_path: beam_path, module: module, project: project} =
+        with_beam_dependency(tmp_dir, debug_info?: false, rewrite_source?: false)
 
-      source_file = Path.join([tmp_dir, "lib", "source_file.ex"])
-      build_file = Path.join(build_root, "generated.ex")
+      assert {entries, []} = update_index(project)
+      entries = Enum.to_list(entries)
+      assert {:ok, manifest} = ManifestStore.load(project)
 
-      write_mix_project!(
-        tmp_dir,
-        "MixBuildRootIndexerTest.MixProject",
-        ~s([app: :mix_build_root_indexer_test, version: "0.1.0"])
-      )
+      refute Enum.any?(entries, &(&1.subject == module))
 
-      write_file!(source_file, "defmodule SourceFile do end")
-      write_file!(build_file, "defmodule GeneratedBuildFile do end")
-
-      project = tmp_dir |> Forge.Document.Path.to_uri() |> Project.new()
-
-      assert source_file in Indexer.indexable_files(project)
-      refute build_file in Indexer.indexable_files(project)
+      assert {:ok, %ManifestEntry{kind: :beam, output_path: nil}} =
+               Manifest.fetch(manifest, beam_path)
     end
 
     @tag :tmp_dir
-    test "indexes active path dependency sources", %{tmp_dir: tmp_dir} do
-      app_root = Path.join(tmp_dir, "app")
-      dep_root = Path.join(tmp_dir, "dep")
-      app_file = Path.join([app_root, "lib", "app_module.ex"])
-      dep_file = Path.join([dep_root, "lib", "dep_module.ex"])
-      dep_non_source_file = Path.join([dep_root, "generated.ex"])
+    test "caches stale dependency beams without entries", %{tmp_dir: tmp_dir} do
+      %{beam_path: beam_path, dep_file: dep_file, module: module, project: project} =
+        with_beam_dependency(tmp_dir, rewrite_source?: false)
 
-      write_mix_project!(
-        app_root,
-        "PathDependencyIndexerTest.MixProject",
-        ~s([app: :path_dependency_indexer_test, version: "0.1.0", deps: [{:dep, path: "../dep"}]])
-      )
+      File.touch!(dep_file, {{2100, 1, 1}, {0, 0, 0}})
 
-      write_file!(app_file, "defmodule AppModule do end")
-      write_file!(dep_file, "defmodule DepModule do end")
-      write_file!(dep_non_source_file, "defmodule GeneratedDependencyFile do end")
+      assert {entries, []} = update_index(project)
+      entries = Enum.to_list(entries)
+      assert {:ok, manifest} = ManifestStore.load(project)
 
-      project = app_root |> Forge.Document.Path.to_uri() |> Project.new()
+      refute Enum.any?(entries, &(&1.subject == module))
 
-      assert dep_file in Indexer.indexable_files(project)
-      refute dep_non_source_file in Indexer.indexable_files(project)
+      assert {:ok, %ManifestEntry{kind: :beam, output_path: nil, source_path: ^dep_file}} =
+               Manifest.fetch(manifest, beam_path)
+    end
 
-      assert {:ok, entries} = Indexer.create_index(project)
-      assert Enum.any?(entries, &(&1.subject == DepModule and &1.subtype == :definition))
-      refute Enum.any?(entries, &(&1.subject == GeneratedDependencyFile))
+    @tag :tmp_dir
+    test "does not reindex unchanged skipped dependency beams after caching them", %{
+      tmp_dir: tmp_dir
+    } do
+      %{beam_path: beam_path, project: project} =
+        with_beam_dependency(tmp_dir, debug_info?: false, rewrite_source?: false)
+
+      assert {entries, []} = update_index(project)
+      FakeBackend.set_entries(Enum.to_list(entries))
+      assert {:ok, manifest} = ManifestStore.load(project)
+
+      old_manifest_entries =
+        manifest
+        |> Manifest.entries()
+        |> Enum.reject(&(&1.input_path == beam_path))
+
+      assert :ok =
+               ManifestStore.commit(project, Manifest.new(old_manifest_entries))
+
+      test_pid = self()
+
+      patch(Dispatch, :erpc_call, fn
+        Expert.Progress, :begin, ["Indexing dependencies metadata", _opts] ->
+          send(test_pid, :dependency_progress_begin)
+          {:ok, System.unique_integer([:positive])}
+
+        Expert.Progress, :begin, [_title, _opts] ->
+          {:ok, System.unique_integer([:positive])}
+
+        Expert.Progress, :report, _args ->
+          :ok
+      end)
+
+      assert {entries, []} = update_index(project)
+      assert [] = Enum.to_list(entries)
+      assert_receive :dependency_progress_begin
+      refute_receive :dependency_progress_begin, 0
+
+      assert {entries, []} = update_index(project)
+      assert [] = Enum.to_list(entries)
+      refute_receive :dependency_progress_begin
     end
   end
 
@@ -220,9 +313,10 @@ defmodule Engine.Search.IndexerTest do
   end
 
   def with_an_existing_index(%{project: project}) do
-    {:ok, entry_stream} = Indexer.create_index(project)
-    entries = Enum.to_list(entry_stream)
+    {entries, []} = update_index(project)
+    entries = Enum.to_list(entries)
     FakeBackend.set_entries(entries)
+
     {:ok, entries: entries}
   end
 
@@ -244,12 +338,38 @@ defmodule Engine.Search.IndexerTest do
       write_file!(build_file, "defmodule StaleBuildFile do end")
 
       project = tmp_dir |> Forge.Document.Path.to_uri() |> Project.new()
-      assert {:ok, entries} = Indexer.create_index(project)
+      entries = create_index(project)
+      entries = Enum.to_list(entries)
 
       FakeBackend.set_entries([%Entry{id: 1, path: build_file} | entries])
+      ManifestStore.invalidate(project)
 
-      assert {:ok, entry_stream, [^build_file]} = Indexer.update_index(project, FakeBackend)
-      assert [] = Enum.to_list(entry_stream)
+      assert {entry_stream, [^build_file]} = update_index(project)
+      refute Enum.any?(entry_stream, &(&1.path == build_file))
+    end
+  end
+
+  describe "update_index/2 manifest commits" do
+    @tag :tmp_dir
+    test "keeps the previous manifest if committing a refresh fails", %{tmp_dir: tmp_dir} do
+      source_file = Path.join([tmp_dir, "lib", "source_file.ex"])
+      write_file!(source_file, "defmodule SourceFile do end")
+
+      project = tmp_dir |> Forge.Document.Path.to_uri() |> Project.bare()
+
+      assert {entries, []} = update_index(project)
+      assert [_ | _] = Enum.to_list(entries)
+      assert {:ok, old_manifest} = ManifestStore.load(project)
+
+      write_file!(source_file, "defmodule ChangedSourceFile do end")
+      File.touch!(source_file, {{2100, 1, 1}, {0, 0, 0}})
+
+      patch(ManifestStore, :commit, fn ^project, _manifest ->
+        {:error, :commit_failed}
+      end)
+
+      assert {:error, :commit_failed} = Indexer.update_index(project, FakeBackend)
+      assert {:ok, ^old_manifest} = ManifestStore.load(project)
     end
   end
 
@@ -261,9 +381,30 @@ defmodule Engine.Search.IndexerTest do
     end
 
     test "the ephemeral file is listed in the updated index", %{project: project} do
-      {:ok, entry_stream, []} = Indexer.update_index(project, FakeBackend)
-      assert [_structure, updated_entry] = Enum.to_list(entry_stream)
+      assert {entries, []} = update_index(project)
+      assert [_structure, updated_entry] = Enum.to_list(entries)
+
       assert Path.basename(updated_entry.path) == @ephemeral_file_name
+      assert updated_entry.subject == Ephemeral
+    end
+
+    test "writes updated entries into the backend", %{project: project} do
+      assert {entries, []} = update_index(project)
+      assert [_structure, updated_entry] = Enum.to_list(entries)
+
+      assert Enum.any?(FakeBackend.entries(), &(&1.subject == updated_entry.subject))
+    end
+
+    test "reindexes a manifest output missing from the backend", %{
+      project: project,
+      file_path: file_path
+    } do
+      FakeBackend.set_entries(Enum.reject(FakeBackend.entries(), &(&1.path == file_path)))
+
+      assert {entries, []} = update_index(project)
+      assert [_structure, updated_entry] = Enum.to_list(entries)
+
+      assert updated_entry.path == file_path
       assert updated_entry.subject == Ephemeral
     end
   end
@@ -276,8 +417,8 @@ defmodule Engine.Search.IndexerTest do
     setup [:with_an_existing_index, :with_an_ephemeral_empty_file]
 
     test "and does nothing", %{project: project} do
-      {:ok, entry_stream, []} = Indexer.update_index(project, FakeBackend)
-      assert [] = Enum.to_list(entry_stream)
+      assert {entries, []} = update_index(project)
+      assert [] = Enum.to_list(entries)
     end
 
     test "there is no progress", %{project: project} do
@@ -285,8 +426,8 @@ defmodule Engine.Search.IndexerTest do
       # cause an ArithmeticError
 
       Dispatch.register_listener(self(), :all)
-      {:ok, entry_stream, []} = Indexer.update_index(project, FakeBackend)
-      assert [] = Enum.to_list(entry_stream)
+      assert {entries, []} = update_index(project)
+      assert [] = Enum.to_list(entries)
       refute_receive _
     end
   end
@@ -300,47 +441,164 @@ defmodule Engine.Search.IndexerTest do
 
     test "returns the file paths of deleted files", %{project: project, file_path: file_path} do
       File.rm(file_path)
-      assert {:ok, entry_stream, [^file_path]} = Indexer.update_index(project, FakeBackend)
-      assert [] = Enum.to_list(entry_stream)
+
+      assert {entries, [^file_path]} = update_index(project)
+      assert [] = Enum.to_list(entries)
     end
 
     test "updates files that have changed since the last index", %{
       project: project,
-      entries: entries,
       file_path: file_path
     } do
-      entries = Enum.reject(entries, &is_nil(&1.id))
-      path_to_mtime = Map.new(entries, fn entry -> {entry.path, Entry.updated_at(entry)} end)
-
-      [entry | _] = entries
-      {{year, month, day}, hms} = Entry.updated_at(entry)
-      old_mtime = {{year - 1, month, day}, hms}
-
-      patch(Indexer, :stat, fn path ->
-        {ymd, {hour, minute, second}} =
-          Map.get_lazy(path_to_mtime, file_path, &:calendar.universal_time/0)
-
-        mtime =
-          if path == file_path do
-            {ymd, {hour, minute, second + 1}}
-          else
-            old_mtime
-          end
-
-        {:ok, %File.Stat{mtime: mtime}}
-      end)
-
       new_contents = ~s[
         defmodule Brand.Spanking.New do
         end
       ]
 
       File.write!(file_path, new_contents)
+      File.touch!(file_path, {{2100, 1, 1}, {0, 0, 0}})
 
-      assert {:ok, entry_stream, []} = Indexer.update_index(project, FakeBackend)
-      assert [_structure, entry] = Enum.to_list(entry_stream)
+      assert {entries, []} = update_index(project)
+      assert [_structure, entry] = Enum.to_list(entries)
+
       assert entry.path == file_path
       assert entry.subject == Brand.Spanking.New
     end
+
+    test "clears files that now index to no entries", %{
+      project: project,
+      file_path: file_path
+    } do
+      File.write!(file_path, "")
+      File.touch!(file_path, {{2100, 1, 1}, {0, 0, 0}})
+
+      assert {entries, [^file_path]} = update_index(project)
+      assert [] = Enum.to_list(entries)
+    end
+  end
+
+  defp with_beam_dependency(tmp_dir, opts \\ []) do
+    module =
+      Keyword.get_lazy(opts, :module, fn ->
+        Module.concat(BeamDependencyIndexerTest, :"Dep#{System.unique_integer([:positive])}")
+      end)
+
+    dep_source =
+      case Keyword.get(opts, :dep_source) do
+        nil ->
+          """
+          defmodule #{inspect(module)} do
+            def public_fun, do: private_fun()
+            defp private_fun, do: :ok
+          end
+          """
+
+        source when is_binary(source) ->
+          source
+
+        source_fun when is_function(source_fun, 1) ->
+          source_fun.(module)
+      end
+
+    app_root = Path.join(tmp_dir, "beam_app")
+
+    project_module =
+      Module.concat(BeamDependencyIndexerTest, :"MixProject#{System.unique_integer([:positive])}")
+
+    dep_project_module =
+      Module.concat(
+        BeamDependencyIndexerTest,
+        :"DepMixProject#{System.unique_integer([:positive])}"
+      )
+
+    dep_app = Keyword.get(opts, :dep_app, :beam_dep)
+    dep_opts = Keyword.get(opts, :dep_opts, path: "deps/beam_dep")
+    dep_tuple = {:beam_dep, dep_opts}
+
+    File.mkdir_p!(app_root)
+    mix_exs_path = Path.join(app_root, "mix.exs")
+
+    File.write!(mix_exs_path, """
+    defmodule #{inspect(project_module)} do
+      use Mix.Project
+
+      def project do
+        [app: :beam_dependency_indexer_test, version: "0.1.0", deps: deps()]
+      end
+
+      defp deps do
+        #{inspect([dep_tuple])}
+      end
+    end
+    """)
+
+    Module.create(
+      project_module,
+      quote do
+        def project do
+          [app: :beam_dependency_indexer_test, version: "0.1.0", deps: deps()]
+        end
+
+        defp deps do
+          unquote(Macro.escape([dep_tuple]))
+        end
+      end,
+      Macro.Env.location(__ENV__)
+    )
+
+    project =
+      app_root
+      |> Forge.Document.Path.to_uri()
+      |> Project.new()
+      |> Project.set_project_module(project_module)
+
+    {:ok, deps_root} = Engine.Mix.in_project(project, fn _ -> Mix.Project.deps_path() end)
+    {:ok, build_path} = Engine.Mix.in_project(project, fn _ -> Mix.Project.build_path() end)
+    dep_root = Path.join(deps_root, "beam_dep")
+    dep_file = Path.join([dep_root, "lib", "beam_dep_module.ex"])
+    ebin_path = Path.join([build_path, "lib", Atom.to_string(dep_app), "ebin"])
+
+    File.mkdir_p!(Path.dirname(dep_file))
+    File.mkdir_p!(ebin_path)
+
+    File.write!(Path.join(dep_root, "mix.exs"), """
+    defmodule #{inspect(dep_project_module)} do
+      use Mix.Project
+
+      def project do
+        [app: #{inspect(dep_app)}, version: "0.1.0"]
+      end
+    end
+    """)
+
+    File.write!(dep_file, dep_source)
+
+    compiler_options = Code.compiler_options()
+    Code.compiler_options(debug_info: Keyword.get(opts, :debug_info?, true))
+    on_exit(fn -> Code.compiler_options(compiler_options) end)
+
+    assert {:ok, compiled_modules, %{compile_warnings: [], runtime_warnings: []}} =
+             Kernel.ParallelCompiler.compile_to_path([dep_file], ebin_path,
+               return_diagnostics: true
+             )
+
+    expected_modules = Keyword.get(opts, :expected_modules, [module])
+
+    assert Enum.sort(compiled_modules) == Enum.sort(expected_modules)
+
+    if Keyword.get(opts, :rewrite_source?, true) do
+      File.write!(dep_file, "defmodule")
+      File.touch!(dep_file, {{2000, 1, 1}, {0, 0, 0}})
+    end
+
+    %{
+      beam_path: Path.join(ebin_path, Atom.to_string(module) <> ".beam"),
+      beam_paths:
+        Enum.map(compiled_modules, &Path.join(ebin_path, Atom.to_string(&1) <> ".beam")),
+      compiled_modules: compiled_modules,
+      dep_file: dep_file,
+      module: module,
+      project: project
+    }
   end
 end

@@ -16,23 +16,19 @@ defmodule Engine.Search.Store do
   require Logger
 
   @type index_state :: :empty | :stale
-  @type existing_entries :: [Entry.t()]
-  @type new_entries :: [Entry.t()]
-  @type updated_entries :: [Entry.t()]
-  @type paths_to_delete :: [Path.t()]
+  @type index_result :: :ok | {:error, term()}
+
   @typedoc """
   A function that creates indexes when none is detected
   """
   @type create_index ::
-          (project :: Project.t() ->
-             {:ok, new_entries} | {:error, term()})
+          (project :: Project.t(), backend :: module() -> index_result())
 
   @typedoc """
-  A function that takes existing entries and refreshes them if necessary
+  A function that uses the store backend to refresh the index if necessary.
   """
   @type refresh_index ::
-          (project :: Project.t(), entries :: existing_entries ->
-             {:ok, new_entries, paths_to_delete} | {:error, term()})
+          (project :: Project.t(), backend :: module() -> index_result())
 
   @backend Application.compile_env(:engine, :search_store_backend, Store.Backends.Ets)
   @flush_interval_ms Application.compile_env(
@@ -51,6 +47,16 @@ defmodule Engine.Search.Store do
 
   def replace(entries) do
     GenServer.call(__MODULE__, {:replace, entries})
+  end
+
+  @doc false
+  def refresh_index(%Project{}) do
+    GenServer.call(__MODULE__, :refresh_index, :infinity)
+  end
+
+  @doc false
+  def rebuild_index(%Project{}) do
+    GenServer.call(__MODULE__, :rebuild_index, :infinity)
   end
 
   @spec exact(Entry.subject_query(), Entry.constraints()) :: {:ok, [Entry.t()]} | {:error, term()}
@@ -108,7 +114,7 @@ defmodule Engine.Search.Store do
     GenServer.call(__MODULE__, :enable)
   end
 
-  @spec start_link(Project.t(), create_index, refresh_index, module()) :: GenServer.on_start()
+  @spec start_link(Project.t(), create_index(), refresh_index(), module()) :: GenServer.on_start()
   def start_link(%Project{} = project, create_index, refresh_index, backend) do
     GenServer.start_link(__MODULE__, [project, create_index, refresh_index, backend],
       name: __MODULE__
@@ -131,7 +137,7 @@ defmodule Engine.Search.Store do
   end
 
   defp normalize_init_args([%Project{}, create_index, refresh_index, backend] = args)
-       when is_function(create_index, 1) and is_function(refresh_index, 2) and is_atom(backend) do
+       when is_function(create_index, 2) and is_function(refresh_index, 2) and is_atom(backend) do
     args
   end
 
@@ -196,6 +202,50 @@ defmodule Engine.Search.Store do
       case State.replace(state, entities) do
         {:ok, new_state} ->
           {:ok, State.drop_buffered_updates(new_state)}
+
+        {:error, _} = error ->
+          {error, state}
+      end
+
+    {:reply, reply, {ref, new_state}}
+  end
+
+  def handle_call(
+        message,
+        _from,
+        {ref, %State{loaded?: false} = state}
+      )
+      when message in [:refresh_index, :rebuild_index] do
+    {:reply, {:error, :loading}, {ref, state}}
+  end
+
+  def handle_call(
+        message,
+        _from,
+        {ref, %State{async_load_ref: async_load_ref} = state}
+      )
+      when message in [:refresh_index, :rebuild_index] and is_reference(async_load_ref) do
+    {:reply, {:error, :loading}, {ref, state}}
+  end
+
+  def handle_call(:refresh_index, _from, {ref, %State{} = state}) do
+    {reply, new_state} =
+      case State.refresh_index(state) do
+        {:ok, new_state} ->
+          {:ok, new_state}
+
+        {:error, _} = error ->
+          {error, state}
+      end
+
+    {:reply, reply, {ref, new_state}}
+  end
+
+  def handle_call(:rebuild_index, _from, {ref, %State{} = state}) do
+    {reply, new_state} =
+      case State.rebuild_index(state) do
+        {:ok, new_state} ->
+          {:ok, new_state}
 
         {:error, _} = error ->
           {error, state}

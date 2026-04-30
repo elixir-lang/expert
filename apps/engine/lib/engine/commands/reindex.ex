@@ -147,17 +147,24 @@ defmodule Engine.Commands.Reindex do
 
     {elapsed_us, result} =
       :timer.tc(fn ->
-        with {:ok, entries} <- Search.Indexer.create_index(project) do
-          Search.Store.replace(entries)
-        end
+        Search.Store.rebuild_index(project)
       end)
 
     Engine.broadcast(
-      project_reindexed(project: project, elapsed_ms: round(elapsed_us / 1000), status: :success)
+      project_reindexed(
+        project: project,
+        elapsed_ms: round(elapsed_us / 1000),
+        status: reindex_status(result)
+      )
     )
 
     result
   end
+
+  defp reindex_status(:ok), do: :success
+  defp reindex_status({:ok, _}), do: :success
+  defp reindex_status({:error, reason}), do: {:error, reason}
+  defp reindex_status(other), do: {:error, other}
 
   defp schedule_gc do
     Process.send_after(self(), :gc, :timer.seconds(5))

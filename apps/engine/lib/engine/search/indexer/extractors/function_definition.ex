@@ -49,17 +49,20 @@ defmodule Engine.Search.Indexer.Extractors.FunctionDefinition do
       arity = length(args)
       metadata = %{original_mfa: Subject.mfa(delegated_module, delegated_name, arity)}
 
-      entry =
-        Entry.definition(
-          document.path,
-          Reducer.current_block(reducer),
-          Subject.mfa(module, delegate_name, arity),
-          {:function, :delegate},
-          detail_range,
-          Engine.ApplicationCache.application(module)
-        )
+      entries =
+        for a <- (arity - count_defaults(extract_args(call)))..arity do
+          document.path
+          |> Entry.definition(
+            Reducer.current_block(reducer),
+            Subject.mfa(module, delegate_name, a),
+            {:function, :delegate},
+            detail_range,
+            Engine.ApplicationCache.application(module)
+          )
+          |> Entry.put_metadata(metadata)
+        end
 
-      {:ok, Entry.put_metadata(entry, metadata)}
+      {:ok, entries}
     else
       _ ->
         :ignored

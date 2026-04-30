@@ -15,7 +15,7 @@ defmodule Engine.Dispatch.Handlers.IndexingTest do
   setup do
     project = project()
     Engine.set_project(project)
-    create_index = &Search.Indexer.create_index/1
+    create_index = &Search.Indexer.create_index/2
     update_index = &Search.Indexer.update_index/2
 
     # Mock the broadcast so progress reporting doesn't fail

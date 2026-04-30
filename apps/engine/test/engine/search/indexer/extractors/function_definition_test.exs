@@ -228,6 +228,25 @@ defmodule Engine.Search.Indexer.Extractors.FunctionDefinitionTest do
                "  defdelegate «collect(enumerable, other)», to: Enum, as: :map"
     end
 
+    test "indexes all callable arities for defdelegate with default arguments" do
+      code =
+        ~q[
+          defmodule MyModule do
+            defdelegate trim(value \\ " default "), to: String
+          end
+        ]
+
+      {:ok, entries, _doc} = index(code)
+
+      assert Enum.map(entries, & &1.subject) == [
+               "MyModule.trim/0",
+               "MyModule.trim/1"
+             ]
+
+      assert Enum.all?(entries, &(&1.type == {:function, :delegate}))
+      assert Enum.all?(entries, &(&1.metadata.original_mfa == "String.trim/1"))
+    end
+
     test "skips public functions defined in quote blocks" do
       code =
         ~q[

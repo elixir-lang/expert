@@ -3,6 +3,7 @@ defmodule Engine.Commands.ReindexTest do
   use Patch
 
   import Engine.Test.Entry.Builder
+  import Forge.EngineApi.Messages
   import Forge.Test.EventualAssertions
   import Forge.Test.Fixtures
 
@@ -10,12 +11,17 @@ defmodule Engine.Commands.ReindexTest do
   alias Engine.Search
   alias Forge.Document
 
-  setup do
-    reindex_fun = fn _ ->
-      Process.sleep(20)
-    end
+  setup context do
+    case Map.get(context, :reindex_fun, :sleep) do
+      :default ->
+        start_supervised!(Reindex)
 
-    start_supervised!({Reindex, reindex_fun: reindex_fun})
+      :sleep ->
+        start_supervised!({Reindex, reindex_fun: fn _ -> Process.sleep(20) end})
+
+      :none ->
+        :ok
+    end
 
     {:ok, project: project()}
   end
@@ -38,10 +44,6 @@ defmodule Engine.Commands.ReindexTest do
   test "another reindex can be enqueued", %{project: project} do
     assert :ok = Reindex.perform(project)
     assert_eventually :ok = Reindex.perform(project)
-  end
-
-  def put_entries(uri, entries) do
-    Process.put(uri, entries)
   end
 
   describe "uri/1" do
@@ -71,7 +73,7 @@ defmodule Engine.Commands.ReindexTest do
     test "reindexes a specific uri" do
       uri = "file:///file.ex"
       entries = [reference()]
-      put_entries(uri, entries)
+      Process.put(uri, entries)
       Reindex.uri(uri)
       assert_receive {:entries, "/file.ex", ^entries}
     end
@@ -79,11 +81,59 @@ defmodule Engine.Commands.ReindexTest do
     test "buffers updates if a reindex is in progress", %{project: project} do
       uri = "file:///file.ex"
       new_entries = [reference(), definition()]
-      put_entries(uri, new_entries)
+      Process.put(uri, new_entries)
       Reindex.perform(project)
       Reindex.uri(uri)
 
       assert_receive {:entries, "/file.ex", ^new_entries}
+    end
+  end
+
+  describe "perform/1 with the default reindexer" do
+    @tag reindex_fun: :default
+    test "broadcasts success when rebuilding the search index succeeds", %{project: project} do
+      test_pid = self()
+
+      patch(Search.Store, :rebuild_index, fn ^project ->
+        send(test_pid, :rebuild_index)
+        :ok
+      end)
+
+      patch(Search.Store, :refresh_index, fn ^project ->
+        send(test_pid, :refresh_index)
+        :ok
+      end)
+
+      patch(Engine, :broadcast, fn message ->
+        send(test_pid, {:broadcast, message})
+        :ok
+      end)
+
+      assert :ok = Reindex.perform(project)
+
+      assert_receive {:broadcast, project_reindex_requested(project: ^project)}
+      assert_receive :rebuild_index
+      assert_receive {:broadcast, project_reindexed(project: ^project, status: :success)}
+      refute_receive :refresh_index
+    end
+
+    @tag reindex_fun: :default
+    test "broadcasts the error when rebuilding the search index fails", %{project: project} do
+      test_pid = self()
+
+      patch(Search.Store, :rebuild_index, fn ^project -> {:error, :rebuild_failed} end)
+
+      patch(Engine, :broadcast, fn message ->
+        send(test_pid, {:broadcast, message})
+        :ok
+      end)
+
+      assert :ok = Reindex.perform(project)
+
+      assert_receive {:broadcast, project_reindex_requested(project: ^project)}
+
+      assert_receive {:broadcast,
+                      project_reindexed(project: ^project, status: {:error, :rebuild_failed})}
     end
   end
 end
