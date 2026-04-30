@@ -43,6 +43,46 @@ defmodule Engine.Search.IndexerTest do
     {:ok, project: project}
   end
 
+  defp with_env(name, value) do
+    original = System.fetch_env(name)
+    System.put_env(name, value)
+
+    on_exit(fn -> restore_env(name, original) end)
+  end
+
+  defp restore_env(name, {:ok, value}), do: System.put_env(name, value)
+  defp restore_env(name, :error), do: System.delete_env(name)
+
+  defp write_file!(path, contents) do
+    File.mkdir_p!(Path.dirname(path))
+    File.write!(path, contents)
+    path
+  end
+
+  defp write_mix_project!(root, module_name, project_config) do
+    write_file!(Path.join(root, "mix.exs"), """
+    defmodule #{module_name} do
+      use Mix.Project
+
+      def project do
+        #{project_config}
+      end
+    end
+    """)
+  end
+
+  defp mix_build_file!(root, relative_path, config \\ []) do
+    build_root =
+      File.cd!(root, fn ->
+        config
+        |> Keyword.put_new(:build_per_environment, true)
+        |> Mix.Project.build_path()
+        |> Path.dirname()
+      end)
+
+    Path.join([build_root | List.wrap(relative_path)])
+  end
+
   describe "create_index/1" do
     test "returns a list of entries", %{project: project} do
       assert {:ok, entry_stream} = Indexer.create_index(project)
@@ -66,6 +106,95 @@ defmodule Engine.Search.IndexerTest do
 
       assert {:ok, entries} = Indexer.create_index(bare_project)
       assert Enum.any?(entries, &(&1.path == Path.join(bare_root, "bare_file.ex")))
+    end
+
+    test "does not index project-local default build files", %{project: project} do
+      with_env(
+        "MIX_BUILD_PATH",
+        Path.join([Project.root_path(project), ".expert", "build", "dev"])
+      )
+
+      build_file = mix_build_file!(Project.root_path(project), "generated.ex")
+
+      write_file!(build_file, "defmodule GeneratedBuildFile do end")
+
+      on_exit(fn -> File.rm_rf(Path.dirname(build_file)) end)
+
+      refute build_file in Indexer.indexable_files(project)
+    end
+
+    @tag :tmp_dir
+    test "does not index files under a configured build path", %{tmp_dir: tmp_dir} do
+      with_env("MIX_BUILD_PATH", Path.join([tmp_dir, ".expert", "build", "dev"]))
+
+      source_file = Path.join([tmp_dir, "lib", "source_file.ex"])
+      build_file = mix_build_file!(tmp_dir, "generated.ex", build_path: "custom_build")
+
+      write_mix_project!(
+        tmp_dir,
+        "ConfiguredBuildPathIndexerTest.MixProject",
+        ~s([app: :configured_build_path_indexer_test, version: "0.1.0", build_path: "custom_build"])
+      )
+
+      write_file!(source_file, "defmodule SourceFile do end")
+      write_file!(build_file, "defmodule GeneratedBuildFile do end")
+
+      project = tmp_dir |> Forge.Document.Path.to_uri() |> Project.new()
+
+      assert source_file in Indexer.indexable_files(project)
+      refute build_file in Indexer.indexable_files(project)
+    end
+
+    @tag :tmp_dir
+    test "does not index files under MIX_BUILD_ROOT", %{tmp_dir: tmp_dir} do
+      build_root = Path.join(tmp_dir, "custom_build_root")
+      with_env("MIX_BUILD_ROOT", build_root)
+      with_env("MIX_BUILD_PATH", Path.join([tmp_dir, ".expert", "build", "dev"]))
+
+      source_file = Path.join([tmp_dir, "lib", "source_file.ex"])
+      build_file = Path.join(build_root, "generated.ex")
+
+      write_mix_project!(
+        tmp_dir,
+        "MixBuildRootIndexerTest.MixProject",
+        ~s([app: :mix_build_root_indexer_test, version: "0.1.0"])
+      )
+
+      write_file!(source_file, "defmodule SourceFile do end")
+      write_file!(build_file, "defmodule GeneratedBuildFile do end")
+
+      project = tmp_dir |> Forge.Document.Path.to_uri() |> Project.new()
+
+      assert source_file in Indexer.indexable_files(project)
+      refute build_file in Indexer.indexable_files(project)
+    end
+
+    @tag :tmp_dir
+    test "indexes active path dependency sources", %{tmp_dir: tmp_dir} do
+      app_root = Path.join(tmp_dir, "app")
+      dep_root = Path.join(tmp_dir, "dep")
+      app_file = Path.join([app_root, "lib", "app_module.ex"])
+      dep_file = Path.join([dep_root, "lib", "dep_module.ex"])
+      dep_non_source_file = Path.join([dep_root, "generated.ex"])
+
+      write_mix_project!(
+        app_root,
+        "PathDependencyIndexerTest.MixProject",
+        ~s([app: :path_dependency_indexer_test, version: "0.1.0", deps: [{:dep, path: "../dep"}]])
+      )
+
+      write_file!(app_file, "defmodule AppModule do end")
+      write_file!(dep_file, "defmodule DepModule do end")
+      write_file!(dep_non_source_file, "defmodule GeneratedDependencyFile do end")
+
+      project = app_root |> Forge.Document.Path.to_uri() |> Project.new()
+
+      assert dep_file in Indexer.indexable_files(project)
+      refute dep_non_source_file in Indexer.indexable_files(project)
+
+      assert {:ok, entries} = Indexer.create_index(project)
+      assert Enum.any?(entries, &(&1.subject == DepModule and &1.subtype == :definition))
+      refute Enum.any?(entries, &(&1.subject == GeneratedDependencyFile))
     end
   end
 
@@ -95,6 +224,33 @@ defmodule Engine.Search.IndexerTest do
     entries = Enum.to_list(entry_stream)
     FakeBackend.set_entries(entries)
     {:ok, entries: entries}
+  end
+
+  describe "update_index/2 removes paths that became non-indexable" do
+    @tag :tmp_dir
+    test "deletes previously indexed configured build files even when they still exist", %{
+      tmp_dir: tmp_dir
+    } do
+      source_file = Path.join([tmp_dir, "lib", "source_file.ex"])
+      build_file = mix_build_file!(tmp_dir, "stale.ex", build_path: "custom_build")
+
+      write_mix_project!(
+        tmp_dir,
+        "StaleConfiguredBuildPathIndexerTest.MixProject",
+        ~s([app: :stale_configured_build_path_indexer_test, version: "0.1.0", build_path: "custom_build"])
+      )
+
+      write_file!(source_file, "defmodule SourceFile do end")
+      write_file!(build_file, "defmodule StaleBuildFile do end")
+
+      project = tmp_dir |> Forge.Document.Path.to_uri() |> Project.new()
+      assert {:ok, entries} = Indexer.create_index(project)
+
+      FakeBackend.set_entries([%Entry{id: 1, path: build_file} | entries])
+
+      assert {:ok, entry_stream, [^build_file]} = Indexer.update_index(project, FakeBackend)
+      assert [] = Enum.to_list(entry_stream)
+    end
   end
 
   describe "update_index/2 encounters a new file" do
