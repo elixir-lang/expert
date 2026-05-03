@@ -66,18 +66,19 @@ defmodule Expert.Provider.Handlers.Commands do
                 "epmdEbinPath" => ebin_path,
                 "debugScriptPath" => remote_shell_script_path,
                 "command" =>
-                  Enum.map_join(
-                    [
-                      remote_shell_script_path,
-                      node_name,
-                      port,
-                      epmd_module_name,
-                      ebin_path,
-                      cookie
-                    ],
+                  [
+                    remote_shell_script_path,
+                    node_name,
+                    port,
+                    epmd_module_name,
+                    ebin_path,
+                    cookie
+                  ]
+                  |> Enum.map_join(
                     " ",
                     &shell_quote/1
                   )
+                  |> prepend_amp_on_windows()
               }
 
             :non_existing ->
@@ -119,5 +120,9 @@ defmodule Expert.Provider.Handlers.Commands do
 
   defp shell_quote(value) do
     "'" <> (value |> to_string() |> String.replace("'", "'\\''")) <> "'"
+  end
+
+  defp prepend_amp_on_windows(command) do
+    if Forge.OS.windows?(), do: "& " <> command, else: command
   end
 end
