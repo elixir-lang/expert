@@ -9,8 +9,13 @@ defmodule Expert.EngineNode.Builder do
   require Logger
 
   defmodule State do
-    defstruct [:project, :last_line, :from, :port, :mix_home, :buffer, attempts: 0]
+    defstruct [:project, :from, :port, :mix_home, :buffer, output_lines: [], attempts: 0]
   end
+
+  # Keep the most recent N non-empty output lines from the build subprocess.
+  # On failure we forward this buffer to the user so the actual error message
+  # is visible instead of just the bottom of the stacktrace.
+  @max_output_lines 50
 
   @max_attempts 1
 
@@ -26,7 +31,7 @@ defmodule Expert.EngineNode.Builder do
 
   @impl GenServer
   def init(project) do
-    {:ok, %State{project: project, last_line: "", buffer: ""}}
+    {:ok, %State{project: project, buffer: ""}}
   end
 
   @impl GenServer
@@ -57,7 +62,7 @@ defmodule Expert.EngineNode.Builder do
       if line == "" do
         state
       else
-        %State{state | last_line: line}
+        %State{state | output_lines: [line | state.output_lines]}
       end
 
     case parse_engine_meta(line) do
@@ -90,7 +95,7 @@ defmodule Expert.EngineNode.Builder do
 
     GenServer.reply(
       state.from,
-      {:error, "Build script exited with status: #{status}", state.last_line}
+      {:error, "Build script exited with status: #{status}", captured_output(state)}
     )
 
     {:stop, :normal, state}
@@ -101,7 +106,7 @@ defmodule Expert.EngineNode.Builder do
       project: state.project
     )
 
-    GenServer.reply(state.from, {:error, reason, state.last_line})
+    GenServer.reply(state.from, {:error, reason, captured_output(state)})
     {:stop, :normal, state}
   end
 
@@ -250,5 +255,16 @@ defmodule Expert.EngineNode.Builder do
   ]
   defp detect_deps_error(message) when is_binary(message) do
     Enum.any?(@deps_error_patterns, &String.contains?(message, &1))
+  end
+
+  defp captured_output(%State{output_lines: lines}) do
+    total = length(lines)
+    body = lines |> Enum.take(@max_output_lines) |> Enum.reverse() |> Enum.join("\n")
+
+    if total > @max_output_lines do
+      "...(#{total - @max_output_lines} earlier line(s) omitted)\n#{body}"
+    else
+      body
+    end
   end
 end
