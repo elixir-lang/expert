@@ -51,8 +51,15 @@ defmodule Engine.CodeIntelligence.Heex do
     relative_column = position.character - sigil_start_column
 
     with {:ok, tokens} <- EEx.tokenize(content),
-         {:ok, expr, _expr_start_col} <- find_expr_at(tokens, relative_line, relative_column),
-         {:ok, ast} <- Code.string_to_quoted(List.to_string(expr)) do
+         {:ok, {:eex, expr, expr_line, expr_column}} <-
+           find_expr_at(tokens, relative_line, relative_column),
+         {:ok, ast} <-
+           Code.string_to_quoted(List.to_string(expr),
+             line: sigil_start_line + expr_line,
+             column: expr_column,
+             columns: true,
+             token_metadata: true
+           ) do
       # For pipe expressions, arity is calculated directly using Macro.unpipe()
       case ast do
         {:|>, _, _} ->
@@ -61,7 +68,8 @@ defmodule Engine.CodeIntelligence.Heex do
           length(args) + 1
 
         _ ->
-          arity_at_position.([ast], position)
+          path = path_at(ast, position) || [ast]
+          arity_at_position.(path, position)
       end
     else
       # component shorthand like `<.button>` - after normalization has arity 1
@@ -71,6 +79,13 @@ defmodule Engine.CodeIntelligence.Heex do
   end
 
   def arity(_, _, _), do: 0
+
+  defp path_at(ast, position) do
+    case Ast.path_at(ast, position) do
+      {:ok, path} -> path
+      _ -> nil
+    end
+  end
 
   defp phoenix_component_available? do
     Engine.Module.Loader.ensure_loaded?(Phoenix.Component)
@@ -214,12 +229,16 @@ defmodule Engine.CodeIntelligence.Heex do
 
   defp find_expr_at(tokens, target_line, target_column) do
     Enum.find_value(tokens, :component_shorthand, fn
-      {:expr, _marker, expr, %{line: line, column: col}} when line == target_line ->
+      {token_type, marker, expr, %{line: line, column: col}}
+      when token_type in [:expr, :start_expr, :middle_expr] and line == target_line ->
         # check if cursor is within this expression's column range
         expr_length = length(expr)
 
         if target_column >= col and target_column <= col + expr_length do
-          {:ok, expr, col}
+          # Skip the leading `<%` (and optional marker like `=`) so the parsed
+          # expression's columns line up with the document.
+          expr_column = col + 2 + length(marker)
+          {:ok, {:eex, normalize_expr(token_type, expr), line, expr_column}}
         end
 
       {:text, text, %{line: start_line, column: start_col}} ->
@@ -227,14 +246,28 @@ defmodule Engine.CodeIntelligence.Heex do
         line_in_text = target_line - start_line
         # calculate column offset within the text
         text_column = if line_in_text == 0, do: target_column - start_col, else: target_column
-        find_curly_expr_at_line(text_str, line_in_text, text_column)
+        find_curly_expr_at_line(text_str, line_in_text, text_column, start_line, start_col)
 
       _ ->
         nil
     end)
   end
 
-  defp find_curly_expr_at_line(text, line_offset, cursor_column) do
+  # `:start_expr` and `:middle_expr` carry trailing `do` or `->` clause
+  # separators that don't parse on their own. Strip them so the call portion
+  # can be tokenized as standalone Elixir without losing the leading
+  # whitespace / column alignment.
+  defp normalize_expr(:expr, expr), do: expr
+
+  defp normalize_expr(_token_type, expr) do
+    expr
+    |> List.to_string()
+    |> String.split(~r/(\s->\s|\sdo\s*$)/, parts: 2)
+    |> List.first()
+    |> String.to_charlist()
+  end
+
+  defp find_curly_expr_at_line(text, line_offset, cursor_column, text_start_line, text_start_col) do
     lines = String.split(text, "\n")
 
     if line_offset >= 0 and line_offset < length(lines) do
@@ -244,8 +277,13 @@ defmodule Engine.CodeIntelligence.Heex do
       if cursor_on_component_shorthand?(line, cursor_column) do
         :component_shorthand
       else
-        # check if cursor inside a curly expression
-        find_curly_expr_at_column(line, cursor_column)
+        # Compute the EEx coordinates of the line we're examining so the
+        # extracted expression can be parsed with positions matching the
+        # document. Lines after the first start at column 1; only the first
+        # line of the text token starts at `text_start_col`.
+        eex_line = text_start_line + line_offset
+        col_offset = if line_offset == 0, do: text_start_col, else: 1
+        find_curly_expr_at_column(line, cursor_column, eex_line, col_offset)
       end
     end
   end
@@ -258,13 +296,16 @@ defmodule Engine.CodeIntelligence.Heex do
     end)
   end
 
-  defp find_curly_expr_at_column(line, cursor_column) do
+  defp find_curly_expr_at_column(line, cursor_column, eex_line, col_offset) do
     ~r/\{([^{}]+)\}/
     |> Regex.scan(line, return: :index)
     |> Enum.find_value(fn [{match_start, match_len}, {expr_start, expr_len}] ->
       if cursor_column >= match_start and cursor_column < match_start + match_len do
         expr = binary_part(line, expr_start, expr_len)
-        {:ok, String.to_charlist(expr), expr_start}
+        # `expr_start` is a 0-based byte offset into the line; convert it to a
+        # 1-based EEx column by adding the line's starting column offset.
+        expr_column = col_offset + expr_start
+        {:ok, {:eex, String.to_charlist(expr), eex_line, expr_column}}
       end
     end)
   end
