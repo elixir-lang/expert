@@ -125,6 +125,98 @@ defmodule Expert.EngineNode.BuilderTest do
     assert paths == Forge.Path.glob([engine_path, "lib/**/ebin"])
   end
 
+  test "forwards captured output when the build script exits non-zero", %{project: project} do
+    test_pid = self()
+
+    patch(Builder, :start_build, fn _project, _from, _opts ->
+      send(test_pid, :build_started)
+      {:ok, :fake_port}
+    end)
+
+    {:ok, builder_pid} = Builder.start_link(project)
+    task = Task.async(fn -> GenServer.call(builder_pid, :build, :infinity) end)
+
+    assert_receive :build_started, 1_000
+
+    output = [
+      "** (Mix.Error) httpc request failed with: {:failed_connect, ...}.",
+      "",
+      "Could not install Rebar because Mix could not download metadata at https://builds.hex.pm/installs/rebar.csv.",
+      "",
+      "    (mix 1.17.3) lib/mix.ex:647: Mix.raise/2",
+      "    .../priv/build_engine.exs:31: (file)"
+    ]
+
+    Enum.each(output, fn line ->
+      send(builder_pid, {nil, {:data, {:eol, line}}})
+    end)
+
+    send(builder_pid, {nil, {:exit_status, 1}})
+
+    assert {:error, "Build script exited with status: 1", captured} = Task.await(task, 5_000)
+    # The full multi-line output is forwarded so callers see the actual error
+    # instead of just the bottom of the stacktrace.
+    assert captured =~ "** (Mix.Error) httpc request failed with"
+    assert captured =~ "Could not install Rebar because Mix could not download metadata"
+    assert captured =~ "build_engine.exs:31: (file)"
+  end
+
+  test "forwards captured output when the port crashes", %{project: project} do
+    test_pid = self()
+    fake_port = make_ref()
+
+    patch(Builder, :start_build, fn _project, _from, _opts ->
+      send(test_pid, :build_started)
+      {:ok, fake_port}
+    end)
+
+    {:ok, builder_pid} = Builder.start_link(project)
+    task = Task.async(fn -> GenServer.call(builder_pid, :build, :infinity) end)
+
+    assert_receive :build_started, 1_000
+
+    # Set the port that the GenServer is monitoring so the {:EXIT, port, reason}
+    # clause matches.
+    :sys.replace_state(builder_pid, fn state -> %{state | port: fake_port} end)
+
+    send(builder_pid, {nil, {:data, {:eol, "** (RuntimeError) something went wrong"}}})
+    send(builder_pid, {nil, {:data, {:eol, "    .../build_engine.exs:33: (file)"}}})
+    send(builder_pid, {:EXIT, fake_port, :killed})
+
+    assert {:error, :killed, captured} = Task.await(task, 5_000)
+    assert captured =~ "** (RuntimeError) something went wrong"
+    assert captured =~ "build_engine.exs:33: (file)"
+  end
+
+  test "caps captured output at the configured maximum", %{project: project} do
+    test_pid = self()
+
+    patch(Builder, :start_build, fn _project, _from, _opts ->
+      send(test_pid, :build_started)
+      {:ok, :fake_port}
+    end)
+
+    {:ok, builder_pid} = Builder.start_link(project)
+    task = Task.async(fn -> GenServer.call(builder_pid, :build, :infinity) end)
+
+    assert_receive :build_started, 1_000
+
+    # Send 200 lines (well above the @max_output_lines cap of 50).
+    for n <- 1..200 do
+      send(builder_pid, {nil, {:data, {:eol, "line #{n}"}}})
+    end
+
+    send(builder_pid, {nil, {:exit_status, 1}})
+
+    assert {:error, _msg, captured} = Task.await(task, 5_000)
+    captured_lines = String.split(captured, "\n")
+    # 50 retained body lines preceded by a single marker line indicating omission.
+    assert length(captured_lines) == 51
+    assert List.first(captured_lines) == "...(150 earlier line(s) omitted)"
+    assert Enum.at(captured_lines, 1) == "line 151"
+    assert List.last(captured_lines) == "line 200"
+  end
+
   test "parses engine_meta across chunks", %{project: project} do
     patch(Builder, :start_build, fn _project, _from, _opts ->
       {:ok, :fake_port}

@@ -590,9 +590,14 @@ defmodule Expert do
   defp node_initialization_message(name, reason) do
     case reason do
       # Build script failed (exit status) or max retry attempts reached
-      {:error, message, last_line} when is_binary(message) and is_binary(last_line) ->
-        first_line = last_line |> String.split("\n") |> hd() |> String.trim()
-        "Engine build failed for #{name}.\n#{message}\n#{first_line}"
+      {:error, message, output} when is_binary(message) and is_binary(output) ->
+        details = output |> String.trim
+
+        if details == "" do
+          "Engine build failed for #{name}.\n#{message}"
+        else
+          "Engine build failed for #{name}.\n#{message}\n\n#{details}"
+        end
 
       # NOTE: ~c"could not compile dependency :elixir_sense..."
       {:error, :normal, message} ->
