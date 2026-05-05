@@ -14,8 +14,7 @@ defmodule Expert.EngineNode.Builder do
 
   # Keep the most recent N non-empty output lines from the build subprocess.
   # On failure we forward this buffer to the user so the actual error message
-  # (e.g. "** (Mix.Error) httpc request failed with: ...") is visible instead
-  # of just the bottom of the stacktrace.
+  # is visible instead of just the bottom of the stacktrace.
   @max_output_lines 50
 
   @max_attempts 1
