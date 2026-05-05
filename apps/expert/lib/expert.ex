@@ -591,7 +591,7 @@ defmodule Expert do
     case reason do
       # Build script failed (exit status) or max retry attempts reached
       {:error, message, output} when is_binary(message) and is_binary(output) ->
-        details = output |> String.trim
+        details = output |> String.trim()
 
         if details == "" do
           "Engine build failed for #{name}.\n#{message}"

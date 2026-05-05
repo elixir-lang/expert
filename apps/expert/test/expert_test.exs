@@ -122,7 +122,6 @@ defmodule Expert.ExpertTest do
       # No trailing newlines / empty section when there is nothing to show.
       refute String.ends_with?(message, "\n\n")
     end
-
   end
 
   test "logs error when Task.Supervisor.start_child fails during initialization" do
