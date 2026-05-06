@@ -1346,6 +1346,27 @@ defmodule Engine.CodeIntelligence.EntityTest do
 
       assert {:ok, {:call, SampleApp, :valid?, 0}, _} = resolve(code)
     end
+
+    test "resolves remote call inside a `cond` block in HEEx" do
+      code = ~q[
+        defmodule MyLiveView do
+          use Phoenix.Component
+
+          def render(assigns) do
+            ~H"""
+            <%= cond do %>
+              <% SampleApp.va|lid?() -> %>
+                Valid
+              <% true -> %>
+                Invalid
+            <% end %>
+            """
+          end
+        end
+      ]
+
+      assert {:ok, {:call, SampleApp, :valid?, 0}, _} = resolve(code)
+    end
   end
 
   describe "resolve/2 inside a string" do
