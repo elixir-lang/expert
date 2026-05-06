@@ -9,7 +9,17 @@ defmodule Expert.EngineNode.Builder do
   require Logger
 
   defmodule State do
-    defstruct [:project, :build, :owner, :key, :port, :buffer, output_lines: [], attempts: 0]
+    defstruct [
+      :project,
+      :build,
+      :owner,
+      :key,
+      :port,
+      :buffer,
+      :restart,
+      output_lines: [],
+      attempts: 0
+    ]
   end
 
   # Keep the most recent N non-empty output lines from the build subprocess.
@@ -88,7 +98,15 @@ defmodule Expert.EngineNode.Builder do
     end
   end
 
-  def handle_info({_port, {:exit_status, 0}}, state) do
+  def handle_info({port, {:exit_status, _status}}, %State{port: port, restart: :force} = state) do
+    restart_build(state)
+  end
+
+  def handle_info({port, {:exit_status, 0}}, %State{port: port} = state) do
+    {:noreply, state}
+  end
+
+  def handle_info({_port, {:exit_status, _status}}, %State{restart: :force} = state) do
     {:noreply, state}
   end
 
@@ -97,11 +115,19 @@ defmodule Expert.EngineNode.Builder do
     {:stop, :normal, state}
   end
 
-  def handle_info({_port, {:exit_status, status}}, state) do
+  def handle_info({port, {:exit_status, status}}, %State{port: port} = state) do
     Logger.error("Engine build script exited with status: #{status}", project: state.project)
 
     notify(state, {:error, "Build script exited with status: #{status}", captured_output(state)})
     {:stop, :normal, state}
+  end
+
+  def handle_info({_port, {:exit_status, _status}}, state) do
+    {:noreply, state}
+  end
+
+  def handle_info({:EXIT, port, _reason}, %State{port: port, restart: :force} = state) do
+    restart_build(state)
   end
 
   def handle_info({:EXIT, port, reason}, %State{port: port} = state) when reason != :normal do
@@ -197,6 +223,11 @@ defmodule Expert.EngineNode.Builder do
     send(state.owner, {:engine_build_complete, state.key, self(), result})
   end
 
+  defp restart_build(%State{} = state) do
+    {:ok, port} = start_build(state.project, state.build, force: true)
+    {:noreply, %State{state | port: port, restart: nil}}
+  end
+
   defp ebin_paths(base_path) do
     Forge.Path.glob([base_path, "lib/**/ebin"])
   end
@@ -209,10 +240,7 @@ defmodule Expert.EngineNode.Builder do
       )
 
       close_port(state.port)
-      state = %State{state | attempts: state.attempts + 1}
-      {:ok, port} = start_build(state.project, state.build, force: true)
-
-      {:noreply, %State{state | port: port}}
+      {:noreply, %State{state | attempts: state.attempts + 1, restart: :force}}
     else
       Logger.error("Maximum build attempts reached. Failing the build.", project: state.project)
 

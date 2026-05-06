@@ -25,27 +25,31 @@ defmodule Expert.EngineNode.BuilderTest do
     patch(Builder, :start_build, fn _project, _build, opts ->
       :counters.add(attempt_counter, 1, 1)
       current_attempt = :counters.get(attempt_counter, 1)
+      port = {:fake_port, current_attempt}
 
       case current_attempt do
         1 ->
           refute opts[:force]
-          send(test_pid, {:attempt, 1})
-          {:ok, :fake_port}
+          send(test_pid, {:attempt, 1, port})
+          {:ok, port}
 
         2 ->
           assert opts[:force]
-          send(test_pid, {:attempt, 2})
+          send(test_pid, {:attempt, 2, port})
           send(self(), {:build_result, {:ok, {test_ebin_entries(), nil}}})
-          {:ok, :fake_port}
+          {:ok, port}
       end
     end)
 
     {:ok, builder_pid} = start_builder(project)
 
-    assert_receive {:attempt, 1}, 1_000
+    assert_receive {:attempt, 1, port}, 1_000
     send(builder_pid, {nil, {:data, {:eol, "Unchecked dependencies for environment dev:"}}})
 
-    assert_receive {:attempt, 2}, 1_000
+    refute_receive {:attempt, 2, _port}, 100
+    send(builder_pid, {port, {:exit_status, 1}})
+
+    assert_receive {:attempt, 2, _port}, 1_000
 
     assert_receive {:engine_build_complete, :builder_test, ^builder_pid, {:ok, {paths, nil}}},
                    5_000
@@ -56,18 +60,25 @@ defmodule Expert.EngineNode.BuilderTest do
   test "returns error after exhausting max retry attempts", %{project: project} do
     test_pid = self()
 
+    attempt_counter = :counters.new(1, [])
+
     patch(Builder, :start_build, fn _project, _build, _opts ->
-      send(test_pid, :build_started)
-      {:ok, :fake_port}
+      :counters.add(attempt_counter, 1, 1)
+      port = {:fake_port, :counters.get(attempt_counter, 1)}
+      send(test_pid, {:build_started, port})
+      {:ok, port}
     end)
 
     {:ok, builder_pid} = start_builder(project)
     error_line = "Unchecked dependencies for environment dev:"
 
-    assert_receive :build_started, 1_000
+    assert_receive {:build_started, port}, 1_000
     send(builder_pid, {nil, {:data, {:eol, error_line}}})
 
-    assert_receive :build_started, 1_000
+    refute_receive {:build_started, _port}, 100
+    send(builder_pid, {port, {:exit_status, 1}})
+
+    assert_receive {:build_started, _port}, 1_000
     send(builder_pid, {nil, {:data, {:eol, error_line}}})
 
     assert_receive {:engine_build_complete, :builder_test, ^builder_pid,
@@ -83,28 +94,32 @@ defmodule Expert.EngineNode.BuilderTest do
     patch(Builder, :start_build, fn _project, _build, opts ->
       :counters.add(attempt_counter, 1, 1)
       current_attempt = :counters.get(attempt_counter, 1)
+      port = {:fake_port, current_attempt}
 
       case current_attempt do
         1 ->
           refute opts[:force]
-          send(test_pid, {:attempt, 1})
+          send(test_pid, {:attempt, 1, port})
 
         2 ->
           assert opts[:force]
-          send(test_pid, {:attempt, 2})
+          send(test_pid, {:attempt, 2, port})
           send(self(), {:build_result, {:ok, {test_ebin_entries(), nil}}})
       end
 
-      {:ok, :fake_port}
+      {:ok, port}
     end)
 
     {:ok, builder_pid} = start_builder(project)
 
-    assert_receive {:attempt, 1}, 1_000
+    assert_receive {:attempt, 1, port}, 1_000
 
     send(builder_pid, {nil, {:data, {:eol, "** (Mix.Error) Hex dependency resolution failed"}}})
 
-    assert_receive {:attempt, 2}, 1_000
+    refute_receive {:attempt, 2, _port}, 100
+    send(builder_pid, {port, {:exit_status, 1}})
+
+    assert_receive {:attempt, 2, _port}, 1_000
 
     assert_receive {:engine_build_complete, :builder_test, ^builder_pid, {:ok, {paths, nil}}},
                    5_000
@@ -162,7 +177,7 @@ defmodule Expert.EngineNode.BuilderTest do
       send(builder_pid, {nil, {:data, {:eol, line}}})
     end)
 
-    send(builder_pid, {nil, {:exit_status, 1}})
+    send(builder_pid, {:fake_port, {:exit_status, 1}})
 
     assert_receive {:engine_build_complete, :builder_test, ^builder_pid,
                     {:error, "Build script exited with status: 1", captured}},
@@ -221,7 +236,7 @@ defmodule Expert.EngineNode.BuilderTest do
       send(builder_pid, {nil, {:data, {:eol, "line #{n}"}}})
     end
 
-    send(builder_pid, {nil, {:exit_status, 1}})
+    send(builder_pid, {:fake_port, {:exit_status, 1}})
 
     assert_receive {:engine_build_complete, :builder_test, ^builder_pid,
                     {:error, _msg, captured}},
