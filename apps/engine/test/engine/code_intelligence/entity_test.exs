@@ -1312,6 +1312,40 @@ defmodule Engine.CodeIntelligence.EntityTest do
 
       assert {:ok, {:call, Kernel, :to_string, 1}, _} = resolve(code)
     end
+
+    test "resolves remote call inside an `if` expression in HEEx" do
+      code = ~q[
+        defmodule MyLiveView do
+          use Phoenix.Component
+
+          def render(assigns) do
+            ~H"""
+            <%= if SampleApp.va|lid?() do %>
+              Valid
+            <% end %>
+            """
+          end
+        end
+      ]
+
+      assert {:ok, {:call, SampleApp, :valid?, 0}, _} = resolve(code)
+    end
+
+    test "resolves remote call inside an `if` expression in a curly attribute" do
+      code = ~q[
+        defmodule MyLiveView do
+          use Phoenix.Component
+
+          def render(assigns) do
+            ~H"""
+            <div class={if SampleApp.va|lid?(), do: "ok", else: "no"}></div>
+            """
+          end
+        end
+      ]
+
+      assert {:ok, {:call, SampleApp, :valid?, 0}, _} = resolve(code)
+    end
   end
 
   describe "resolve/2 inside a string" do
