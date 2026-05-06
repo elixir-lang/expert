@@ -89,12 +89,13 @@ appropriate binary name.
 
 1. [Vanilla Emacs with lsp-mode](#vanilla-emacs-with-lsp-mode)
 2. [Vanilla Emacs with eglot](#vanilla-emacs-with-eglot)
-3. [Visual Studio Code](#visual-studio-code)
-4. [neovim](#neovim)
-5. [Vim + Vim-LSP](#vim--vim-lsp)
-6. [Helix](#helix)
-7. [Sublime Text](#sublime-text)
-8. [Zed](#zed)
+3. [Doom Emacs with lsp-mode](#doom-emacs-with-lsp-mode)
+4. [Visual Studio Code](#visual-studio-code)
+5. [neovim](#neovim)
+6. [Vim + Vim-LSP](#vim--vim-lsp)
+7. [Helix](#helix)
+8. [Sublime Text](#sublime-text)
+9. [Zed](#zed)
 
 ### Vanilla Emacs with lsp-mode
 The emacs instructions assume you're using `use-package`, which you
@@ -119,7 +120,6 @@ emacs configuration), insert the following code:
 
 Restart emacs, and Expert should start when you open a file with a
 `.ex` extension.
-
 
 ### Vanilla Emacs with eglot
 
@@ -163,6 +163,43 @@ for Eglot:
                     (eglot-alternatives
                      '(("expert_linux_amd64" "--stdio")))))))
 ```
+
+### Doom Emacs with lsp-mode
+Go to your `~/.config/doom/init.el` and change the following lines:
+
+```emacs-lisp
+(doom!
+       :tools
+       ; (lsp +eglot)
+       (lsp)
+       
+       :lang
+       (elixir)
+```
+
+Then run `~/.config/emacs/bin/doom sync`.
+
+Then add this to your `~/.config/doom/config.el`
+
+```emacs-lisp
+(with-eval-after-load 'lsp-mode
+  (add-to-list 'lsp-language-id-configuration
+               '(elixir-mode . "elixir"))
+
+  (lsp-register-client
+   (make-lsp-client
+    :new-connection (lsp-stdio-connection '("expert" "--stdio"))
+    ; :major-modes '(elixir-mode)
+    :priority -1
+    :activation-fn (lsp-activate-on "elixir")
+    :server-id 'expert))
+  )
+
+(add-hook 'elixir-mode-hook #'lsp)
+```
+
+Restart emacs, and Expert should start when you open a file with a
+`.ex` extension.
 
 ### Visual Studio Code
 
