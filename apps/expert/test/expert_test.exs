@@ -66,6 +66,64 @@ defmodule Expert.ExpertTest do
                     }}
   end
 
+  describe "engine build failure messages" do
+    test "include captured build output" do
+      project = Fixtures.project()
+      lsp = initialize_lsp(project)
+
+      output = """
+      ** (Mix.Error) httpc request failed with: {:failed_connect, ...}.
+
+      Could not install Rebar because Mix could not download metadata at https://builds.hex.pm/installs/rebar.csv.
+
+          (mix  1.17.3) lib/mix.ex:647: Mix.raise/2
+          .../priv/build_engine.exs:31: (file)\
+      """
+
+      reason =
+        {:shutdown,
+         {:failed_to_start_child, {Expert.Project.Node, "demo::1"},
+          {:error, "Build script exited with status: 1", output}}}
+
+      assert {:noreply, ^lsp} =
+               Expert.handle_info({:engine_initialized, project, {:error, reason}}, lsp)
+
+      assert_receive {:transport,
+                      %GenLSP.Notifications.WindowShowMessage{
+                        params: %GenLSP.Structures.ShowMessageParams{message: message}
+                      }}
+
+      assert message =~ "Engine build failed for demo::1"
+      assert message =~ "Build script exited with status: 1"
+      # The actual error must be visible to the user, not just the script frame.
+      assert message =~ "** (Mix.Error) httpc request failed with"
+      assert message =~ "Could not install Rebar because Mix could not download metadata"
+    end
+
+    test "omit the details block when captured output is empty" do
+      project = Fixtures.project()
+      lsp = initialize_lsp(project)
+
+      reason =
+        {:shutdown,
+         {:failed_to_start_child, {Expert.Project.Node, "demo::1"},
+          {:error, "Build script exited with status: 1", ""}}}
+
+      assert {:noreply, ^lsp} =
+               Expert.handle_info({:engine_initialized, project, {:error, reason}}, lsp)
+
+      assert_receive {:transport,
+                      %GenLSP.Notifications.WindowShowMessage{
+                        params: %GenLSP.Structures.ShowMessageParams{message: message}
+                      }}
+
+      assert message =~ "Engine build failed for demo::1"
+      assert message =~ "Build script exited with status: 1"
+      # No trailing newlines / empty section when there is nothing to show.
+      refute String.ends_with?(message, "\n\n")
+    end
+  end
+
   test "logs error when Task.Supervisor.start_child fails during initialization" do
     project = Fixtures.project()
     lsp = initialize_lsp(project)
