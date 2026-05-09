@@ -44,6 +44,8 @@ defmodule Engine do
     to: Engine.Completion,
     as: :struct_fields
 
+  defdelegate rename(document, position, new_name), to: Engine.Rename
+
   defdelegate definition(document, position), to: CodeIntelligence.Definition
 
   defdelegate hover(document, position), to: CodeIntelligence.Hover

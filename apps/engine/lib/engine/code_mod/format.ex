@@ -94,6 +94,31 @@ defmodule Engine.CodeMod.Format do
 
   @type formatter_function :: (String.t() -> any) | nil
 
+  @spec source_to_changes(Document.t(), String.t() | Macro.t()) :: Changes.t()
+  def source_to_changes(%Document{} = doc, source_or_ast) do
+    {formatter, opts} = formatter_for_file(Engine.get_project(), doc.uri)
+
+    sourceror_opts =
+      Keyword.reject(
+        [
+          formatter: formatter,
+          locals_without_parens: opts[:locals_without_parens] || [],
+          line_length: opts[:line_length]
+        ],
+        fn {_k, v} -> is_nil(v) end
+      )
+
+    ast =
+      if is_binary(source_or_ast),
+        do: Sourceror.parse_string!(source_or_ast),
+        else: source_or_ast
+
+    ast
+    |> Sourceror.to_string(sourceror_opts)
+    |> then(&Diff.diff(doc, &1))
+    |> then(&Changes.new(doc, &1))
+  end
+
   @spec edits(Document.t()) :: {:ok, Changes.t()} | {:error, any}
   def edits(%Document{} = document) do
     project = Engine.get_project()

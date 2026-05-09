@@ -352,6 +352,7 @@ defmodule Expert.State do
         execute_command_provider: command_options,
         hover_provider: true,
         references_provider: true,
+        rename_provider: true,
         text_document_sync: sync_options,
         workspace_symbol_provider: true,
         workspace: %{

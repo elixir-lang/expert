@@ -86,6 +86,11 @@ defmodule Expert.EngineApi do
     call(project, Engine, :definition, [document, position])
   end
 
+  def rename(%Project{} = project, %Document{} = document, %Position{} = position, new_name)
+      when is_binary(new_name) do
+    call(project, Engine, :rename, [document, position, new_name])
+  end
+
   def hover(%Project{} = project, %Document{} = document, %Position{} = position) do
     call(project, Engine, :hover, [document, position])
   end

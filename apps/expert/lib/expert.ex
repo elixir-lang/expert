@@ -509,6 +509,9 @@ defmodule Expert do
   # credo:disable-for-next-line Credo.Check.Refactor.CyclomaticComplexity
   defp fetch_handler(%_{} = request) do
     case request do
+      %Requests.TextDocumentRename{} ->
+        {:ok, Handlers.Rename}
+
       %Requests.TextDocumentReferences{} ->
         {:ok, Handlers.FindReferences}
 
