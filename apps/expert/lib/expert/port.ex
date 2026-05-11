@@ -184,6 +184,16 @@ defmodule Expert.Port do
     end
   end
 
+  @release_vars [
+    "RELEASE_ROOT",
+    "ROOTDIR",
+    "BINDIR",
+    "RELEASE_SYS_CONFIG",
+    "MIX_HOME",
+    "MIX_ARCHIVES",
+    "MIX_ENV"
+  ]
+
   defp find_project_executable_unix(%Project{} = project, name) do
     root_path = Project.root_path(project)
     shell_env = System.get_env("SHELL")
@@ -209,28 +219,12 @@ defmodule Expert.Port do
         end
 
       elixir ->
-        release_vars = [
-          "RELEASE_ROOT",
-          "ROOTDIR",
-          "BINDIR",
-          "RELEASE_SYS_CONFIG",
-          "MIX_HOME",
-          "MIX_ARCHIVES",
-          "MIX_ENV"
-        ]
-
         env =
           System.get_env()
           |> Enum.map(fn
-            {"PATH", _path} ->
-              {"PATH", path}
-
-            {key, _value} ->
-              if key in release_vars do
-                {key, ""}
-              else
-                {key, System.get_env(key)}
-              end
+            {"PATH", _path} -> {"PATH", path}
+            {key, _value} when key in @release_vars -> {key, ""}
+            {key, value} -> {key, value}
           end)
 
         {:ok, elixir, env}
