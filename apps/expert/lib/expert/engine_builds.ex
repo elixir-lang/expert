@@ -98,7 +98,21 @@ defmodule Expert.EngineBuilds do
   defp resolve_build(%Project{} = project) do
     with {:ok, elixir, env} <- Expert.Port.project_executable(project, "elixir"),
          {:ok, erl, _env} <- Expert.Port.project_executable(project, "erl") do
-      Logger.info("Using path: #{System.get_env("PATH")}", project: project)
+      # PATH used for resolving Elixir and Erlang is taken by spawning a child shell and it might
+      # be different from the PATH from ENV in which Expert is run. We want to log this child-shell
+      # PATH here.
+      case List.keyfind(env, "PATH", 0) do
+        {"PATH", value} ->
+          Logger.info("Using path: #{value}", project: project)
+
+        _ ->
+          path = System.get_env("PATH")
+
+          Logger.warning("No path from child shell. Path in which Expert is run: #{path}",
+            project: project
+          )
+      end
+
       Logger.info("Found elixir executable at #{elixir}", project: project)
       Logger.info("Found erl executable at #{erl}", project: project)
 
