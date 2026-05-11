@@ -93,18 +93,16 @@ defmodule Expert.State do
   end
 
   def apply(%__MODULE__{} = state, %Notifications.WorkspaceDidChangeConfiguration{} = event) do
-    old_elixir_source_path = Configuration.get().elixir_source_path
+    old_config = Configuration.get()
 
     case Configuration.on_change(event) do
       {:ok, config} ->
-        if config.elixir_source_path != old_elixir_source_path,
-          do: propagate_elixir_source_path(config)
+        apply_configuration_side_effects(old_config, config)
 
         {:ok, state}
 
       {:ok, config, request} ->
-        if config.elixir_source_path != old_elixir_source_path,
-          do: propagate_elixir_source_path(config)
+        apply_configuration_side_effects(old_config, config)
 
         GenLSP.request(Expert.get_lsp(), request)
         {:ok, state}
@@ -314,6 +312,43 @@ defmodule Expert.State do
     end
   rescue
     _ -> :ok
+  end
+
+  defp apply_configuration_side_effects(%Configuration{} = old_config, %Configuration{} = config) do
+    if config.elixir_source_path != old_config.elixir_source_path do
+      propagate_elixir_source_path(config)
+    end
+
+    if runtime_executable_paths_changed?(old_config, config) do
+      restart_runtime_projects()
+    end
+  end
+
+  defp runtime_executable_paths_changed?(%Configuration{} = old_config, %Configuration{} = config) do
+    config.elixir_executable_path != old_config.elixir_executable_path or
+      config.erlang_executable_path != old_config.erlang_executable_path
+  end
+
+  defp restart_runtime_projects do
+    for project <- Store.projects(), not Store.blocked?(project) do
+      restart_runtime_project(project)
+    end
+
+    :ok
+  end
+
+  defp restart_runtime_project(%Project{} = project) do
+    case Task.Supervisor.start_child(:expert_task_queue, fn ->
+           Expert.Project.Supervisor.restart_node(project, blocked?: false)
+         end) do
+      {:ok, _pid} ->
+        :ok
+
+      {:error, reason} ->
+        Logger.error(
+          "Failed to schedule project restart for #{Project.name(project)}: #{inspect(reason)}"
+        )
+    end
   end
 
   def initialize_result do

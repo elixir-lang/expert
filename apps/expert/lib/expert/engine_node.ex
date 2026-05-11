@@ -35,6 +35,7 @@ defmodule Expert.EngineNode do
     end
 
     @dialyzer {:nowarn_function, start: 3}
+    @dialyzer {:nowarn_function, start: 4}
 
     def start(%__MODULE__{} = state, paths, from, opts \\ []) do
       this_node = to_string(Node.self())

@@ -22,7 +22,9 @@ defmodule Expert.Configuration do
             workspace_symbols: %WorkspaceSymbols{},
             log_level: @default_lsp_log_level,
             file_log_level: @default_file_log_level,
-            elixir_source_path: nil
+            elixir_source_path: nil,
+            elixir_executable_path: nil,
+            erlang_executable_path: nil
 
   @type t :: %__MODULE__{
           support: support | nil,
@@ -31,7 +33,9 @@ defmodule Expert.Configuration do
           workspace_symbols: WorkspaceSymbols.t(),
           log_level: lsp_level(),
           file_log_level: file_level(),
-          elixir_source_path: String.t() | nil
+          elixir_source_path: String.t() | nil,
+          elixir_executable_path: String.t() | nil,
+          erlang_executable_path: String.t() | nil
         }
 
   @opaque support :: Support.t()
@@ -120,6 +124,8 @@ defmodule Expert.Configuration do
       |> set_file_log_level(settings)
       |> set_workspace_symbols(settings)
       |> set_elixir_source_path(settings)
+      |> set_elixir_executable_path(settings)
+      |> set_erlang_executable_path(settings)
       |> set()
 
     apply_file_log_level(new_config)
@@ -173,6 +179,32 @@ defmodule Expert.Configuration do
   end
 
   defp set_elixir_source_path(%__MODULE__{} = config, _settings) do
+    config
+  end
+
+  defp set_elixir_executable_path(%__MODULE__{} = config, %{"elixirExecutablePath" => value})
+       when is_binary(value) do
+    %__MODULE__{config | elixir_executable_path: value}
+  end
+
+  defp set_elixir_executable_path(%__MODULE__{} = config, %{"elixirExecutablePath" => _}) do
+    %__MODULE__{config | elixir_executable_path: nil}
+  end
+
+  defp set_elixir_executable_path(%__MODULE__{} = config, _settings) do
+    config
+  end
+
+  defp set_erlang_executable_path(%__MODULE__{} = config, %{"erlangExecutablePath" => value})
+       when is_binary(value) do
+    %__MODULE__{config | erlang_executable_path: value}
+  end
+
+  defp set_erlang_executable_path(%__MODULE__{} = config, %{"erlangExecutablePath" => _}) do
+    %__MODULE__{config | erlang_executable_path: nil}
+  end
+
+  defp set_erlang_executable_path(%__MODULE__{} = config, _settings) do
     config
   end
 

@@ -81,4 +81,12 @@ defmodule Expert.Project.Supervisor do
 
     Logger.info("Stopping project node for #{Project.name(project)}")
   end
+
+  def restart_node(%Project{} = project, opts \\ []) when is_list(opts) do
+    if Process.whereis(name(project)) do
+      stop_node(project)
+    end
+
+    ensure_node_started(project, opts)
+  end
 end

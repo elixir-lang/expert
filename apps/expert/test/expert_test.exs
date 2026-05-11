@@ -19,6 +19,7 @@ defmodule Expert.ExpertTest do
     # These tests call `Expert.handle_info/2` directly (bypassing `Expert.Application`),
     # so we must start the stores that runtime boot normally provides.
     start_supervised!({Forge.Document.Store, derive: [analysis: &Forge.Ast.analyze/1]})
+    start_supervised!({Task.Supervisor, name: :expert_task_queue})
     start_supervised!({Expert.Project.Store, []})
 
     # window/logMessage comes from Logger via WindowLogHandler,
@@ -29,6 +30,7 @@ defmodule Expert.ExpertTest do
     :logger.update_handler_config(:default, :level, :none)
 
     on_exit(fn ->
+      :persistent_term.erase(Expert.Configuration)
       Forge.Workspace.set_workspace(nil)
       Logger.configure(level: :none)
       :logger.update_handler_config(:default, :level, :all)
@@ -181,6 +183,56 @@ defmodule Expert.ExpertTest do
     config = Expert.Configuration.get()
     assert config.log_level == :info
     assert config.workspace_symbols.min_query_length == 2
+  end
+
+  test "restarts pending projects when runtime executable configuration changes" do
+    project = Fixtures.project()
+    test_pid = self()
+
+    {:ok, _response, state} = State.initialize(State.new(), initialize_request(project, []))
+
+    Expert.Project.Store.add_projects([project])
+
+    patch(Expert.Project.Supervisor, :restart_node, fn restarted_project, opts ->
+      send(test_pid, {:project_restarted, restarted_project.root_uri, opts})
+      {:ok, self()}
+    end)
+
+    notification = %WorkspaceDidChangeConfiguration{
+      params: %DidChangeConfigurationParams{
+        settings: %{"elixirExecutablePath" => "/opt/elixir/bin/elixir"}
+      }
+    }
+
+    assert {:ok, ^state} = State.apply(state, notification)
+
+    assert_receive {:project_restarted, root_uri, [blocked?: false]}
+    assert root_uri == project.root_uri
+  end
+
+  test "does not restart blocked projects when runtime executable configuration changes" do
+    project = Fixtures.project()
+    test_pid = self()
+
+    {:ok, _response, state} = State.initialize(State.new(), initialize_request(project, []))
+
+    Expert.Project.Store.add_projects([project])
+    Expert.Project.Store.transition(project, :blocked)
+
+    patch(Expert.Project.Supervisor, :restart_node, fn restarted_project, opts ->
+      send(test_pid, {:project_restarted, restarted_project.root_uri, opts})
+      {:ok, self()}
+    end)
+
+    notification = %WorkspaceDidChangeConfiguration{
+      params: %DidChangeConfigurationParams{
+        settings: %{"elixirExecutablePath" => "/opt/elixir/bin/elixir"}
+      }
+    }
+
+    assert {:ok, ^state} = State.apply(state, notification)
+
+    refute_receive {:project_restarted, _root_uri, _opts}
   end
 
   test "initialization stores an empty workspace when root_uri and workspace_folders are nil" do
