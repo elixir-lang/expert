@@ -2,6 +2,7 @@ defmodule Engine.Search.Indexer do
   alias Engine.ApplicationCache
   alias Engine.Progress
   alias Engine.Search.Indexer
+  alias Engine.Search.Indexer.Extractors
   alias Forge.Identifier
   alias Forge.ProcessCache
   alias Forge.Project
@@ -11,16 +12,28 @@ defmodule Engine.Search.Indexer do
 
   @indexable_extensions "*.{ex,exs}"
 
+  # Deps files only contribute definitions to the index, so we skip pure-reference
+  # extractors (the most expensive one being FunctionReference, which resolves
+  # aliases and arity on every call site). ModuleAttribute stays because it
+  # produces both definitions and references; the post-filter drops its references.
+  @deps_extractors [
+    Extractors.Module,
+    Extractors.ModuleAttribute,
+    Extractors.FunctionDefinition,
+    Extractors.StructDefinition,
+    Extractors.EctoSchema
+  ]
+
   def create_index(%Project{} = project) do
     :ok = ApplicationCache.clear()
 
     ProcessCache.with_cleanup do
-      deps_dir = deps_dir()
+      dependency_roots = dependency_index_roots(project)
 
       entries =
         project
         |> indexable_files()
-        |> async_chunks(&index_path(&1, deps_dir))
+        |> async_chunks(&index_path(&1, dependency_roots))
 
       {:ok, entries}
     end
@@ -58,7 +71,9 @@ defmodule Engine.Search.Indexer do
     new_paths = MapSet.difference(project_files, previously_indexed_paths)
 
     {paths_to_examine, paths_to_delete} =
-      Enum.split_with(path_to_ids, fn {path, _} -> File.regular?(path) end)
+      Enum.split_with(path_to_ids, fn {path, _id} ->
+        MapSet.member?(project_files, path) and File.regular?(path)
+      end)
 
     changed_paths =
       for {path, id} <- paths_to_examine,
@@ -69,22 +84,24 @@ defmodule Engine.Search.Indexer do
     paths_to_delete = Enum.map(paths_to_delete, &elem(&1, 0))
 
     paths_to_reindex = changed_paths ++ Enum.to_list(new_paths)
+    dependency_roots = dependency_index_roots(project)
 
-    entries = async_chunks(paths_to_reindex, &index_path(&1, deps_dir()))
+    entries = async_chunks(paths_to_reindex, &index_path(&1, dependency_roots))
 
     {:ok, entries, paths_to_delete}
   end
 
-  defp index_path(path, deps_dir) do
+  defp index_path(path, dependency_roots) do
+    in_dependency? = contained_in_any?(path, dependency_roots)
+    extractors = if in_dependency?, do: @deps_extractors
+
     with {:ok, contents} <- File.read(path),
-         {:ok, entries} <- Indexer.Source.index(path, contents) do
-      Enum.filter(entries, fn entry ->
-        if Forge.Path.contains?(path, deps_dir) do
-          entry.subtype == :definition
-        else
-          true
-        end
-      end)
+         {:ok, entries} <- Indexer.Source.index(path, contents, extractors) do
+      if in_dependency? do
+        Enum.filter(entries, &(&1.subtype == :definition))
+      else
+        entries
+      end
     else
       _ ->
         []
@@ -190,30 +207,153 @@ defmodule Engine.Search.Indexer do
   end
 
   def indexable_files(%Project{} = project) do
-    root_dir = Project.root_path(project)
-    build_dir = build_dir()
+    roots = index_roots(project)
+    excluded_roots = build_exclusion_roots(project, roots)
 
-    [root_dir, "**", @indexable_extensions]
-    |> Forge.Path.glob()
-    |> Enum.reject(&Forge.Path.contains?(&1, build_dir))
+    roots
+    |> Enum.flat_map(&indexable_files_in/1)
+    |> Enum.uniq()
+    |> reject_paths_under(excluded_roots)
   end
+
+  defp indexable_files_in(root) do
+    Forge.Path.glob([root, "**", @indexable_extensions])
+  end
+
+  defp index_roots(%Project{} = project) do
+    [Project.root_path(project) | dependency_index_roots(project)]
+    |> Enum.reject(&is_nil/1)
+    |> Enum.uniq()
+  end
+
+  defp reject_paths_under(paths, []), do: paths
+
+  defp reject_paths_under(paths, roots) do
+    Enum.reject(paths, &contained_in_any?(&1, roots))
+  end
+
+  defp contained_in_any?(path, roots) do
+    Enum.any?(roots, &Forge.Path.contains?(path, &1))
+  end
+
+  defp build_exclusion_roots(%Project{mix_project?: true} = project, index_roots) do
+    {runtime_build_path, configured_build_root} = build_paths(project)
+    relative_build_root = Path.relative_to(configured_build_root, Project.root_path(project))
+
+    dependency_build_roots = Enum.map(index_roots, &Path.expand(relative_build_root, &1))
+
+    [runtime_build_path, configured_build_root | dependency_build_roots]
+    |> Enum.reject(&is_nil/1)
+    |> Enum.uniq()
+  end
+
+  defp build_exclusion_roots(%Project{}, _index_roots), do: []
 
   # stat(path) is here for testing so it can be mocked
   defp stat(path) do
     File.stat(path)
   end
 
-  defp deps_dir do
-    case Engine.Mix.in_project(&Mix.Project.deps_path/0) do
+  defp dependency_index_roots(%Project{mix_project?: true} = project) do
+    [deps_path(project) | path_dependency_source_roots(project)]
+    |> Enum.reject(&is_nil/1)
+    |> Enum.uniq()
+  end
+
+  defp dependency_index_roots(%Project{}), do: []
+
+  defp deps_path(%Project{mix_project?: true} = project) do
+    case Engine.Mix.in_project(project, fn _ -> Mix.Project.deps_path() end) do
       {:ok, path} -> path
       _ -> Mix.Project.deps_path()
     end
   end
 
-  defp build_dir do
-    case Engine.Mix.in_project(&Mix.Project.build_path/0) do
-      {:ok, path} -> path
-      _ -> Mix.Project.build_path()
+  defp path_dependency_source_roots(%Project{} = project) do
+    case Engine.Mix.in_project(project, fn _ ->
+           path_dependency_paths(Mix.Project.config(), Mix.env())
+         end) do
+      {:ok, roots} -> Enum.flat_map(roots, &mix_source_roots/1)
+      _ -> []
     end
   end
+
+  defp path_dependency_paths(config, env) do
+    config
+    |> Keyword.get(:deps, [])
+    |> Enum.flat_map(&path_dependency_path(&1, env))
+  end
+
+  defp path_dependency_path({_app, opts}, env) when is_list(opts) do
+    path_dependency_path_from_opts(opts, env)
+  end
+
+  defp path_dependency_path({_app, _requirement, opts}, env) when is_list(opts) do
+    path_dependency_path_from_opts(opts, env)
+  end
+
+  defp path_dependency_path(_dep, _env), do: []
+
+  defp path_dependency_path_from_opts(opts, env) do
+    path = Keyword.get(opts, :path)
+    only_envs = opts |> Keyword.get(:only) |> List.wrap()
+
+    if is_binary(path) and dependency_active_in_env?(only_envs, env) do
+      [Path.expand(path, File.cwd!())]
+    else
+      []
+    end
+  end
+
+  defp dependency_active_in_env?([], _env), do: true
+  defp dependency_active_in_env?(envs, env), do: env in envs
+
+  defp mix_source_roots(root) do
+    project = root |> Forge.Document.Path.to_uri() |> Project.new()
+
+    source_paths =
+      case Engine.Mix.in_project(project, fn _ ->
+             Keyword.get(Mix.Project.config(), :elixirc_paths, ["lib"])
+           end) do
+        {:ok, paths} -> paths
+        _ -> ["lib"]
+      end
+
+    Enum.map(source_paths, &Path.expand(&1, root))
+  end
+
+  defp build_paths(%Project{mix_project?: true} = project) do
+    case Engine.Mix.in_project(project, fn project_module ->
+           {Mix.Project.build_path(), configured_build_root(project, project_module.project())}
+         end) do
+      {:ok, paths} -> paths
+      _ -> {Mix.Project.build_path(), configured_build_root(project, [])}
+    end
+  end
+
+  defp configured_build_root(%Project{} = project, config) do
+    config = Keyword.put_new(config, :build_per_environment, true)
+
+    with_deleted_env("MIX_BUILD_PATH", fn ->
+      File.cd!(Project.root_path(project), fn ->
+        config
+        |> Mix.Project.build_path()
+        |> Path.dirname()
+      end)
+    end)
+  end
+
+  defp with_deleted_env(name, fun) do
+    original = System.fetch_env(name)
+    System.delete_env(name)
+
+    try do
+      fun.()
+    after
+      restore_env(name, original)
+    end
+  end
+
+  defp restore_env(name, {:ok, value}), do: System.put_env(name, value)
+  defp restore_env(name, :error), do: System.delete_env(name)
 end
