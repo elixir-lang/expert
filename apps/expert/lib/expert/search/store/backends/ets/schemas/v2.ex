@@ -1,30 +1,20 @@
-defmodule Engine.Search.Store.Backends.Ets.Schemas.V2 do
-  use Engine.Search.Store.Backends.Ets.Schema, version: 2
+defmodule Expert.Search.Store.Backends.Ets.Schemas.V2 do
+  use Expert.Search.Store.Backends.Ets.Schema, version: 2
 
   alias Forge.Search.Indexer.Entry
 
   require Entry
 
-  defkey :by_id, [:id, :type, :subtype]
+  defkey(:by_id, [:id, :type, :subtype])
+  defkey(:by_subject, [:subject, :type, :subtype, :path])
+  defkey(:by_path, [:path])
+  defkey(:by_block_id, [:block_id, :path])
+  defkey(:structure, [:path])
 
-  defkey :by_subject, [
-    :subject,
-    :type,
-    :subtype,
-    :path
-  ]
-
-  defkey :by_path, [:path]
-  defkey :by_block_id, [:block_id, :path]
-  defkey :structure, [:path]
-
-  def migrate(_) do
-    {:ok, []}
-  end
+  def migrate(_), do: {:ok, []}
 
   def to_rows(%Entry{} = entry) when Entry.is_structure(entry) do
-    structure_key = structure(path: entry.path)
-    [{structure_key, entry.subject}]
+    [{structure(path: entry.path), entry.subject}]
   end
 
   def to_rows(%Entry{} = entry) do
@@ -36,31 +26,21 @@ defmodule Engine.Search.Store.Backends.Ets.Schemas.V2 do
         path: entry.path
       )
 
-    id_key =
-      by_id(
-        id: entry.id,
-        type: entry.type,
-        subtype: entry.subtype
-      )
-
+    id_key = by_id(id: entry.id, type: entry.type, subtype: entry.subtype)
     path_key = by_path(path: entry.path)
     block_key = by_block_id(path: entry.path, block_id: entry.block_id)
 
     [{id_key, entry}, {subject_key, id_key}, {path_key, id_key}, {block_key, id_key}]
   end
 
-  # This case will handle any namespaced entries
   def to_rows(%{type: _, subtype: _, id: _} = entry) do
-    map = Map.delete(entry, :__struct__)
-
-    Entry
-    |> struct(map)
+    entry
+    |> Map.delete(:__struct__)
+    |> then(&struct(Entry, &1))
     |> to_rows()
   end
 
-  def table_options do
-    [:named_table, :ordered_set, :compressed]
-  end
+  def table_options, do: [:ordered_set]
 
   defp to_subject(binary) when is_binary(binary), do: binary
   defp to_subject(:_), do: :_

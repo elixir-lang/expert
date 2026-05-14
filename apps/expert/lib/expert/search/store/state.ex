@@ -1,0 +1,289 @@
+defmodule Expert.Search.Store.State do
+  alias Expert.Search.Fuzzy
+  alias Forge.Project
+  alias Forge.Search.Indexer.Entry
+
+  require Logger
+
+  defstruct [
+    :project,
+    :backend,
+    :loaded?,
+    :load_status,
+    :fuzzy,
+    :update_buffer
+  ]
+
+  def new(%Project{} = project, backend) do
+    %__MODULE__{
+      backend: backend,
+      project: project,
+      loaded?: false,
+      load_status: :not_loaded,
+      update_buffer: %{},
+      fuzzy: Fuzzy.from_entries(project, [])
+    }
+  end
+
+  def drop(%__MODULE__{} = state), do: state.backend.drop(state.project)
+
+  def destroy(%__MODULE__{} = state) do
+    with :ok <- state.backend.destroy(state.project) do
+      {:ok,
+       %__MODULE__{
+         state
+         | loaded?: false,
+           load_status: :not_loaded,
+           fuzzy: Fuzzy.from_entries(state.project, []),
+           update_buffer: %{}
+       }}
+    end
+  end
+
+  def load(%__MODULE__{loaded?: true} = state), do: {:ok, :loaded, state}
+
+  def load(%__MODULE__{loaded?: false} = state) do
+    case state.backend.new(state.project) do
+      {:ok, backend_result} ->
+        case state.backend.prepare(backend_result) do
+          {:ok, :empty} ->
+            Logger.info("backend reports empty")
+            {:ok, :empty, %__MODULE__{state | loaded?: true, load_status: :empty}}
+
+          {:ok, :stale} ->
+            Logger.info("backend reports stale")
+
+            {:ok, :stale,
+             initialize_fuzzy(%__MODULE__{state | loaded?: true, load_status: :stale})}
+
+          error ->
+            Logger.error("Could not initialize index due to #{inspect(error)}")
+            error
+        end
+
+      error ->
+        Logger.error("Could not initialize index backend due to #{inspect(error)}")
+        error
+    end
+  end
+
+  def replace(%__MODULE__{} = state, entries) do
+    with :ok <- state.backend.replace_all(state.project, entries),
+         :ok <- maybe_sync(state) do
+      {:ok,
+       %__MODULE__{
+         state
+         | loaded?: true,
+           load_status: :ready,
+           fuzzy: Fuzzy.from_backend(state.project, state.backend)
+       }}
+    end
+  end
+
+  def exact(%__MODULE__{loaded?: false}, _subject, _constraints), do: {:error, :loading}
+
+  def exact(%__MODULE__{} = state, subject, constraints) do
+    type = Keyword.get(constraints, :type, :_)
+    subtype = Keyword.get(constraints, :subtype, :_)
+
+    case state.backend.find_by_subject(state.project, subject, type, subtype) do
+      l when is_list(l) -> {:ok, l}
+      error -> error
+    end
+  end
+
+  def prefix(%__MODULE__{loaded?: false}, _prefix, _constraints), do: {:error, :loading}
+
+  def prefix(%__MODULE__{} = state, prefix, constraints) do
+    type = Keyword.get(constraints, :type, :_)
+    subtype = Keyword.get(constraints, :subtype, :_)
+
+    case state.backend.find_by_prefix(state.project, prefix, type, subtype) do
+      l when is_list(l) -> {:ok, l}
+      error -> error
+    end
+  end
+
+  def fuzzy(%__MODULE__{loaded?: false}, _subject, _constraints), do: {:error, :loading}
+
+  def fuzzy(%__MODULE__{} = state, subject, constraints) do
+    case Fuzzy.match(state.fuzzy, subject) do
+      [] ->
+        {:ok, []}
+
+      ids ->
+        type = Keyword.get(constraints, :type, :_)
+        subtype = Keyword.get(constraints, :subtype, :_)
+
+        case state.backend.find_by_ids(state.project, ids, type, subtype) do
+          l when is_list(l) -> {:ok, l}
+          error -> error
+        end
+    end
+  end
+
+  def all(%__MODULE__{loaded?: false}, _), do: {:error, :loading}
+
+  def all(%__MODULE__{} = state, constraints) do
+    type = Keyword.get(constraints, :type, :_)
+    subtype = Keyword.get(constraints, :subtype, :_)
+
+    entries =
+      state.backend.reduce(state.project, [], fn
+        %Entry{} = entry, acc ->
+          if matches_constraints?(entry, type, subtype), do: [entry | acc], else: acc
+
+        _, acc ->
+          acc
+      end)
+
+    {:ok, entries}
+  end
+
+  def path_to_ids(%__MODULE__{} = state) do
+    state.backend.reduce(state.project, %{}, fn
+      %Entry{path: path} = entry, path_to_ids when is_integer(entry.id) ->
+        Map.update(path_to_ids, path, entry.id, &max(&1, entry.id))
+
+      _entry, path_to_ids ->
+        path_to_ids
+    end)
+  end
+
+  def resolve_mfa(%__MODULE__{} = state, module, function, arity) do
+    mfa = Forge.Formats.mfa(module, function, arity)
+
+    case exact(state, mfa, subtype: :definition) do
+      {:ok,
+       [
+         %Entry{
+           type: {:function, :delegate},
+           metadata: %{
+             original_module: original_module,
+             original_function: original_function,
+             original_arity: original_arity
+           }
+         }
+         | _
+       ]} ->
+        {original_module, original_function, original_arity, true, true}
+
+      {:ok, [%Entry{type: {:function, :delegate}, metadata: %{original_mfa: original_mfa}} | _]} ->
+        case Forge.Code.parse_mfa(original_mfa) do
+          {target_module, target_fun, target_arity} ->
+            {target_module, target_fun, target_arity, true, true}
+
+          nil ->
+            {module, function, arity, true, false}
+        end
+
+      {:ok, [%Entry{type: {:function, _}} | _]} ->
+        {module, function, arity, true, false}
+
+      _ ->
+        {module, function, arity, false, false}
+    end
+  end
+
+  def siblings(%__MODULE__{loaded?: false}, _entry), do: {:error, :loading}
+
+  def siblings(%__MODULE__{} = state, entry) do
+    case state.backend.siblings(state.project, entry) do
+      l when is_list(l) -> {:ok, l}
+      error -> error
+    end
+  end
+
+  def parent(%__MODULE__{loaded?: false}, _entry), do: {:error, :loading}
+
+  def parent(%__MODULE__{} = state, entry) do
+    case state.backend.parent(state.project, entry) do
+      %Entry{} = entry -> {:ok, entry}
+      error -> error
+    end
+  end
+
+  def buffer_updates(%__MODULE__{} = state, path, entries) do
+    %__MODULE__{state | update_buffer: Map.put(state.update_buffer, path, entries)}
+  end
+
+  def drop_buffered_updates(%__MODULE__{} = state), do: %__MODULE__{state | update_buffer: %{}}
+
+  def flush_buffered_updates(%__MODULE__{update_buffer: buffer} = state)
+      when map_size(buffer) == 0 do
+    maybe_sync(state)
+    {:ok, state}
+  end
+
+  def flush_buffered_updates(%__MODULE__{} = state) do
+    result =
+      Enum.reduce_while(state.update_buffer, state, fn {path, entries}, state ->
+        case update_nosync(state, path, entries) do
+          {:ok, new_state} -> {:cont, new_state}
+          error -> {:halt, error}
+        end
+      end)
+
+    with %__MODULE__{} = state <- result,
+         :ok <- maybe_sync(state) do
+      {:ok, drop_buffered_updates(state)}
+    end
+  end
+
+  def update_nosync(%__MODULE__{} = state, path, entries) do
+    with {:ok, deleted_ids} <- state.backend.delete_by_path(state.project, path),
+         :ok <- state.backend.insert(state.project, entries) do
+      fuzzy =
+        state.fuzzy
+        |> Fuzzy.drop_values(deleted_ids)
+        |> Fuzzy.add(entries)
+
+      {:ok, %__MODULE__{state | loaded?: true, load_status: :ready, fuzzy: fuzzy}}
+    end
+  end
+
+  def apply_index_update(%__MODULE__{} = state, updated_entries, paths_to_clear) do
+    starting_state = initialize_fuzzy(%__MODULE__{state | loaded?: true})
+
+    result =
+      updated_entries
+      |> Enum.group_by(& &1.path)
+      |> Enum.reduce_while(starting_state, fn {path, entries}, state ->
+        case update_nosync(state, path, entries) do
+          {:ok, new_state} -> {:cont, new_state}
+          error -> {:halt, error}
+        end
+      end)
+
+    result =
+      Enum.reduce_while(paths_to_clear, result, fn
+        _path, {:error, _} = error ->
+          {:halt, error}
+
+        path, state ->
+          case update_nosync(state, path, []) do
+            {:ok, new_state} -> {:cont, new_state}
+            error -> {:halt, error}
+          end
+      end)
+
+    with %__MODULE__{} = state <- result,
+         :ok <- maybe_sync(state) do
+      {:ok, state}
+    end
+  end
+
+  defp maybe_sync(%__MODULE__{} = state) do
+    if function_exported?(state.backend, :sync, 1),
+      do: state.backend.sync(state.project),
+      else: :ok
+  end
+
+  defp initialize_fuzzy(%__MODULE__{} = state) do
+    %__MODULE__{state | fuzzy: Fuzzy.from_backend(state.project, state.backend)}
+  end
+
+  defp matches_constraints?(%Entry{type: t, subtype: st}, type, subtype) do
+    (type == :_ or t == type) and (subtype == :_ or st == subtype)
+  end
+end

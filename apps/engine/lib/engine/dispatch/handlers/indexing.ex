@@ -4,7 +4,7 @@ defmodule Engine.Dispatch.Handlers.Indexing do
   import Forge.EngineApi.Messages
 
   alias Engine.Commands
-  alias Engine.Search
+  alias Engine.ManagerApi
   alias Forge.Document
 
   def on_event(file_compile_requested(uri: uri), state) do
@@ -26,8 +26,8 @@ defmodule Engine.Dispatch.Handlers.Indexing do
   end
 
   def delete_path(uri) do
-    uri
-    |> Document.Path.ensure_path()
-    |> Search.Store.clear()
+    path = Document.Path.ensure_path(uri)
+    project = Engine.get_project()
+    ManagerApi.search_store_clear(project, path)
   end
 end

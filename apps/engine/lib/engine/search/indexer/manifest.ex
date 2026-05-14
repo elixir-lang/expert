@@ -264,8 +264,8 @@ defmodule Engine.Search.Indexer.Manifest do
     new_outputs = output_paths(entries)
 
     old_outputs
-    |> MapSet.difference(new_outputs)
     |> MapSet.union(MapSet.new(plan.output_paths_to_clear))
+    |> MapSet.difference(new_outputs)
     |> Enum.to_list()
   end
 
@@ -287,8 +287,8 @@ defmodule Engine.Search.Indexer.Manifest do
        ) do
     cond do
       not MapSet.member?(current_paths, input_path) ->
-        {source_to_index, beam_to_index, dirty_outputs, [input_path | remove_inputs],
-         put_output(clear_outputs, entry)}
+        {source_to_index, beam_to_index, put_output(dirty_outputs, entry),
+         [input_path | remove_inputs], put_output(clear_outputs, entry)}
 
       source_entry?(entry, source_paths) ->
         if Entry.matches_file?(entry) do

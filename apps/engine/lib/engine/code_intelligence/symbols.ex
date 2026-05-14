@@ -1,5 +1,5 @@
 defmodule Engine.CodeIntelligence.Symbols do
-  alias Engine.Search
+  alias Engine.ManagerApi
   alias Engine.Search.Indexer
   alias Engine.Search.Indexer.Extractors
   alias Forge.Ast
@@ -39,7 +39,7 @@ defmodule Engine.CodeIntelligence.Symbols do
   end
 
   def for_workspace("") do
-    case Search.Store.all(subtype: :definition) do
+    case ManagerApi.search_store_all(Engine.get_project(), subtype: :definition) do
       {:ok, entries} ->
         Enum.map(entries, &Symbols.Workspace.from_entry/1)
 
@@ -49,7 +49,7 @@ defmodule Engine.CodeIntelligence.Symbols do
   end
 
   def for_workspace(query) do
-    case Search.Store.fuzzy(query, []) do
+    case ManagerApi.search_store_fuzzy(Engine.get_project(), query, []) do
       {:ok, entries} ->
         Enum.map(entries, &Symbols.Workspace.from_entry/1)
 

@@ -1,11 +1,11 @@
 defmodule Expert.Provider.Handlers.Hover do
   @behaviour Expert.Provider.Handler
 
-  alias Engine.Search.Store
   alias Expert.CodeIntelligence.Hex
   alias Expert.Document.Context
   alias Expert.EngineApi
   alias Expert.Provider.Markdown
+  alias Expert.Search.Store
   alias Forge.Ast
   alias Forge.Ast.Analysis
   alias Forge.CodeIntelligence.Docs
@@ -149,7 +149,7 @@ defmodule Expert.Provider.Handlers.Hover do
   defp maybe_fallback_error(false), do: {:error, :not_found}
 
   defp resolve_call_target(project, module, fun, arity) do
-    EngineApi.call(project, Store, :resolve_mfa, [module, fun, arity])
+    Store.resolve_mfa(project, module, fun, arity)
   end
 
   defp module_header(:module, %Docs{module: module}) do
@@ -209,10 +209,7 @@ defmodule Expert.Provider.Handlers.Hover do
   end
 
   defp module_attribute_definition_text(%Project{} = project, module, attribute_name) do
-    case EngineApi.call(project, Store, :exact, [
-           "@#{attribute_name}",
-           [type: :module_attribute, subtype: :definition]
-         ]) do
+    case Store.exact(project, "@#{attribute_name}", type: :module_attribute, subtype: :definition) do
       {:ok, []} ->
         {:error, :no_definition}
 

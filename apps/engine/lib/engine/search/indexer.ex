@@ -8,22 +8,25 @@ defmodule Engine.Search.Indexer do
   alias Forge.ProcessCache
   alias Forge.Project
 
-  require Logger
   require ProcessCache
 
-  def create_index(%Project{} = project, backend) when is_atom(backend) do
+  def create_index(%Project{} = project) do
     with_indexer_context(fn ->
       {entries, manifest} = create_index_data(project)
 
-      replace_index(project, backend, entries, manifest)
+      {:ok, entries, manifest}
     end)
   end
 
-  def update_index(%Project{} = project, backend) do
+  def commit_manifest(%Project{} = project, %Manifest{} = manifest) do
+    ManifestStore.commit(project, manifest)
+  end
+
+  def update_index(%Project{} = project, path_to_ids) when is_map(path_to_ids) do
     with_indexer_context(fn ->
       case ManifestStore.load(project) do
-        {:ok, %Manifest{} = manifest} -> refresh_index(project, manifest, backend)
-        :missing -> replace_index(project, backend)
+        {:ok, %Manifest{} = manifest} -> refresh_index(project, manifest, path_to_ids)
+        :missing -> replace_index(project, path_to_ids)
       end
     end)
   end
@@ -35,72 +38,26 @@ defmodule Engine.Search.Indexer do
     {entries, Manifest.new(manifest_entries)}
   end
 
-  defp replace_index(%Project{} = project, backend) do
+  defp replace_index(%Project{} = project, path_to_ids) do
     {entries, manifest} = create_index_data(project)
+    paths_to_clear = stored_paths_to_clear(path_to_ids, entries)
 
-    replace_index(project, backend, entries, manifest)
+    {:ok, entries, paths_to_clear, manifest}
   end
 
-  defp refresh_index(%Project{} = project, %Manifest{} = manifest, backend) do
-    {entries, paths_to_clear, manifest} = update_index_data(project, manifest, backend)
+  defp refresh_index(%Project{} = project, %Manifest{} = manifest, path_to_ids) do
+    {entries, paths_to_clear, manifest} = update_index_data(project, manifest, path_to_ids)
 
-    with :ok <- apply_index_update(project, backend, entries, paths_to_clear) do
-      ManifestStore.commit(project, manifest)
-    end
+    {:ok, entries, paths_to_clear, manifest}
   end
 
-  defp replace_index(%Project{} = project, backend, entries, %Manifest{} = manifest) do
-    with :ok <- backend.replace_all(entries),
-         :ok <- maybe_sync(project, backend) do
-      ManifestStore.commit(project, manifest)
-    end
-  end
-
-  defp apply_index_update(project, backend, updated_entries, deleted_paths) do
-    with :ok <- apply_updated_entries(backend, updated_entries),
-         :ok <- apply_deleted_paths(backend, deleted_paths) do
-      maybe_sync(project, backend)
-    end
-  end
-
-  defp apply_updated_entries(backend, updated_entries) do
-    updated_entries
-    |> Enum.group_by(& &1.path)
-    |> Enum.reduce_while(:ok, fn {path, entry_list}, :ok ->
-      apply_index_path(backend, path, entry_list)
-    end)
-  end
-
-  defp apply_deleted_paths(backend, deleted_paths) do
-    Enum.reduce_while(deleted_paths, :ok, fn path, :ok ->
-      apply_index_path(backend, path, [])
-    end)
-  end
-
-  defp apply_index_path(backend, path, entries) do
-    case replace_backend_path(backend, path, entries) do
-      :ok -> {:cont, :ok}
-      {:error, reason} -> {:halt, {:error, reason}}
-    end
-  end
-
-  defp replace_backend_path(backend, path, entries) do
-    with {:ok, _deleted_ids} <- backend.delete_by_path(path) do
-      backend.insert(entries)
-    end
-  catch
-    :exit, {:timeout, _} ->
-      Logger.warning("Timeout updating index for path: #{path}")
-      :ok
-  end
-
-  defp update_index_data(%Project{} = project, %Manifest{} = manifest, backend) do
+  defp update_index_data(%Project{} = project, %Manifest{} = manifest, path_to_ids) do
     paths = Paths.for_project(project)
 
     plan =
       manifest
       |> Manifest.plan(paths)
-      |> include_missing_backend_outputs(manifest, paths, backend)
+      |> include_missing_stored_outputs(manifest, paths, path_to_ids)
 
     {entries, manifest_entries, plan} = index_plan(plan, manifest, paths)
 
@@ -199,13 +156,13 @@ defmodule Engine.Search.Indexer do
     end
   end
 
-  defp include_missing_backend_outputs(
+  defp include_missing_stored_outputs(
          %Manifest.Plan{} = plan,
          %Manifest{} = manifest,
          paths,
-         backend
+         path_to_ids
        ) do
-    backend_paths = backend_indexed_paths(backend)
+    stored_paths = stored_paths(path_to_ids)
     source_paths = MapSet.new(paths.source_paths)
     beam_paths = MapSet.new(paths.beam_paths)
 
@@ -217,7 +174,7 @@ defmodule Engine.Search.Indexer do
         {source_acc, beam_acc}
         when is_binary(output_path) ->
           if MapSet.member?(source_paths, input_path) and
-               not MapSet.member?(backend_paths, output_path) do
+               not MapSet.member?(stored_paths, output_path) do
             {[input_path | source_acc], beam_acc}
           else
             {source_acc, beam_acc}
@@ -227,7 +184,7 @@ defmodule Engine.Search.Indexer do
         {source_acc, beam_acc}
         when is_binary(output_path) ->
           if MapSet.member?(beam_paths, input_path) and
-               not MapSet.member?(backend_paths, output_path) do
+               not MapSet.member?(stored_paths, output_path) do
             {source_acc, [input_path | beam_acc]}
           else
             {source_acc, beam_acc}
@@ -251,12 +208,19 @@ defmodule Engine.Search.Indexer do
     {source_entries ++ beam_entries, source_manifest_entries ++ beam_manifest_entries}
   end
 
-  defp backend_indexed_paths(backend) do
-    MapSet.new()
-    |> backend.reduce(fn
-      %{path: path}, paths when is_binary(path) -> MapSet.put(paths, path)
-      _entry, paths -> paths
-    end)
+  defp stored_paths_to_clear(path_to_ids, entries) do
+    indexed_paths = MapSet.new(entries, & &1.path)
+
+    path_to_ids
+    |> stored_paths()
+    |> MapSet.difference(indexed_paths)
+    |> Enum.to_list()
+  end
+
+  defp stored_paths(path_to_ids) when is_map(path_to_ids) do
+    path_to_ids
+    |> Map.keys()
+    |> MapSet.new()
   end
 
   defp with_indexer_context(fun) when is_function(fun, 0) do
@@ -267,13 +231,5 @@ defmodule Engine.Search.Indexer do
     end
   after
     ApplicationCache.clear()
-  end
-
-  defp maybe_sync(project, backend) do
-    if function_exported?(backend, :sync, 1) do
-      backend.sync(project)
-    else
-      :ok
-    end
   end
 end

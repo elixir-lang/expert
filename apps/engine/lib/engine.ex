@@ -65,6 +65,8 @@ defmodule Engine do
 
   defdelegate workspace_symbols(query), to: CodeIntelligence.Symbols, as: :for_workspace
 
+  defdelegate runtime_versions, to: Forge.VM.Versions, as: :current
+
   def list_apps do
     for {app, _, _} <- :application.loaded_applications(),
         not Forge.Namespace.Module.prefixed?(app),
