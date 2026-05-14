@@ -3,6 +3,15 @@ defmodule Forge.OS do
     match?({:win32, _}, type())
   end
 
+  def os_family do
+    if windows?(), do: :windows, else: :unix
+  end
+
+  def os_type do
+    {os_type, _os_name} = type()
+    os_type
+  end
+
   # this is here to be mocked in tests
   def type do
     :os.type()

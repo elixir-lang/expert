@@ -9,137 +9,15 @@ defmodule Expert.Port do
   require Logger
 
   @type open_opt ::
-          {:env, list()}
+          {:args, [String.t() | charlist()]}
           | {:cd, String.t() | charlist()}
           | {:env, [{:os.env_var_name(), :os.env_var_value()}]}
-          | {:args, list()}
           | {:line, non_neg_integer()}
 
-  @type open_opts :: [open_opt]
+  @type open_opts :: [open_opt()]
 
-  @path_marker "__EXPERT_PATH__"
   @default_unix_path "/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
-
-  @doc """
-  Launches elixir in a port.
-
-  This function takes the project's context into account and looks for the executable via calling
-  `elixir_executable(project)`. Environment variables are also retrieved with that call.
-  """
-  @spec open_elixir(Project.t(), open_opts()) :: port() | {:error, :no_elixir, String.t()}
-  def open_elixir(%Project{} = project, opts) do
-    case project_executable(project, "elixir") do
-      {:ok, elixir_executable, environment_variables} ->
-        opts =
-          opts
-          |> Keyword.put_new_lazy(:cd, fn -> Project.root_path(project) end)
-          |> Keyword.update(:env, environment_variables, fn env ->
-            environment_variables ++ env
-          end)
-
-        open_executable(elixir_executable, opts)
-
-      {:error, _, reason} ->
-        Logger.error("Failed to find elixir executable for project: #{reason}")
-        {:error, :no_elixir, reason}
-    end
-  end
-
-  @doc """
-  Returns the specified executable path and environment for a project.
-
-  Returns `{:ok, executable_path, env}` where:
-  - `executable_path` is a charlist path to the specified executable
-  - `env` is a list of `{key, value}` tuples for the environment
-
-  Returns `{:error, name, reason}` if no executable can be found.
-  """
-  @spec project_executable(Project.t(), String.t()) ::
-          {:ok, charlist(), list()} | {:error, String.t(), String.t()}
-  if Mix.env() == :test do
-    # In test mode, the child engine node must use the same Elixir/OTP as the
-    # test runner, because the test build produces BEAM files for that specific
-    # OTP version. Spawning a login shell to detect the project-local executable
-    # can return a different OTP version (e.g. via mise), causing the child to
-    # fail to load the test BEAM files.
-    def project_executable(project, name) do
-      case configured_executable_path(name) do
-        nil ->
-          fallback_executable(name)
-
-        path ->
-          {:ok, to_charlist(path), project_environment(project)}
-      end
-    end
-  else
-    def project_executable(%Project{} = project, name) do
-      case configured_executable_path(name) do
-        nil ->
-          case find_project_executable(project, name) do
-            {:ok, _, _} = success ->
-              success
-
-            {:error, name, reason} ->
-              Logger.warning(
-                "Failed to find #{name} for project, falling back to packaged elixir: #{reason}"
-              )
-
-              fallback_executable(name)
-          end
-
-        path ->
-          {:ok, to_charlist(path), project_environment(project)}
-      end
-    end
-  end
-
-  @doc """
-  Opens a port for elixir with the given executable and environment.
-
-  Use this when you already have the elixir path and env from `elixir_executable/1`
-  and need to customize the port options.
-
-  ## Options
-
-    * `:args` - List of arguments to pass to the elixir executable
-    * `:cd` - Working directory for the port
-    * `:env` - Additional environment variables (merged with the provided env)
-
-  """
-  @spec open_elixir_with_env(charlist(), list(), open_opts()) :: port()
-  def open_elixir_with_env(elixir_executable, env, opts) do
-    opts =
-      opts
-      |> Keyword.update(:env, env, fn additional_env -> env ++ additional_env end)
-
-    open_executable(elixir_executable, opts)
-  end
-
-  def find_project_executable(%Project{} = project, name) do
-    if Forge.OS.windows?() do
-      find_project_executable_windows(name)
-    else
-      find_project_executable_unix(project, name)
-    end
-  end
-
-  defp configured_executable_path("elixir") do
-    Configuration.get().elixir_executable_path
-  end
-
-  defp configured_executable_path("erl") do
-    Configuration.get().erlang_executable_path
-  end
-
-  defp configured_executable_path(_name) do
-    nil
-  end
-
-  defp project_environment(%Project{} = project) do
-    project
-    |> project_path()
-    |> sanitized_system_env()
-  end
+  @path_marker "__EXPERT_PATH__"
 
   # These variables are interpreted by release, Elixir, or Erlang launchers and
   # must not leak from Expert's own runtime into project runtime detection.
@@ -159,233 +37,352 @@ defmodule Expert.Port do
     "MIX_ENV"
   ]
 
-  defp sanitized_system_env(path) do
-    path = prepend_configured_erlang_path(path)
+  @doc """
+  Launches Elixir in a port.
 
-    System.get_env()
-    |> Enum.map(fn
-      {key, _path} when key in ["PATH", "Path"] -> {key, path}
-      {key, _value} when key in @scrubbed_env_vars -> {key, ""}
-      {key, value} -> {key, value}
-    end)
-  end
+  The executable and environment are resolved from the project context by
+  `project_executable/2`.
+  """
+  @spec open_elixir(Project.t(), open_opts()) :: port() | {:error, :no_elixir, String.t()}
+  def open_elixir(%Project{} = project, opts) do
+    case project_executable(project, "elixir") do
+      {:ok, elixir, env} ->
+        opts =
+          opts
+          |> Keyword.put_new_lazy(:cd, fn -> Project.root_path(project) end)
+          |> put_env(env)
 
-  defp prepend_configured_erlang_path(path) do
-    case configured_executable_path("erl") do
-      erl_path when is_binary(erl_path) ->
-        Enum.join([Path.dirname(erl_path), path], path_env_separator())
+        open_executable(elixir, opts)
 
-      _ ->
-        path
+      {:error, _name, reason} ->
+        Logger.error("Failed to find elixir executable for project: #{reason}")
+        {:error, :no_elixir, reason}
     end
   end
 
-  defp path_env_separator do
-    if Forge.OS.windows?(), do: ";", else: ":"
+  @doc """
+  Opens a port for Elixir with a previously resolved executable and environment.
+  """
+  @spec open_elixir_with_env(charlist(), list(), open_opts()) :: port()
+  def open_elixir_with_env(elixir, env, opts) do
+    elixir
+    |> open_executable(put_env(opts, env))
   end
 
-  defp find_project_executable_windows(name) do
+  @doc """
+  Returns the specified executable path and environment for a project.
+
+  Returns `{:ok, executable_path, env}` where:
+
+    * `executable_path` is a charlist path to the specified executable
+    * `env` is a list of `{key, value}` tuples for the environment
+
+  Returns `{:error, name, reason}` if no executable can be found.
+  """
+  @spec project_executable(Project.t(), String.t()) ::
+          {:ok, charlist(), list()} | {:error, String.t(), String.t()}
+  if Mix.env() == :test do
+    # In test mode, the child engine node must use the same Elixir/OTP as the
+    # test runner, because the test build produces BEAM files for that specific
+    # OTP version. Spawning a login shell to detect the project-local executable
+    # can return a different OTP version (e.g. via mise), causing the child to
+    # fail to load the test BEAM files.
+    def project_executable(%Project{} = project, name) do
+      case configured_executable(project, name) do
+        {:ok, _executable, _env} = ok -> ok
+        :error -> fallback_executable(name)
+      end
+    end
+  else
+    def project_executable(%Project{} = project, name) do
+      case configured_executable(project, name) do
+        {:ok, _executable, _env} = ok ->
+          ok
+
+        :error ->
+          project_executable_or_fallback(project, name)
+      end
+    end
+
+    defp project_executable_or_fallback(%Project{} = project, name) do
+      case find_project_executable(project, name) do
+        {:ok, _executable, _env} = ok ->
+          ok
+
+        {:error, ^name, reason} ->
+          Logger.warning(
+            "Failed to find #{name} for project, falling back to packaged elixir: #{reason}"
+          )
+
+          fallback_executable(name)
+      end
+    end
+  end
+
+  @spec find_project_executable(Project.t(), String.t()) ::
+          {:ok, charlist(), list()} | {:error, String.t(), String.t()}
+  def find_project_executable(%Project{} = project, name) do
+    find_project_executable(Forge.OS.os_family(), project, name)
+  end
+
+  defp configured_executable(%Project{} = project, name) do
+    case configured_executable_path(name) do
+      path when is_binary(path) -> {:ok, to_charlist(path), project_environment(project)}
+      nil -> :error
+    end
+  end
+
+  defp configured_executable_path("elixir") do
+    Configuration.get().elixir_executable_path
+  end
+
+  defp configured_executable_path("erl") do
+    Configuration.get().erlang_executable_path
+  end
+
+  defp configured_executable_path(_name) do
+    nil
+  end
+
+  defp fallback_executable(name) do
+    case System.find_executable(name) do
+      nil -> {:error, name, "Couldn't find any #{name} executable"}
+      executable -> {:ok, to_charlist(executable), []}
+    end
+  end
+
+  defp find_project_executable(:windows, %Project{}, name) do
     path = windows_project_path()
 
     case find_windows_executable(name, path) do
-      false ->
-        {:error, name, "Couldn't find an #{name} executable"}
-
-      elixir ->
-        {:ok, elixir, sanitized_system_env(path)}
+      false -> {:error, name, "Couldn't find an #{name} executable"}
+      executable -> {:ok, executable, sanitized_system_env(path)}
     end
   end
 
-  defp windows_project_path do
-    release_root =
-      "RELEASE_ROOT"
-      |> System.get_env()
-      |> case do
-        nil ->
-          nil
+  defp find_project_executable(:unix, %Project{} = project, name) do
+    path = unix_project_path(project)
 
-        release_root ->
-          release_root
-          |> String.downcase()
-          |> String.replace("/", "\\")
-      end
-
-    "PATH"
-    |> System.get_env("")
-    |> then(fn current_path ->
-      if release_root do
-        current_path
-        |> String.split(";")
-        |> Enum.reject(fn entry ->
-          normalized = entry |> String.downcase() |> String.replace("/", "\\")
-          String.contains?(normalized, release_root)
-        end)
-        |> Enum.join(";")
-      else
-        current_path
-      end
-    end)
+    case :os.find_executable(to_charlist(name), to_charlist(path)) do
+      false -> {:error, name, executable_not_found_message(project, name, path)}
+      executable -> {:ok, executable, sanitized_system_env(path)}
+    end
   end
 
   defp find_windows_executable(name, path) do
-    cmd = "#{name}.cmd"
-    bat = "#{name}.bat"
+    path = to_charlist(path)
 
-    with false <- :os.find_executable(to_charlist(cmd), to_charlist(path)),
-         false <- :os.find_executable(to_charlist(name), to_charlist(path)) do
-      :os.find_executable(to_charlist(bat), to_charlist(path))
+    with false <- :os.find_executable(to_charlist("#{name}.cmd"), path),
+         false <- :os.find_executable(to_charlist(name), path) do
+      :os.find_executable(to_charlist("#{name}.bat"), path)
     end
   end
 
-  defp find_project_executable_unix(%Project{} = project, name) do
+  defp executable_not_found_message(%Project{} = project, name, path) do
     root_path = Project.root_path(project)
-    shell_env = System.get_env("SHELL")
-    path = project_path(project)
 
-    case :os.find_executable(to_charlist(name), to_charlist(path)) do
-      false ->
-        if shell_env do
-          {:error, name,
-           "Couldn't find an #{name} executable for project at #{root_path}. Using shell at #{shell_env} with PATH=#{path}"}
-        else
-          {:error, name,
-           "Couldn't find an #{name} executable for project at #{root_path}. Using PATH=#{path}"}
-        end
+    case System.get_env("SHELL") do
+      nil ->
+        "Couldn't find an #{name} executable for project at #{root_path}. Using PATH=#{path}"
 
-      elixir ->
-        env = sanitized_system_env(path)
+      shell ->
+        "Couldn't find an #{name} executable for project at #{root_path}. Using shell at #{shell} with PATH=#{path}"
+    end
+  end
 
-        {:ok, elixir, env}
+  defp project_environment(%Project{} = project) do
+    project
+    |> project_path()
+    |> sanitized_system_env()
+  end
+
+  defp project_path(%Project{} = project) do
+    project_path(Forge.OS.os_family(), project)
+  end
+
+  defp project_path(:windows, %Project{}) do
+    windows_project_path()
+  end
+
+  defp project_path(:unix, %Project{} = project) do
+    unix_project_path(project)
+  end
+
+  defp windows_project_path do
+    "PATH"
+    |> System.get_env("")
+    |> remove_windows_release_root(System.get_env("RELEASE_ROOT"))
+  end
+
+  defp remove_windows_release_root(path, nil) do
+    path
+  end
+
+  defp remove_windows_release_root(path, release_root) do
+    release_root = normalize_windows_path(release_root)
+
+    path
+    |> String.split(";")
+    |> Enum.reject(fn entry ->
+      entry
+      |> normalize_windows_path()
+      |> String.contains?(release_root)
+    end)
+    |> Enum.join(";")
+  end
+
+  defp normalize_windows_path(path) do
+    path
+    |> String.downcase()
+    |> String.replace("/", "\\")
+  end
+
+  defp unix_project_path(%Project{} = project) do
+    shell = System.get_env("SHELL")
+
+    if shell_available?(shell) do
+      shell_project_path(project, shell)
+    else
+      system_path_without_release_root()
     end
   end
 
   defp shell_available?(shell) do
-    shell != nil and File.exists?(shell)
+    is_binary(shell) and File.exists?(shell)
   end
 
-  defp project_path(%Project{} = project) do
-    if Forge.OS.windows?() do
-      windows_project_path()
-    else
-      unix_project_path(project)
+  defp shell_project_path(%Project{} = project, shell) do
+    case path_env_at_directory(Project.root_path(project), shell) do
+      {:ok, path} -> path
+      {:error, :timeout} -> system_path_without_release_root()
     end
   end
 
-  defp unix_project_path(%Project{} = project) do
-    root_path = Project.root_path(project)
-    shell_env = System.get_env("SHELL")
-
-    if shell_available?(shell_env) do
-      case path_env_at_directory(root_path, shell_env) do
-        {:ok, path} -> path
-        {:error, :timeout} -> filter_release_root_from_path()
-      end
-    else
-      filter_release_root_from_path()
-    end
+  defp system_path_without_release_root do
+    "PATH"
+    |> System.get_env(@default_unix_path)
+    |> remove_unix_release_root(System.get_env("RELEASE_ROOT"))
   end
 
-  defp filter_release_root_from_path do
-    current_path = System.get_env("PATH", @default_unix_path)
-    release_root = System.get_env("RELEASE_ROOT")
+  defp remove_unix_release_root(path, nil) do
+    path
+  end
 
-    if release_root do
-      current_path
-      |> String.split(":")
-      |> Enum.reject(fn entry ->
-        String.starts_with?(entry, release_root)
-      end)
-      |> Enum.join(":")
-    else
-      current_path
-    end
+  defp remove_unix_release_root(path, release_root) do
+    path
+    |> String.split(":")
+    |> Enum.reject(&String.starts_with?(&1, release_root))
+    |> Enum.join(":")
   end
 
   defp path_env_at_directory(directory, shell) do
     env = [
+      {"EXPERT_PROJECT_ROOT", directory},
       {"SHELL_SESSIONS_DISABLE", "1"},
       {"PATH", System.get_env("PATH", @default_unix_path)}
     ]
 
-    args = path_fetch_cmd_args(shell, directory)
-
-    maybe_cmd_output =
-      case cmd_with_timeout(shell, args, env, 1_000) do
-        {:ok, result} ->
-          {:ok, result}
-
-        {:error, :timeout} ->
-          if Enum.member?(args, "-i") do
-            # If the command contained the -i flag, try again without it.
-            # Some users have exec calls or blocking prompts in their .bashrc,
-            # so we would hang here without the timeout
-            args = Enum.reject(args, &(&1 == "-i"))
-            cmd_with_timeout(shell, args, env, 1_000)
-          else
-            {:error, :timeout}
-          end
-      end
-
-    case maybe_cmd_output do
-      {:ok, {output, exit_code}} ->
-        case Regex.run(~r/#{@path_marker}:(.*?):#{@path_marker}/s, output) do
-          [_, clean_path] when exit_code == 0 ->
-            {:ok, clean_path}
-
-          _ ->
-            {:ok, output |> String.trim() |> String.split("\n") |> List.last()}
-        end
-
-      {:error, :timeout} ->
-        {:error, :timeout}
-    end
+    shell
+    |> path_fetch_cmd_args()
+    |> run_path_fetch_command(shell, env)
   end
 
-  defp path_fetch_cmd_args(shell, directory) do
+  defp path_fetch_cmd_args(shell) do
     case Path.basename(shell) do
       "fish" ->
         cmd =
-          "cd #{directory}; printf \"#{@path_marker}:%s:#{@path_marker}\" (string join ':' $PATH)"
+          "cd \"$EXPERT_PROJECT_ROOT\"; printf \"#{@path_marker}:%s:#{@path_marker}\" (string join ':' $PATH)"
 
         ["-l", "-c", cmd]
 
       "nu" ->
         cmd =
-          "cd #{directory}; print $\"#{@path_marker}:($env.PATH | str join \":\"):#{@path_marker}\""
+          "cd $env.EXPERT_PROJECT_ROOT; print $\"#{@path_marker}:($env.PATH | str join \":\"):#{@path_marker}\""
 
         ["-l", "-c", cmd]
 
       _ ->
-        cmd = "cd #{directory} && printf \"#{@path_marker}:%s:#{@path_marker}\" \"$PATH\""
+        cmd =
+          "cd \"$EXPERT_PROJECT_ROOT\" && printf \"#{@path_marker}:%s:#{@path_marker}\" \"$PATH\""
+
         ["-i", "-l", "-c", cmd]
     end
+  end
+
+  defp run_path_fetch_command(args, shell, env) do
+    case cmd_with_timeout(shell, args, env, 1_000) do
+      {:ok, {output, exit_code}} ->
+        {:ok, path_from_output(output, exit_code)}
+
+      {:error, :timeout} ->
+        if "-i" in args do
+          args
+          |> List.delete("-i")
+          |> run_path_fetch_command(shell, env)
+        else
+          {:error, :timeout}
+        end
+    end
+  end
+
+  defp path_from_output(output, 0) do
+    case Regex.run(~r/#{@path_marker}:(.*?):#{@path_marker}/s, output) do
+      [_, path] -> path
+      nil -> last_output_line(output)
+    end
+  end
+
+  defp path_from_output(output, _exit_code) do
+    last_output_line(output)
+  end
+
+  defp last_output_line(output) do
+    output
+    |> String.trim()
+    |> String.split("\n")
+    |> List.last()
   end
 
   defp cmd_with_timeout(shell, args, env, timeout) do
     task = Task.async(fn -> System.cmd(shell, args, env: env) end)
 
     case Task.yield(task, timeout) || Task.shutdown(task) do
-      {:ok, result} ->
-        {:ok, result}
-
-      _ ->
-        {:error, :timeout}
+      {:ok, result} -> {:ok, result}
+      _ -> {:error, :timeout}
     end
   end
 
-  defp fallback_executable(name) do
-    case System.find_executable(name) do
-      nil ->
-        {:error, name, "Couldn't find any #{name} executable"}
+  defp sanitized_system_env(path) do
+    path = prepend_configured_erlang_path(path)
 
-      elixir ->
-        {:ok, to_charlist(elixir), []}
+    System.get_env()
+    |> Enum.map(&sanitize_system_env_var(&1, path))
+  end
+
+  defp sanitize_system_env_var({key, _value}, path) when key in ["PATH", "Path"] do
+    {key, path}
+  end
+
+  defp sanitize_system_env_var({key, _value}, _path) when key in @scrubbed_env_vars do
+    {key, ""}
+  end
+
+  defp sanitize_system_env_var({key, value}, _path) do
+    {key, value}
+  end
+
+  defp prepend_configured_erlang_path(path) do
+    case configured_executable_path("erl") do
+      erl_path when is_binary(erl_path) -> Path.dirname(erl_path) <> path_env_separator() <> path
+      nil -> path
     end
+  end
+
+  defp put_env(opts, env) do
+    Keyword.update(opts, :env, env, fn old_env -> env ++ old_env end)
   end
 
   defp open_executable(executable, opts) do
-    {os_type, _} = Forge.OS.type()
-
     opts =
       if Keyword.has_key?(opts, :env) do
         Keyword.update!(opts, :env, &ensure_charlists/1)
@@ -393,38 +390,48 @@ defmodule Expert.Port do
         opts
       end
 
-    open_port(os_type, executable, opts)
+    open_port(Forge.OS.os_type(), executable, opts)
   end
 
   defp open_port(:win32, executable, opts) do
-    executable_str = to_string(executable)
-
-    {launcher, opts} =
-      if String.ends_with?(executable_str, ".cmd") or String.ends_with?(executable_str, ".bat") do
-        cmd_exe = "cmd" |> System.find_executable() |> to_charlist()
-
-        opts =
-          Keyword.update(opts, :args, ["/c", "call", executable_str], fn args ->
-            ["/c", "call", executable_str | args]
-          end)
-
-        {cmd_exe, [:hide | opts]}
-      else
-        {executable, opts}
-      end
-
-    Port.open({:spawn_executable, launcher}, [:binary, :stderr_to_stdout, :exit_status | opts])
+    if windows_batch_file?(executable) do
+      open_windows_batch_file(executable, opts)
+    else
+      do_open_port(executable, opts)
+    end
   end
 
   defp open_port(:unix, executable, opts) do
-    launcher = port_wrapper_path()
-
     opts =
-      Keyword.update(opts, :args, [executable], fn old_args ->
-        [executable | Enum.map(old_args, &to_string/1)]
+      Keyword.update(opts, :args, [executable], fn args ->
+        [executable | Enum.map(args, &to_string/1)]
       end)
 
-    Port.open({:spawn_executable, launcher}, [:binary, :stderr_to_stdout, :exit_status | opts])
+    port_wrapper_path()
+    |> do_open_port(opts)
+  end
+
+  defp windows_batch_file?(executable) do
+    executable
+    |> to_string()
+    |> String.ends_with?([".cmd", ".bat"])
+  end
+
+  defp open_windows_batch_file(executable, opts) do
+    executable = to_string(executable)
+    launcher = "cmd" |> System.find_executable() |> to_charlist()
+
+    opts =
+      opts
+      |> Keyword.update(:args, ["/c", "call", executable], fn args ->
+        ["/c", "call", executable | args]
+      end)
+
+    do_open_port(launcher, [:hide | opts])
+  end
+
+  defp do_open_port(executable, opts) do
+    Port.open({:spawn_executable, executable}, [:binary, :stderr_to_stdout, :exit_status | opts])
   end
 
   defp port_wrapper_path do
@@ -437,12 +444,13 @@ defmodule Expert.Port do
     |> to_string()
   end
 
-  defp ensure_charlists(environment_variables) do
-    Enum.map(environment_variables, fn {key, value} ->
-      # using to_string ensures nil values won't blow things up
-      erl_key = key |> to_string() |> String.to_charlist()
-      erl_value = value |> to_string() |> String.to_charlist()
-      {erl_key, erl_value}
+  defp ensure_charlists(env) do
+    Enum.map(env, fn {key, value} ->
+      {key |> to_string() |> String.to_charlist(), value |> to_string() |> String.to_charlist()}
     end)
+  end
+
+  defp path_env_separator do
+    if Forge.OS.os_family() == :windows, do: ";", else: ":"
   end
 end
