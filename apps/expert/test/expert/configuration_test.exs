@@ -295,6 +295,16 @@ defmodule Expert.ConfigurationTest do
 
       assert updated.workspace_symbols.min_query_length == 3
     end
+
+    test "preserves previous value when workspaceSymbols is missing" do
+      change = build_change(%{"workspaceSymbols" => %{"minQueryLength" => 0}})
+      {:ok, _updated} = Configuration.on_change(change)
+
+      change = build_change(%{"fileLogLevel" => "error"})
+      {:ok, updated} = Configuration.on_change(change)
+
+      assert updated.workspace_symbols.min_query_length == 0
+    end
   end
 
   describe "on_change/1 with elixirSourcePath" do

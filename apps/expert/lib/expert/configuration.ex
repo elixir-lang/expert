@@ -13,6 +13,53 @@ defmodule Expert.Configuration do
   @default_lsp_log_level :info
   @default_file_log_level :debug
 
+  @lsp_log_levels %{
+    "error" => :error,
+    "warning" => :warning,
+    "info" => :info,
+    "log" => :log
+  }
+
+  @file_log_levels %{
+    "debug" => :debug,
+    "info" => :info,
+    "warning" => :warning,
+    "error" => :error
+  }
+
+  @settings %{
+    log_level: %{
+      key: "logLevel",
+      parser: {:enum, @lsp_log_levels, @default_lsp_log_level},
+      missing: :default
+    },
+    file_log_level: %{
+      key: "fileLogLevel",
+      parser: {:enum, @file_log_levels, @default_file_log_level},
+      missing: :preserve
+    },
+    elixir_source_path: %{
+      key: "elixirSourcePath",
+      parser: {:string, nil},
+      missing: :preserve
+    },
+    elixir_executable_path: %{
+      key: "elixirExecutablePath",
+      parser: {:string, nil},
+      missing: :preserve
+    },
+    erlang_executable_path: %{
+      key: "erlangExecutablePath",
+      parser: {:string, nil},
+      missing: :preserve
+    },
+    workspace_symbols: %{
+      key: "workspaceSymbols",
+      parser: :workspace_symbols,
+      missing: :preserve
+    }
+  }
+
   @type lsp_level :: :error | :warning | :info | :log
   @type file_level :: :debug | :info | :warning | :error
 
@@ -120,12 +167,7 @@ defmodule Expert.Configuration do
   defp apply_config_change(%__MODULE__{} = old_config, %{} = settings) do
     new_config =
       old_config
-      |> set_lsp_log_level(settings)
-      |> set_file_log_level(settings)
-      |> set_workspace_symbols(settings)
-      |> set_elixir_source_path(settings)
-      |> set_elixir_executable_path(settings)
-      |> set_erlang_executable_path(settings)
+      |> apply_settings(settings)
       |> set()
 
     apply_file_log_level(new_config)
@@ -136,30 +178,6 @@ defmodule Expert.Configuration do
     {:ok, old_config}
   end
 
-  defp set_lsp_log_level(%__MODULE__{} = config, settings) do
-    %__MODULE__{config | log_level: parse_lsp_log_level(settings)}
-  end
-
-  defp parse_lsp_log_level(%{"logLevel" => "error"}), do: :error
-  defp parse_lsp_log_level(%{"logLevel" => "warning"}), do: :warning
-  defp parse_lsp_log_level(%{"logLevel" => "info"}), do: :info
-  defp parse_lsp_log_level(%{"logLevel" => "log"}), do: :log
-  defp parse_lsp_log_level(_), do: @default_lsp_log_level
-
-  defp set_file_log_level(%__MODULE__{} = config, %{"fileLogLevel" => value}) do
-    %__MODULE__{config | file_log_level: parse_file_log_level(value)}
-  end
-
-  defp set_file_log_level(%__MODULE__{} = config, _settings) do
-    config
-  end
-
-  defp parse_file_log_level("debug"), do: :debug
-  defp parse_file_log_level("info"), do: :info
-  defp parse_file_log_level("warning"), do: :warning
-  defp parse_file_log_level("error"), do: :error
-  defp parse_file_log_level(_), do: @default_file_log_level
-
   defp apply_file_log_level(%__MODULE__{file_log_level: level}) do
     handler_name = Expert.Logging.ProjectLogFile.handler_name()
 
@@ -169,47 +187,52 @@ defmodule Expert.Configuration do
     end
   end
 
-  defp set_elixir_source_path(%__MODULE__{} = config, %{"elixirSourcePath" => value})
-       when is_binary(value) do
-    %__MODULE__{config | elixir_source_path: value}
+  defp apply_settings(%__MODULE__{} = config, settings) do
+    Enum.reduce(@settings, config, fn {field, setting}, config ->
+      apply_setting(config, settings, field, setting)
+    end)
   end
 
-  defp set_elixir_source_path(%__MODULE__{} = config, %{"elixirSourcePath" => _}) do
-    %__MODULE__{config | elixir_source_path: nil}
+  defp apply_setting(%__MODULE__{} = config, settings, field, %{
+         key: key,
+         parser: parser,
+         missing: on_missing
+       }) do
+    case Map.fetch(settings, key) do
+      {:ok, value} -> put_setting(config, field, parse_setting(value, parser))
+      :error -> apply_missing_setting(config, field, parser, on_missing)
+    end
   end
 
-  defp set_elixir_source_path(%__MODULE__{} = config, _settings) do
+  defp apply_missing_setting(%__MODULE__{} = config, field, parser, :default) do
+    put_setting(config, field, default_setting(parser))
+  end
+
+  defp apply_missing_setting(%__MODULE__{} = config, _field, _parser, :preserve) do
     config
   end
 
-  defp set_elixir_executable_path(%__MODULE__{} = config, %{"elixirExecutablePath" => value})
-       when is_binary(value) do
-    %__MODULE__{config | elixir_executable_path: value}
+  defp parse_setting(value, {:enum, values, default}) do
+    Map.get(values, value, default)
   end
 
-  defp set_elixir_executable_path(%__MODULE__{} = config, %{"elixirExecutablePath" => _}) do
-    %__MODULE__{config | elixir_executable_path: nil}
+  defp parse_setting(value, {:string, _default}) when is_binary(value) do
+    value
   end
 
-  defp set_elixir_executable_path(%__MODULE__{} = config, _settings) do
-    config
+  defp parse_setting(_value, {:string, default}) do
+    default
   end
 
-  defp set_erlang_executable_path(%__MODULE__{} = config, %{"erlangExecutablePath" => value})
-       when is_binary(value) do
-    %__MODULE__{config | erlang_executable_path: value}
+  defp parse_setting(settings, :workspace_symbols) do
+    WorkspaceSymbols.new(%{"workspaceSymbols" => settings})
   end
 
-  defp set_erlang_executable_path(%__MODULE__{} = config, %{"erlangExecutablePath" => _}) do
-    %__MODULE__{config | erlang_executable_path: nil}
-  end
+  defp default_setting({:enum, _values, default}), do: default
+  defp default_setting({:string, default}), do: default
 
-  defp set_erlang_executable_path(%__MODULE__{} = config, _settings) do
-    config
-  end
-
-  defp set_workspace_symbols(%__MODULE__{} = config, settings) do
-    %__MODULE__{config | workspace_symbols: WorkspaceSymbols.new(settings)}
+  defp put_setting(%__MODULE__{} = config, field, value) do
+    struct!(config, [{field, value}])
   end
 
   defp maybe_watched_extensions_request(
