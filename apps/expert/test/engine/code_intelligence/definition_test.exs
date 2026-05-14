@@ -11,6 +11,9 @@ defmodule Expert.Engine.CodeIntelligence.DefinitionTest do
   alias Expert.EngineApi
   alias Expert.EngineNode
   alias Expert.EngineSupervisor
+  alias Expert.Project.Indexer
+  alias Expert.Search.Store
+  alias Expert.Search.Store.Backends.Ets
   alias Forge.Document
 
   @project_compile_timeout :timer.seconds(15)
@@ -55,6 +58,11 @@ defmodule Expert.Engine.CodeIntelligence.DefinitionTest do
     start_supervised!({Document.Store, derive: [analysis: &Forge.Ast.analyze/1]})
     {:ok, _} = start_supervised({EngineSupervisor, project})
     {:ok, _, _} = EngineNode.start(project)
+    start_supervised!({Ets, project})
+
+    start_supervised!({Store, [project, Ets]})
+    start_supervised!({Task.Supervisor, name: Indexer.task_supervisor_name(project)})
+    start_supervised!({Indexer, project})
 
     EngineApi.register_listener(project, self(), [:all])
     EngineApi.schedule_compile(project, true)

@@ -47,7 +47,13 @@ defmodule Engine.Search.Indexer.Extractors.FunctionDefinition do
            fetch_delegated_mfa(node, reducer.analysis, detail_range.start) do
       {delegate_name, args} = Macro.decompose_call(call)
       arity = length(args)
-      metadata = %{original_mfa: Subject.mfa(delegated_module, delegated_name, arity)}
+
+      metadata = %{
+        original_arity: arity,
+        original_function: delegated_name,
+        original_mfa: Subject.mfa(delegated_module, delegated_name, arity),
+        original_module: delegated_module
+      }
 
       entries =
         for a <- (arity - count_defaults(extract_args(call)))..arity do

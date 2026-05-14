@@ -1,13 +1,13 @@
-defmodule Engine.Search.Store.Backends.Ets.Wal do
+defmodule Expert.Search.Store.Backends.Ets.Wal do
   @moduledoc """
-  A (hopefully) simple write-ahead log
+  Write-ahead log for the manager-owned ETS search backend.
   """
+
   import Record
 
-  alias Engine.Progress
+  alias Expert.Progress
   alias Forge.Identifier
   alias Forge.Project
-  alias Forge.VM.Versions
 
   defrecord :operation, id: nil, function: nil, args: nil
 
@@ -16,6 +16,7 @@ defmodule Engine.Search.Store.Backends.Ets.Wal do
     :ets_table,
     :max_wal_operations,
     :project,
+    :runtime_versions,
     :schema_version,
     :update_log,
     :update_log_name
@@ -64,11 +65,13 @@ defmodule Engine.Search.Store.Backends.Ets.Wal do
 
   def load(%Project{} = project, schema_version, ets_table, options \\ []) do
     max_wal_operations = Keyword.get(options, :max_wal_operations, @default_max_operations)
+    runtime_versions = Keyword.fetch!(options, :runtime_versions)
 
     wal = %__MODULE__{
       ets_table: ets_table,
       max_wal_operations: max_wal_operations,
       project: project,
+      runtime_versions: runtime_versions,
       schema_version: to_string(schema_version)
     }
 
@@ -81,13 +84,11 @@ defmodule Engine.Search.Store.Backends.Ets.Wal do
     end
   end
 
-  def exists?(%__MODULE__{} = wal) do
-    exists?(wal.project, wal.schema_version)
-  end
+  def exists?(%__MODULE__{} = wal),
+    do: exists?(wal.project, wal.schema_version, wal.runtime_versions)
 
-  def exists?(%Project{} = project, schema_version) do
-    case File.ls(wal_directory(project, schema_version)) do
-      {:ok, [_]} -> true
+  def exists?(%Project{} = project, schema_version, runtime_versions) do
+    case File.ls(wal_directory(project, schema_version, runtime_versions)) do
       {:ok, [_ | _]} -> true
       _ -> false
     end
@@ -95,11 +96,8 @@ defmodule Engine.Search.Store.Backends.Ets.Wal do
 
   def append(%__MODULE__{} = wal, operations) do
     case :disk_log.log_terms(wal.update_log, operations) do
-      :ok ->
-        maybe_checkpoint(wal)
-
-      error ->
-        error
+      :ok -> maybe_checkpoint(wal)
+      error -> error
     end
   end
 
@@ -114,18 +112,16 @@ defmodule Engine.Search.Store.Backends.Ets.Wal do
     end
   end
 
-  def truncate(%__MODULE__{} = wal) do
-    :disk_log.truncate(wal.update_log)
-  end
+  def truncate(%__MODULE__{} = wal), do: :disk_log.truncate(wal.update_log)
 
   def destroy(%__MODULE__{} = wal) do
     close(wal)
-    destroy(wal.project, wal.schema_version)
+    destroy(wal.project, wal.schema_version, wal.runtime_versions)
   end
 
-  def destroy(%Project{} = project, schema_version) do
+  def destroy(%Project{} = project, schema_version, runtime_versions) do
     project
-    |> wal_directory(schema_version)
+    |> wal_directory(schema_version, runtime_versions)
     |> File.rm_rf!()
   end
 
@@ -137,33 +133,23 @@ defmodule Engine.Search.Store.Backends.Ets.Wal do
 
   def checkpoint(%__MODULE__{} = wal) do
     case :ets.info(wal.ets_table) do
-      :undefined ->
-        {:error, :no_table}
-
-      _ ->
-        do_checkpoint(wal)
+      :undefined -> {:error, :no_table}
+      _ -> do_checkpoint(wal)
     end
   end
 
-  def size(%__MODULE__{update_log: nil}) do
-    {:error, :not_loaded}
-  end
+  def size(%__MODULE__{update_log: nil}), do: {:error, :not_loaded}
 
   def size(%__MODULE__{update_log: update_log}) do
     with info when is_list(info) <- :disk_log.info(update_log),
          {:ok, size} <- Keyword.fetch(info, :items) do
       {:ok, size}
     else
-      _ ->
-        {:error, :not_loaded}
+      _ -> {:error, :not_loaded}
     end
   end
 
-  def root_path(%Project{} = project) do
-    Project.workspace_path(project, ["indexes", "ets"])
-  end
-
-  # Private
+  def root_path(%Project{} = project), do: Project.workspace_path(project, ["indexes", "ets"])
 
   defp collect_ets_writes({{:., _, [:ets, function_name]}, _, args}, acc)
        when function_name in @write_functions do
@@ -183,12 +169,16 @@ defmodule Engine.Search.Store.Backends.Ets.Wal do
   end
 
   defp wal_directory(%__MODULE__{} = wal) do
-    wal_directory(wal.project, wal.schema_version)
+    wal_directory(wal.project, wal.schema_version, wal.runtime_versions)
   end
 
-  defp wal_directory(%Project{} = project, schema_version) do
-    versions = Versions.current()
-    Path.join([root_path(project), versions.erlang, versions.elixir, to_string(schema_version)])
+  defp wal_directory(%Project{} = project, schema_version, runtime_versions) do
+    Path.join([
+      root_path(project),
+      runtime_versions.erlang,
+      runtime_versions.elixir,
+      to_string(schema_version)
+    ])
   end
 
   defp open_update_wal(%__MODULE__{} = wal, checkpoint_version) do
@@ -197,24 +187,22 @@ defmodule Engine.Search.Store.Backends.Ets.Wal do
 
     case :disk_log.open(name: wal_name, file: String.to_charlist(wal_path)) do
       {:ok, log} ->
-        new_wal = %__MODULE__{
-          wal
-          | update_log: log,
-            update_log_name: wal_name,
-            checkpoint_version: checkpoint_version
-        }
-
-        {:ok, new_wal}
+        {:ok,
+         %{
+           wal
+           | update_log: log,
+             update_log_name: wal_name,
+             checkpoint_version: checkpoint_version
+         }}
 
       {:repaired, log, {:recovered, _}, _bad} ->
-        new_wal = %__MODULE__{
-          wal
-          | update_log: log,
-            update_log_name: wal_name,
-            checkpoint_version: checkpoint_version
-        }
-
-        {:ok, new_wal}
+        {:ok,
+         %{
+           wal
+           | update_log: log,
+             update_log_name: wal_name,
+             checkpoint_version: checkpoint_version
+         }}
 
       error ->
         error
@@ -222,13 +210,12 @@ defmodule Engine.Search.Store.Backends.Ets.Wal do
   end
 
   defp update_wal_name(%__MODULE__{} = wal) do
-    :"updates_for_#{Project.name(wal.project)}_v#{wal.schema_version}"
+    wal.project
+    |> Project.unique_name()
+    |> then(fn name -> :"updates_for_#{name}_v#{wal.schema_version}" end)
   end
 
-  # Updates
-  defp apply_updates(%__MODULE__{} = wal) do
-    stream_updates(wal, wal.update_log, :start)
-  end
+  defp apply_updates(%__MODULE__{} = wal), do: stream_updates(wal, wal.update_log, :start)
 
   defp stream_updates(%__MODULE__{} = wal, log, continuation) do
     case :disk_log.chunk(log, continuation, @chunk_size) do
@@ -254,27 +241,28 @@ defmodule Engine.Search.Store.Backends.Ets.Wal do
     items
     |> Stream.filter(fn operation(id: id) -> id >= checkpoint_version end)
     |> Enum.each(fn operation(function: function, args: args) ->
-      apply(:ets, function, args)
+      apply(:ets, function, remap_table_arg(wal, args))
     end)
   end
 
+  defp remap_table_arg(%__MODULE__{} = wal, [_old_table | args]), do: [wal.ets_table | args]
+  defp remap_table_arg(%__MODULE__{}, args), do: args
+
   defp get_wal_operations(%__MODULE__{} = wal) do
-    stats = :disk_log.info(wal.update_log)
-    Keyword.get(stats, :items, 0)
+    wal.update_log
+    |> :disk_log.info()
+    |> Keyword.get(:items, 0)
   end
 
-  # Checkpoints
-  defp needs_checkpoint?(%__MODULE__{} = wal) do
-    get_wal_operations(wal) >= wal.max_wal_operations
-  end
+  defp needs_checkpoint?(%__MODULE__{} = wal),
+    do: get_wal_operations(wal) >= wal.max_wal_operations
 
   defp maybe_checkpoint(%__MODULE__{} = wal) do
     with true <- needs_checkpoint?(wal),
          {:ok, new_wal} <- checkpoint(wal) do
       {:ok, new_wal}
     else
-      _ ->
-        {:ok, wal}
+      _ -> {:ok, wal}
     end
   end
 
@@ -294,7 +282,6 @@ defmodule Engine.Search.Store.Backends.Ets.Wal do
       {:ok, new_wal}
     else
       error ->
-        # Checkpoint loading failed. Give up and start over
         delete_old_checkpoints(wal)
         error
     end
@@ -320,9 +307,7 @@ defmodule Engine.Search.Store.Backends.Ets.Wal do
          :ok <- load_checkpoint(wal, checkpoint_file) do
       {:ok, checkpoint_version}
     else
-      _ ->
-        # There's no checkpoint, or our checkpoint is invalid. Start from scratch.
-        {:ok, @no_checkpoint_id}
+      _ -> {:ok, @no_checkpoint_id}
     end
   end
 
@@ -330,14 +315,9 @@ defmodule Engine.Search.Store.Backends.Ets.Wal do
     log_name = checkpoint_log_name(wal.project)
 
     case :disk_log.open(name: log_name, file: String.to_charlist(checkpoint_file)) do
-      {:ok, log} ->
-        stream_checkpoint_with_progress(wal, log)
-
-      {:repaired, log, _recovered, _bad_bytes} ->
-        stream_checkpoint_with_progress(wal, log)
-
-      error ->
-        error
+      {:ok, log} -> stream_checkpoint_with_progress(wal, log)
+      {:repaired, log, _recovered, _bad_bytes} -> stream_checkpoint_with_progress(wal, log)
+      error -> error
     end
   end
 
@@ -365,7 +345,9 @@ defmodule Engine.Search.Store.Backends.Ets.Wal do
   end
 
   defp checkpoint_log_name(%Project{} = project) do
-    :"checkpoint_log_#{Project.name(project)}"
+    project
+    |> Project.unique_name()
+    |> then(fn name -> :"checkpoint_log_#{name}" end)
   end
 
   defp stream_checkpoint_with_progress(%__MODULE__{} = wal, log) do
@@ -403,11 +385,8 @@ defmodule Engine.Search.Store.Backends.Ets.Wal do
       |> Enum.sort(:desc)
 
     case checkpoints do
-      [checkpoint | _] ->
-        {:ok, checkpoint}
-
-      _ ->
-        {:error, :no_checkpoint}
+      [checkpoint | _] -> {:ok, checkpoint}
+      _ -> {:error, :no_checkpoint}
     end
   end
 
@@ -418,8 +397,7 @@ defmodule Engine.Search.Store.Backends.Ets.Wal do
          {id, ""} <- Integer.parse(id_string, 10) do
       {:ok, id}
     else
-      _ ->
-        :error
+      _ -> :error
     end
   end
 

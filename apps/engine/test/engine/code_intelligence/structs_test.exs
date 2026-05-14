@@ -3,7 +3,7 @@ defmodule Engine.CodeIntelligence.StructsTest do
   use Patch
 
   alias Engine.CodeIntelligence.Structs
-  alias Engine.Search.Store
+  alias Engine.ManagerApi
   alias Forge.Project
   alias Forge.Search.Indexer.Entry
 
@@ -12,7 +12,11 @@ defmodule Engine.CodeIntelligence.StructsTest do
 
     patch(Engine, :get_project, fn -> %Project{kind: :bare} end)
 
-    patch(Store, :exact, fn [type: :struct, subtype: :definition] ->
+    patch(ManagerApi, :search_store_exact, fn %Project{kind: :bare},
+                                              [
+                                                type: :struct,
+                                                subtype: :definition
+                                              ] ->
       {:ok, [%Entry{subject: struct_module}]}
     end)
 

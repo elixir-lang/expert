@@ -3,13 +3,15 @@ defmodule Expert.Provider.Handlers.WorkspaceSymbol do
 
   alias Expert.Configuration
   alias Expert.Configuration.WorkspaceSymbols
-  alias Expert.EngineApi
   alias Expert.Project.Store
+  alias Expert.Search.Store, as: SearchStore
   alias Forge.CodeIntelligence.Symbols
   alias Forge.Project
   alias GenLSP.Enumerations.SymbolKind
   alias GenLSP.Requests
   alias GenLSP.Structures
+
+  require Logger
 
   @impl Expert.Provider.Handler
   def handle(
@@ -41,9 +43,34 @@ defmodule Expert.Provider.Handlers.WorkspaceSymbol do
            params: %Structures.WorkspaceSymbolParams{} = params
          }
        ) do
-    project
-    |> EngineApi.workspace_symbols(params.query)
-    |> Enum.map(&to_lsp_symbol/1)
+    case query_symbols(project, params.query) do
+      {:ok, entries} ->
+        entries
+        |> Enum.map(&Symbols.Workspace.from_entry/1)
+        |> Enum.map(&to_lsp_symbol/1)
+
+      {:error, :loading} ->
+        []
+
+      {:error, reason} ->
+        Logger.warning("Could not query workspace symbols: #{inspect(reason)}")
+        []
+
+      [] ->
+        []
+    end
+  catch
+    :exit, reason ->
+      Logger.warning("Could not query workspace symbols: #{inspect(reason)}")
+      []
+  end
+
+  defp query_symbols(%Project{} = project, "") do
+    SearchStore.all(project, subtype: :definition)
+  end
+
+  defp query_symbols(%Project{} = project, query) do
+    SearchStore.fuzzy(project, query, subtype: :definition)
   end
 
   def to_lsp_symbol(%Symbols.Workspace{} = root) do

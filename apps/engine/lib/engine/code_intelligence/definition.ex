@@ -1,7 +1,7 @@
 defmodule Engine.CodeIntelligence.Definition do
   alias ElixirSense.Providers.Location, as: ElixirSenseLocation
   alias Engine.CodeIntelligence.Entity
-  alias Engine.Search.Store
+  alias Engine.ManagerApi
   alias Forge.Ast
   alias Forge.Ast.Analysis
   alias Forge.Document
@@ -27,7 +27,10 @@ defmodule Engine.CodeIntelligence.Definition do
     module = Formats.module(entity)
 
     locations =
-      case Store.exact(module, type: type, subtype: :definition) do
+      case ManagerApi.search_store_exact(Engine.get_project(), module,
+             type: type,
+             subtype: :definition
+           ) do
         {:ok, entries} ->
           for entry <- entries,
               result = to_location(entry),
@@ -173,7 +176,7 @@ defmodule Engine.CodeIntelligence.Definition do
   end
 
   defp query_search_index(subject, condition) do
-    case Store.exact(subject, condition) do
+    case ManagerApi.search_store_exact(Engine.get_project(), subject, condition) do
       {:ok, entries} ->
         entries
 

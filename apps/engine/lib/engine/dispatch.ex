@@ -44,8 +44,8 @@ defmodule Engine.Dispatch do
 
   # bypass via rpc, primarily for progress reporting.
 
-  def erpc_call(module, function, args) do
-    :erpc.call(Engine.get_manager_node(), module, function, args, 1_000)
+  def erpc_call(module, function, args, timeout \\ 1_000) do
+    :erpc.call(Engine.get_manager_node(), module, function, args, timeout)
   end
 
   def erpc_cast(module, function, args) do

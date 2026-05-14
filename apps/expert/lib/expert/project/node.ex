@@ -60,7 +60,7 @@ defmodule Expert.Project.Node do
 
     case result do
       {:ok, state} ->
-        {:ok, state, {:continue, :trigger_build}}
+        {:ok, state}
 
       {:error, {:bootstrap, reason}} ->
         message = bootstrap_error_message(reason)
@@ -69,12 +69,6 @@ defmodule Expert.Project.Node do
       error ->
         {:stop, error}
     end
-  end
-
-  @impl GenServer
-  def handle_continue(:trigger_build, %State{} = state) do
-    EngineApi.schedule_compile(state.project, true)
-    {:noreply, state}
   end
 
   @impl true
@@ -94,6 +88,7 @@ defmodule Expert.Project.Node do
 
     with :ok <- delete_build_artifacts(state.project),
          {:ok, new_state} <- start_node(state.project) do
+      EngineApi.schedule_compile(state.project, true)
       {:noreply, new_state}
     else
       error ->

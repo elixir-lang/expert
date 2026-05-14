@@ -35,7 +35,12 @@ defmodule Engine.CodeIntelligence.SymbolsTest do
       ])
 
     entries = Enum.reject(entries, &(&1.type == :metadata))
-    patch(Engine.Search.Store, :all, {:ok, entries})
+    patch(Engine, :get_project, %Forge.Project{})
+
+    patch(Engine.ManagerApi, :search_store_all, fn _project, [subtype: :definition] ->
+      {:ok, entries}
+    end)
+
     symbols = Symbols.for_workspace("")
     {symbols, doc}
   end

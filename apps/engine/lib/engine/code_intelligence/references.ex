@@ -2,7 +2,7 @@ defmodule Engine.CodeIntelligence.References do
   alias Engine.Analyzer
   alias Engine.CodeIntelligence.Entity
   alias Engine.CodeIntelligence.Variable
-  alias Engine.Search.Store
+  alias Engine.ManagerApi
   alias Engine.Search.Subject
   alias Forge.Ast.Analysis
   alias Forge.Document
@@ -47,7 +47,10 @@ defmodule Engine.CodeIntelligence.References do
     subject = Subject.mfa(module, function_name, "")
     subtype = subtype(include_definitions?)
 
-    case Store.prefix(subject, type: {:function, :_}, subtype: subtype) do
+    case ManagerApi.search_store_prefix(Engine.get_project(), subject,
+           type: {:function, :_},
+           subtype: subtype
+         ) do
       {:ok, entries} -> Enum.map(entries, &to_location/1)
       _ -> []
     end
@@ -93,7 +96,7 @@ defmodule Engine.CodeIntelligence.References do
   end
 
   defp query(subject, opts) do
-    case Store.exact(subject, opts) do
+    case ManagerApi.search_store_exact(Engine.get_project(), subject, opts) do
       {:ok, entries} -> Enum.map(entries, &to_location/1)
       _ -> []
     end

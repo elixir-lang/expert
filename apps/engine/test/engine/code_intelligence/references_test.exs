@@ -1,42 +1,69 @@
 defmodule Engine.CodeIntelligence.ReferencesTest do
   use ExUnit.Case, async: false
+  use Patch
 
   import Forge.Test.CodeSigil
   import Forge.Test.CursorSupport
-  import Forge.Test.EventualAssertions
   import Forge.Test.Fixtures
   import Forge.Test.RangeSupport
 
   alias Engine.CodeIntelligence.References
-  alias Engine.Search
-  alias Engine.Search.Store.Backends
+  alias Engine.Search.Indexer.Source
   alias Forge.Document
   alias Forge.Document.Location
 
   setup do
     project = project()
 
-    Backends.Ets.destroy_all(project)
     Engine.set_project(project)
+    {:ok, store} = Agent.start_link(fn -> [] end)
 
     start_supervised!(Engine.ApplicationCache)
     start_supervised!(Document.Store)
     start_supervised!(Engine.Dispatch)
-    start_supervised!(Backends.Ets)
 
-    start_supervised!(
-      {Search.Store, [project, fn _, _ -> :ok end, fn _, _ -> :ok end, Backends.Ets]}
-    )
+    patch(Engine.ManagerApi, :search_store_replace, fn ^project, entries ->
+      Agent.update(store, fn _ -> entries end)
+      :ok
+    end)
 
-    Search.Store.enable()
-    assert_eventually Search.Store.loaded?(), 1500
+    patch(Engine.ManagerApi, :search_store_exact, fn ^project, subject, constraints ->
+      {:ok, query_entries(store, subject, constraints, :exact)}
+    end)
 
-    on_exit(fn ->
-      Backends.Ets.destroy_all(project)
+    patch(Engine.ManagerApi, :search_store_prefix, fn ^project, subject, constraints ->
+      {:ok, query_entries(store, subject, constraints, :prefix)}
     end)
 
     {:ok, project: project}
   end
+
+  defp query_entries(store, subject, constraints, match_type) do
+    type = Keyword.get(constraints, :type, :_)
+    subtype = Keyword.get(constraints, :subtype, :_)
+    subject = format_subject(subject)
+
+    store
+    |> Agent.get(& &1)
+    |> Enum.filter(fn entry ->
+      matches_constraint?(entry.type, type) and matches_constraint?(entry.subtype, subtype) and
+        matches_subject?(format_subject(entry.subject), subject, match_type)
+    end)
+  end
+
+  defp matches_subject?(entry_subject, subject, :exact), do: entry_subject == subject
+
+  defp matches_subject?(entry_subject, subject, :prefix),
+    do: String.starts_with?(entry_subject, subject)
+
+  defp matches_constraint?(_value, :_), do: true
+  defp matches_constraint?({kind, _}, {kind, :_}), do: true
+  defp matches_constraint?(value, value), do: true
+  defp matches_constraint?(_, _), do: false
+
+  defp format_subject(subject) when is_atom(subject), do: Forge.Formats.module(subject)
+  defp format_subject(subject) when is_binary(subject), do: subject
+  defp format_subject(subject), do: to_string(subject)
 
   defp module_uri(project) do
     project
@@ -127,7 +154,6 @@ defmodule Engine.CodeIntelligence.ReferencesTest do
   end
 
   describe "module references" do
-    # Note: These tests aren't exhaustive, as that is covered by Search.StoreTest.
     test "are found in an alias", %{project: project} do
       code = ~q[
         defmodule ReferencesInAlias do
@@ -330,8 +356,8 @@ defmodule Engine.CodeIntelligence.ReferencesTest do
   defp references(project, referenced, code, include_definitions? \\ false) do
     with {position, referenced} <- pop_cursor(referenced, as: :document),
          {:ok, document} <- project_module(project, code),
-         {:ok, entries} <- Search.Indexer.Source.index(document.path, code),
-         :ok <- Search.Store.replace(entries) do
+         {:ok, entries} <- Source.index(document.path, code),
+         :ok <- Engine.ManagerApi.search_store_replace(project, entries) do
       referenced
       |> Forge.Ast.analyze()
       |> References.references(position, include_definitions?)

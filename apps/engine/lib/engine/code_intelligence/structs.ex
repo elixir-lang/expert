@@ -1,5 +1,5 @@
 defmodule Engine.CodeIntelligence.Structs do
-  alias Engine.Search.Store
+  alias Engine.ManagerApi
   alias Forge.Project
   alias Forge.Search.Indexer.Entry
 
@@ -20,7 +20,7 @@ defmodule Engine.CodeIntelligence.Structs do
   end
 
   defp structs_from_index do
-    case Store.exact(type: :struct, subtype: :definition) do
+    case ManagerApi.search_store_exact(Engine.get_project(), type: :struct, subtype: :definition) do
       {:ok, entries} ->
         for %Entry{subject: struct_module} <- entries do
           struct_module

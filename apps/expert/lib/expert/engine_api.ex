@@ -154,5 +154,9 @@ defmodule Expert.EngineApi do
     call(project, Engine, :workspace_symbols, [query])
   end
 
+  def runtime_versions(%Project{} = project) do
+    call(project, Engine, :runtime_versions, [])
+  end
+
   defdelegate stop(project), to: EngineNode
 end
