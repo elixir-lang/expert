@@ -393,27 +393,31 @@ defmodule Engine.Search.IndexerTest do
   end
 
   describe "update_index/2 with dependency beams" do
-    @tag :tmp_dir
-    test "reindexes known beam siblings when a new beam shares their source", %{tmp_dir: tmp_dir} do
+    test "reindexes beam siblings sharing source" do
+      tmp_dir = Path.join(System.tmp_dir!(), "indexer-#{unique_id()}")
+
+      on_exit(fn -> File.rm_rf!(tmp_dir) end)
+
       parent = Module.concat(BeamDependencyIndexerTest, :SiblingParent)
       child = Module.concat(parent, :Child)
+
+      dep_source = """
+      defmodule #{inspect(parent)} do
+        def parent_fun, do: :ok
+
+        defmodule Child do
+          def child_fun, do: :ok
+        end
+      end
+      """
 
       %{beam_paths: beam_paths, project: project} =
         with_beam_dependency(tmp_dir,
           module: parent,
+          modules: [parent, child],
           expected_modules: [parent, child],
           rewrite_source?: false,
-          dep_source: fn module ->
-            """
-            defmodule #{inspect(module)} do
-              def parent_fun, do: :ok
-
-              defmodule Child do
-                def child_fun, do: :ok
-              end
-            end
-            """
-          end
+          dep_source: dep_source
         )
 
       parent_beam_path =

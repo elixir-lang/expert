@@ -7,8 +7,7 @@ defmodule Expert.Search.StoreTest do
   import Forge.Test.Fixtures
 
   alias Expert.Search.Store
-  alias Expert.Search.Store.Backends.Ets
-  alias Expert.Search.Store.Backends.Ets.Wal
+  alias Expert.Search.Store.Backends.Sqlite
   alias Expert.Search.Store.State
   alias Expert.Test.DispatchFake
   alias Forge.Search.Indexer.Entry
@@ -21,16 +20,16 @@ defmodule Expert.Search.StoreTest do
       raise "manager storage probed VM features"
     end)
 
-    Ets.destroy_all(project)
+    Sqlite.destroy_all(project)
 
-    start_supervised!({Ets, [project, runtime_versions: runtime_versions()]})
+    start_supervised!({Sqlite, [project, runtime_versions: runtime_versions()]})
 
-    start_supervised!({Store, [project, Ets]})
+    start_supervised!({Store, [project, Sqlite]})
 
     Store.enable(project)
     assert_eventually Store.loaded?(project), 1500
 
-    on_exit(fn -> Ets.destroy_all(project) end)
+    on_exit(fn -> Sqlite.destroy_all(project) end)
 
     {:ok, project: project}
   end
@@ -99,12 +98,7 @@ defmodule Expert.Search.StoreTest do
   } do
     assert :ok = Store.replace(project, [definition(id: 1, subject: Engine.Runtime.Versioned)])
 
-    runtime_versions = runtime_versions()
-
-    index_path =
-      Path.join([Wal.root_path(project), runtime_versions.erlang, runtime_versions.elixir, "4"])
-
-    assert File.dir?(index_path)
+    assert File.exists?(Sqlite.database_path(project, runtime_versions()))
   end
 
   defp definition(opts) do

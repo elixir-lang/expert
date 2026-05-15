@@ -148,7 +148,8 @@ defmodule Expert.Search.Fuzzy.Scorer do
     penalty * @mismatched_character_penalty
   end
 
-  defp increment(%__MODULE__{} = score, field_name), do: Map.update!(score, field_name, &(&1 + 1))
+  defp increment(%__MODULE__{index: index} = score, :index),
+    do: %__MODULE__{score | index: index + 1}
 
   defp add_to_list(%__MODULE__{} = score, field_name, value) do
     Map.update(score, field_name, [value], &[value | &1])

@@ -21,7 +21,7 @@ defmodule Expert.Project.Supervisor do
     children = [
       {EngineSupervisor, project},
       {Node, project},
-      {Search.Store.Backends.Ets, project},
+      {Search.Store.backend(), project},
       {Search.Store, [project]},
       {Diagnostics, project},
       {Intelligence, project},
@@ -30,7 +30,7 @@ defmodule Expert.Project.Supervisor do
       {Indexer, [project, initial_compile?: true]}
     ]
 
-    Supervisor.init(children, strategy: :one_for_one)
+    Supervisor.init(children, strategy: :rest_for_one)
   end
 
   def start(%Project{} = project) do

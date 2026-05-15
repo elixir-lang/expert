@@ -10,7 +10,7 @@ defmodule Expert.Project.IndexerTest do
   alias Expert.EngineApi
   alias Expert.Project.Indexer
   alias Expert.Search.Store
-  alias Expert.Search.Store.Backends.Ets
+  alias Expert.Search.Store.Backends.Sqlite
   alias Expert.Test.DispatchFake
   alias Forge.Project
   alias Forge.Search.Indexer.Entry
@@ -18,17 +18,17 @@ defmodule Expert.Project.IndexerTest do
   setup do
     project = project()
     DispatchFake.start()
-    Ets.destroy_all(project)
+    Sqlite.destroy_all(project)
 
-    start_supervised!({Ets, [project, runtime_versions: runtime_versions()]})
-    start_supervised!({Store, [project, Ets]})
+    start_supervised!({Sqlite, [project, runtime_versions: runtime_versions()]})
+    start_supervised!({Store, [project, Sqlite]})
 
     task_supervisor = :"#{Project.unique_name(project)}::indexer_test_task_supervisor"
     start_supervised!({Task.Supervisor, name: task_supervisor})
 
     EngineApi.register_listener(project, self(), [project_index_ready()])
 
-    on_exit(fn -> Ets.destroy_all(project) end)
+    on_exit(fn -> Sqlite.destroy_all(project) end)
 
     {:ok, project: project, task_supervisor: task_supervisor}
   end

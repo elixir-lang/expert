@@ -22,24 +22,34 @@ defmodule Expert.Search.Store.Backend do
   @callback new(Project.t()) :: {:ok, priv_state()} | {:error, any()}
   @callback prepare(priv_state()) :: {:ok, load_state()} | {:error, any()}
   @callback sync(Project.t()) :: :ok | {:error, any()}
-  @callback insert(Project.t(), [Entry.t()]) :: :ok
-  @callback drop(Project.t()) :: boolean() | :ok
-  @callback destroy(Project.t()) :: :ok
-  @callback reduce(Project.t(), accumulator(), reducer_fun()) :: accumulator()
-  @callback replace_all(Project.t(), [Entry.t()]) :: :ok
+  @callback insert(Project.t(), [Entry.t()]) :: :ok | {:error, any()}
+  @callback drop(Project.t()) :: boolean() | :ok | {:error, any()}
+  @callback destroy(Project.t()) :: :ok | {:error, any()}
+  @callback reduce(Project.t(), accumulator(), reducer_fun()) :: accumulator() | {:error, any()}
+  @callback replace_all(Project.t(), [Entry.t()]) :: :ok | {:error, any()}
   @callback delete_by_path(Project.t(), Path.t()) :: {:ok, [Entry.entry_id()]} | {:error, any()}
-  @callback structure_for_path(Project.t(), Path.t()) :: {:ok, block_structure()} | :error
-  @callback find_by_subject(Project.t(), subject_query(), type_query(), subtype_query()) :: [
-              Entry.t()
-            ]
-  @callback find_by_prefix(Project.t(), subject_query(), type_query(), subtype_query()) :: [
-              Entry.t()
-            ]
-  @callback find_by_ids(Project.t(), [Entry.entry_id()], type_query(), subtype_query()) :: [
-              Entry.t()
-            ]
-  @callback siblings(Project.t(), Entry.t()) :: [Entry.t()] | :error | {:ok, [Entry.t()]}
-  @callback parent(Project.t(), Entry.t()) :: {:ok, Entry.t()} | :error
+  @callback apply_index_update(Project.t(), [Entry.t()], [Path.t()]) ::
+              {:ok, [Entry.entry_id()]} | {:error, any()}
+  @callback structure_for_path(Project.t(), Path.t()) ::
+              {:ok, block_structure()} | :error | {:error, any()}
+  @callback find_by_subject(Project.t(), subject_query(), type_query(), subtype_query()) ::
+              [
+                Entry.t()
+              ]
+              | {:error, any()}
+  @callback find_by_prefix(Project.t(), subject_query(), type_query(), subtype_query()) ::
+              [
+                Entry.t()
+              ]
+              | {:error, any()}
+  @callback find_by_ids(Project.t(), [Entry.entry_id()], type_query(), subtype_query()) ::
+              [
+                Entry.t()
+              ]
+              | {:error, any()}
+  @callback siblings(Project.t(), Entry.t()) ::
+              [Entry.t()] | :error | {:ok, [Entry.t()]} | {:error, any()}
+  @callback parent(Project.t(), Entry.t()) :: {:ok, Entry.t()} | :error | {:error, any()}
 
   @optional_callbacks sync: 1
 end

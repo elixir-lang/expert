@@ -1,6 +1,6 @@
 Mix.install([{:benchee, "~> 1.5"}])
 
-alias Expert.Search.Store.Backends.Ets
+alias Expert.Search.Store.Backends.Sqlite
 alias Forge.Project
 
 defmodule SearchStoreBenchHelper do
@@ -58,7 +58,9 @@ defmodule SearchStoreBenchHelper do
   defp copied_id(copy, id), do: copy * 1_000_000 + id
 end
 
-project = SearchStoreBenchHelper.project("ets")
+{:ok, _started} = Application.ensure_all_started(:exqlite)
+
+project = SearchStoreBenchHelper.project("sqlite")
 runtime_versions = SearchStoreBenchHelper.runtime_versions()
 Forge.Identifier.start()
 {:ok, _application_cache} = Engine.ApplicationCache.start_link([])
@@ -66,42 +68,42 @@ Forge.Identifier.start()
 entries = SearchStoreBenchHelper.entries()
 entries_by_path = Enum.group_by(entries, & &1.path)
 
-Ets.destroy_all(project)
-{:ok, ets} = Ets.start_link(project, runtime_versions: runtime_versions)
-{:ok, :empty} = Ets.prepare(ets)
-:ok = Ets.replace_all(project, entries)
+Sqlite.destroy_all(project)
+{:ok, sqlite} = Sqlite.start_link(project, runtime_versions: runtime_versions)
+{:ok, :empty} = Sqlite.prepare(sqlite)
+:ok = Sqlite.replace_all(project, entries)
 
 Benchee.run(
   %{
     "find_by_subject" => fn _ ->
-      Ets.find_by_subject(project, Enum, :module, :reference)
+      Sqlite.find_by_subject(project, Enum, :module, :reference)
     end,
     "find_by_subject, type_wildcard" => fn _ ->
-      Ets.find_by_subject(project, Enum, :_, :reference)
+      Sqlite.find_by_subject(project, Enum, :_, :reference)
     end,
     "find_by_subject, subtype_wildcard" => fn _ ->
-      Ets.find_by_subject(project, Enum, :module, :_)
+      Sqlite.find_by_subject(project, Enum, :module, :_)
     end,
     "find_by_subject, two wildcards" => fn _ ->
-      Ets.find_by_subject(project, Enum, :_, :_)
+      Sqlite.find_by_subject(project, Enum, :_, :_)
     end,
     "find_by_subject, subject_wildcard" => fn _ ->
-      Ets.find_by_subject(project, :_, :module, :reference)
+      Sqlite.find_by_subject(project, :_, :module, :reference)
     end,
     "find_by_references" => fn %{ids: ids} ->
-      Ets.find_by_ids(project, ids, :module, :_)
+      Sqlite.find_by_ids(project, ids, :module, :_)
     end,
     "delete_by_path" => fn %{path: path} ->
-      Ets.delete_by_path(project, path)
+      Sqlite.delete_by_path(project, path)
     end
   },
   before_each: fn _ ->
-    SearchStoreBenchHelper.before_each(Ets, project, entries, entries_by_path)
+    SearchStoreBenchHelper.before_each(Sqlite, project, entries, entries_by_path)
   end,
   warmup: String.to_integer(System.get_env("BENCH_WARMUP", "1")),
   time: String.to_integer(System.get_env("BENCH_TIME", "2")),
   memory_time: 0
 )
 
-GenServer.stop(ets)
+GenServer.stop(sqlite)
 SearchStoreBenchHelper.cleanup(project)

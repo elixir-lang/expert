@@ -188,6 +188,20 @@ defmodule Expert.Search.Store.Backends.Ets.State do
     {:ok, ids_to_delete}
   end
 
+  def apply_index_update(%__MODULE__{} = state, updated_entries, paths_to_clear) do
+    paths = affected_paths(updated_entries, paths_to_clear)
+
+    ids_to_delete =
+      Enum.flat_map(paths, fn path ->
+        {:ok, deleted_ids} = delete_by_path(state, path)
+        deleted_ids
+      end)
+
+    with :ok <- insert(state, updated_entries) do
+      {:ok, Enum.map(ids_to_delete, &entry_id/1)}
+    end
+  end
+
   def destroy_all(%Project{} = project), do: Wal.destroy_all(project)
 
   def destroy(%__MODULE__{wal_state: %Wal{}} = state), do: Wal.destroy(state.wal_state)
@@ -248,6 +262,15 @@ defmodule Expert.Search.Store.Backends.Ets.State do
   rescue
     ArgumentError -> :error
   end
+
+  defp affected_paths(updated_entries, paths_to_clear) do
+    (Enum.map(updated_entries, & &1.path) ++ paths_to_clear)
+    |> Enum.reject(&is_nil/1)
+    |> Enum.uniq()
+  end
+
+  defp entry_id({:by_id, id, _type, _subtype}), do: id
+  defp entry_id(id), do: id
 
   defp same_block_type?(a, b), do: is_block(a) == is_block(b)
 
