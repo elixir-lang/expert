@@ -17,7 +17,7 @@ defmodule Forge.OSTest do
   end
 
   describe "os_type/0" do
-    test "eturns the first element of :os.type/0" do
+    test "returns the first element of :os.type/0" do
       patch(Forge.OS, :type, {:unix, :linux})
 
       assert Forge.OS.os_type() == :unix
