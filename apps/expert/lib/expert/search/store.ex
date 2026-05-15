@@ -12,7 +12,7 @@ defmodule Expert.Search.Store do
 
   require Logger
 
-  @backend Application.compile_env(:expert, :search_store_backend, Store.Backends.Ets)
+  @backend Application.compile_env(:expert, :search_store_backend, Store.Backends.Sqlite)
   @flush_interval_ms Application.compile_env(:expert, :search_store_quiescent_period_ms, 2500)
 
   def stop(%Project{} = project), do: GenServer.stop(name(project))
@@ -63,7 +63,7 @@ defmodule Expert.Search.Store do
     call_or_default(project, {:all, constraints}, [])
   end
 
-  @spec path_to_ids(Project.t()) :: %{Path.t() => Entry.entry_id()}
+  @spec path_to_ids(Project.t()) :: %{Path.t() => Entry.entry_id()} | {:error, term()}
   def path_to_ids(%Project{} = project) do
     call_or_default(project, :path_to_ids, %{})
   end
@@ -294,7 +294,7 @@ defmodule Expert.Search.Store do
   defp normalize_init_args([%Project{} = project, backend]) when is_atom(backend),
     do: [project, backend]
 
-  defp backend, do: @backend
+  def backend, do: @backend
 
   defp do_update(state, old_ref, path, entries) do
     {:ok, schedule_flush(old_ref), State.buffer_updates(state, path, entries)}

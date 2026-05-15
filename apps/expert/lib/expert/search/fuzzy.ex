@@ -46,17 +46,20 @@ defmodule Expert.Search.Fuzzy do
     new(entries, mapper, &stringify/1, build_filter_fn(project), true)
   end
 
-  @spec from_backend(Project.t(), module()) :: t()
+  @spec from_backend(Project.t(), module()) :: {:ok, t()} | {:error, term()}
   def from_backend(%Project{} = project, backend) do
     mapper = default_mapper()
 
-    mapped_items =
-      backend.reduce(project, [], fn
-        %Entry{subtype: :definition} = entry, acc -> [mapper.(entry) | acc]
-        _, acc -> acc
-      end)
+    case backend.reduce(project, [], fn
+           %Entry{subtype: :definition} = entry, acc -> [mapper.(entry) | acc]
+           _, acc -> acc
+         end) do
+      mapped_items when is_list(mapped_items) ->
+        {:ok, new(mapped_items, mapper, &stringify/1, build_filter_fn(project), false)}
 
-    new(mapped_items, mapper, &stringify/1, build_filter_fn(project), false)
+      {:error, _} = error ->
+        error
+    end
   end
 
   @spec new(Enumerable.t(), mapper(), subject_converter(), function(), boolean()) :: t()

@@ -96,6 +96,12 @@ let
           ${old.buildPhase}
         '';
       };
+
+    exqlite = _unusedArgs: old: {
+      preConfigure = (old.preConfigure or "") + ''
+        export ELIXIR_MAKE_CACHE_DIR="$TMPDIR/elixir_make"
+      '';
+    };
   };
 
   defaultOverrides = (
@@ -115,6 +121,11 @@ let
               name = "nightly-2024-11-01";
               sha256 = "sha256-wq7bZ1/IlmmLkSa3GUJgK17dTWcKyf5A+ndS9yRwB88=";
             };
+          }
+        ];
+        exqlite = [
+          {
+            name = "exqlite";
           }
         ];
         snappyer = [
@@ -180,6 +191,88 @@ let
               jason
               req
               typed_struct
+            ];
+          };
+        in
+        drv;
+
+      cc_precompiler =
+        let
+          version = "0.1.11";
+          drv = buildMix {
+            inherit version;
+            name = "cc_precompiler";
+            appConfigPath = ./config;
+
+            src = fetchHex {
+              inherit version;
+              pkg = "cc_precompiler";
+              sha256 = "3427232caf0835f94680e5bcf082408a70b48ad68a5f5c0b02a3bea9f3a075b9";
+            };
+
+            beamDeps = [
+              elixir_make
+            ];
+          };
+        in
+        drv;
+
+      db_connection =
+        let
+          version = "2.10.1";
+          drv = buildMix {
+            inherit version;
+            name = "db_connection";
+            appConfigPath = ./config;
+
+            src = fetchHex {
+              inherit version;
+              pkg = "db_connection";
+              sha256 = "18ed94c6e627b4bf452dbd4df61b69a35a1e768525140bc1917b7a685026a6a3";
+            };
+
+            beamDeps = [
+              telemetry
+            ];
+          };
+        in
+        drv;
+
+      elixir_make =
+        let
+          version = "0.9.0";
+          drv = buildMix {
+            inherit version;
+            name = "elixir_make";
+            appConfigPath = ./config;
+
+            src = fetchHex {
+              inherit version;
+              pkg = "elixir_make";
+              sha256 = "db23d4fd8b757462ad02f8aa73431a426fe6671c80b200d9710caf3d1dd0ffdb";
+            };
+          };
+        in
+        drv;
+
+      exqlite =
+        let
+          version = "0.36.0";
+          drv = buildMix {
+            inherit version;
+            name = "exqlite";
+            appConfigPath = ./config;
+
+            src = fetchHex {
+              inherit version;
+              pkg = "exqlite";
+              sha256 = "cbeca3ce781f9ff07cfa9a87486f3ebd512a143ad6a14ed5c9fca21fe0bf3ae7";
+            };
+
+            beamDeps = [
+              cc_precompiler
+              db_connection
+              elixir_make
             ];
           };
         in

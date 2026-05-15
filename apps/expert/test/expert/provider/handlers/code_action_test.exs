@@ -6,8 +6,12 @@ defmodule Expert.Provider.Handlers.CodeActionTest do
 
   alias Expert.Document.Context
   alias Expert.EngineApi
+  alias Expert.EngineNode
+  alias Expert.EngineSupervisor
+  alias Expert.Project.Indexer
   alias Expert.Protocol.Convert
   alias Expert.Provider.Handlers
+  alias Expert.Search.Store
   alias Forge.Document
   alias GenLSP.Requests.TextDocumentCodeAction
   alias GenLSP.Structures
@@ -22,16 +26,23 @@ defmodule Expert.Provider.Handlers.CodeActionTest do
     project = project(:navigations)
 
     start_supervised!({Expert.Project.Store, []})
-    start_supervised!({DynamicSupervisor, Expert.Project.DynamicSupervisor.options()})
-    start_supervised!({Expert.Project.Supervisor, project})
+    start_supervised!({EngineSupervisor, project})
+    {:ok, _, _} = EngineNode.start(project)
+
+    backend = Store.backend()
+    start_supervised!({backend, project})
+    start_supervised!({Store, [project, backend]})
+    start_supervised!({Task.Supervisor, name: Indexer.task_supervisor_name(project)})
+    start_supervised!({Indexer, project})
 
     Expert.Project.Store.set_projects([project])
     Expert.Configuration.new() |> Expert.Configuration.set()
 
-    EngineApi.register_listener(project, self(), [project_compiled()])
+    EngineApi.register_listener(project, self(), [project_compiled(), project_index_ready()])
     EngineApi.schedule_compile(project, true)
 
     assert_receive project_compiled(), @project_ready_timeout
+    assert_receive project_index_ready(project: ^project), @project_ready_timeout
 
     {:ok, project: project}
   end

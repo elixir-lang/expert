@@ -35,7 +35,7 @@ defmodule Expert.Provider.Handlers.WorkspaceSymbolTest do
       ])
 
     assert_receive Messages.project_compiled(), @project_compile_timeout
-    assert_receive Messages.project_index_ready(), @project_index_timeout
+    assert_receive Messages.project_index_ready(project: ^project), @project_index_timeout
 
     Expert.Project.Store.add_projects([project])
 

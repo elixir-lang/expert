@@ -36,7 +36,7 @@ defmodule Expert.Test.Expert.CompletionCase do
 
     Expert.Project.Node.trigger_build(project)
     assert_receive project_compiled(), @project_compile_timeout
-    assert_receive project_index_ready(), @project_index_timeout
+    assert_receive project_index_ready(project: ^project), @project_index_timeout
     {:ok, project: project}
   end
 

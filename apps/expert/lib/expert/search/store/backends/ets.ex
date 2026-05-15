@@ -52,6 +52,11 @@ defmodule Expert.Search.Store.Backends.Ets do
   end
 
   @impl Backend
+  def apply_index_update(%Project{} = project, updated_entries, paths_to_clear) do
+    GenServer.call(name(project), {:apply_index_update, [updated_entries, paths_to_clear]})
+  end
+
+  @impl Backend
   def find_by_subject(%Project{} = project, subject, type, subtype) do
     GenServer.call(name(project), {:find_by_subject, [subject, type, subtype]})
   end
