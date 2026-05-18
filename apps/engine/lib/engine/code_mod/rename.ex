@@ -20,10 +20,9 @@ defmodule Engine.CodeMod.Rename do
   @spec rename(Analysis.t(), Position.t(), String.t(), String.t() | nil) ::
           {:ok, [Document.Changes.t()]} | {:error, term()}
   def rename(%Analysis{} = analysis, %Position{} = position, new_name, _client_name) do
-    with {:ok, {renamable, entity}, range} <- Rename.Prepare.resolve(analysis, position) do
+    with {:ok, {renamable, entity}, _range} <- Rename.Prepare.resolve(analysis, position) do
       rename_module = Map.fetch!(@rename_mappings, renamable)
-      results = rename_module.rename(range, new_name, entity)
-      {:ok, results}
+      {:ok, rename_module.rename(new_name, entity)}
     end
   end
 end

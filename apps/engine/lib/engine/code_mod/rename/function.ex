@@ -12,7 +12,6 @@ defmodule Engine.CodeMod.Rename.Function do
   alias Forge.Ast.Analysis
   alias Forge.Document
   alias Forge.Document.Edit
-  alias Forge.Document.Line
   alias Forge.Document.Position
   alias Forge.Document.Range
 
@@ -31,9 +30,9 @@ defmodule Engine.CodeMod.Rename.Function do
     resolve(analysis, position)
   end
 
-  @spec rename(Range.t(), String.t(), {atom(), atom(), non_neg_integer()}) ::
+  @spec rename(String.t(), {atom(), atom(), non_neg_integer()}) ::
           [Document.Changes.t()]
-  def rename(%Range{} = _range, new_name, {module, fun_name, arity}) do
+  def rename(new_name, {module, fun_name, arity}) do
     subject_prefix = Subject.mfa(module, fun_name, arity)
 
     case Store.prefix(subject_prefix, type: {:function, :_}) do

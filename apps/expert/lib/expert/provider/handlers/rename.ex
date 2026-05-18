@@ -3,7 +3,7 @@ defmodule Expert.Provider.Handlers.Rename do
   Handler for textDocument/rename requests.
 
   This handler executes the rename operation and returns the workspace edit
-  containing all the text edits and file renames needed.
+  containing all the text edits needed.
   """
   @behaviour Expert.Provider.Handler
 
@@ -58,15 +58,17 @@ defmodule Expert.Provider.Handlers.Rename do
   end
 
   defp to_document_changes(results) do
-    Enum.reduce_while(results, {:ok, []}, fn changes, {:ok, acc} ->
+    results
+    |> Enum.reduce_while({:ok, []}, fn changes, {:ok, acc} ->
       case to_text_document_edit(changes) do
-        {:ok, edit} ->
-          {:cont, {:ok, acc ++ [edit | rename_file_items(changes.rename_file)]}}
-
-        error ->
-          {:halt, error}
+        {:ok, edit} -> {:cont, {:ok, [edit | acc]}}
+        error -> {:halt, error}
       end
     end)
+    |> case do
+      {:ok, edits} -> {:ok, Enum.reverse(edits)}
+      error -> error
+    end
   end
 
   defp to_text_document_edit(%Changes{document: document, edits: edits}) do
@@ -82,18 +84,5 @@ defmodule Expert.Provider.Handlers.Rename do
          text_document: text_document
        }}
     end
-  end
-
-  defp rename_file_items(nil), do: []
-
-  defp rename_file_items(%Changes.RenameFile{} = rename_file) do
-    [
-      %Structures.RenameFile{
-        kind: "rename",
-        new_uri: rename_file.new_uri,
-        old_uri: rename_file.old_uri,
-        options: %Structures.RenameFileOptions{overwrite: true}
-      }
-    ]
   end
 end
