@@ -36,13 +36,7 @@ defmodule Expert.Provider.Handlers.PrepareRename do
   defp prepare_rename(project, analysis, position) do
     case EngineApi.prepare_rename(project, analysis, position) do
       {:ok, placeholder, range} when is_binary(placeholder) ->
-        # PrepareRenameResult is a type alias in GenLSP, return as map
-        result = %{
-          placeholder: placeholder,
-          range: to_lsp_range(range)
-        }
-
-        {:ok, result}
+        {:ok, to_lsp_range(range)}
 
       {:ok, nil} ->
         {:ok, nil}
