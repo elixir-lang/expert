@@ -23,7 +23,11 @@ defmodule Forge.Search.Indexer.Entry do
   @type entry_id :: pos_integer() | nil
   @type block_id :: pos_integer() | :root
   @type subject_query :: subject() | :_
-  @type entry_type_query :: entry_type() | :_
+  @type entry_type_query ::
+          entry_type()
+          | {:protocol, protocol_type() | :_}
+          | {:function, function_type() | :_}
+          | :_
   @type entry_subtype_query :: entry_subtype() | :_
   @type constraint :: {:type, entry_type_query()} | {:subtype, entry_subtype_query()}
   @type constraints :: [constraint()]

@@ -24,13 +24,13 @@ defmodule Engine.CodeMod.Rename.Function do
   end
 
   @spec prepare(Analysis.t(), Position.t()) ::
-          {:ok, {:function, {atom(), atom(), non_neg_integer()}}, Range.t()}
+          {:ok, {:function, {module(), atom(), arity()}}, Range.t()}
           | {:error, term()}
   def prepare(%Analysis{} = analysis, %Position{} = position) do
     resolve(analysis, position)
   end
 
-  @spec rename(String.t(), {atom(), atom(), non_neg_integer()}) ::
+  @spec rename(String.t(), {module(), atom(), arity()}) ::
           [Document.Changes.t()]
   def rename(new_name, {module, fun_name, arity}) do
     subject_prefix = Subject.mfa(module, fun_name, arity)
