@@ -22,7 +22,8 @@ defmodule Engine.CodeMod.Rename.Prepare do
   def prepare(%Analysis{} = analysis, %Position{} = position) do
     case resolve(analysis, position) do
       {:ok, {:function, {_module, fun_name, _arity}}, range} ->
-        {:ok, Atom.to_string(fun_name), range}
+        name = Atom.to_string(fun_name)
+        {:ok, name, narrow_to_name(range, name)}
 
       {:error, {:unsupported_location, _}} ->
         {:ok, nil}
@@ -33,6 +34,15 @@ defmodule Engine.CodeMod.Rename.Prepare do
       {:error, error} ->
         {:error, error}
     end
+  end
+
+  # For qualified calls like `Foo.Bar.call`, `Entity.resolve` returns a range
+  # covering the whole dotted expression. The actual rename only touches the
+  # function name token, so narrow the range to the trailing `name` so that the
+  # editor highlights and replaces only that portion.
+  defp narrow_to_name(%Range{end: end_pos} = range, name) do
+    new_start = %{end_pos | character: end_pos.character - String.length(name)}
+    %{range | start: new_start}
   end
 
   @spec resolve(Analysis.t(), Position.t()) ::

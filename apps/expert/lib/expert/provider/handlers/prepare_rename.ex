@@ -37,7 +37,9 @@ defmodule Expert.Provider.Handlers.PrepareRename do
   defp prepare_rename(project, analysis, position) do
     case EngineApi.prepare_rename(project, analysis, position) do
       {:ok, placeholder, range} when is_binary(placeholder) ->
-        Convertible.to_lsp(range)
+        with {:ok, lsp_range} <- Convertible.to_lsp(range) do
+          {:ok, %{range: lsp_range, placeholder: placeholder}}
+        end
 
       {:ok, nil} ->
         {:ok, nil}
