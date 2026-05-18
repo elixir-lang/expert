@@ -5,21 +5,24 @@ defmodule Expert.Provider.Handlers.PrepareRename do
   This handler determines if the entity at the cursor can be renamed
   and returns the range and placeholder text for the rename operation.
   """
-  alias Expert.ActiveProjects
+  @behaviour Expert.Provider.Handler
+
+  alias Expert.Document.Context
   alias Expert.EngineApi
   alias Forge.Ast
   alias Forge.Document
-  alias Forge.Project
   alias GenLSP.Structures
 
   require Logger
 
-  def handle(%GenLSP.Requests.TextDocumentPrepareRename{
-        params: %Structures.PrepareRenameParams{} = params
-      }) do
-    document = Forge.Document.Container.context_document(params, nil)
-    projects = ActiveProjects.projects()
-    project = Project.project_for_document(projects, document)
+  @impl Expert.Provider.Handler
+  def handle(
+        %GenLSP.Requests.TextDocumentPrepareRename{
+          params: %Structures.PrepareRenameParams{} = params
+        },
+        %Context{} = context
+      ) do
+    %Context{document: document, project: project} = context
 
     case Document.Store.fetch(document.uri, :analysis) do
       {:ok, _document, %Ast.Analysis{valid?: true} = analysis} ->

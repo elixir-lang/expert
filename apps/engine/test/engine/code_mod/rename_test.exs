@@ -1,16 +1,16 @@
 defmodule Engine.CodeMod.RenameTest do
-  alias Engine.CodeMod.Rename
-  alias Engine.Search
-  alias Engine.Search.Store.Backends
-  alias Forge.Document
-
   use ExUnit.Case, async: false
   use Patch
 
   import Forge.Test.CodeSigil
   import Forge.Test.CursorSupport
-  import Forge.Test.Fixtures
   import Forge.Test.EventualAssertions
+  import Forge.Test.Fixtures
+
+  alias Engine.CodeMod.Rename
+  alias Engine.Search
+  alias Engine.Search.Store.Backends
+  alias Forge.Document
 
   setup do
     project = project()
