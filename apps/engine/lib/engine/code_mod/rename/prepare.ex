@@ -18,21 +18,15 @@ defmodule Engine.CodeMod.Rename.Prepare do
   @renaming_modules [Rename.Function]
 
   @spec prepare(Analysis.t(), Position.t()) ::
-          {:ok, String.t(), Range.t()} | {:ok, nil} | {:error, term()}
+          {:ok, String.t(), Range.t()} | {:ok, nil}
   def prepare(%Analysis{} = analysis, %Position{} = position) do
     case resolve(analysis, position) do
       {:ok, {:function, {_module, fun_name, _arity}}, range} ->
         name = Atom.to_string(fun_name)
         {:ok, name, narrow_to_name(range, name)}
 
-      {:error, {:unsupported_location, _}} ->
+      {:error, _} ->
         {:ok, nil}
-
-      {:error, {:unsupported_entity, _entity_type}} ->
-        {:ok, nil}
-
-      {:error, error} ->
-        {:error, error}
     end
   end
 

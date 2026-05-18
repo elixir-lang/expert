@@ -20,6 +20,7 @@ defmodule Engine.CodeMod.RenameTest do
 
     start_supervised!({Document.Store, derive: [analysis: &Forge.Ast.analyze/1]})
     start_supervised!(Engine.Dispatch)
+    start_supervised!(Engine.ApplicationCache)
     start_supervised!(Backends.Ets)
 
     start_supervised!(
@@ -84,6 +85,50 @@ defmodule Engine.CodeMod.RenameTest do
           def run do
             |x = 1
           end
+        end
+      ]
+               |> prepare()
+    end
+
+    test "returns nil for whitespace inside a function body" do
+      assert {:ok, nil} =
+               ~q[
+        defmodule MyApp.Users do
+          def run do
+            |
+            :ok
+          end
+        end
+      ]
+               |> prepare()
+    end
+
+    test "returns nil inside a comment" do
+      assert {:ok, nil} =
+               ~q[
+        defmodule MyApp.Users do
+          # this is a |comment
+          def run, do: :ok
+        end
+      ]
+               |> prepare()
+    end
+
+    test "returns nil inside a string literal" do
+      assert {:ok, nil} =
+               ~q[
+        defmodule MyApp.Users do
+          def run, do: "hel|lo world"
+        end
+      ]
+               |> prepare()
+    end
+
+    test "returns nil on an operator with no surround context" do
+      assert {:ok, nil} =
+               ~q[
+        defmodule MyApp.Users do
+          def run, do: 1 |+ 2
         end
       ]
                |> prepare()
