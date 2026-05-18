@@ -13,6 +13,7 @@ defmodule Expert.Provider.Handlers.Rename do
   alias Forge.Ast
   alias Forge.Document
   alias Forge.Document.Changes
+  alias Forge.Protocol.Convertible
   alias GenLSP.Structures
 
   require Logger
@@ -43,17 +44,9 @@ defmodule Expert.Provider.Handlers.Rename do
         {:ok, nil}
 
       {:ok, results} ->
-        document_changes =
-          Enum.flat_map(results, fn
-            %Changes{rename_file: %Changes.RenameFile{}} = changes ->
-              [to_text_document_edit(changes), to_rename_file(changes.rename_file)]
-
-            %Changes{} = changes ->
-              [to_text_document_edit(changes)]
-          end)
-
-        workspace_edit = %Structures.WorkspaceEdit{document_changes: document_changes}
-        {:ok, workspace_edit}
+        with {:ok, document_changes} <- to_document_changes(results) do
+          {:ok, %Structures.WorkspaceEdit{document_changes: document_changes}}
+        end
 
       {:error, {:unsupported_entity, entity}} ->
         Logger.info("Cannot rename entity: #{inspect(entity)}")
@@ -64,48 +57,43 @@ defmodule Expert.Provider.Handlers.Rename do
     end
   end
 
-  defp to_text_document_edit(%Changes{} = changes) do
-    %Changes{document: document, edits: edits} = changes
+  defp to_document_changes(results) do
+    Enum.reduce_while(results, {:ok, []}, fn changes, {:ok, acc} ->
+      case to_text_document_edit(changes) do
+        {:ok, edit} ->
+          {:cont, {:ok, acc ++ [edit | rename_file_items(changes.rename_file)]}}
 
-    text_document =
-      %Structures.OptionalVersionedTextDocumentIdentifier{
+        error ->
+          {:halt, error}
+      end
+    end)
+  end
+
+  defp to_text_document_edit(%Changes{document: document, edits: edits}) do
+    with {:ok, text_edits} <- Convertible.to_lsp(edits) do
+      text_document = %Structures.OptionalVersionedTextDocumentIdentifier{
         uri: document.uri,
         version: document.version
       }
 
-    %Structures.TextDocumentEdit{
-      edits: Enum.map(edits, &to_text_edit/1),
-      text_document: text_document
-    }
+      {:ok,
+       %Structures.TextDocumentEdit{
+         edits: text_edits,
+         text_document: text_document
+       }}
+    end
   end
 
-  defp to_text_edit(%Document.Edit{} = edit) do
-    %Structures.TextEdit{
-      new_text: edit.text,
-      range: to_lsp_range(edit.range)
-    }
-  end
+  defp rename_file_items(nil), do: []
 
-  defp to_lsp_range(%Document.Range{} = range) do
-    %Structures.Range{
-      start: to_lsp_position(range.start),
-      end: to_lsp_position(range.end)
-    }
-  end
-
-  defp to_lsp_position(%Document.Position{} = position) do
-    %Structures.Position{
-      line: position.line - 1,
-      character: position.character - 1
-    }
-  end
-
-  defp to_rename_file(%Changes.RenameFile{} = rename_file) do
-    %Structures.RenameFile{
-      kind: "rename",
-      new_uri: rename_file.new_uri,
-      old_uri: rename_file.old_uri,
-      options: %Structures.RenameFileOptions{overwrite: true}
-    }
+  defp rename_file_items(%Changes.RenameFile{} = rename_file) do
+    [
+      %Structures.RenameFile{
+        kind: "rename",
+        new_uri: rename_file.new_uri,
+        old_uri: rename_file.old_uri,
+        options: %Structures.RenameFileOptions{overwrite: true}
+      }
+    ]
   end
 end

@@ -11,6 +11,7 @@ defmodule Expert.Provider.Handlers.PrepareRename do
   alias Expert.EngineApi
   alias Forge.Ast
   alias Forge.Document
+  alias Forge.Protocol.Convertible
   alias GenLSP.Structures
 
   require Logger
@@ -36,7 +37,7 @@ defmodule Expert.Provider.Handlers.PrepareRename do
   defp prepare_rename(project, analysis, position) do
     case EngineApi.prepare_rename(project, analysis, position) do
       {:ok, placeholder, range} when is_binary(placeholder) ->
-        {:ok, to_lsp_range(range)}
+        Convertible.to_lsp(range)
 
       {:ok, nil} ->
         {:ok, nil}
@@ -47,19 +48,5 @@ defmodule Expert.Provider.Handlers.PrepareRename do
       {:error, error} ->
         {:error, :request_failed, inspect(error)}
     end
-  end
-
-  defp to_lsp_range(%Forge.Document.Range{} = range) do
-    %Structures.Range{
-      start: to_lsp_position(range.start),
-      end: to_lsp_position(range.end)
-    }
-  end
-
-  defp to_lsp_position(%Forge.Document.Position{} = position) do
-    %Structures.Position{
-      line: position.line - 1,
-      character: position.character - 1
-    }
   end
 end
