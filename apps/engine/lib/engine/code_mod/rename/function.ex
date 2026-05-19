@@ -106,19 +106,11 @@ defmodule Engine.CodeMod.Rename.Function do
   end
 
   defp find_function_name_offset(text_from_range_start, fun_name_str) do
-    case :binary.match(text_from_range_start, ".#{fun_name_str}") do
-      {pos, _len} ->
-        pos + 1
+    pattern = ~r/(?<![A-Za-z0-9_])#{Regex.escape(fun_name_str)}(?![A-Za-z0-9_!?])/
 
-      :nomatch ->
-        if String.starts_with?(text_from_range_start, fun_name_str) do
-          0
-        else
-          case :binary.match(text_from_range_start, " #{fun_name_str}") do
-            {pos, _len} -> pos + 1
-            :nomatch -> nil
-          end
-        end
+    case Regex.run(pattern, text_from_range_start, return: :index) do
+      [{pos, _len} | _] -> pos
+      _ -> nil
     end
   end
 end

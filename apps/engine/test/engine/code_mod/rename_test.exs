@@ -282,6 +282,88 @@ defmodule Engine.CodeMod.RenameTest do
       assert result =~ "defp helper(a, b, c, d, e, f, g, h, i, j)"
     end
 
+    test "renames function with bang in name" do
+      {:ok, result} =
+        ~q[
+        defmodule MyApp.Users do
+          def run, do: |save!(1)
+
+          defp save!(x), do: x
+        end
+      ]
+        |> rename("persist!")
+
+      assert result =~ "persist!(1)"
+      assert result =~ "defp persist!(x)"
+      refute result =~ "save!"
+    end
+
+    test "renames function with question mark in name" do
+      {:ok, result} =
+        ~q[
+        defmodule MyApp.Users do
+          def run, do: |valid?(1)
+
+          defp valid?(x), do: x > 0
+        end
+      ]
+        |> rename("ok?")
+
+      assert result =~ "ok?(1)"
+      assert result =~ "defp ok?(x)"
+      refute result =~ "valid?"
+    end
+
+    test "does not rename a different function whose name starts with the target name" do
+      {:ok, result} =
+        ~q[
+        defmodule MyApp.Users do
+          def run, do: |fun() + fun_other()
+
+          defp fun, do: 1
+          defp fun_other, do: 2
+        end
+      ]
+        |> rename("compute")
+
+      assert result =~ "compute() + fun_other()"
+      assert result =~ "defp compute,"
+      assert result =~ "defp fun_other,"
+    end
+
+    test "renames correctly when a sibling identifier starting with the same prefix appears earlier on the line" do
+      {:ok, result} =
+        ~q[
+        defmodule MyApp.Users do
+          def run, do: fun_other() + |fun()
+
+          defp fun, do: 1
+          defp fun_other, do: 2
+        end
+      ]
+        |> rename("compute")
+
+      assert result =~ "fun_other() + compute()"
+      assert result =~ "defp compute,"
+      assert result =~ "defp fun_other,"
+    end
+
+    test "does not corrupt a similar-prefix call inside the def body when renaming the def" do
+      {:ok, result} =
+        ~q[
+        defmodule MyApp.Users do
+          def fun_min, do: 0
+
+          def |fun(x), do: MyApp.Users.fun_min() + x
+        end
+      ]
+        |> rename("compute")
+
+      assert result =~ "def compute(x), do: MyApp.Users.fun_min() + x"
+      assert result =~ "def fun_min,"
+      refute result =~ "compute_min"
+    end
+
     test "returns empty changes for unsupported rename" do
       assert {:ok, result} =
                ~q[
