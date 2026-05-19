@@ -261,6 +261,27 @@ defmodule Engine.CodeMod.RenameTest do
       refute result =~ "transform"
     end
 
+    test "does not rename arity-10 function when renaming arity-1 function" do
+      {:ok, result} =
+        ~q[
+        defmodule MyApp.Users do
+          def run do
+            |helper(1)
+            helper(1, 2, 3, 4, 5, 6, 7, 8, 9, 10)
+          end
+
+          defp helper(a), do: a
+          defp helper(a, b, c, d, e, f, g, h, i, j), do: {a, b, c, d, e, f, g, h, i, j}
+        end
+      ]
+        |> rename("compute")
+
+      assert result =~ "compute(1)\n"
+      assert result =~ "defp compute(a),"
+      assert result =~ "helper(1, 2, 3, 4, 5, 6, 7, 8, 9, 10)"
+      assert result =~ "defp helper(a, b, c, d, e, f, g, h, i, j)"
+    end
+
     test "returns empty changes for unsupported rename" do
       assert {:ok, result} =
                ~q[

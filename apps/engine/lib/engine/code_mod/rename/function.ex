@@ -33,9 +33,9 @@ defmodule Engine.CodeMod.Rename.Function do
   @spec rename(String.t(), {module(), atom(), arity()}) ::
           [Document.Changes.t()]
   def rename(new_name, {module, fun_name, arity}) do
-    subject_prefix = Subject.mfa(module, fun_name, arity)
+    subject = Subject.mfa(module, fun_name, arity)
 
-    case Store.prefix(subject_prefix, type: {:function, :_}) do
+    case Store.exact(subject, type: {:function, :_}) do
       {:ok, entries} ->
         entries
         |> Enum.map(&RenameEntry.new/1)
