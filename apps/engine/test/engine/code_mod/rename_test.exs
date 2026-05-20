@@ -78,6 +78,16 @@ defmodule Engine.CodeMod.RenameTest do
       assert result == "helper"
     end
 
+    test "returns nil for external module functions without a workspace definition" do
+      assert {:ok, nil} =
+               ~q[
+        defmodule MyApp.Users do
+          def run(items), do: Enum.|map(items, & &1)
+        end
+      ]
+               |> prepare()
+    end
+
     test "returns nil for variables" do
       assert {:ok, nil} =
                ~q[
@@ -224,6 +234,23 @@ defmodule Engine.CodeMod.RenameTest do
       assert result =~ "compute(1, 2)"
       assert result =~ "defp compute(a, b)"
       assert result =~ "defp helper(a, b, c)"
+    end
+
+    test "renames all arities backed by the same default-argument definition" do
+      {:ok, result} =
+        ~q[
+        defmodule MyApp.Users do
+          def run, do: |helper(1) + helper(1, 2)
+
+          defp helper(a, b \\ 0), do: a + b
+        end
+      ]
+        |> rename("compute")
+
+      assert result =~ "compute(1) + compute(1, 2)"
+      assert result =~ ~q[defp compute(a, b \\ 0)]
+      refute result =~ "helper"
+      refute result =~ "computee"
     end
 
     test "does not affect functions in other modules" do
