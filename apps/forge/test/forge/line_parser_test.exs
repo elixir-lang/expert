@@ -52,6 +52,14 @@ defmodule Forge.Document.LineParserTest do
              ] = parse("line1\nline2\nline3")
     end
 
+    test "resets ascii detection after each line ending" do
+      assert [
+               line(text: "👨‍👩‍👦 test", ending: "\n", ascii?: false),
+               line(text: "basic", ending: "\n", ascii?: true),
+               line(text: "more text", ending: "", ascii?: true)
+             ] = parse("👨‍👩‍👦 test\nbasic\nmore text")
+    end
+
     test "with multiple CR LF line endings" do
       text = "A\r\nB\r\n\r\nC"
 
