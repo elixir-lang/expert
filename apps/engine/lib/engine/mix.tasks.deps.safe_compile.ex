@@ -40,8 +40,6 @@ if !Elixir.Features.compile_keeps_current_directory?() do
 
     use Mix.Task
 
-    alias Forge.Project
-
     @switches [
       include_children: :boolean,
       force: :boolean,
@@ -55,7 +53,7 @@ if !Elixir.Features.compile_keeps_current_directory?() do
         Mix.Tasks.Deps.Compile.run(args)
       else
         if "--no-archives-check" not in args do
-          Project.ensure_hex_and_rebar()
+          Engine.Mix.ensure_hex_and_rebar()
           Mix.Task.run("archive.check", args)
         end
 
@@ -179,7 +177,7 @@ if !Elixir.Features.compile_keeps_current_directory?() do
             "--no-warnings-as-errors"
           ]
 
-          Project.ensure_hex_and_rebar()
+          Engine.Mix.ensure_hex_and_rebar()
           res = Mix.Task.run("compile", options)
           match?({:ok, _}, res)
         catch

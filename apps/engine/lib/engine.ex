@@ -95,7 +95,7 @@ defmodule Engine do
       :error ->
         {:ok, deps_paths} =
           Engine.Mix.in_project(fn _ ->
-            Project.ensure_hex_and_rebar()
+            Engine.Mix.ensure_hex_and_rebar()
             Mix.Task.run("loadpaths")
             Mix.Project.deps_paths()
           end)

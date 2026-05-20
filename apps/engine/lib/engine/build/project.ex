@@ -64,7 +64,7 @@ defmodule Engine.Build.Project do
       Progress.report(token, message: "Compiling #{Project.display_name(project)}")
       result = compile_in_isolation()
       maybe_load_modules()
-      Project.ensure_hex_and_rebar()
+      Engine.Mix.ensure_hex_and_rebar()
       Mix.Task.run(:loadpaths)
       result
     end
@@ -103,7 +103,7 @@ defmodule Engine.Build.Project do
 
   defp compile_in_isolation do
     compile_fun = fn ->
-      Project.ensure_hex_and_rebar()
+      Engine.Mix.ensure_hex_and_rebar()
       Mix.Task.run(:compile, mix_compile_opts())
     end
 

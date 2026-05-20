@@ -1,8 +1,22 @@
 defmodule Engine.Mix do
+  alias Forge.Internet
   alias Forge.Project
+
+  require Logger
 
   def loaded? do
     not is_nil(Mix.Project.get())
+  end
+
+  def ensure_hex_and_rebar do
+    if Internet.connected_to_internet?() do
+      Mix.Task.run("local.hex", ~w(--force --if-missing))
+      Mix.Task.run("local.rebar", ~w(--force --if-missing))
+      :ok
+    else
+      Logger.warning("Could not connect to hex.pm, dependencies will not be fetched")
+      :ok
+    end
   end
 
   def in_project(fun) do
