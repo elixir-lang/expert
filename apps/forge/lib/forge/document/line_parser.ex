@@ -68,7 +68,7 @@ defmodule Forge.Document.LineParser do
 
       acc = [{line_number, line_start_index, line_length, is_ascii?, unquote(ending)} | acc]
       next_index = current_index + unquote(ending_length)
-      traverse(rest, next_index, line_number + 1, next_index, is_ascii?, acc)
+      traverse(rest, next_index, line_number + 1, next_index, _is_ascii? = true, acc)
     end
   end
 
