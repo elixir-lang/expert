@@ -113,9 +113,9 @@ defmodule Expert do
 
   def handle_request(request, lsp) do
     with {:ok, handler} <- fetch_handler(request),
-         {:ok, request} <- Convert.to_native(request),
-         :ok <- check_engine_initialized(request),
-         {:ok, response} <- handler.handle(request),
+         {:ok, context} <- check_engine_initialized(request),
+         {:ok, request} <- Convert.to_native(request, context_document(context)),
+         {:ok, response} <- handler.handle(request, context),
          {:ok, response} <- Expert.Protocol.Convert.to_lsp(response) do
       {:reply, response, lsp}
     else
@@ -146,6 +146,9 @@ defmodule Expert do
          }, lsp}
     end
   end
+
+  defp context_document(%{document: %Forge.Document{} = document}), do: document
+  defp context_document(_), do: nil
 
   defp check_engine_initialized(request) do
     if document_request?(request) do

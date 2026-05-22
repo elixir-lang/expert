@@ -16,12 +16,15 @@ defmodule Expert.Protocol.Convert do
     Convertible.to_lsp(other)
   end
 
-  def to_native(%GenLSP.Notifications.Exit{params: nil} = exit_notification) do
+  def to_native(message, context_document \\ nil)
+
+  def to_native(%GenLSP.Notifications.Exit{params: nil} = exit_notification, _context_document) do
     {:ok, exit_notification}
   end
 
-  def to_native(%{params: request_or_notification} = original_request) do
-    context_document = Document.Container.context_document(request_or_notification, nil)
+  def to_native(%{params: request_or_notification} = original_request, context_document) do
+    context_document =
+      Document.Container.context_document(request_or_notification, context_document)
 
     with {:ok, native_request} <- Convertible.to_native(request_or_notification, context_document) do
       updated_request =
@@ -34,7 +37,7 @@ defmodule Expert.Protocol.Convert do
     end
   end
 
-  def to_native(%GenLSP.Requests.Shutdown{} = request) do
+  def to_native(%GenLSP.Requests.Shutdown{} = request, _context_document) do
     # Special case for shutdown requests, which don't have a params field
     {:ok, request}
   end
