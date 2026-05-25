@@ -5,7 +5,7 @@ defmodule Expert.ExpertTest do
   import Expert.Test.Protocol.TransportSupport
   import ExUnit.CaptureLog
 
-  alias Expert.Document.Context
+  alias Expert.ActiveProjects
   alias Expert.State
   alias Forge.CodeAction
   alias Forge.Document
@@ -188,8 +188,8 @@ defmodule Expert.ExpertTest do
     lsp = initialize_lsp(project)
     test_pid = self()
 
-    Expert.Project.Store.add_projects([project])
-    Expert.Project.Store.transition(project, :ready)
+    ActiveProjects.add_projects([project])
+    ActiveProjects.set_ready(project, true)
 
     uri = Document.Path.to_uri(Path.join(Forge.Project.root_path(project), "lib/context.ex"))
 
@@ -231,11 +231,10 @@ defmodule Expert.ExpertTest do
       }
     }
 
-    refute Document.Store.open?(uri)
+    patch(Document.Store, :open?, fn _uri -> false end)
+    patch(Document.Store, :fetch, fn _uri -> {:ok, document} end)
 
-    patch(Expert.Document.Lookup, :resolve_from_request, fn _request, _projects ->
-      {:ok, Context.new(uri, document, project)}
-    end)
+    refute Document.Store.open?(uri)
 
     patch(Expert.EngineApi, :code_actions, fn
       ^project,
