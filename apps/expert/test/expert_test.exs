@@ -5,7 +5,10 @@ defmodule Expert.ExpertTest do
   import Expert.Test.Protocol.TransportSupport
   import ExUnit.CaptureLog
 
+  alias Expert.ActiveProjects
   alias Expert.State
+  alias Forge.CodeAction
+  alias Forge.Document
   alias Forge.Project
   alias Forge.Test.Fixtures
   alias GenLSP.Notifications.WorkspaceDidChangeConfiguration
@@ -178,6 +181,75 @@ defmodule Expert.ExpertTest do
     config = Expert.Configuration.get()
     assert config.log_level == :info
     assert config.workspace_symbols.min_query_length == 2
+  end
+
+  test "document request conversion uses the resolved context document as fallback" do
+    project = Fixtures.project()
+    lsp = initialize_lsp(project)
+    test_pid = self()
+
+    ActiveProjects.add_projects([project])
+    ActiveProjects.set_ready(project, true)
+
+    uri = Document.Path.to_uri(Path.join(Forge.Project.root_path(project), "lib/context.ex"))
+
+    document =
+      Document.new(
+        uri,
+        """
+        defmodule Context do
+          alias Foo.Bar
+        end
+        """,
+        1,
+        "elixir"
+      )
+
+    range = %GenLSP.Structures.Range{
+      start: %GenLSP.Structures.Position{line: 1, character: 2},
+      end: %GenLSP.Structures.Position{line: 1, character: 15}
+    }
+
+    request = %GenLSP.Requests.TextDocumentCodeAction{
+      id: 1,
+      jsonrpc: "2.0",
+      method: "textDocument/codeAction",
+      params: %GenLSP.Structures.CodeActionParams{
+        text_document: %GenLSP.Structures.TextDocumentIdentifier{uri: uri},
+        range: range,
+        context: %GenLSP.Structures.CodeActionContext{
+          diagnostics: [
+            %GenLSP.Structures.Diagnostic{
+              range: range,
+              message: "Test diagnostic",
+              source: "TestSource"
+            }
+          ],
+          only: nil,
+          trigger_kind: 1
+        }
+      }
+    }
+
+    patch(Document.Store, :open?, fn _uri -> false end)
+    patch(Document.Store, :fetch, fn _uri -> {:ok, document} end)
+
+    refute Document.Store.open?(uri)
+
+    patch(Expert.EngineApi, :code_actions, fn
+      ^project,
+      ^document,
+      %Document.Range{} = native_range,
+      [%CodeAction.Diagnostic{range: %Document.Range{}}] = diagnostics,
+      :all,
+      1 ->
+        send(test_pid, {:code_actions, native_range, diagnostics})
+        []
+    end)
+
+    assert {:reply, [], ^lsp} = Expert.handle_request(request, lsp)
+
+    assert_receive {:code_actions, %Document.Range{}, [%CodeAction.Diagnostic{}]}
   end
 
   defp initialize_lsp(project, opts \\ []) do

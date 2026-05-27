@@ -113,8 +113,8 @@ defmodule Expert do
 
   def handle_request(request, lsp) do
     with {:ok, handler} <- fetch_handler(request),
-         {:ok, request} <- Convert.to_native(request),
-         :ok <- check_engine_initialized(request),
+         {:ok, document} <- check_engine_initialized(request),
+         {:ok, request} <- Convert.to_native(request, document),
          {:ok, response} <- handler.handle(request),
          {:ok, response} <- Expert.Protocol.Convert.to_lsp(response) do
       {:reply, response, lsp}
@@ -155,7 +155,7 @@ defmodule Expert do
           project = Project.project_for_document(projects, document)
 
           if project && ActiveProjects.active?(project) do
-            :ok
+            {:ok, document}
           else
             {:error, :engine_not_initialized, project}
           end
@@ -164,7 +164,7 @@ defmodule Expert do
           {:error, :engine_not_initialized, nil}
       end
     else
-      :ok
+      {:ok, nil}
     end
   end
 
