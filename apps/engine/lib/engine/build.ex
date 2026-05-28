@@ -8,7 +8,7 @@ defmodule Engine.Build do
 
   require Logger
 
-  @timeout_interval_millis 50
+  @timeout_interval_millis 1000
 
   # Public interface
 

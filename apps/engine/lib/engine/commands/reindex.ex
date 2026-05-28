@@ -19,7 +19,13 @@ defmodule Engine.Commands.Reindex do
 
     require Logger
 
-    defstruct reindex_fun: nil, index_task: nil, pending_updates: %{}
+    @debounce_interval_millis 1000
+
+    defstruct reindex_fun: nil,
+              index_task: nil,
+              pending_updates: %{},
+              pending_uris: MapSet.new(),
+              debounce_timer: nil
 
     def new(reindex_fun) do
       %__MODULE__{reindex_fun: reindex_fun}
@@ -33,26 +39,29 @@ defmodule Engine.Commands.Reindex do
       %__MODULE__{state | index_task: nil}
     end
 
-    def reindex_uri(%__MODULE__{index_task: nil} = state, uri) do
-      case entries_for_uri(uri) do
-        {:ok, path, entries} ->
-          Search.Store.update(path, entries)
+    def reindex_uri(%__MODULE__{} = state, uri) do
+      new_state = %{state | pending_uris: MapSet.put(state.pending_uris, uri)}
 
-        _ ->
-          :ok
+      if state.debounce_timer do
+        Process.cancel_timer(state.debounce_timer)
       end
 
-      state
+      timer = Process.send_after(self(), :flush_pending, @debounce_interval_millis)
+      %{new_state | debounce_timer: timer}
     end
 
-    def reindex_uri(%__MODULE__{} = state, uri) do
-      case entries_for_uri(uri) do
-        {:ok, path, entries} ->
-          put_in(state.pending_updates[path], entries)
+    def flush_pending_uris(%__MODULE__{} = state) do
+      Enum.each(state.pending_uris, fn uri ->
+        case entries_for_uri(uri) do
+          {:ok, path, entries} ->
+            Search.Store.update(path, entries)
 
-        _ ->
-          state
-      end
+          _ ->
+            :ok
+        end
+      end)
+
+      %{state | pending_uris: MapSet.new(), debounce_timer: nil}
     end
 
     def flush_pending_updates(%__MODULE__{} = state) do
@@ -138,6 +147,12 @@ defmodule Engine.Commands.Reindex do
     :erlang.garbage_collect()
     schedule_gc()
     {:noreply, state}
+  end
+
+  @impl GenServer
+  def handle_info(:flush_pending, %State{} = state) do
+    new_state = State.flush_pending_uris(state)
+    {:noreply, new_state}
   end
 
   defp do_reindex(%Project{} = project) do
