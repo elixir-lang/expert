@@ -5,18 +5,10 @@ defmodule Engine.Search.Store.Backend do
   alias Forge.Project
   alias Forge.Search.Indexer.Entry
 
-  @type version :: pos_integer()
-
   @type priv_state :: term()
   @type load_state :: :empty | :stale
   @type field_name :: atom()
   @type name :: term
-  @type metadata :: %{
-          schema_version: version(),
-          types: [Entry.entry_type()],
-          subtypes: [Entry.entry_subtype()]
-        }
-
   @type wildcard :: :_
   @type subject_query :: Entry.subject() | wildcard()
   @type type_query :: Entry.entry_type() | wildcard()
@@ -37,7 +29,7 @@ defmodule Engine.Search.Store.Backend do
   This receives the result of `new/1`, and sets up the store for use. When this function
   returns, the backend is considered ready for use.
   """
-  @callback prepare(priv_state()) :: {:ok, load_state()}
+  @callback prepare(priv_state()) :: {:ok, load_state()} | {:error, any()}
 
   @doc """
   Synchronizes the backend to the file system (optional)
@@ -67,7 +59,7 @@ defmodule Engine.Search.Store.Backend do
   @doc """
   Replaces all the entries in the store with those passed in
   """
-  @callback replace_all([Entry.t()]) :: :ok
+  @callback replace_all(Enumerable.t(Entry.t())) :: :ok
 
   @doc """
   Deletes all entries whose path is equal to the one passed in.

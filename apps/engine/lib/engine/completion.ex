@@ -3,6 +3,7 @@ defmodule Engine.Completion do
   import Forge.Logging
 
   alias Engine.CodeMod.Format
+  alias Engine.Module.Loader
   alias Forge.Ast.Analysis
   alias Forge.Ast.Env
   alias Forge.Completion.Candidate
@@ -73,6 +74,7 @@ defmodule Engine.Completion do
 
     with {:ok, struct_module} <-
            Engine.Analyzer.expand_alias(container_struct_module, analysis, position),
+         true <- Loader.ensure_loaded?(struct_module),
          true <- function_exported?(struct_module, :__struct__, 0) do
       struct_module
       |> struct()

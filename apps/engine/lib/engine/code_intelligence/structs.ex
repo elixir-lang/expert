@@ -1,5 +1,4 @@
 defmodule Engine.CodeIntelligence.Structs do
-  alias Engine.Module.Loader
   alias Engine.Search.Store
   alias Forge.Project
   alias Forge.Search.Indexer.Entry
@@ -23,8 +22,7 @@ defmodule Engine.CodeIntelligence.Structs do
   defp structs_from_index do
     case Store.exact(type: :struct, subtype: :definition) do
       {:ok, entries} ->
-        for %Entry{subject: struct_module} <- entries,
-            Loader.ensure_loaded?(struct_module) do
+        for %Entry{subject: struct_module} <- entries do
           struct_module
         end
 

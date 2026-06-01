@@ -49,12 +49,12 @@ defmodule Engine.Search.Store.Backend.EtsTest do
     backend.destroy(project)
   end
 
-  def default_create(_project) do
-    {:ok, []}
+  def default_create(_project, _backend) do
+    :ok
   end
 
-  def default_update(_project, _entities) do
-    {:ok, [], []}
+  def default_update(_project, _backend) do
+    :ok
   end
 
   defp start_supervised_store(%Project{} = project, create_fn, update_fn, backend) do
@@ -67,7 +67,7 @@ defmodule Engine.Search.Store.Backend.EtsTest do
   end
 
   def with_a_started_store(%{project: project, backend: backend}) do
-    start_supervised_store(project, &default_create/1, &default_update/2, backend)
+    start_supervised_store(project, &default_create/2, &default_update/2, backend)
 
     :ok
   end
@@ -79,14 +79,14 @@ defmodule Engine.Search.Store.Backend.EtsTest do
     } do
       me = self()
 
-      create_fn = fn ^project ->
+      create_fn = fn ^project, ^backend ->
         send(me, :create)
-        {:ok, []}
+        :ok
       end
 
       update_fn = fn _, _ ->
         send(me, :update)
-        {:ok, [], []}
+        :ok
       end
 
       start_supervised_store(project, create_fn, update_fn, backend)
@@ -101,11 +101,11 @@ defmodule Engine.Search.Store.Backend.EtsTest do
     } do
       me = self()
 
-      create_fn = fn ^project -> {:ok, [reference()]} end
+      create_fn = fn ^project, ^backend -> backend.replace_all([reference(id: 1)]) end
 
       update_fn = fn _, _ ->
         send(me, :update)
-        {:ok, [], []}
+        :ok
       end
 
       start_supervised_store(project, create_fn, update_fn, backend)
@@ -116,7 +116,7 @@ defmodule Engine.Search.Store.Backend.EtsTest do
     end
 
     test "starts empty if there are no disk files", %{project: project, backend: backend} do
-      start_supervised_store(project, &default_create/1, &default_update/2, backend)
+      start_supervised_store(project, &default_create/2, &default_update/2, backend)
 
       assert [] = all_entries(backend)
 
@@ -126,13 +126,13 @@ defmodule Engine.Search.Store.Backend.EtsTest do
     end
 
     test "incorporates any indexed files in an empty index", %{project: project, backend: backend} do
-      create = fn _ ->
+      create = fn _, backend ->
         entries = [
           reference(path: "/foo/bar/baz.ex"),
           reference(path: "/foo/bar/quux.ex")
         ]
 
-        {:ok, entries}
+        backend.replace_all(entries)
       end
 
       start_supervised_store(project, create, &default_update/2, backend)
@@ -146,7 +146,7 @@ defmodule Engine.Search.Store.Backend.EtsTest do
     end
 
     test "fails if the reindex fails on an empty index", %{project: project, backend: backend} do
-      create = fn _ -> {:error, :broken} end
+      create = fn _, _ -> {:error, :broken} end
       start_supervised_store(project, create, &default_update/2, backend)
 
       assert_eventually ready?(project)
@@ -155,22 +155,22 @@ defmodule Engine.Search.Store.Backend.EtsTest do
     end
 
     test "incorporates any indexed files in a stale index", %{project: project, backend: backend} do
-      create = fn
-        _ ->
-          {:ok,
-           [
-             reference(id: 1, path: "/foo/bar/baz.ex"),
-             reference(id: 2, path: "/foo/bar/quux.ex")
-           ]}
+      create = fn _, backend ->
+        backend.replace_all([
+          reference(id: 1, path: "/foo/bar/baz.ex"),
+          reference(id: 2, path: "/foo/bar/quux.ex")
+        ])
       end
 
-      update = fn _, _ ->
+      update = fn _, backend ->
         entries = [
           reference(id: 3, path: "/foo/bar/baz.ex"),
           reference(id: 4, path: "/foo/bar/other.ex")
         ]
 
-        {:ok, entries, []}
+        with {:ok, _} <- backend.delete_by_path("/foo/bar/baz.ex") do
+          backend.insert(entries)
+        end
       end
 
       start_supervised_store(project, create, update, backend)
@@ -184,19 +184,19 @@ defmodule Engine.Search.Store.Backend.EtsTest do
     end
 
     test "fails if the reinder fails on an stale index", %{project: project, backend: backend} do
-      create = fn _ -> {:ok, []} end
+      create = fn _, backend -> backend.replace_all([reference(id: 1)]) end
       update = fn _, _ -> {:error, :bad} end
 
       start_supervised_store(project, create, update, backend)
       restart_store(project)
 
-      assert [] = all_entries(backend)
+      assert [%{id: 1}] = all_entries(backend)
     end
 
     test "the updater allows you to delete paths", %{project: project, backend: backend} do
       kept_structure = %{root: %{3 => %{4 => %{}}}}
 
-      create = fn _ ->
+      create = fn _, backend ->
         entries = [
           structure(path: "/path/to/keep.ex", structure: kept_structure),
           definition(path: "/path/to/keep.ex"),
@@ -207,11 +207,14 @@ defmodule Engine.Search.Store.Backend.EtsTest do
           definition(path: "/another/path/to/delete.ex")
         ]
 
-        {:ok, entries}
+        backend.replace_all(entries)
       end
 
-      update = fn _, _ ->
-        {:ok, [], ["/path/to/delete.ex", "/another/path/to/delete.ex"]}
+      update = fn _, backend ->
+        with {:ok, _} <- backend.delete_by_path("/path/to/delete.ex"),
+             {:ok, _} <- backend.delete_by_path("/another/path/to/delete.ex") do
+          :ok
+        end
       end
 
       start_supervised_store(project, create, update, backend)

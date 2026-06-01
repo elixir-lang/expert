@@ -83,6 +83,26 @@ defmodule Engine.Search.Store.State do
     end
   end
 
+  def refresh_index(%__MODULE__{} = state) do
+    case state.update_index.(state.project, state.backend) do
+      :ok ->
+        {:ok, initialize_fuzzy(state)}
+
+      {:error, _} = error ->
+        error
+    end
+  end
+
+  def rebuild_index(%__MODULE__{} = state) do
+    case state.create_index.(state.project, state.backend) do
+      :ok ->
+        {:ok, state |> initialize_fuzzy() |> drop_buffered_updates()}
+
+      {:error, _} = error ->
+        error
+    end
+  end
+
   def exact(%__MODULE__{loaded?: false}, _subject, _constraints) do
     {:error, :loading}
   end
@@ -259,7 +279,7 @@ defmodule Engine.Search.Store.State do
         case state.backend.prepare(backend_result) do
           {:ok, :empty} ->
             Logger.info("backend reports empty")
-            {:create_index, state.create_index.(state.project)}
+            {:create_index, state.create_index.(state.project, state.backend)}
 
           {:ok, :stale} ->
             Logger.info("backend reports stale")
@@ -277,15 +297,8 @@ defmodule Engine.Search.Store.State do
     %__MODULE__{state | async_load_ref: task.ref}
   end
 
-  defp create_index_complete(%__MODULE__{} = state, {:ok, entries}) do
-    case replace(state, entries) do
-      {:ok, state} ->
-        state
-
-      {:error, _} ->
-        Logger.warning("Could not replace entries")
-        state
-    end
+  defp create_index_complete(%__MODULE__{} = state, :ok) do
+    initialize_fuzzy(state)
   end
 
   defp create_index_complete(%__MODULE__{} = state, {:error, _} = error) do
@@ -293,21 +306,8 @@ defmodule Engine.Search.Store.State do
     state
   end
 
-  defp update_index_complete(%__MODULE__{} = state, {:ok, updated_entries, deleted_paths}) do
-    starting_state = initialize_fuzzy(%__MODULE__{state | loaded?: true})
-
-    new_state =
-      updated_entries
-      |> Enum.group_by(& &1.path)
-      |> Enum.reduce(starting_state, fn {path, entry_list}, state ->
-        {:ok, new_state} = update_nosync(state, path, entry_list)
-        new_state
-      end)
-
-    Enum.reduce(deleted_paths, new_state, fn path, state ->
-      {:ok, new_state} = update_nosync(state, path, [])
-      new_state
-    end)
+  defp update_index_complete(%__MODULE__{} = state, :ok) do
+    initialize_fuzzy(state)
   end
 
   defp update_index_complete(%__MODULE__{} = state, {:error, _} = error) do

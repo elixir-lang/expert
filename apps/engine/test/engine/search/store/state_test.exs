@@ -5,6 +5,7 @@ defmodule Engine.Search.Store.StateTest do
   import Forge.Test.Fixtures
 
   alias Engine.Search.Store.State
+  alias Forge.Project
 
   require Logger
 
@@ -14,6 +15,26 @@ defmodule Engine.Search.Store.StateTest do
     def delete_by_path(_path) do
       exit({:timeout, {GenServer, :call, [:some_ref]}})
     end
+
+    def new(_project), do: {:ok, :new}
+    def prepare(_), do: {:ok, :empty}
+    def insert(_entries), do: :ok
+    def replace_all(_entries), do: :ok
+    def find_by_subject(_subject, _type, _subtype), do: []
+    def find_by_prefix(_prefix, _type, _subtype), do: []
+    def find_by_ids(_ids, _type, _subtype), do: []
+    def reduce(acc, _fun), do: acc
+    def siblings(_entry), do: []
+    def parent(_entry), do: nil
+    def structure_for_path(_path), do: {:ok, %{}}
+    def drop, do: :ok
+    def destroy(_state), do: :ok
+  end
+
+  defmodule DeleteErrorBackend do
+    @behaviour Engine.Search.Store.Backend
+
+    def delete_by_path(_path), do: {:error, :delete_failed}
 
     def new(_project), do: {:ok, :new}
     def prepare(_), do: {:ok, :empty}
@@ -40,8 +61,8 @@ defmodule Engine.Search.Store.StateTest do
       state =
         State.new(
           project,
-          fn _project -> {:ok, []} end,
-          fn _project, _backend -> {:ok, [], []} end,
+          fn _project, _backend -> :ok end,
+          fn _project, _backend -> :ok end,
           TimeoutBackend
         )
 
@@ -50,8 +71,25 @@ defmodule Engine.Search.Store.StateTest do
           State.update_nosync(state, "/some/path.ex", [])
         end)
 
-      assert assert {:ok, returned_state} = result
+      assert {:ok, %State{}} = result
       assert log =~ "Timeout updating index for path: /some/path.ex"
+    end
+  end
+
+  describe "refresh_index/1" do
+    @tag :tmp_dir
+    test "returns index update errors instead of crashing", %{tmp_dir: tmp_dir} do
+      project = tmp_dir |> Forge.Document.Path.to_uri() |> Project.bare()
+
+      state =
+        State.new(
+          project,
+          fn _project, _backend -> :ok end,
+          fn _project, _backend -> {:error, :update_failed} end,
+          DeleteErrorBackend
+        )
+
+      assert {:error, :update_failed} = State.refresh_index(state)
     end
   end
 end

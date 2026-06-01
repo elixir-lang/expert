@@ -25,7 +25,7 @@ defmodule Engine.CodeIntelligence.ReferencesTest do
     start_supervised!(Backends.Ets)
 
     start_supervised!(
-      {Search.Store, [project, fn _ -> {:ok, []} end, fn _, _ -> {:ok, [], []} end, Backends.Ets]}
+      {Search.Store, [project, fn _, _ -> :ok end, fn _, _ -> :ok end, Backends.Ets]}
     )
 
     Search.Store.enable()

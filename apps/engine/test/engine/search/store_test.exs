@@ -360,12 +360,12 @@ defmodule Engine.Search.StoreTest do
     :ok
   end
 
-  defp default_create(_project) do
-    {:ok, []}
+  defp default_create(_project, _backend) do
+    :ok
   end
 
-  defp default_update(_project, _entities) do
-    {:ok, [], []}
+  defp default_update(_project, _backend) do
+    :ok
   end
 
   defp with_a_started_store(project, backend) do
@@ -373,7 +373,7 @@ defmodule Engine.Search.StoreTest do
 
     start_supervised!(Dispatch)
     start_supervised!(backend)
-    start_supervised!({Store, [project, &default_create/1, &default_update/2, backend]})
+    start_supervised!({Store, [project, &default_create/2, &default_update/2, backend]})
 
     assert_eventually alive?()
 
@@ -406,7 +406,7 @@ defmodule Engine.Search.StoreTest do
       start_supervised!(Dispatch)
       start_supervised!(Ets)
 
-      blocking_create = fn _project ->
+      blocking_create = fn _project, _backend ->
         Process.sleep(:infinity)
       end
 
@@ -447,6 +447,14 @@ defmodule Engine.Search.StoreTest do
       assert {:error, :loading} = Store.all([])
       assert_receive search_store_loading(project: received_project)
       assert received_project == project
+    end
+
+    test "refresh_index/1 returns loading while startup indexing is running", %{project: project} do
+      assert {:error, :loading} = Store.refresh_index(project)
+    end
+
+    test "rebuild_index/1 returns loading while startup indexing is running", %{project: project} do
+      assert {:error, :loading} = Store.rebuild_index(project)
     end
 
     test "parent/1 broadcasts search_store_loading when loading", %{project: project} do
