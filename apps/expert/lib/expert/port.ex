@@ -360,12 +360,15 @@ defmodule Expert.Port do
     path = prepend_configured_erlang_path(path)
 
     System.get_env()
-    |> Enum.reject(fn {key, _value} -> key in @scrubbed_env_vars end)
     |> Enum.map(&sanitize_system_env_var(&1, path))
   end
 
   defp sanitize_system_env_var({key, _value}, path) when key in ["PATH", "Path"] do
     {key, path}
+  end
+
+  defp sanitize_system_env_var({key, _value}, _path) when key in @scrubbed_env_vars do
+    {key, ""}
   end
 
   defp sanitize_system_env_var({key, value}, _path) do
