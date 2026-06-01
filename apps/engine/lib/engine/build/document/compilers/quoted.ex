@@ -28,7 +28,7 @@ defmodule Engine.Build.Document.Compilers.Quoted do
   end
 
   defp do_compile(quoted_ast, document) do
-    old_modules = ModuleMappings.modules_in_file(document.path)
+    old_modules = previously_compiled_modules(document.path)
 
     case compile_quoted_with_diagnostics(quoted_ast, document.path) do
       {{:ok, modules}, []} ->
@@ -65,7 +65,7 @@ defmodule Engine.Build.Document.Compilers.Quoted do
   defp do_compile_and_capture_io(quoted_ast, document) do
     # credo:disable-for-next-line Credo.Check.Design.TagTODO
     # TODO: remove this function once we drop support for Elixir 1.14
-    old_modules = ModuleMappings.modules_in_file(document.path)
+    old_modules = previously_compiled_modules(document.path)
     compile = fn -> safe_compile_quoted(quoted_ast, document.path) end
 
     case capture_io(:stderr, compile) do
@@ -129,6 +129,49 @@ defmodule Engine.Build.Document.Compilers.Quoted do
     exception ->
       {filled_exception, stack} = Exception.blame(:error, exception, __STACKTRACE__)
       {:exception, filled_exception, stack, quoted_ast}
+  end
+
+  defp previously_compiled_modules(path) do
+    path
+    |> ModuleMappings.modules_in_file()
+    |> Enum.concat(loaded_modules_compiled_from(path))
+    |> Enum.uniq()
+  end
+
+  # The mapping is updated from module_updated broadcasts, so a rapid edit can
+  # reach this compile before the previous broadcast is consumed.
+  defp loaded_modules_compiled_from(path) do
+    normalized_path = normalize_path(path)
+
+    for {module, _} <- :code.all_loaded(),
+        module_compile_source(module) == normalized_path do
+      module
+    end
+  end
+
+  defp module_compile_source(module) do
+    compile_info = module.module_info(:compile)
+
+    compile_info
+    |> Keyword.get(:source)
+    |> source_path()
+    |> normalize_path()
+  end
+
+  defp source_path(path) when is_binary(path), do: path
+  defp source_path(path) when is_list(path), do: List.to_string(path)
+  defp source_path(_path), do: nil
+
+  defp normalize_path(nil), do: nil
+
+  defp normalize_path(path) when is_binary(path) do
+    path = Path.expand(path)
+
+    if Forge.OS.windows?() do
+      String.downcase(path)
+    else
+      path
+    end
   end
 
   defp purge_removed_modules(old_modules, new_modules) do

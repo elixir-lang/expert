@@ -8,9 +8,16 @@ defmodule Engine.Dispatch.Handlers.IndexingTest do
   import Forge.Test.Fixtures
 
   alias Engine.Commands
+  alias Engine.Compilation.TraceBuffer
   alias Engine.Dispatch.Handlers.Indexing
-  alias Engine.Search
+  alias Engine.Search.Indexer.Manifest
+  alias Engine.Search.Indexer.ManifestStore
+  alias Engine.Search.Indexer.Source
   alias Forge.Document
+  alias Forge.Document.Position
+  alias Forge.Document.Range
+  alias Forge.Search.Indexer.Entry
+  alias Forge.Search.Indexer.Source.Block
 
   setup do
     project = project()
@@ -43,6 +50,7 @@ defmodule Engine.Dispatch.Handlers.IndexingTest do
     patch(Engine.Dispatch, :erpc_cast, fn Expert.Progress, _function, _args -> true end)
 
     start_supervised!(Engine.ApplicationCache)
+    start_supervised!(TraceBuffer)
     start_supervised!(Engine.Dispatch)
     start_supervised!({Commands.Reindex, debounce_interval_millis: 0})
     start_supervised!({Document.Store, derive: [analysis: &Forge.Ast.analyze/1]})
@@ -103,7 +111,7 @@ defmodule Engine.Dispatch.Handlers.IndexingTest do
   defp format_subject(subject), do: to_string(subject)
 
   describe "handling file_quoted events" do
-    test "should add new entries to the store", %{state: state, store: store} do
+    test "does not commit staged trace entries", %{state: state, store: store} do
       {uri, _source} =
         ~q[
           defmodule NewModule do
@@ -111,22 +119,27 @@ defmodule Engine.Dispatch.Handlers.IndexingTest do
         ]
         |> set_document!()
 
-      assert {:ok, _} = Indexing.on_event(file_compile_requested(uri: uri), state)
+      stage_module_definition(uri, NewModule)
+      assert {:ok, _} = Indexing.on_event(file_compiled(uri: uri, status: :success), state)
 
-      assert_eventually {:ok, [entry]} = exact(store, "NewModule")
-
-      assert entry.subject == NewModule
+      assert {:ok, []} = exact(store, "NewModule")
+      assert TraceBuffer.traced?(Document.Path.ensure_path(uri))
     end
 
-    test "should update entries in the store", %{state: state, store: store} do
+    test "does not replace source-indexed entries with staged trace entries", %{
+      state: state,
+      store: store
+    } do
       {uri, source} =
         ~q[
-          defmodule OldModule
+          defmodule OldModule do
           end
         ]
         |> set_document!()
 
-      {:ok, _} = Search.Indexer.Source.index(uri, source)
+      {:ok, entries} = Source.index(uri, source)
+      update_store(store, uri, entries)
+      assert_eventually({:ok, [_entry]} = exact(store, "OldModule"))
 
       {^uri, _source} =
         ~q[
@@ -135,11 +148,63 @@ defmodule Engine.Dispatch.Handlers.IndexingTest do
         ]
         |> set_document!()
 
-      assert {:ok, _} = Indexing.on_event(file_compile_requested(uri: uri), state)
+      stage_module_definition(uri, UpdatedModule)
+      assert {:ok, _} = Indexing.on_event(file_compiled(uri: uri, status: :success), state)
 
-      assert_eventually {:ok, [entry]} = exact(store, "UpdatedModule")
-      assert entry.subject == UpdatedModule
-      assert {:ok, []} = exact(store, "OldModule")
+      assert {:ok, []} = exact(store, "UpdatedModule")
+      assert {:ok, [_entry]} = exact(store, "OldModule")
+      assert TraceBuffer.traced?(Document.Path.ensure_path(uri))
+    end
+
+    test "does not clear source-indexed entries for untraced successful compiles", %{
+      state: state,
+      store: store
+    } do
+      {uri, source} =
+        ~q[
+          defmodule SourceIndexed do
+          end
+        ]
+        |> set_document!()
+
+      {:ok, entries} = Source.index(uri, source)
+      update_store(store, uri, entries)
+
+      assert_eventually({:ok, [_entry]} = exact(store, "SourceIndexed"))
+
+      assert {:ok, _} = Indexing.on_event(file_compiled(uri: uri, status: :success), state)
+
+      assert_eventually({:ok, [_entry]} = exact(store, "SourceIndexed"))
+    end
+
+    @tag :tmp_dir
+    test "does not commit traced file compiles as dirty source manifest entries", %{
+      project: project,
+      state: state,
+      tmp_dir: tmp_dir
+    } do
+      source_path = Path.join(tmp_dir, "dirty_source.ex")
+      beam_path = Path.join(tmp_dir, "Elixir.LiveSource.beam")
+      uri = Document.Path.to_uri(source_path)
+
+      File.write!(source_path, "defmodule LiveSource do end")
+      File.write!(beam_path, "beam")
+
+      assert {:ok, beam_entry} = Manifest.Entry.beam(beam_path, source_path)
+      assert :ok = ManifestStore.commit(project, Manifest.new([beam_entry]))
+
+      stage_module_definition(uri, LiveSource)
+
+      assert {:ok, _} =
+               Indexing.on_event(
+                 file_compiled(project: project, uri: uri, status: :success),
+                 state
+               )
+
+      assert {:ok, manifest} = ManifestStore.load(project)
+
+      assert [^beam_entry] = Manifest.entries(manifest)
+      assert TraceBuffer.traced?(source_path)
     end
 
     test "only updates entries if the version of the document is the same as the version in the document store",
@@ -167,30 +232,50 @@ defmodule Engine.Dispatch.Handlers.IndexingTest do
         ]
         |> set_document!()
 
-      {:ok, entries} = Search.Indexer.Source.index(uri, source)
+      {:ok, entries} = Source.index(uri, source)
       update_store(store, uri, entries)
 
-      assert_eventually {:ok, [_]} = exact(store, "ToDelete")
+      assert_eventually({:ok, [_]} = exact(store, "ToDelete"))
 
       Indexing.on_event(
         filesystem_event(project: project, uri: uri, event_type: :deleted),
         state
       )
 
-      assert_eventually {:ok, []} = exact(store, "ToDelete")
+      assert_eventually({:ok, []} = exact(store, "ToDelete"))
     end
   end
 
   describe "a file is created" do
     test "is a no op", %{project: project, state: state, store: store} do
-      spy(Search.Indexer)
+      spy(Engine.Search.Indexer)
 
       event = filesystem_event(project: project, uri: "file:///another.ex", event_type: :created)
 
       assert {:ok, _} = Indexing.on_event(event, state)
 
       assert Agent.get(store, & &1) == %{}
-      assert history(Search.Indexer) == []
+      assert history(Engine.Search.Indexer) == []
     end
+  end
+
+  defp stage_module_definition(uri, module) do
+    path = Document.Path.ensure_path(uri)
+
+    TraceBuffer.add_definitions(path, module, [module_definition(path, module)])
+  end
+
+  defp module_definition(path, module) do
+    Entry.definition(
+      path,
+      Block.root(),
+      module,
+      :module,
+      Range.new(
+        %Position{line: 1, character: 1, starting_index: 1},
+        %Position{line: 1, character: 2, starting_index: 1}
+      ),
+      nil
+    )
   end
 end

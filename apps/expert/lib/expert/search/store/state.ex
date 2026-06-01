@@ -262,6 +262,216 @@ defmodule Expert.Search.Store.State do
     end
   end
 
+  def commit_traces(%__MODULE__{} = state, trace_updates) when is_list(trace_updates) do
+    with {:ok, state} <- prepare_for_trace_commit(state) do
+      trace_updates = normalize_trace_updates(trace_updates)
+
+      if state.loaded? do
+        replace_loaded_trace_entries(state, trace_updates)
+      else
+        replace_unloaded_trace_entries(state, trace_updates)
+      end
+    end
+  end
+
+  defp prepare_for_trace_commit(%__MODULE__{} = state) do
+    case load(state) do
+      {:ok, _status, %__MODULE__{} = state} -> {:ok, state}
+      {:error, _} = error -> error
+      error -> {:error, error}
+    end
+  end
+
+  defp replace_loaded_trace_entries(%__MODULE__{} = state, trace_updates) do
+    with {:ok, state} <- delete_exact_module_definitions_from_other_paths(state, trace_updates),
+         {:ok, state} <- replace_trace_paths(state, trace_updates),
+         :ok <- maybe_sync(state) do
+      {:ok, state}
+    end
+  end
+
+  defp replace_trace_paths(%__MODULE__{} = state, trace_updates) do
+    Enum.reduce_while(trace_updates, {:ok, state}, fn {path, _modules, entries}, {:ok, state} ->
+      case update_nosync(state, path, ensure_block_structure(path, entries)) do
+        {:ok, state} -> {:cont, {:ok, state}}
+        error -> {:halt, error}
+      end
+    end)
+  end
+
+  defp replace_unloaded_trace_entries(%__MODULE__{} = state, trace_updates) do
+    traced_paths = trace_paths(trace_updates)
+    traced_modules = trace_modules(trace_updates)
+    module_atoms = MapSet.new(traced_modules)
+    module_by_name = module_by_name(traced_modules)
+    match_modules? = MapSet.size(module_atoms) > 0
+    new_entries = trace_entries_with_structure(trace_updates)
+
+    kept_entries =
+      state.backend.reduce(state.project, [], fn
+        %Entry{path: path} = entry, acc when is_binary(path) ->
+          replace? =
+            MapSet.member?(traced_paths, path) or
+              (match_modules? and
+                 definition_for_exact_modules?(entry, module_atoms, module_by_name))
+
+          if replace?, do: acc, else: [entry | acc]
+
+        %Entry{} = entry, acc ->
+          [entry | acc]
+
+        _entry, acc ->
+          acc
+      end)
+
+    with kept_entries when is_list(kept_entries) <- kept_entries,
+         :ok <- state.backend.replace_all(state.project, Enum.reverse(kept_entries, new_entries)),
+         :ok <- maybe_sync(state) do
+      {:ok, %__MODULE__{state | fuzzy: Fuzzy.from_entries(state.project, new_entries)}}
+    else
+      {:error, _} = error -> error
+      error -> {:error, error}
+    end
+  end
+
+  defp delete_exact_module_definitions_from_other_paths(%__MODULE__{} = state, trace_updates) do
+    traced_paths = trace_paths(trace_updates)
+    traced_modules = trace_modules(trace_updates)
+    modules_by_path = exact_module_definition_paths(state, traced_modules, traced_paths)
+
+    Enum.reduce_while(modules_by_path, {:ok, state}, fn {path, modules}, {:ok, state} ->
+      case remove_exact_module_definitions_at_path(state, path, modules) do
+        {:ok, state} -> {:cont, {:ok, state}}
+        error -> {:halt, error}
+      end
+    end)
+  end
+
+  defp remove_exact_module_definitions_at_path(%__MODULE__{} = state, path, modules) do
+    module_atoms = MapSet.new(modules)
+    module_by_name = module_by_name(modules)
+
+    kept_entries =
+      state
+      |> entries_for_path(path)
+      |> Enum.reject(&definition_for_exact_modules?(&1, module_atoms, module_by_name))
+
+    update_nosync(state, path, ensure_block_structure(path, kept_entries))
+  end
+
+  defp normalize_trace_updates(trace_updates) do
+    Enum.map(trace_updates, fn {path, modules, entries} ->
+      {path, Enum.uniq(modules), Enum.map(entries, &put_entry_path(&1, path))}
+    end)
+  end
+
+  defp trace_paths(trace_updates),
+    do: MapSet.new(trace_updates, fn {path, _modules, _entries} -> path end)
+
+  defp trace_modules(trace_updates) do
+    trace_updates
+    |> Enum.flat_map(fn {_path, modules, _entries} -> modules end)
+    |> Enum.uniq()
+  end
+
+  defp trace_entries_with_structure(trace_updates) do
+    Enum.flat_map(trace_updates, fn {path, _modules, entries} ->
+      ensure_block_structure(path, entries)
+    end)
+  end
+
+  defp exact_module_definition_paths(%__MODULE__{}, [], _traced_paths), do: %{}
+
+  defp exact_module_definition_paths(%__MODULE__{} = state, modules, traced_paths) do
+    module_atoms = MapSet.new(modules)
+    module_by_name = module_by_name(modules)
+
+    result =
+      state.backend.reduce(state.project, %{}, fn
+        %Entry{path: path} = entry, acc when is_binary(path) ->
+          if MapSet.member?(traced_paths, path) do
+            acc
+          else
+            case exact_definition_module(entry, module_atoms, module_by_name) do
+              {:ok, module} -> Map.update(acc, path, [module], &[module | &1])
+              :error -> acc
+            end
+          end
+
+        _entry, acc ->
+          acc
+      end)
+
+    case result do
+      modules_by_path when is_map(modules_by_path) ->
+        Map.new(modules_by_path, fn {path, modules} -> {path, Enum.uniq(modules)} end)
+
+      _error ->
+        %{}
+    end
+  end
+
+  defp entries_for_path(%__MODULE__{} = state, path) do
+    case state.backend.reduce(state.project, [], fn
+           %Entry{path: ^path} = entry, acc -> [entry | acc]
+           _entry, acc -> acc
+         end) do
+      entries when is_list(entries) -> entries
+      _error -> []
+    end
+  end
+
+  defp put_entry_path(%Entry{} = entry, path), do: %Entry{entry | path: path}
+
+  defp definition_for_exact_modules?(%Entry{} = entry, module_atoms, module_by_name) do
+    match?({:ok, _module}, exact_definition_module(entry, module_atoms, module_by_name))
+  end
+
+  defp exact_definition_module(
+         %Entry{subtype: :definition, subject: subject},
+         module_atoms,
+         module_by_name
+       ) do
+    cond do
+      is_atom(subject) and MapSet.member?(module_atoms, subject) ->
+        {:ok, subject}
+
+      is_binary(subject) ->
+        exact_function_definition_module(subject, module_by_name)
+
+      true ->
+        :error
+    end
+  end
+
+  defp exact_definition_module(%Entry{}, _module_atoms, _module_by_name), do: :error
+
+  defp exact_function_definition_module(subject, module_by_name) do
+    with {:ok, module_name} <- mfa_subject_module_name(subject) do
+      Map.fetch(module_by_name, module_name)
+    end
+  end
+
+  defp module_by_name(modules), do: Map.new(modules, &{Forge.Formats.module(&1), &1})
+
+  defp mfa_subject_module_name(subject) when is_binary(subject) do
+    case Regex.run(~r/^(.+)\.[^.\/]+\/\d+$/, subject) do
+      [_, module_name] -> {:ok, module_name}
+      _ -> :error
+    end
+  end
+
+  defp ensure_block_structure(path, entries) do
+    if Enum.any?(entries, &structure?/1) do
+      entries
+    else
+      [Entry.block_structure(path, %{root: %{}}) | entries]
+    end
+  end
+
+  defp structure?(%Entry{type: :metadata, subtype: :block_structure}), do: true
+  defp structure?(%Entry{}), do: false
+
   defp maybe_sync(%__MODULE__{} = state) do
     if function_exported?(state.backend, :sync, 1),
       do: state.backend.sync(state.project),

@@ -133,7 +133,7 @@ defmodule Engine.Bootstrap do
     # The reason this function exists is to support projects that have the same name as
     # one of their dependencies. Prior to this, the project name was based off the directory
     # name of the project, and if that's the same as a dependency, the mix project stack will
-    # raise an error during `deps.safe_compile`, as a project with the same name was already defined.
+    # raise an error during dependency compilation, as a project with the same name was already defined.
     # Mix itself uses the name of the module that the mix.exs defines as the project name, and I figured
     # this was a safe default.
 

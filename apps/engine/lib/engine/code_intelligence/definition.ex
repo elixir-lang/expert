@@ -27,21 +27,9 @@ defmodule Engine.CodeIntelligence.Definition do
     module = Formats.module(entity)
 
     locations =
-      case ManagerApi.search_store_exact(Engine.get_project(), module,
-             type: type,
-             subtype: :definition
-           ) do
-        {:ok, entries} ->
-          for entry <- entries,
-              result = to_location(entry),
-              match?({:ok, _}, result) do
-            {:ok, location} = result
-            location
-          end
-
-        _ ->
-          []
-      end
+      module
+      |> query_search_index(type: type, subtype: :definition)
+      |> entries_to_locations()
 
     maybe_fallback_to_elixir_sense(resolved, locations, analysis, position)
   end
@@ -66,15 +54,9 @@ defmodule Engine.CodeIntelligence.Definition do
             [entry]
         end
       end)
-      |> Stream.uniq_by(& &1.subject)
+      |> collapse_function_clauses()
 
-    locations =
-      for entry <- definitions,
-          result = to_location(entry),
-          match?({:ok, _}, result) do
-        {:ok, location} = result
-        location
-      end
+    locations = entries_to_locations(definitions)
 
     maybe_fallback_to_elixir_sense(resolved, locations, analysis, position)
   end
@@ -98,6 +80,37 @@ defmodule Engine.CodeIntelligence.Definition do
         {:ok, locations}
     end
   end
+
+  defp collapse_function_clauses(entries) do
+    entries
+    |> Enum.group_by(&function_definition_key/1)
+    |> Enum.flat_map(fn
+      {nil, entries} -> entries
+      {_key, entries} -> [first_definition_entry(entries)]
+    end)
+  end
+
+  defp function_definition_key(%Entry{
+         path: path,
+         subject: subject,
+         subtype: :definition,
+         type: {kind, _} = type
+       })
+       when kind in [:function, :macro] do
+    {path, subject, type}
+  end
+
+  defp function_definition_key(_entry), do: nil
+
+  defp first_definition_entry(entries) do
+    Enum.min_by(entries, &definition_sort_key/1)
+  end
+
+  defp definition_sort_key(%Entry{range: %{start: start}, id: id}) do
+    {start.line, start.character, id || 0}
+  end
+
+  defp definition_sort_key(%Entry{id: id}), do: {0, 0, id || 0}
 
   defp elixir_sense_definition(%Analysis{} = analysis, %Position{} = position) do
     analysis.document
@@ -161,6 +174,15 @@ defmodule Engine.CodeIntelligence.Definition do
         pos = {line, column}
         Entity.to_range(document, pos, pos)
     end
+  end
+
+  defp entries_to_locations(entries) do
+    Enum.flat_map(entries, fn entry ->
+      case to_location(entry) do
+        {:ok, location} -> [location]
+        :error -> []
+      end
+    end)
   end
 
   defp to_location(entry) do

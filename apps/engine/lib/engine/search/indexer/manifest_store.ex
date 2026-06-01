@@ -33,6 +33,16 @@ defmodule Engine.Search.Indexer.ManifestStore do
     end
   end
 
+  def update(%Project{} = project, update_fun) when is_function(update_fun, 1) do
+    manifest =
+      case load(project) do
+        {:ok, %Manifest{} = manifest} -> manifest
+        :missing -> Manifest.new()
+      end
+
+    commit(project, update_fun.(manifest))
+  end
+
   def invalidate(%Project{} = project) do
     File.rm(manifest_path(project))
     :ok

@@ -71,6 +71,11 @@ defmodule Expert.Project.Node do
     end
   end
 
+  @impl GenServer
+  def handle_continue(:trigger_build, %State{} = state) do
+    schedule_build(state)
+  end
+
   @impl true
   def handle_call(:node_name, _from, %State{} = state) do
     {:reply, state.node, state}
@@ -78,27 +83,29 @@ defmodule Expert.Project.Node do
 
   @impl GenServer
   def handle_cast(:trigger_build, %State{} = state) do
-    EngineApi.schedule_compile(state.project, true)
-    {:noreply, state}
+    schedule_build(state)
   end
 
   @impl GenServer
   def handle_info({:nodedown, _}, %State{} = state) do
-    Logger.warning("The node has died. Restarting after deleting the build directory")
+    Logger.warning(
+      "The node has died. Restarting project supervision tree after deleting the build directory"
+    )
 
-    with :ok <- delete_build_artifacts(state.project),
-         {:ok, new_state} <- start_node(state.project) do
-      EngineApi.schedule_compile(state.project, true)
-      {:noreply, new_state}
-    else
-      error ->
-        {:stop, error, state}
+    case delete_build_artifacts(state.project) do
+      :ok -> {:stop, :engine_node_down, state}
+      error -> {:stop, error, state}
     end
   end
 
   # private api
 
-  defp start_node(%Project{} = project, token \\ Progress.noop_token()) do
+  defp schedule_build(%State{} = state) do
+    EngineApi.schedule_compile(state.project, true)
+    {:noreply, state}
+  end
+
+  defp start_node(%Project{} = project, token) do
     with {:ok, node, node_pid} <- EngineNode.start(project, token) do
       Node.monitor(node, true)
       {:ok, State.new(project, node, node_pid)}
@@ -114,12 +121,10 @@ defmodule Expert.Project.Node do
     end
   end
 
-  defp bootstrap_error_message(reason) do
-    case reason do
-      :eacces -> "Project directory has insufficient permissions. It needs to be writable."
-      :erofs -> "Project is in a read-only filesystem"
-      :enospc -> "No disk space available"
-      _ -> "Unable to bootstrap engine: #{inspect(reason)}"
-    end
-  end
+  defp bootstrap_error_message(:eacces),
+    do: "Project directory has insufficient permissions. It needs to be writable."
+
+  defp bootstrap_error_message(:erofs), do: "Project is in a read-only filesystem"
+  defp bootstrap_error_message(:enospc), do: "No disk space available"
+  defp bootstrap_error_message(reason), do: "Unable to bootstrap engine: #{inspect(reason)}"
 end

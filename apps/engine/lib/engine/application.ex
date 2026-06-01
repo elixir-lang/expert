@@ -11,6 +11,7 @@ defmodule Engine.Application do
       if Engine.project_node?() do
         [
           Engine.ApplicationCache,
+          Engine.Compilation.TraceBuffer,
           Engine.Api.Proxy,
           Engine.Commands.Reindex,
           Engine.Module.Loader,

@@ -244,16 +244,16 @@ defmodule Engine.Search.Fuzzy do
       |> Stream.reject(empty_values?)
       |> Map.new()
 
-    all_subjects =
-      subject_to_values
-      |> Map.keys()
-      |> MapSet.new()
-
     grouping_key_to_values =
       fuzzy.grouping_key_to_values
       |> Stream.map(reject_values)
       |> Stream.reject(empty_values?)
       |> Map.new()
+
+    all_subjects =
+      subject_to_values
+      |> Map.keys()
+      |> MapSet.new()
 
     preprocessed_subjects =
       fuzzy.preprocessed_subjects

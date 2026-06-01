@@ -114,6 +114,61 @@ defmodule Engine.Search.Indexer.BeamsTest do
              )
     end
 
+    test "extracts definitions from BEAM binaries", %{tmp_dir: tmp_dir} do
+      module = unique_module("BinaryDefinitions")
+
+      %{beam_paths_by_module: beam_paths_by_module} =
+        compile_source!(
+          tmp_dir,
+          "defmodule #{inspect(module)} do\n  def value, do: :ok\nend\n",
+          expected_modules: [module],
+          rewrite_source?: false
+        )
+
+      module_beam = File.read!(Map.fetch!(beam_paths_by_module, module))
+      assert {:ok, definitions} = Beams.extract_definitions_from_binary(module_beam)
+
+      assert Enum.any?(
+               definitions,
+               &(&1.subject == module and &1.type == :module and &1.subtype == :definition)
+             )
+
+      assert Enum.any?(
+               definitions,
+               &(&1.subject == Formats.mfa(module, :value, 0) and
+                   &1.type == {:function, :public} and &1.subtype == :definition)
+             )
+    end
+
+    test "indexes the first BEAM metadata clause once for same-arity public functions", %{
+      tmp_dir: tmp_dir
+    } do
+      module = unique_module("MultiClause")
+      mfa = Formats.mfa(module, :greet, 1)
+
+      source = """
+      defmodule #{inspect(module)} do
+        def greet(name) when is_atom(name), do: name
+        def greet(name), do: name
+      end
+      """
+
+      %{entries: entries} =
+        index_source!(tmp_dir, source,
+          expected_modules: [module],
+          rewrite_source?: false
+        )
+
+      assert [%Entry{range: range}] =
+               Enum.filter(
+                 entries,
+                 &(&1.subject == mfa and &1.type == {:function, :public} and
+                     &1.subtype == :definition)
+               )
+
+      assert extract(source, range) == "greet"
+    end
+
     test "preserves defdelegate metadata without dangling block ids", %{tmp_dir: tmp_dir} do
       module = unique_module("Delegate")
 
@@ -285,7 +340,7 @@ defmodule Engine.Search.Indexer.BeamsTest do
       test_pid = self()
 
       patch(Engine.Dispatch, :erpc_call, fn
-        Expert.Progress, :begin, ["Indexing dependencies metadata", _opts] ->
+        Expert.Progress, :begin, ["Indexing BEAM metadata", _opts] ->
           {:ok, System.unique_integer([:positive])}
 
         Expert.Progress, :begin, [_title, _opts] ->
