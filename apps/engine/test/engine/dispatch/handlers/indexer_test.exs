@@ -33,7 +33,7 @@ defmodule Engine.Dispatch.Handlers.IndexingTest do
 
     start_supervised!(Engine.ApplicationCache)
     start_supervised!(Engine.Dispatch)
-    start_supervised!(Commands.Reindex)
+    start_supervised!({Commands.Reindex, debounce_interval_millis: 0})
     start_supervised!(Search.Store.Backends.Ets)
     start_supervised!({Search.Store, [project, create_index, update_index]})
     start_supervised!({Document.Store, derive: [analysis: &Forge.Ast.analyze/1]})

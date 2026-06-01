@@ -12,15 +12,21 @@ defmodule Engine.Commands.ReindexTest do
   alias Forge.Document
 
   setup context do
+    debounce_interval_millis = Map.get(context, :debounce_interval_millis, 0)
+
     case Map.get(context, :reindex_fun, :sleep) do
       :default ->
-        start_supervised!(Reindex)
-
-      :sleep ->
-        start_supervised!({Reindex, reindex_fun: fn _ -> Process.sleep(20) end})
+        start_supervised!({Reindex, debounce_interval_millis: debounce_interval_millis})
 
       :none ->
         :ok
+
+      :sleep ->
+        start_supervised!(
+          {Reindex,
+           reindex_fun: fn _ -> Process.sleep(20) end,
+           debounce_interval_millis: debounce_interval_millis}
+        )
     end
 
     {:ok, project: project()}
@@ -86,6 +92,27 @@ defmodule Engine.Commands.ReindexTest do
       Reindex.uri(uri)
 
       assert_receive {:entries, "/file.ex", ^new_entries}
+    end
+
+    @tag debounce_interval_millis: 100
+    test "debounces uri reindex requests until the quiet period elapses" do
+      first_uri = "file:///first.ex"
+      second_uri = "file:///second.ex"
+      first_entries = [reference()]
+      second_entries = [definition()]
+
+      Process.put(first_uri, first_entries)
+      Process.put(second_uri, second_entries)
+
+      Reindex.uri(first_uri)
+      refute_receive {:entries, _, _}, 50
+
+      Reindex.uri(second_uri)
+      refute_receive {:entries, _, _}, 75
+
+      assert_receive {:entries, "/first.ex", ^first_entries}, 100
+      assert_receive {:entries, "/second.ex", ^second_entries}, 100
+      refute_receive {:entries, _, _}, 50
     end
   end
 
