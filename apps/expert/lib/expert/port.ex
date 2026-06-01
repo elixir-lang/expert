@@ -363,10 +363,6 @@ defmodule Expert.Port do
     {key, path}
   end
 
-  defp sanitize_system_env_var({key, _value}, _path) when key in @scrubbed_env_vars do
-    {key, ""}
-  end
-
   defp sanitize_system_env_var({key, value}, _path) do
     {key, value}
   end
@@ -384,13 +380,23 @@ defmodule Expert.Port do
 
   defp open_executable(executable, opts) do
     opts =
-      if Keyword.has_key?(opts, :env) do
-        Keyword.update!(opts, :env, &ensure_charlists/1)
-      else
-        opts
-      end
+      opts
+      |> Keyword.update(:env, scrub_env([]), &scrub_env/1)
+      |> Keyword.update!(:env, &ensure_charlists/1)
 
     open_port(Forge.OS.os_type(), executable, opts)
+  end
+
+  @doc false
+  def scrub_env(env) do
+    already_set = MapSet.new(env, &elem(&1, 0))
+
+    scrub_entries =
+      for var <- @scrubbed_env_vars, var not in already_set do
+        {var, ""}
+      end
+
+    scrub_entries ++ env
   end
 
   defp open_port(:win32, executable, opts) do
