@@ -10,12 +10,7 @@ defmodule Engine.Deps do
   """
   @spec get_repo(String.t()) :: {:ok, map()} | :error
   def get_repo(name) when is_binary(name) do
-    case Engine.Mix.in_project(fn _module ->
-           case safe_call(Hex.Repo, :get_repo, [name]) do
-             %{} = repo -> {:ok, repo}
-             _ -> :error
-           end
-         end) do
+    case Engine.Mix.in_project(fn _ -> safe_call(Hex.Repo, :get_repo, [name]) end) do
       {:ok, map} when is_map(map) -> {:ok, map}
       _ -> :error
     end
@@ -93,9 +88,8 @@ defmodule Engine.Deps do
   def dep_version(app) when is_atom(app) do
     result =
       Engine.Mix.in_project(fn _module ->
-        with %{} = lock <- safe_call(Mix.Dep.Lock, :read, []) do
-          lock |> Map.get(app, []) |> Enum.at(2)
-        else
+        case safe_call(Mix.Dep.Lock, :read, []) do
+          %{} = lock -> lock |> Map.get(app, []) |> Enum.at(2)
           _ -> nil
         end
       end)
