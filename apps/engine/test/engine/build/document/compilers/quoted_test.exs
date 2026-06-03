@@ -4,6 +4,13 @@ defmodule Engine.Build.Document.Compilers.QuotedTest do
   import Forge.Test.CodeSigil
 
   alias Engine.Build.Document.Compilers.Quoted
+  alias Forge.Document
+
+  defmodule ProjectStackSentinel do
+    def project do
+      [app: :project_stack_sentinel, version: "0.1.0"]
+    end
+  end
 
   defp parse!(code) do
     Code.string_to_quoted!(code, columns: true, token_metadata: true)
@@ -46,6 +53,31 @@ defmodule Engine.Build.Document.Compilers.QuotedTest do
                end
              end\
              """
+    end
+  end
+
+  describe "compile/3" do
+    test "skips mix.exs without popping the current Mix project" do
+      Mix.ProjectStack.on_clean_slate(fn ->
+        Mix.Project.push(ProjectStackSentinel, "/tmp/project/mix.exs", :project_stack_sentinel)
+
+        quoted =
+          """
+          defmodule Other.MixProject do
+            use Mix.Project
+
+            def project do
+              [app: :other, version: "0.1.0"]
+            end
+          end
+          """
+          |> parse!()
+
+        document = Document.new("file:///tmp/project/mix.exs", Macro.to_string(quoted), 0)
+
+        assert {:ok, []} = Quoted.compile(document, quoted, "Elixir")
+        assert Mix.Project.get() == ProjectStackSentinel
+      end)
     end
   end
 

@@ -17,7 +17,7 @@ defmodule Engine.Build do
   end
 
   def compile_document(%Project{} = _project, %Document{} = document) do
-    with false <- Path.absname(document.path) == "mix.exs",
+    with false <- mix_project_file?(document),
          false <- HEEx.recognizes?(document) do
       GenServer.cast(__MODULE__, {:compile_file, document})
     end
@@ -27,12 +27,16 @@ defmodule Engine.Build do
 
   # this is for testing
   def force_compile_document(%Document{} = document) do
-    with false <- Path.absname(document.path) == "mix.exs",
+    with false <- mix_project_file?(document),
          false <- HEEx.recognizes?(document) do
       GenServer.call(__MODULE__, {:force_compile_file, document})
     end
 
     :ok
+  end
+
+  defp mix_project_file?(%Document{path: path}) when is_binary(path) do
+    Path.basename(path) == "mix.exs"
   end
 
   def clean_and_fetch_deps(%Project{} = project) do

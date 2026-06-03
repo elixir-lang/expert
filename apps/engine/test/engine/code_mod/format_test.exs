@@ -133,4 +133,89 @@ defmodule Engine.CodeMod.FormatTest do
                |> String.trim()
     end
   end
+
+  describe "formatter_for_file/2" do
+    @tag :tmp_dir
+    test "resolves imported dependency formatter options with an empty Mix project stack", %{
+      project: original_project,
+      tmp_dir: tmp_dir
+    } do
+      project = mix_project_with_imported_formatter_dep!(tmp_dir)
+      file_path = Path.join([tmp_dir, "lib", "format.ex"])
+
+      on_exit(fn ->
+        Engine.set_project(original_project)
+        :persistent_term.erase({Engine, :deps_paths})
+      end)
+
+      Engine.set_project(project)
+      :persistent_term.erase({Engine, :deps_paths})
+
+      Mix.ProjectStack.on_clean_slate(fn ->
+        {_formatter, opts} = Format.formatter_for_file(project, file_path)
+
+        assert {:dep_local, 1} in Keyword.fetch!(opts, :locals_without_parens)
+      end)
+    end
+  end
+
+  defp mix_project_with_imported_formatter_dep!(tmp_dir) do
+    File.mkdir_p!(Path.join([tmp_dir, "lib"]))
+    File.mkdir_p!(Path.join([tmp_dir, "deps", "formatter_dep", "lib"]))
+
+    File.write!(Path.join([tmp_dir, "lib", "format.ex"]), "dep_local :ok\n")
+
+    File.write!(
+      Path.join(tmp_dir, "mix.exs"),
+      """
+      defmodule FormatterHost.MixProject do
+        use Mix.Project
+
+        def project do
+          [
+            app: :formatter_host,
+            version: "0.1.0",
+            deps: [{:formatter_dep, path: "deps/formatter_dep"}]
+          ]
+        end
+      end
+      """
+    )
+
+    File.write!(
+      Path.join(tmp_dir, ".formatter.exs"),
+      """
+      [
+        import_deps: [:formatter_dep],
+        inputs: ["lib/**/*.{ex,exs}"]
+      ]
+      """
+    )
+
+    File.write!(
+      Path.join([tmp_dir, "deps", "formatter_dep", "mix.exs"]),
+      """
+      defmodule FormatterDep.MixProject do
+        use Mix.Project
+
+        def project do
+          [app: :formatter_dep, version: "0.1.0"]
+        end
+      end
+      """
+    )
+
+    File.write!(
+      Path.join([tmp_dir, "deps", "formatter_dep", ".formatter.exs"]),
+      """
+      [
+        export: [locals_without_parens: [dep_local: 1]]
+      ]
+      """
+    )
+
+    tmp_dir
+    |> Document.Path.to_uri()
+    |> Project.new()
+  end
 end
