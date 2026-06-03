@@ -11,8 +11,6 @@ defmodule Engine do
   alias Engine.Progress
   alias Forge.Project
 
-  require Logger
-
   @excluded_apps [:patch, :nimble_parsec]
   @allowed_apps [:engine | Mix.Project.deps_apps()] -- @excluded_apps
 

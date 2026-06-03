@@ -228,22 +228,8 @@ defmodule Expert do
   end
 
   def handle_notification(notification, lsp) do
-    with {:ok, handler} <- fetch_handler(notification),
-         {:ok, notification} <- Convert.to_native(notification),
-         {:ok, _response} <- handler.handle(notification, nil) do
-      {:noreply, lsp}
-    else
-      {:error, {:unhandled, _}} ->
-        Logger.info("Unhandled notification: #{notification.method}")
-
-        {:noreply, lsp}
-
-      error ->
-        message = "Failed to handle #{notification.method}, #{inspect(error)}"
-        Logger.error(message)
-
-        {:noreply, lsp}
-    end
+    Logger.info("Unhandled notification: #{notification.method}")
+    {:noreply, lsp}
   end
 
   def handle_info({:engine_initialized, project, {:ok, _pid}}, lsp) do

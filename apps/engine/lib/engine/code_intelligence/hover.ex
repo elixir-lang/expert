@@ -8,8 +8,6 @@ defmodule Engine.CodeIntelligence.Hover do
   alias Forge.Document.Position
   alias Forge.Document.Range
 
-  require Logger
-
   @spec hover(Document.t(), Position.t()) :: {:ok, String.t(), Range.t()} | {:error, term()}
   def hover(%Document{} = document, %Position{} = position) do
     with {:ok, _, analysis} <- Document.Store.fetch(document.uri, :analysis) do

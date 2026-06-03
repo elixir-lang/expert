@@ -18,5 +18,5 @@ ExUnit.start(exclude: [:skip])
 if Version.match?(System.version(), ">= 1.15.0") do
   Logger.configure(level: :none)
 else
-  Logger.remove_backend(:console)
+  LoggerBackends.remove(:console)
 end

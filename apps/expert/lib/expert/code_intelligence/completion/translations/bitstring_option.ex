@@ -6,8 +6,6 @@ defmodule Expert.CodeIntelligence.Completion.Translations.BitstringOption do
   alias Forge.Completion.Candidate
   alias GenLSP.Enumerations.CompletionItemKind
 
-  require Logger
-
   defimpl Translatable, for: Candidate.BitstringOption do
     def translate(option, builder, %Env{} = env) do
       Translations.BitstringOption.translate(option, builder, env)

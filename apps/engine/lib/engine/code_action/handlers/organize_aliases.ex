@@ -10,8 +10,6 @@ defmodule Engine.CodeAction.Handlers.OrganizeAliases do
   alias Forge.Document.Range
   alias GenLSP.Enumerations.CodeActionKind
 
-  require Logger
-
   @impl CodeAction.Handler
   def actions(%Document{} = doc, %Range{} = range, _diagnostics) do
     with {:ok, _doc, analysis} <- Document.Store.fetch(doc.uri, :analysis),

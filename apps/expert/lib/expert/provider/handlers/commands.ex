@@ -43,46 +43,47 @@ defmodule Expert.Provider.Handlers.Commands do
           reindex_all(projects)
 
         @connection_details_name ->
-          {:ok, _} = Expert.Clustering.start_net_kernel()
-
           epmd_module = Forge.EPMD
 
-          case :code.which(epmd_module) do
-            module_path when is_list(module_path) ->
-              ebin_path = module_path |> to_string() |> Path.dirname()
-              priv_dir = :code.priv_dir(Application.get_application(__MODULE__))
-              script_ext = if Forge.OS.windows?(), do: ".bat", else: ".sh"
-              remote_shell_script_path = Path.join(priv_dir, "remote_shell#{script_ext}")
-              node_name = to_string(Node.self())
-              port = Forge.EPMD.dist_port()
-              cookie = to_string(Node.get_cookie())
-              epmd_module_name = Atom.to_string(epmd_module)
+          with {:ok, _} <- Expert.Clustering.start_net_kernel(),
+               module_path when is_list(module_path) <- :code.which(epmd_module) do
+            ebin_path = module_path |> to_string() |> Path.dirname()
+            priv_dir = :code.priv_dir(Application.get_application(__MODULE__))
+            script_ext = if Forge.OS.windows?(), do: ".bat", else: ".sh"
+            remote_shell_script_path = Path.join(priv_dir, "remote_shell#{script_ext}")
+            node_name = to_string(Node.self())
+            port = Forge.EPMD.dist_port()
+            cookie = to_string(Node.get_cookie())
+            epmd_module_name = Atom.to_string(epmd_module)
 
-              %{
-                "nodeName" => node_name,
-                "port" => port,
-                "cookie" => cookie,
-                "epmdModule" => epmd_module_name,
-                "epmdEbinPath" => ebin_path,
-                "debugScriptPath" => remote_shell_script_path,
-                "command" =>
-                  [
-                    remote_shell_script_path,
-                    node_name,
-                    port,
-                    epmd_module_name,
-                    ebin_path,
-                    cookie
-                  ]
-                  |> Enum.map_join(
-                    " ",
-                    &shell_quote/1
-                  )
-                  |> prepend_amp_on_windows()
-              }
-
+            %{
+              "nodeName" => node_name,
+              "port" => port,
+              "cookie" => cookie,
+              "epmdModule" => epmd_module_name,
+              "epmdEbinPath" => ebin_path,
+              "debugScriptPath" => remote_shell_script_path,
+              "command" =>
+                [
+                  remote_shell_script_path,
+                  node_name,
+                  port,
+                  epmd_module_name,
+                  ebin_path,
+                  cookie
+                ]
+                |> Enum.map_join(
+                  " ",
+                  &shell_quote/1
+                )
+                |> prepend_amp_on_windows()
+            }
+          else
             :non_existing ->
               internal_error("failed to find ebin path for #{epmd_module}")
+
+            {:error, reason} ->
+              internal_error("failed to start node: #{inspect(reason)}")
           end
 
         invalid ->

@@ -1,7 +1,8 @@
 defmodule Engine.CodeMod.AliasesTest do
-  use Forge.Test.CodeMod.Case
+  use ExUnit.Case
   use Patch
 
+  import Forge.Test.CodeSigil
   import Forge.Test.CursorSupport
 
   alias Engine.CodeMod.Aliases

@@ -62,41 +62,44 @@ defmodule Engine.Search.Indexer.Paths do
     build_dir
     |> beam_app_paths()
     |> Enum.filter(fn app_path ->
-      MapSet.member?(dependency_app_names, Path.basename(app_path))
+      Path.basename(app_path) in dependency_app_names
     end)
     |> Enum.flat_map(&beam_files/1)
   end
 
   defp beam_paths(%Project{}), do: []
 
+  @spec dependency_app_names(Project.t()) :: [String.t()]
   defp dependency_app_names(%Project{} = project) do
-    project
-    |> mix_dependency_app_names()
-    |> MapSet.union(configured_dependency_app_names(project))
+    (mix_dependency_app_names(project) ++ configured_dependency_app_names(project))
+    |> Enum.uniq()
   end
 
+  @spec mix_dependency_app_names(Project.t()) :: [String.t()]
   defp mix_dependency_app_names(%Project{} = project) do
     case Engine.Mix.in_project(project, fn _ ->
            Mix.Dep.clear_cached()
            Mix.Project.clear_deps_cache()
            Mix.Project.deps_apps()
          end) do
-      {:ok, app_names} -> MapSet.new(app_names, &Atom.to_string/1)
-      _ -> MapSet.new()
+      {:ok, app_names} -> app_names |> Enum.map(&Atom.to_string/1) |> Enum.uniq()
+      _ -> []
     end
   end
 
+  @spec configured_dependency_app_names(Project.t()) :: [String.t()]
   defp configured_dependency_app_names(%Project{} = project) do
-    configured_dependency_app_names(project, MapSet.new())
+    configured_dependency_app_names(project, [])
   end
 
+  @spec configured_dependency_app_names(Project.t(), [String.t()]) :: [String.t()]
   defp configured_dependency_app_names(%Project{} = project, seen_roots) do
     root = Project.root_path(project)
 
-    if MapSet.member?(seen_roots, root) do
-      MapSet.new()
+    if root in seen_roots do
+      []
     else
-      seen_roots = MapSet.put(seen_roots, root)
+      seen_roots = [root | seen_roots]
 
       case Engine.Mix.in_project(project, fn _ ->
              config = Mix.Project.config()
@@ -111,20 +114,23 @@ defmodule Engine.Search.Indexer.Paths do
             path_root
             |> project_for_path()
             |> configured_dependency_app_names(seen_roots)
-            |> MapSet.union(app_names)
+            |> Kernel.++(app_names)
+            |> Enum.uniq()
           end)
 
         _ ->
-          MapSet.new()
+          []
       end
     end
   end
 
+  @spec dependency_app_names(keyword(), atom(), atom()) :: [String.t()]
   defp dependency_app_names(config, env, target) do
     config
     |> Keyword.get(:deps, [])
     |> Enum.flat_map(&dependency_app_name(&1, env, target))
-    |> MapSet.new(&Atom.to_string/1)
+    |> Enum.map(&Atom.to_string/1)
+    |> Enum.uniq()
   end
 
   defp dependency_app_name({app, opts}, env, target) when is_atom(app) and is_list(opts) do

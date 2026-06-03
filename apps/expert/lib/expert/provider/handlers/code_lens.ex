@@ -13,8 +13,6 @@ defmodule Expert.Provider.Handlers.CodeLens do
   alias GenLSP.Requests
   alias GenLSP.Structures
 
-  require Logger
-
   @impl Expert.Provider.Handler
   def handle(
         %Requests.TextDocumentCodeLens{params: %Structures.CodeLensParams{}},

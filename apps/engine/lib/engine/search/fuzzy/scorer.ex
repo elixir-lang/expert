@@ -151,7 +151,8 @@ defmodule Engine.Search.Fuzzy.Scorer do
   end
 
   defp increment(%__MODULE__{} = score, field_name) do
-    Map.update!(score, field_name, &(&1 + 1))
+    incremented = Map.get(score, field_name) + 1
+    Map.put(score, field_name, incremented)
   end
 
   defp add_to_list(%__MODULE__{} = score, field_name, value) do

@@ -36,7 +36,7 @@ defmodule Expert.EngineBuilds do
   end
 
   @impl GenServer
-  def handle_call({:request_engine, key, project, build}, from, state) do
+  def handle_call({:request_engine, key, project, build}, from, %State{} = state) do
     case Map.fetch(state.ready, key) do
       {:ok, result} ->
         {:reply, {:ok, result}, state}
@@ -65,7 +65,7 @@ defmodule Expert.EngineBuilds do
   end
 
   @impl GenServer
-  def handle_info({:engine_build_complete, key, pid, result}, state) do
+  def handle_info({:engine_build_complete, key, pid, result}, %State{} = state) do
     case pop_pending_by_key(state, key, pid) do
       {:ok, pending, state} ->
         Process.demonitor(pending.ref, [:flush])
@@ -163,7 +163,7 @@ defmodule Expert.EngineBuilds do
     )
   end
 
-  defp pop_pending_by_key(state, key, pid) do
+  defp pop_pending_by_key(%State{} = state, key, pid) do
     case state.pending do
       %{^key => %{pid: ^pid} = pending} ->
         pending_map = Map.delete(state.pending, key)
@@ -174,7 +174,7 @@ defmodule Expert.EngineBuilds do
     end
   end
 
-  defp pop_pending_by_ref(state, ref, pid) do
+  defp pop_pending_by_ref(%State{} = state, ref, pid) do
     case Enum.find(state.pending, fn {_key, pending} ->
            pending.ref == ref and pending.pid == pid
          end) do

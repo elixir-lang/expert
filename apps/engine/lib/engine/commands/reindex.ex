@@ -16,10 +16,8 @@ defmodule Engine.Commands.Reindex do
     alias Engine.Search.Indexer
     alias Forge.Ast.Analysis
     alias Forge.Document
-    alias Forge.ProcessCache
 
     require Logger
-    require ProcessCache
 
     defstruct reindex_fun: nil, index_task: nil, pending_updates: %{}
 

@@ -9,8 +9,6 @@ defmodule Engine.Bootstrap do
   alias Forge.LogFilter
   alias Forge.Project
 
-  require Logger
-
   def init(
         %Project{} = project,
         document_store_entropy,

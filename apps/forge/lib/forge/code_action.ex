@@ -1,8 +1,6 @@
 defmodule Forge.CodeAction do
   alias Forge.Document.Changes
 
-  require Logger
-
   defstruct [:title, :kind, :changes, :uri]
 
   @type code_action_kind :: GenLSP.Enumerations.CodeActionKind.t()

@@ -3,7 +3,7 @@ defmodule Expert.Clustering do
 
   def start_net_kernel do
     with {:ok, manager} <- manager_node_name() do
-      case Node.start(manager, :longnames) do
+      case Node.start(manager, name_domain: :longnames) do
         {:ok, pid} ->
           {:ok, pid}
 

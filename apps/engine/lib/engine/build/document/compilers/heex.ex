@@ -8,8 +8,6 @@ defmodule Engine.Build.Document.Compilers.HEEx do
   alias Forge.Document
   alias Forge.Plugin.V1.Diagnostic.Result
 
-  require Logger
-
   def recognizes?(%Document{language_id: "phoenix-heex"}), do: true
   def recognizes?(%Document{language_id: "heex"}), do: true
   def recognizes?(_), do: false

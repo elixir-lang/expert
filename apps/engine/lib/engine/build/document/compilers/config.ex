@@ -9,8 +9,6 @@ defmodule Engine.Build.Document.Compilers.Config do
   alias Forge.Document
   alias Forge.Plugin.V1.Diagnostic
 
-  require Logger
-
   @elixir_source "Elixir"
 
   @impl true

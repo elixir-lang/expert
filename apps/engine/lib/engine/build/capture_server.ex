@@ -64,7 +64,7 @@ defmodule Engine.Build.CaptureServer do
     refs = Map.put(config.log_captures, ref, true)
 
     if map_size(refs) == 1 do
-      status = Logger.remove_backend(:console)
+      status = LoggerBackends.remove(:console)
       {:reply, ref, %{config | log_captures: refs, log_status: status}}
     else
       {:reply, ref, %{config | log_captures: refs}}
@@ -191,7 +191,7 @@ defmodule Engine.Build.CaptureServer do
 
   defp maybe_add_console(refs, status) do
     if status == :ok and map_size(refs) == 0 do
-      Logger.add_backend(:console, flush: true)
+      LoggerBackends.add(:console, flush: true)
     end
   end
 end

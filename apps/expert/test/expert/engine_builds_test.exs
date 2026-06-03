@@ -253,13 +253,36 @@ defmodule Expert.EngineBuildsTest do
     patch(Builder, :start_build, fn _project, _build, _opts ->
       :counters.add(calls, 1, 1)
       send(test_pid, {:builder_pid, self()})
-      {:ok, :fake_port}
+
+      receive do
+        :crash_builder -> exit(:kill)
+      end
     end)
 
     task_a = Task.async(fn -> EngineBuilds.request_engine(project_a) end)
     task_b = Task.async(fn -> EngineBuilds.request_engine(project_b) end)
 
     assert_receive {:builder_pid, pid}, 1_000
+
+    state =
+      Enum.reduce_while(1..100, nil, fn _, _ ->
+        case :sys.get_state(EngineBuilds) do
+          %{pending: pending} = state ->
+            if Enum.any?(pending, fn {_key, pending} -> match?(%{waiters: [_, _]}, pending) end) do
+              {:halt, state}
+            else
+              Process.sleep(10)
+              {:cont, nil}
+            end
+
+          _state ->
+            Process.sleep(10)
+            {:cont, nil}
+        end
+      end)
+
+    assert %{pending: pending} = state
+    assert Enum.any?(pending, fn {_key, pending} -> match?(%{waiters: [_, _]}, pending) end)
 
     Process.exit(pid, :kill)
 

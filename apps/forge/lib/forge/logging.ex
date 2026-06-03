@@ -1,18 +1,20 @@
 defmodule Forge.Logging do
-  require Logger
+  @debug_enabled? not is_nil(System.get_env("TIMINGS_ENABLED"))
 
-  defmacro timed(label, do: block) do
-    if enabled?() do
+  if @debug_enabled? do
+    defmacro timed(label, do: block) do
       quote do
         timed_log(unquote(label), fn -> unquote(block) end)
       end
-    else
-      block
     end
+  else
+    defmacro timed(_label, do: block), do: block
   end
 
-  def timed_log(label, threshold_ms \\ 1, function) when is_function(function, 0) do
-    if enabled?() do
+  if @debug_enabled? do
+    def timed_log(label, threshold_ms \\ 1, function) when is_function(function, 0) do
+      require Logger
+
       {elapsed_us, result} = :timer.tc(function)
       elapsed_ms = elapsed_us / 1000
 
@@ -21,14 +23,10 @@ defmodule Forge.Logging do
       end
 
       result
-    else
+    end
+  else
+    def timed_log(_label, _threshold_ms \\ 1, function) when is_function(function, 0) do
       function.()
     end
-  end
-
-  @debug_enabled? not is_nil(System.get_env("TIMINGS_ENABLED"))
-
-  defp enabled? do
-    @debug_enabled?
   end
 end
