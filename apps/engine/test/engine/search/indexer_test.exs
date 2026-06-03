@@ -6,6 +6,7 @@ defmodule Engine.Search.IndexerTest do
 
   alias Engine.Dispatch
   alias Engine.Search.Indexer
+  alias Engine.Search.Indexer.Beams
   alias Engine.Search.Indexer.Manifest
   alias Engine.Search.Indexer.Manifest.Entry, as: ManifestEntry
   alias Engine.Search.Indexer.ManifestStore
@@ -288,6 +289,51 @@ defmodule Engine.Search.IndexerTest do
       assert {entries, []} = update_index(project)
       assert [] = Enum.to_list(entries)
       refute_receive :dependency_progress_begin
+    end
+  end
+
+  describe "update_index/2 with dependency beams" do
+    @tag :tmp_dir
+    test "reindexes known beam siblings when a new beam shares their source", %{tmp_dir: tmp_dir} do
+      parent = Module.concat(BeamDependencyIndexerTest, :SiblingParent)
+      child = Module.concat(parent, :Child)
+
+      %{beam_paths: beam_paths, project: project} =
+        with_beam_dependency(tmp_dir,
+          module: parent,
+          expected_modules: [parent, child],
+          rewrite_source?: false,
+          dep_source: fn module ->
+            """
+            defmodule #{inspect(module)} do
+              def parent_fun, do: :ok
+
+              defmodule Child do
+                def child_fun, do: :ok
+              end
+            end
+            """
+          end
+        )
+
+      parent_beam_path =
+        Enum.find(beam_paths, &String.ends_with?(&1, Atom.to_string(parent) <> ".beam"))
+
+      child_beam_path =
+        Enum.find(beam_paths, &String.ends_with?(&1, Atom.to_string(child) <> ".beam"))
+
+      assert is_binary(parent_beam_path)
+      assert is_binary(child_beam_path)
+
+      {parent_entries, parent_manifest_entries} = Beams.index([parent_beam_path])
+      FakeBackend.set_entries(parent_entries)
+      assert :ok = ManifestStore.commit(project, Manifest.new(parent_manifest_entries))
+
+      assert {updated_entries, []} = update_index(project)
+      updated_entries = Enum.to_list(updated_entries)
+
+      assert Enum.any?(updated_entries, &(&1.subject == parent and &1.subtype == :definition))
+      assert Enum.any?(updated_entries, &(&1.subject == child and &1.subtype == :definition))
     end
   end
 

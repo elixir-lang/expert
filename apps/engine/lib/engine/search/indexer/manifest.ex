@@ -237,7 +237,8 @@ defmodule Engine.Search.Indexer.Manifest do
     beam_paths_to_index =
       beam_paths_to_index
       |> include_known_beams_for_dirty_outputs(manifest, beam_paths, dirty_outputs)
-      |> include_new_beams(new_beam_paths, beam_paths)
+      |> Enum.concat(new_beam_paths)
+      |> Enum.uniq()
 
     %Plan{
       source_paths_to_index: Enum.uniq(source_paths_to_index ++ new_source_paths),
@@ -350,12 +351,6 @@ defmodule Engine.Search.Indexer.Manifest do
       end)
 
     Enum.uniq(beam_paths_to_index ++ dirty_beam_paths)
-  end
-
-  defp include_new_beams(beam_paths_to_index, [], _beam_paths), do: Enum.uniq(beam_paths_to_index)
-
-  defp include_new_beams(_beam_paths_to_index, _new_beam_paths, beam_paths) do
-    MapSet.to_list(beam_paths)
   end
 
   defp output_paths_for_inputs(%__MODULE__{} = manifest, input_paths) do
