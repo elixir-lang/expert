@@ -1,6 +1,7 @@
 Mix.install([:jason])
 
 versions = [
+  %{elixir: "1.20", otp: "29", os: "ubuntu-latest"},
   %{elixir: "1.19", otp: "28", os: "ubuntu-latest"},
   %{elixir: "1.18.4", otp: "28", os: "ubuntu-latest"},
   %{elixir: "1.18", otp: "27", os: "ubuntu-latest"},
@@ -12,8 +13,8 @@ versions = [
 
 expert_matrix =
   [
-    %{elixir: "1.18.4", otp: "27.3.4.1", project: "expert", os: "ubuntu-latest"},
-    %{elixir: "1.18.4", otp: "27.3.4.1", project: "expert", os: "windows-2022"}
+    %{elixir: "1.20.0", otp: "29.0.1", project: "expert", os: "ubuntu-latest"},
+    %{elixir: "1.20.0", otp: "29.0.1", project: "expert", os: "windows-2022"}
   ]
 
 %{
