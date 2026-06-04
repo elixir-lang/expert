@@ -18,7 +18,7 @@ defmodule Expert.Port do
 
   @default_unix_path "/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
   @path_marker "__EXPERT_PATH__"
-  @path_fetch_cmd_timeout_ms 10_000
+  @path_fetch_cmd_timeout_ms 5_000
 
   # These variables are interpreted by release, Elixir, or Erlang launchers and
   # must not leak from Expert's own runtime into project runtime detection.
