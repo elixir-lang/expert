@@ -277,15 +277,10 @@ defmodule Expert.Port do
   end
 
   defp path_env_at_directory(directory, shell) do
-    clean_path =
-      "PATH"
-      |> System.get_env(@default_unix_path)
-      |> remove_unix_release_root(System.get_env("RELEASE_ROOT"))
-
     env = [
       {"EXPERT_PROJECT_ROOT", directory},
       {"SHELL_SESSIONS_DISABLE", "1"},
-      {"PATH", clean_path}
+      {"PATH", system_path_without_release_root()}
     ]
 
     shell
