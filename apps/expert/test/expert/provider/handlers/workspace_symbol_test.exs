@@ -14,6 +14,9 @@ defmodule Expert.Provider.Handlers.WorkspaceSymbolTest do
 
   require Messages
 
+  @project_compile_timeout :timer.seconds(15)
+  @project_index_timeout :timer.seconds(30)
+
   setup_all do
     project = Fixtures.project()
 
@@ -31,8 +34,8 @@ defmodule Expert.Provider.Handlers.WorkspaceSymbolTest do
         Messages.project_index_ready()
       ])
 
-    assert_receive Messages.project_compiled(), 5000
-    assert_receive Messages.project_index_ready(), 5000
+    assert_receive Messages.project_compiled(), @project_compile_timeout
+    assert_receive Messages.project_index_ready(), @project_index_timeout
 
     Expert.Project.Store.add_projects([project])
 

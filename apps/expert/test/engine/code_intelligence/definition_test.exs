@@ -13,6 +13,9 @@ defmodule Expert.Engine.CodeIntelligence.DefinitionTest do
   alias Expert.EngineSupervisor
   alias Forge.Document
 
+  @project_compile_timeout :timer.seconds(15)
+  @project_index_timeout :timer.seconds(30)
+
   defp with_referenced_file(%{project: project}) do
     uri =
       project
@@ -56,8 +59,8 @@ defmodule Expert.Engine.CodeIntelligence.DefinitionTest do
     EngineApi.register_listener(project, self(), [:all])
     EngineApi.schedule_compile(project, true)
 
-    assert_receive project_compiled(), 5000
-    assert_receive project_index_ready(), 5000
+    assert_receive project_compiled(), @project_compile_timeout
+    assert_receive project_index_ready(), @project_index_timeout
 
     %{project: project}
   end

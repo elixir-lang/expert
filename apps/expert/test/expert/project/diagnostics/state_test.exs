@@ -1,5 +1,5 @@
 defmodule Forge.Project.Diagnostics.StateTest do
-  use Forge.Test.CodeMod.Case
+  use ExUnit.Case
 
   import Forge.Test.Fixtures
 

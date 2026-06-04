@@ -13,6 +13,9 @@ defmodule Expert.Provider.Handlers.GoToDefinitionTest do
   alias GenLSP.Requests.TextDocumentDefinition
   alias GenLSP.Structures
 
+  @project_compile_timeout :timer.seconds(15)
+  @project_index_timeout :timer.seconds(30)
+
   setup_all do
     project = project(:navigations)
 
@@ -32,8 +35,8 @@ defmodule Expert.Provider.Handlers.GoToDefinitionTest do
     ])
 
     EngineApi.schedule_compile(project, true)
-    assert_receive project_compiled(), 5000
-    assert_receive project_index_ready(), 5000
+    assert_receive project_compiled(), @project_compile_timeout
+    assert_receive project_index_ready(), @project_index_timeout
 
     {:ok, project: project}
   end

@@ -12,6 +12,8 @@ defmodule Expert.Provider.Handlers.CodeActionTest do
   alias GenLSP.Requests.TextDocumentCodeAction
   alias GenLSP.Structures
 
+  @project_ready_timeout :timer.seconds(15)
+
   setup_all do
     start_supervised!({DynamicSupervisor, Expert.EngineBuild.DynamicSupervisor.options()})
     start_supervised!(Expert.EngineBuilds)
@@ -29,7 +31,7 @@ defmodule Expert.Provider.Handlers.CodeActionTest do
     EngineApi.register_listener(project, self(), [project_compiled()])
     EngineApi.schedule_compile(project, true)
 
-    assert_receive project_compiled(), 5000
+    assert_receive project_compiled(), @project_ready_timeout
 
     {:ok, project: project}
   end

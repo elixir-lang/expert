@@ -37,12 +37,23 @@ defmodule Engine.Bootstrap do
         Engine.set_manager_node(manager_node)
         Mix.env(:test)
         set_mix_build_path(project)
+
+        maybe_load_project_config(project)
+
         ExUnit.start()
         start_logger(project)
         maybe_change_directory(project)
         :ok
       end
     end
+  end
+
+  defp maybe_load_project_config(%Project{kind: :mix} = project) do
+    Engine.Mix.in_project(project, fn _ -> Mix.Task.run(:loadconfig) end)
+  end
+
+  defp maybe_load_project_config(%Project{}) do
+    :ok
   end
 
   # There is a bug in elixir 1.19.1 where the partition child processes

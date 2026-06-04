@@ -89,7 +89,7 @@ defmodule Engine.Build.Project do
     end
   end
 
-  defp maybe_load_modules do
+  def maybe_load_modules do
     if Elixir.Features.lazy_loading?() do
       modules_to_load =
         for {mod, _, false} <- :code.all_available() do
