@@ -33,9 +33,12 @@ defmodule Expert.Port do
     "ROOTDIR",
     "BINDIR",
     "RELEASE_SYS_CONFIG",
-    "MIX_HOME",
     "MIX_ARCHIVES",
-    "MIX_ENV"
+    "MIX_INSTALL_DIR",
+    "MIX_HOME",
+    "MIX_ENV",
+    "MIX_REBAR3",
+    "REBAR_CACHE_DIR"
   ]
 
   @doc """
@@ -357,6 +360,7 @@ defmodule Expert.Port do
     path = prepend_configured_erlang_path(path)
 
     System.get_env()
+    |> Enum.reject(fn {key, _value} -> key in @scrubbed_env_vars end)
     |> Enum.map(&sanitize_system_env_var(&1, path))
   end
 
@@ -390,7 +394,7 @@ defmodule Expert.Port do
 
   @doc false
   def scrub_env(env) do
-    already_set = MapSet.new(env, &elem(&1, 0))
+    already_set = MapSet.new(env, fn {key, _value} -> to_string(key) end)
 
     scrub_entries =
       for var <- @scrubbed_env_vars, var not in already_set do

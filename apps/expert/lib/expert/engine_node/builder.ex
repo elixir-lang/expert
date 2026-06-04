@@ -78,14 +78,14 @@ defmodule Expert.EngineNode.Builder do
       end
 
     case parse_engine_meta(line) do
-      {:ok, mix_home, engine_path} ->
+      {:ok, tooling_env, engine_path} ->
         Logger.info("Engine available at: #{engine_path}", project: state.project)
 
         Logger.info("ebin paths:\n#{inspect(ebin_paths(engine_path), pretty: true)}",
           project: state.project
         )
 
-        notify(state, {:ok, {ebin_paths(engine_path), mix_home}})
+        notify(state, {:ok, {ebin_paths(engine_path), tooling_env}})
         {:stop, :normal, state}
 
       :error ->
@@ -257,14 +257,23 @@ defmodule Expert.EngineNode.Builder do
     meta = String.trim(meta)
 
     with {:ok, binary} <- Base.decode64(meta),
-         %{mix_home: mix_home, engine_path: engine_path} <- :erlang.binary_to_term(binary) do
-      {:ok, mix_home, engine_path}
+         %{tooling_env: tooling_env, engine_path: engine_path} <- :erlang.binary_to_term(binary),
+         true <- valid_tooling_env?(tooling_env) do
+      {:ok, tooling_env, engine_path}
     else
       _ -> :error
     end
   end
 
   defp parse_engine_meta(_), do: :error
+
+  defp valid_tooling_env?(tooling_env) do
+    is_list(tooling_env) and
+      Enum.all?(tooling_env, fn
+        {key, value} when is_binary(key) and is_binary(value) -> true
+        _ -> false
+      end)
+  end
 
   @deps_error_patterns [
     "Can't continue due to errors on dependencies",

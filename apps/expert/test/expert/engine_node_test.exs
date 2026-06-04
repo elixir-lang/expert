@@ -67,6 +67,38 @@ defmodule Expert.EngineNodeTest do
     assert {:error, :no_elixir} = EngineNode.start(project)
   end
 
+  test "passes isolated engine tooling env when starting project node", %{project: project} do
+    test_pid = self()
+
+    tooling_env = [
+      {"MIX_INSTALL_DIR", "/isolated/mix_install"},
+      {"MIX_HOME", "/isolated/mix_home"},
+      {"MIX_ARCHIVES", "/isolated/mix_archives"},
+      {"REBAR_CACHE_DIR", "/isolated/rebar_cache"}
+    ]
+
+    patch(Forge.EPMD, :dist_port, fn -> 13_737 end)
+
+    patch(Expert.Port, :open_elixir, fn _project, opts ->
+      send(test_pid, {:open_elixir_opts, opts})
+      make_ref()
+    end)
+
+    state = EngineNode.State.new(project)
+
+    assert {:ok, _state} =
+             EngineNode.State.start(state, [], {self(), make_ref()}, tooling_env: tooling_env)
+
+    assert_receive {:open_elixir_opts, opts}, 1_000
+
+    env = Keyword.fetch!(opts, :env)
+
+    assert {"MIX_INSTALL_DIR", "/isolated/mix_install"} in env
+    assert {"MIX_HOME", "/isolated/mix_home"} in env
+    assert {"MIX_ARCHIVES", "/isolated/mix_archives"} in env
+    assert {"REBAR_CACHE_DIR", "/isolated/rebar_cache"} in env
+  end
+
   test "shuts down with error message if exited with error code", %{project: project} do
     {:ok, _node_name, node_pid} = EngineNode.start(project)
 

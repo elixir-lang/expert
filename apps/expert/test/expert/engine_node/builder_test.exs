@@ -135,10 +135,10 @@ defmodule Expert.EngineNode.BuilderTest do
     {:ok, builder_pid} = start_builder(project)
 
     engine_path = Path.join(System.tmp_dir!(), "dev_ns")
-    mix_home = Path.join(System.tmp_dir!(), "mix_home")
+    tooling_env = tooling_env()
 
     meta =
-      %{mix_home: mix_home, engine_path: engine_path}
+      %{tooling_env: tooling_env, engine_path: engine_path}
       |> :erlang.term_to_binary()
       |> Base.encode64()
 
@@ -146,7 +146,7 @@ defmodule Expert.EngineNode.BuilderTest do
     send(builder_pid, {nil, {:data, {:eol, "engine_meta:#{meta}"}}})
 
     assert_receive {:engine_build_complete, :builder_test, ^builder_pid,
-                    {:ok, {paths, ^mix_home}}},
+                    {:ok, {paths, ^tooling_env}}},
                    5_000
 
     assert paths == Forge.Path.glob([engine_path, "lib/**/ebin"])
@@ -258,10 +258,10 @@ defmodule Expert.EngineNode.BuilderTest do
     {:ok, builder_pid} = start_builder(project)
 
     engine_path = Path.join(System.tmp_dir!(), "dev_ns")
-    mix_home = Path.join(System.tmp_dir!(), "mix_home")
+    tooling_env = tooling_env()
 
     meta =
-      %{mix_home: mix_home, engine_path: engine_path}
+      %{tooling_env: tooling_env, engine_path: engine_path}
       |> :erlang.term_to_binary()
       |> Base.encode64()
 
@@ -271,7 +271,7 @@ defmodule Expert.EngineNode.BuilderTest do
     send(builder_pid, {nil, {:data, {:eol, second}}})
 
     assert_receive {:engine_build_complete, :builder_test, ^builder_pid,
-                    {:ok, {paths, ^mix_home}}},
+                    {:ok, {paths, ^tooling_env}}},
                    5_000
 
     assert paths == Forge.Path.glob([engine_path, "lib/**/ebin"])
@@ -286,5 +286,16 @@ defmodule Expert.EngineNode.BuilderTest do
     |> Enum.filter(fn entry ->
       Enum.any?(@allowed_apps, &String.contains?(entry, to_string(&1)))
     end)
+  end
+
+  defp tooling_env do
+    root = System.tmp_dir!()
+
+    [
+      {"MIX_INSTALL_DIR", Path.join(root, "mix_install")},
+      {"MIX_HOME", Path.join(root, "mix_home")},
+      {"MIX_ARCHIVES", Path.join(root, "mix_archives")},
+      {"REBAR_CACHE_DIR", Path.join(root, "rebar_cache")}
+    ]
   end
 end

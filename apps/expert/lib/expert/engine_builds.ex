@@ -10,7 +10,7 @@ defmodule Expert.EngineBuilds do
     defstruct ready: %{}, pending: %{}
   end
 
-  @type build_result :: {[String.t()], String.t() | nil}
+  @type build_result :: {[String.t()], [{String.t(), String.t()}] | nil}
 
   def child_spec(_) do
     %{
