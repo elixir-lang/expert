@@ -110,9 +110,11 @@ defmodule Engine.CodeMod.Format do
 
     with :ok <- check_current_directory(document, project_path),
          {:ok, formatter} <- formatter_for(project, document.path) do
-      document
-      |> Document.to_string()
-      |> formatter.()
+      Engine.Mix.in_project(project, fn _ ->
+        document
+        |> Document.to_string()
+        |> formatter.()
+      end)
     end
   end
 

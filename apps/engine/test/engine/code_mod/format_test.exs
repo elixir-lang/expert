@@ -8,6 +8,23 @@ defmodule Engine.CodeMod.FormatTest do
   alias Forge.Document
   alias Forge.Project
 
+  defmodule ProjectConfigFormatter do
+    @behaviour Mix.Tasks.Format
+
+    @impl Mix.Tasks.Format
+    def features(_opts) do
+      [extensions: [".ex"], sigils: []]
+    end
+
+    @impl Mix.Tasks.Format
+    def format(contents, _opts) do
+      :format_project = Mix.Project.config() |> Keyword.fetch!(:app)
+
+      formatted = Code.format_string!(contents)
+      IO.iodata_to_binary([formatted, ?\n])
+    end
+  end
+
   def apply_code_mod(text, _ast, opts) do
     project = Keyword.get(opts, :project)
 
@@ -55,6 +72,40 @@ defmodule Engine.CodeMod.FormatTest do
     :ok
   end
 
+  def write_formatter_plugin_project!(tmp_dir) do
+    root = Path.join(tmp_dir, "format_project")
+    lib_dir = Path.join(root, "lib")
+
+    File.mkdir_p!(lib_dir)
+
+    File.write!(Path.join(root, "mix.exs"), """
+    defmodule FormatProject.MixProject do
+      use Mix.Project
+
+      def project do
+        [
+          app: :format_project,
+          version: "0.1.0",
+          deps: []
+        ]
+      end
+    end
+    """)
+
+    File.write!(Path.join(root, ".formatter.exs"), """
+    [
+      inputs: ["lib/**/*.{ex,exs}"],
+      plugins: [#{inspect(ProjectConfigFormatter)}]
+    ]
+    """)
+
+    File.write!(Path.join(lib_dir, "format.ex"), unformatted())
+
+    root
+    |> Document.Path.to_uri()
+    |> Project.new()
+  end
+
   setup do
     project = project()
     Engine.set_project(project)
@@ -66,6 +117,19 @@ defmodule Engine.CodeMod.FormatTest do
 
     test "it should be able to format a file in the project", %{project: project} do
       {:ok, result} = modify(unformatted(), project: project)
+
+      assert result == formatted()
+    end
+
+    @tag :tmp_dir
+    test "formatter plugins run with the formatted project's Mix config", %{tmp_dir: tmp_dir} do
+      project = write_formatter_plugin_project!(tmp_dir)
+      Engine.set_project(project)
+
+      assert {:ok, result} =
+               Mix.ProjectStack.on_clean_slate(fn ->
+                 modify(unformatted(), project: project)
+               end)
 
       assert result == formatted()
     end
