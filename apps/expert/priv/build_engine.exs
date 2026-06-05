@@ -18,11 +18,14 @@ expert_data_path = Path.join(cache_dir, expert_vsn)
 
 elixir_erts_vsn = "elixir-#{System.version()}-erts-#{:erlang.system_info(:version)}"
 tooling_path = Path.join([expert_data_path, "tooling", elixir_erts_vsn])
+mix_home = Path.join(tooling_path, "mix_home")
+mix_archives = Path.join(tooling_path, "mix_archives")
+rebar_cache = Path.join(tooling_path, "rebar_cache")
 
 System.put_env("MIX_INSTALL_DIR", expert_data_path)
-System.put_env("MIX_HOME", Path.join(tooling_path, "mix_home"))
-System.put_env("HEX_HOME", Path.join(tooling_path, "hex_home"))
-System.put_env("REBAR_CACHE_DIR", Path.join(tooling_path, "rebar_cache"))
+System.put_env("MIX_HOME", mix_home)
+System.put_env("MIX_ARCHIVES", mix_archives)
+System.put_env("REBAR_CACHE_DIR", rebar_cache)
 
 {:ok, _} = Application.ensure_all_started(:elixir)
 {:ok, _} = Application.ensure_all_started(:mix)
@@ -55,10 +58,15 @@ ns_build_path = Path.join([install_path, "_build", "dev_ns"])
 
 Mix.Task.run("namespace", [dev_build_path, ns_build_path, "--cwd", install_path, "--no-progress"])
 
-mix_home = Path.join(tooling_path, "mix_home")
+tooling_env = [
+  {"MIX_INSTALL_DIR", expert_data_path},
+  {"MIX_HOME", mix_home},
+  {"MIX_ARCHIVES", mix_archives},
+  {"REBAR_CACHE_DIR", rebar_cache}
+]
 
 engine_meta =
   "engine_meta:" <>
-    Base.encode64(:erlang.term_to_binary(%{mix_home: mix_home, engine_path: ns_build_path}))
+    Base.encode64(:erlang.term_to_binary(%{tooling_env: tooling_env, engine_path: ns_build_path}))
 
 IO.puts(engine_meta)

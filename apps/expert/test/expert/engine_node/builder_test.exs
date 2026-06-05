@@ -76,17 +76,17 @@ defmodule Expert.EngineNode.BuilderTest do
     task = Task.async(fn -> GenServer.call(builder_pid, :build, :infinity) end)
 
     engine_path = Path.join(System.tmp_dir!(), "dev_ns")
-    mix_home = Path.join(System.tmp_dir!(), "mix_home")
+    tooling_env = tooling_env()
 
     meta =
-      %{mix_home: mix_home, engine_path: engine_path}
+      %{tooling_env: tooling_env, engine_path: engine_path}
       |> :erlang.term_to_binary()
       |> Base.encode64()
 
     send(builder_pid, {nil, {:data, {:eol, "Rewriting 0 config scripts."}}})
     send(builder_pid, {nil, {:data, {:eol, "engine_meta:#{meta}"}}})
 
-    assert {:ok, {paths, ^mix_home}} = Task.await(task, 5_000)
+    assert {:ok, {paths, ^tooling_env}} = Task.await(task, 5_000)
     assert paths == Forge.Path.glob([engine_path, "lib/**/ebin"])
   end
 
@@ -191,10 +191,10 @@ defmodule Expert.EngineNode.BuilderTest do
     task = Task.async(fn -> GenServer.call(builder_pid, :build, :infinity) end)
 
     engine_path = Path.join(System.tmp_dir!(), "dev_ns")
-    mix_home = Path.join(System.tmp_dir!(), "mix_home")
+    tooling_env = tooling_env()
 
     meta =
-      %{mix_home: mix_home, engine_path: engine_path}
+      %{tooling_env: tooling_env, engine_path: engine_path}
       |> :erlang.term_to_binary()
       |> Base.encode64()
 
@@ -203,7 +203,7 @@ defmodule Expert.EngineNode.BuilderTest do
     send(builder_pid, {nil, {:data, {:noeol, first}}})
     send(builder_pid, {nil, {:data, {:eol, second}}})
 
-    assert {:ok, {paths, ^mix_home}} = Task.await(task, 5_000)
+    assert {:ok, {paths, ^tooling_env}} = Task.await(task, 5_000)
     assert paths == Forge.Path.glob([engine_path, "lib/**/ebin"])
   end
 
@@ -216,5 +216,16 @@ defmodule Expert.EngineNode.BuilderTest do
     |> Enum.filter(fn entry ->
       Enum.any?(@allowed_apps, &String.contains?(entry, to_string(&1)))
     end)
+  end
+
+  defp tooling_env do
+    root = System.tmp_dir!()
+
+    [
+      {"MIX_INSTALL_DIR", Path.join(root, "mix_install")},
+      {"MIX_HOME", Path.join(root, "mix_home")},
+      {"MIX_ARCHIVES", Path.join(root, "mix_archives")},
+      {"REBAR_CACHE_DIR", Path.join(root, "rebar_cache")}
+    ]
   end
 end
