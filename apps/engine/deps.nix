@@ -164,7 +164,7 @@ let
 
       elixir_sense =
         let
-          version = "e3ddc403554050221a2fd19a10a896fa7525bc02";
+          version = "fb9ee0e68db8b46fbff4d7a78ee4bb7f63db0669";
           drv = buildMix {
             inherit version;
             name = "elixir_sense";
@@ -173,8 +173,8 @@ let
             src = pkgs.fetchFromGitHub {
               owner = "elixir-lsp";
               repo = "elixir_sense";
-              rev = "e3ddc403554050221a2fd19a10a896fa7525bc02";
-              hash = "sha256-Rs/c6uduC2xauSwO7FGEVYWiyhNbhSsIcw5s04d+A8M=";
+              rev = "fb9ee0e68db8b46fbff4d7a78ee4bb7f63db0669";
+              hash = "sha256-mFhHK0CmnWw6TP3WpVJ/ckihvWZTBZrA7gwj/pGtHME=";
             };
           };
         in
@@ -337,7 +337,7 @@ let
 
       spitfire =
         let
-          version = "0.3.10";
+          version = "0.3.13";
           drv = buildMix {
             inherit version;
             name = "spitfire";
@@ -346,7 +346,7 @@ let
             src = fetchHex {
               inherit version;
               pkg = "spitfire";
-              sha256 = "6a6a5f77eb4165249c76199cd2d01fb595bac9207aed3de551918ac1c2bc9267";
+              sha256 = "3601be88ceed4967b584e96444de3e1d12d6555ae0864a7390b9cd5332d134b4";
             };
           };
         in
