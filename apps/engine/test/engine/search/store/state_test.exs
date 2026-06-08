@@ -48,7 +48,7 @@ defmodule Engine.Search.Store.StateTest do
           State.update_nosync(state, "/some/path.ex", [])
         end)
 
-      assert assert {:ok, returned_state} = result
+      assert {:ok, _returned_state} = result
       assert log =~ "Timeout updating index for path: /some/path.ex"
     end
   end
