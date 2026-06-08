@@ -94,37 +94,39 @@ defmodule Forge.VM.VersionTest do
     end
   end
 
-  test "an untagged directory is not compatible" do
-    refute compatible?(System.tmp_dir!())
+  test "an untagged directory returns :untagged" do
+    assert :untagged = check_erlang_compatibility(System.tmp_dir!())
   end
 
-  describe "compatible?/1" do
+  describe "check_erlang_compatibility/1" do
     test "lower major versions of erlang are compatible with later major versions" do
       patch_system_versions("1.15.8", "26.0")
       patch_tagged_versions("1.15.8", "25.0")
 
-      assert compatible?("/foo/bar/baz")
+      assert :compatible = check_erlang_compatibility("/foo/bar/baz")
     end
 
     test "higher major versions are not compatible with lower major versions" do
       patch_system_versions("1.15.8", "25.0")
       patch_tagged_versions("1.15.8", "26.0")
 
-      refute compatible?("/foo/bar/baz")
+      assert {:incompatible, tagged, current} = check_erlang_compatibility("/foo/bar/baz")
+      assert tagged.erlang == "26.0"
+      assert current.erlang == "25.0"
     end
 
     test "the same versions are compatible with each other" do
       patch_system_versions("1.15.8", "25.3.3")
       patch_tagged_versions("1.15.8", "25.0")
 
-      assert compatible?("/foo/bar/baz")
+      assert :compatible = check_erlang_compatibility("/foo/bar/baz")
     end
 
     test "higher minor versions are compatible" do
       patch_system_versions("1.15.8", "25.3.0")
       patch_tagged_versions("1.15.8", "25.0")
 
-      assert compatible?("/foo/bar/baz")
+      assert :compatible = check_erlang_compatibility("/foo/bar/baz")
     end
 
     test "release candidate erlang versions do not crash compatibility checks" do
@@ -134,14 +136,14 @@ defmodule Forge.VM.VersionTest do
       patch_system_versions("1.20.0-rc.4", "29.0-rc3.0")
       patch_tagged_versions("1.18.4", "28.0.2")
 
-      assert compatible?("/foo/bar/baz")
+      assert :compatible = check_erlang_compatibility("/foo/bar/baz")
     end
 
     test "release candidate erlang versions are compared by major version" do
       patch_system_versions("1.20.0-rc.4", "29.0-rc3.0")
       patch_tagged_versions("1.20.0-rc.4", "30.0.0")
 
-      refute compatible?("/foo/bar/baz")
+      assert {:incompatible, _, _} = check_erlang_compatibility("/foo/bar/baz")
     end
   end
 end

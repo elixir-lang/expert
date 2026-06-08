@@ -70,25 +70,24 @@ defmodule Forge.VM.Versions do
     %{elixir: to_version(elixir), erlang: to_version(erlang)}
   end
 
+  @typep compatibility_result ::
+           :compatible
+           | {:incompatible, tagged :: t(), current :: t()}
+           | :untagged
+           | {:unreadable, {:error, term()}}
+
   @doc """
-  Tells whether or not the current version of VM is supported by
-  Expert's compiled artifacts.
+  Checks whether the build artifacts in `directory` are compatible with
+  the currently running VM.
+
+  Returns:
+  - `:compatible` — versions match
+  - `{:incompatible, tagged, current}` — Erlang major versions don't match
+  - `:untagged` — no version tags found (missing directory or fresh build path)
+  - `{:unreadable, error}` — version tags exist but cannot be read
   """
-  @spec compatible?() :: boolean
-  @spec compatible?(Path.t()) :: boolean
-  def compatible? do
-    case code_find_file(version_file(:erlang)) do
-      {:ok, path} ->
-        path
-        |> Path.dirname()
-        |> compatible?()
-
-      _ ->
-        false
-    end
-  end
-
-  def compatible?(directory) do
+  @spec check_erlang_compatibility(Path.t()) :: compatibility_result()
+  def check_erlang_compatibility(directory) do
     system = current()
 
     case read(directory) do
@@ -96,10 +95,17 @@ defmodule Forge.VM.Versions do
         system_erlang = to_version(system.erlang)
         tagged_erlang = to_version(tagged.erlang)
 
-        tagged_erlang.major <= system_erlang.major
+        if tagged_erlang.major <= system_erlang.major do
+          :compatible
+        else
+          {:incompatible, tagged, system}
+        end
 
-      _ ->
-        false
+      {:error, :enoent} ->
+        :untagged
+
+      {:error, _} = error ->
+        {:unreadable, error}
     end
   end
 

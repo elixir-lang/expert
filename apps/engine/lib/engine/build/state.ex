@@ -60,12 +60,24 @@ defmodule Engine.Build.State do
     project = state.project
     build_path = Project.versioned_build_path(project)
 
-    if !Versions.compatible?(build_path) do
-      Logger.info("Build path #{build_path} was compiled on a previous erlang version. Deleting")
+    case Versions.check_erlang_compatibility(build_path) do
+      :compatible ->
+        :ok
 
-      if File.exists?(build_path) do
+      {:incompatible, tagged, current} ->
+        Logger.info(
+          "Build path #{build_path} was compiled with Erlang #{tagged.erlang}, " <>
+            "but current Erlang is #{current.erlang}. Deleting"
+        )
+
         File.rm_rf(build_path)
-      end
+
+      :untagged ->
+        :ok
+
+      {:unreadable, _error} ->
+        Logger.info("Build path #{build_path} has unreadable version tags. Deleting")
+        File.rm_rf(build_path)
     end
 
     maybe_delete_old_builds(project)
