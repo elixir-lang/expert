@@ -5,8 +5,6 @@ defmodule Engine.Build.Error do
   alias Forge.Plugin.V1.Diagnostic.Result
   alias Mix.Task.Compiler
 
-  require Logger
-
   @elixir_source "Elixir"
 
   @doc """

@@ -15,8 +15,6 @@ defmodule Mix.Tasks.Namespace do
   alias Forge.Ast
   alias Forge.Namespace.Transform
 
-  require Logger
-
   @dev_deps [:patch, :burrito]
   # Unless explicitly added, nimble_parsec won't show up as a loaded app
   # and will therefore not be namespaced.

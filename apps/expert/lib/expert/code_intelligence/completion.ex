@@ -47,7 +47,7 @@ defmodule Expert.CodeIntelligence.Completion do
     log_iolist =
       Enum.reduce(candidates, ["Emitting Completions: ["], fn %CompletionItem{} = completion,
                                                               acc ->
-        name = Map.get(completion, :name) || Map.get(completion, :label)
+        name = Map.get(completion, :label)
         kind = completion |> Map.get(:kind, :unknown) |> to_string()
 
         [acc, [kind, ":", name], " "]

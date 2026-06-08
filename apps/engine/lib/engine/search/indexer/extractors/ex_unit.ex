@@ -179,6 +179,4 @@ defmodule Engine.Search.Indexer.Extractors.ExUnit do
   defp arity_for(args) when is_list(args) do
     length(args)
   end
-
-  defp arity_for(_), do: 0
 end

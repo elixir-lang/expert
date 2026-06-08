@@ -253,7 +253,7 @@ let
 
       jason =
         let
-          version = "1.4.4";
+          version = "1.4.5";
           drv = buildMix {
             inherit version;
             name = "jason";
@@ -262,7 +262,24 @@ let
             src = fetchHex {
               inherit version;
               pkg = "jason";
-              sha256 = "c5eb0cab91f094599f94d55bc63409236a8ec69a21a67814529e8d5f6cc90b3b";
+              sha256 = "b0c823996102bcd0239b3c2444eb00409b72f6a140c1950bc8b457d836b30684";
+            };
+          };
+        in
+        drv;
+
+      logger_backends =
+        let
+          version = "1.0.0";
+          drv = buildMix {
+            inherit version;
+            name = "logger_backends";
+            appConfigPath = ./config;
+
+            src = fetchHex {
+              inherit version;
+              pkg = "logger_backends";
+              sha256 = "1faceb3e7ec3ef66a8f5746c5afd020e63996df6fd4eb8cdb789e5665ae6c9ce";
             };
           };
         in

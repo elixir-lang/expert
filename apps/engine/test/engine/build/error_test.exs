@@ -10,8 +10,6 @@ defmodule Engine.Build.ErrorTest do
   alias Engine.ModuleMappings
   alias Forge.Document
 
-  require Logger
-
   setup do
     start_supervised!(Engine.Dispatch)
     start_supervised!(CaptureServer)

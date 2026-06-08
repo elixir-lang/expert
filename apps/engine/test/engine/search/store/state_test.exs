@@ -6,8 +6,6 @@ defmodule Engine.Search.Store.StateTest do
 
   alias Engine.Search.Store.State
 
-  require Logger
-
   defmodule TimeoutBackend do
     @behaviour Engine.Search.Store.Backend
 

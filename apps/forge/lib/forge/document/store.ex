@@ -27,8 +27,6 @@ defmodule Forge.Document.Store do
     alias Forge.Document
     alias Forge.Document.Store
 
-    require Logger
-
     defstruct open: %{}, temporary_open_refs: %{}, derivation_funs: %{}
 
     @type t :: %__MODULE__{}

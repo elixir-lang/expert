@@ -6,8 +6,6 @@ defmodule Expert.Project.Intelligence do
   alias Expert.EngineApi
   alias Forge.Project
 
-  require Logger
-
   defmodule State do
     alias Forge.Formats
     alias Forge.Project
