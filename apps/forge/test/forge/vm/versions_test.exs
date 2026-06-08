@@ -110,9 +110,7 @@ defmodule Forge.VM.VersionTest do
       patch_system_versions("1.15.8", "25.0")
       patch_tagged_versions("1.15.8", "26.0")
 
-      assert {:incompatible, tagged, current} = check_erlang_compatibility("/foo/bar/baz")
-      assert tagged.erlang == "26.0"
-      assert current.erlang == "25.0"
+      assert {:incompatible, "26.0", "25.0"} = check_erlang_compatibility("/foo/bar/baz")
     end
 
     test "the same versions are compatible with each other" do

@@ -66,8 +66,8 @@ defmodule Engine.Build.State do
 
       {:incompatible, tagged, current} ->
         Logger.info(
-          "Build path #{build_path} was compiled with Erlang #{tagged.erlang}, " <>
-            "but current Erlang is #{current.erlang}. Deleting"
+          "Build path #{build_path} was compiled with Erlang #{tagged}, " <>
+            "but current Erlang is #{current}. Deleting"
         )
 
         File.rm_rf(build_path)

@@ -72,7 +72,7 @@ defmodule Forge.VM.Versions do
 
   @typep compatibility_result ::
            :compatible
-           | {:incompatible, tagged :: t(), current :: t()}
+           | {:incompatible, tagged :: version_string(), current :: version_string()}
            | :untagged
            | {:unreadable, {:error, term()}}
 
@@ -82,7 +82,7 @@ defmodule Forge.VM.Versions do
 
   Returns:
   - `:compatible` — versions match
-  - `{:incompatible, tagged, current}` — Erlang major versions don't match
+  - `{:incompatible, tagged_erlang, current_erlang}` — Erlang major versions don't match
   - `:untagged` — no version tags found (missing directory or fresh build path)
   - `{:unreadable, error}` — version tags exist but cannot be read
   """
@@ -98,7 +98,7 @@ defmodule Forge.VM.Versions do
         if tagged_erlang.major <= system_erlang.major do
           :compatible
         else
-          {:incompatible, tagged, system}
+          {:incompatible, tagged.erlang, system.erlang}
         end
 
       {:error, :enoent} ->
