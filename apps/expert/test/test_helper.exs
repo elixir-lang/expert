@@ -7,7 +7,7 @@ random_number = :rand.uniform(500)
 
 with :nonode@nohost <- Node.self() do
   {:ok, _pid} =
-    Node.start(:"expert-manager-testing-#{random_number}@127.0.0.1", name_domain: :longnames)
+    Node.start(:"expert-manager-testing-#{random_number}@127.0.0.1", :longnames)
 end
 
 Engine.Module.Loader.start_link(nil)

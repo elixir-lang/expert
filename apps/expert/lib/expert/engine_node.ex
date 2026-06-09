@@ -92,7 +92,7 @@ defmodule Expert.EngineNode do
 
           # We start distribution here, rather than on node boot, so that
           # -pa takes effect and Forge.EPMD is available
-          node_start = Node.start(node, name_domain: :longnames)
+          node_start = Node.start(node, :longnames)
 
           case node_start do
             {:ok, _} ->
@@ -248,8 +248,19 @@ defmodule Expert.EngineNode do
   end
 
   defp start_net_kernel(%Project{} = project) do
-    manager = Project.manager_node_name(project)
-    Node.start(manager, name_domain: :longnames)
+    project
+    |> Project.manager_node_name()
+    |> start_manager_node()
+  end
+
+  if Version.match?(System.version(), ">= 1.19.0") do
+    defp start_manager_node(manager) do
+      Node.start(manager, name_domain: :longnames)
+    end
+  else
+    defp start_manager_node(manager) do
+      Node.start(manager, :longnames)
+    end
   end
 
   defp ensure_apps_started(node, token) do
