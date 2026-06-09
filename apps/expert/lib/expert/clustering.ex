@@ -1,9 +1,10 @@
 defmodule Expert.Clustering do
   alias Forge.Workspace
 
+  @spec start_net_kernel() :: {:ok, pid()} | {:error, term()}
   def start_net_kernel do
     with {:ok, manager} <- manager_node_name() do
-      case Node.start(manager, name_domain: :longnames) do
+      case start_node(manager) do
         {:ok, pid} ->
           {:ok, pid}
 
@@ -13,6 +14,16 @@ defmodule Expert.Clustering do
         {:error, reason} ->
           {:error, reason}
       end
+    end
+  end
+
+  if Version.match?(System.version(), ">= 1.19.0") do
+    defp start_node(manager) do
+      Node.start(manager, name_domain: :longnames)
+    end
+  else
+    defp start_node(manager) do
+      Node.start(manager, :longnames)
     end
   end
 
