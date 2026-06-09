@@ -8,13 +8,16 @@ versions = [
   %{elixir: "1.18", otp: "26", os: "ubuntu-latest"},
   %{elixir: "1.17", otp: "27", os: "ubuntu-latest"},
   %{elixir: "1.17", otp: "26", os: "ubuntu-latest"},
-  %{elixir: "1.16", otp: "26", os: "ubuntu-latest"},
+  %{elixir: "1.16", otp: "26", os: "ubuntu-latest"}
 ]
 
 expert_matrix =
   [
     %{elixir: "1.20.0", otp: "29.0.1", project: "expert", os: "ubuntu-latest"},
     %{elixir: "1.20.0", otp: "29.0.1", project: "expert", os: "windows-2022"}
+    | for version <- tl(versions) do
+        Map.put(version, :project, "expert")
+      end
   ]
 
 %{

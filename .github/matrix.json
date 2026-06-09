@@ -155,6 +155,48 @@
       "otp": "29.0.1",
       "elixir": "1.20.0",
       "project": "expert"
+    },
+    {
+      "os": "ubuntu-latest",
+      "otp": "28",
+      "elixir": "1.19",
+      "project": "expert"
+    },
+    {
+      "os": "ubuntu-latest",
+      "otp": "28",
+      "elixir": "1.18.4",
+      "project": "expert"
+    },
+    {
+      "os": "ubuntu-latest",
+      "otp": "27",
+      "elixir": "1.18",
+      "project": "expert"
+    },
+    {
+      "os": "ubuntu-latest",
+      "otp": "26",
+      "elixir": "1.18",
+      "project": "expert"
+    },
+    {
+      "os": "ubuntu-latest",
+      "otp": "27",
+      "elixir": "1.17",
+      "project": "expert"
+    },
+    {
+      "os": "ubuntu-latest",
+      "otp": "26",
+      "elixir": "1.17",
+      "project": "expert"
+    },
+    {
+      "os": "ubuntu-latest",
+      "otp": "26",
+      "elixir": "1.16",
+      "project": "expert"
     }
   ]
 }
