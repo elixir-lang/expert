@@ -47,4 +47,25 @@ defmodule Expert.ClusteringTest do
       assert {:error, :not_initialized} = Clustering.manager_node_name()
     end
   end
+
+  describe "start_net_kernel/0" do
+    setup do
+      on_exit(fn ->
+        Workspace.set_workspace(nil)
+      end)
+
+      :ok
+    end
+
+    test "starts net kernel compatibly when distribution is already active" do
+      assert Node.alive?()
+      assert is_pid(Process.whereis(:net_kernel))
+
+      workspace = Workspace.new(["/path/to/expert-lsp.org"])
+      Workspace.set_workspace(workspace)
+
+      assert {:ok, pid} = Clustering.start_net_kernel()
+      assert is_pid(pid)
+    end
+  end
 end
