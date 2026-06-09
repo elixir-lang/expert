@@ -4,7 +4,7 @@ defmodule Expert.Logging.WindowLogHandlerTest do
   alias Expert.Logging.WindowLogHandler
 
   defmodule OtherHandler do
-    @behaviour :logger_handler
+    use Expert.Logging.LoggerHandler
 
     @impl true
     def log(_event, config), do: {:ok, config}
