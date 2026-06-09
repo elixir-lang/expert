@@ -19,6 +19,27 @@ defmodule Expert.Port do
   @path_marker "__EXPERT_PATH__"
   @default_unix_path "/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
 
+  # These variables are interpreted by release, Elixir, or Erlang launchers and
+  # must not leak from Expert's own runtime into project runtime detection.
+  @scrubbed_env_vars [
+    "ELIXIR_ERL_OPTIONS",
+    "ERL_AFLAGS",
+    "ERL_FLAGS",
+    "ERL_LIBS",
+    "ERL_ZFLAGS",
+    "ERLEXEC_DIR",
+    "RELEASE_ROOT",
+    "ROOTDIR",
+    "BINDIR",
+    "RELEASE_SYS_CONFIG",
+    "MIX_ARCHIVES",
+    "MIX_INSTALL_DIR",
+    "MIX_HOME",
+    "MIX_ENV",
+    "MIX_REBAR3",
+    "REBAR_CACHE_DIR"
+  ]
+
   @doc """
   Launches elixir in a port.
 
@@ -146,28 +167,15 @@ defmodule Expert.Port do
         {:error, name, "Couldn't find an #{name} executable"}
 
       elixir ->
-        release_vars = [
-          "RELEASE_ROOT",
-          "ROOTDIR",
-          "BINDIR",
-          "RELEASE_SYS_CONFIG",
-          "ERLEXEC_DIR",
-          "MIX_HOME",
-          "MIX_ARCHIVES"
-        ]
-
         env =
           System.get_env()
+          |> Enum.reject(fn {key, _value} -> key in @scrubbed_env_vars end)
           |> Enum.map(fn
             {key, _path} when key in ["PATH", "Path"] ->
               {key, path}
 
-            {key, _value} ->
-              if key in release_vars do
-                {key, ""}
-              else
-                {key, System.get_env(key)}
-              end
+            {key, value} ->
+              {key, value}
           end)
 
         {:ok, elixir, env}
@@ -209,28 +217,15 @@ defmodule Expert.Port do
         end
 
       elixir ->
-        release_vars = [
-          "RELEASE_ROOT",
-          "ROOTDIR",
-          "BINDIR",
-          "RELEASE_SYS_CONFIG",
-          "MIX_HOME",
-          "MIX_ARCHIVES",
-          "MIX_ENV"
-        ]
-
         env =
           System.get_env()
+          |> Enum.reject(fn {key, _value} -> key in @scrubbed_env_vars end)
           |> Enum.map(fn
             {"PATH", _path} ->
               {"PATH", path}
 
-            {key, _value} ->
-              if key in release_vars do
-                {key, ""}
-              else
-                {key, System.get_env(key)}
-              end
+            {key, value} ->
+              {key, value}
           end)
 
         {:ok, elixir, env}
@@ -343,13 +338,23 @@ defmodule Expert.Port do
     {os_type, _} = Forge.OS.type()
 
     opts =
-      if Keyword.has_key?(opts, :env) do
-        Keyword.update!(opts, :env, &ensure_charlists/1)
-      else
-        opts
-      end
+      opts
+      |> Keyword.update(:env, scrub_env([]), &scrub_env/1)
+      |> Keyword.update!(:env, &ensure_charlists/1)
 
     open_port(os_type, executable, opts)
+  end
+
+  @doc false
+  def scrub_env(env) do
+    already_set = MapSet.new(env, fn {key, _value} -> to_string(key) end)
+
+    scrub_entries =
+      for var <- @scrubbed_env_vars, var not in already_set do
+        {var, ""}
+      end
+
+    scrub_entries ++ env
   end
 
   defp open_port(:win32, executable, opts) do
