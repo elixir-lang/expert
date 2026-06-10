@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.1.5](https://github.com/expert-lsp/expert/compare/v0.1.4...v0.1.5) (2026-06-10)
+
+
+### Features
+
+* **engine:** expand engine builder error output ([#661](https://github.com/expert-lsp/expert/issues/661)) ([2c2c9ed](https://github.com/expert-lsp/expert/commit/2c2c9edf3957d1c5a0cb8b1b2233dd726a0363f5))
+
+
+### Bug Fixes
+
+* bump spitfire to v0.3.13 ([#715](https://github.com/expert-lsp/expert/issues/715)) ([87ae718](https://github.com/expert-lsp/expert/commit/87ae718d77a9bc5ca0daeeca4c0459a214e09a3a))
+* don't index build paths ([#677](https://github.com/expert-lsp/expert/issues/677)) ([fceb300](https://github.com/expert-lsp/expert/commit/fceb300e075a3781f4844b5a3983173ff1d5b74d))
+* engine build crashes when changing tooling versions ([#717](https://github.com/expert-lsp/expert/issues/717)) ([b356e9b](https://github.com/expert-lsp/expert/commit/b356e9b18921eb210b02cc3190dd5ed57d96eca9))
+* **engine:** add project stack lock ([#654](https://github.com/expert-lsp/expert/issues/654)) ([#658](https://github.com/expert-lsp/expert/issues/658)) ([be334a6](https://github.com/expert-lsp/expert/commit/be334a6027220c7f3da0edfc557074b852f6887a))
+* **engine:** don't crash in EEx on hover ([#668](https://github.com/expert-lsp/expert/issues/668)) ([10fd27d](https://github.com/expert-lsp/expert/commit/10fd27d674f39d0616c52b58e0ff348e4d155c8f))
+* **engine:** resolve entity with correct arity in (h)eex ([#665](https://github.com/expert-lsp/expert/issues/665)) ([de85b6f](https://github.com/expert-lsp/expert/commit/de85b6fca3a9d4840e8adb80f454ebee63d527d9))
+* **engine:** run formatter in Mix project context ([#712](https://github.com/expert-lsp/expert/issues/712)) ([9c07570](https://github.com/expert-lsp/expert/commit/9c07570046857e12fa2d863fd17d12b4256b69fe))
+* **expert:** use document from request as fallback when document is not in the store ([#695](https://github.com/expert-lsp/expert/issues/695)) ([2c66a26](https://github.com/expert-lsp/expert/commit/2c66a262870142d8ea863d7ac6408b5dc83cba2e))
+* **forge:** reset ASCII assumption on a new line ([#688](https://github.com/expert-lsp/expert/issues/688)) ([1b74973](https://github.com/expert-lsp/expert/commit/1b749733792ec34781cc329c80e5548f7de8f393))
+
 ## [0.1.4](https://github.com/expert-lsp/expert/compare/v0.1.3...v0.1.4) (2026-05-02)
 
 
