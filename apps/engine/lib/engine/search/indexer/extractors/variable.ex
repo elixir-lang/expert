@@ -73,19 +73,19 @@ defmodule Engine.Search.Indexer.Extractors.Variable do
     {:ok, nil, nil}
   end
 
+  # Pin operator ^pinned_variable
+  def extract({:^, _, [reference]}, %Reducer{} = reducer) do
+    reference = extract_reference(reference, reducer, get_current_app(reducer))
+
+    {:ok, reference, nil}
+  end
+
   # Generic variable reference
   def extract({var_name, _, _} = ast, %Reducer{} = reducer) when is_atom(var_name) do
     case extract_reference(ast, reducer, get_current_app(reducer)) do
       %Entry{} = entry -> {:ok, entry}
       _ -> :ignored
     end
-  end
-
-  # Pin operator ^pinned_variable
-  def extract({:^, _, [reference]}, %Reducer{} = reducer) do
-    reference = extract_reference(reference, reducer, get_current_app(reducer))
-
-    {:ok, reference, nil}
   end
 
   def extract(_ast, _reducer) do

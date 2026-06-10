@@ -7,8 +7,6 @@ defmodule Engine.ModuleStore do
   alias Engine.Dispatch
   alias Engine.Progress
 
-  require Logger
-
   def start_link(_) do
     GenServer.start_link(__MODULE__, [], name: __MODULE__)
   end

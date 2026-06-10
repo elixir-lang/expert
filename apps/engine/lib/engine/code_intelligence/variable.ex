@@ -5,8 +5,6 @@ defmodule Engine.CodeIntelligence.Variable do
   alias Forge.Document.Range
   alias Forge.Search.Indexer.Entry
 
-  require Logger
-
   @extractors [Indexer.Extractors.Variable]
 
   @spec definition(Analysis.t(), Position.t(), atom()) :: {:ok, Entry.t()} | :error

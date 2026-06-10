@@ -1,7 +1,9 @@
 defmodule Expert.Provider.Handlers.FormattingTest do
-  use Forge.Test.CodeMod.Case, enable_ast_conversion: false
+  use ExUnit.Case
 
   import Forge.EngineApi.Messages
+  import Forge.Test.CodeSigil, only: [sigil_q: 2]
+  import Forge.Test.Fixtures
 
   alias Expert.EngineApi
   alias Expert.EngineNode

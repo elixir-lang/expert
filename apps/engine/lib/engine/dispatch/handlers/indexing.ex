@@ -7,8 +7,6 @@ defmodule Engine.Dispatch.Handlers.Indexing do
   alias Engine.Search
   alias Forge.Document
 
-  require Logger
-
   def on_event(file_compile_requested(uri: uri), state) do
     reindex(uri)
     {:ok, state}

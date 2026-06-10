@@ -12,6 +12,10 @@ defmodule Expert.ConfigurationTest do
     Configuration.new()
     |> Configuration.set()
 
+    on_exit(fn ->
+      :persistent_term.erase(Expert.Configuration)
+    end)
+
     :ok
   end
 

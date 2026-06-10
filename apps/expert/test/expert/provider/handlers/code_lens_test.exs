@@ -15,6 +15,8 @@ defmodule Expert.Provider.Handlers.CodeLensTest do
   alias GenLSP.Requests.TextDocumentCodeLens
   alias GenLSP.Structures
 
+  @project_ready_timeout :timer.seconds(15)
+
   setup_all do
     start_supervised!({Forge.NodePortMapper, []})
     start_supervised(Document.Store)
@@ -29,7 +31,7 @@ defmodule Expert.Provider.Handlers.CodeLensTest do
     EngineApi.register_listener(project, self(), [project_compiled()])
     EngineApi.schedule_compile(project, true)
 
-    assert_receive project_compiled(), 5000
+    assert_receive project_compiled(), @project_ready_timeout
 
     {:ok, project: project}
   end

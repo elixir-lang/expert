@@ -7,8 +7,6 @@ defmodule ExpertCredo do
   alias Forge.Plugin.V1.Diagnostic
   alias Forge.Project
 
-  require Logger
-
   @doc false
   def init do
     with {:ok, _} <- Application.ensure_all_started(:credo) do

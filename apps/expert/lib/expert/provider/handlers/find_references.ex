@@ -9,8 +9,6 @@ defmodule Expert.Provider.Handlers.FindReferences do
   alias GenLSP.Requests.TextDocumentReferences
   alias GenLSP.Structures
 
-  require Logger
-
   @impl Expert.Provider.Handler
   def handle(%TextDocumentReferences{params: %Structures.ReferenceParams{} = params}) do
     document = Forge.Document.Container.context_document(params, nil)

@@ -54,6 +54,7 @@ defmodule ExpertTest do
   setup do
     # Clear any leftover configuration from previous tests
     :persistent_term.erase(Expert.Configuration)
+    Forge.Workspace.set_workspace(nil)
 
     # window/logMessage is emitted by a Logger handler; keep :info enabled
     # so integration assertions can observe those notifications.
@@ -63,6 +64,7 @@ defmodule ExpertTest do
     :logger.update_handler_config(:default, :level, :none)
 
     on_exit(fn ->
+      Forge.Workspace.set_workspace(nil)
       Logger.configure(level: :none)
       :logger.update_handler_config(:default, :level, :all)
     end)

@@ -170,11 +170,11 @@ defmodule Expert.State do
       end
 
     if project && not ActiveProjects.blocked?(project) do
+      ActiveProjects.add_projects([project])
+
       Task.Supervisor.start_child(:expert_task_queue, fn ->
         Expert.Project.Supervisor.ensure_node_started(project)
       end)
-
-      ActiveProjects.add_projects([project])
     end
 
     case Document.Store.open(uri, text, version, language_id) do

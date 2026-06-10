@@ -10,8 +10,6 @@ defmodule Engine.Search.Indexer.Extractors.ModuleAttribute do
   alias Forge.Document.Range
   alias Forge.Search.Indexer.Entry
 
-  require Logger
-
   # Finds module attribute usages
   def extract({:@, _, [{attr_name, _, nil}]}, %Reducer{} = reducer) do
     block = Reducer.current_block(reducer)

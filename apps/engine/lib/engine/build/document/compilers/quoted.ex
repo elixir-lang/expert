@@ -43,7 +43,11 @@ defmodule Engine.Build.Document.Compilers.Quoted do
           |> Build.Error.diagnostics_from_mix(all_errors_and_warnings)
           |> Build.Error.refine_diagnostics()
 
-        {:ok, diagnostics}
+        if Enum.any?(diagnostics, &match?(%{severity: :error}, &1)) do
+          {:error, diagnostics}
+        else
+          {:ok, diagnostics}
+        end
 
       {{:exception, exception, stack, quoted_ast}, all_errors_and_warnings} ->
         converted = Build.Error.error_to_diagnostic(document, exception, stack, quoted_ast)

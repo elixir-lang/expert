@@ -121,9 +121,6 @@ defmodule Forge.Ast.Tokens do
       {type, {line, column, token_value}, _} ->
         {normalize_type(type), token_value, {line, column}}
 
-      {type, context, value} when is_atom(value) ->
-        {normalize_type(type), value, to_position(context)}
-
       {operator, context} ->
         {map_operator(operator), operator, to_position(context)}
     end
@@ -143,7 +140,6 @@ defmodule Forge.Ast.Tokens do
   defp map_operator(_), do: :operator
 
   defp normalize_type(:flt), do: :float
-  defp normalize_type(:bin_string), do: :string
   defp normalize_type(type), do: type
 
   defp interpolation_ranges(interpolations) do
