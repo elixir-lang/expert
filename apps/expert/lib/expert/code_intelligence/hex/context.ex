@@ -28,20 +28,14 @@ defmodule Expert.CodeIntelligence.Hex.Context do
     # destructive for tuple-in-list detection because it discards the real
     # deps tuples. Sourceror's error-recovering parser keeps them.
     with ast when not is_nil(ast) <- permissive_ast(analysis.document),
-         {:ok, deps_list} <- Deps.list(ast) do
-      case find_tuple_at(deps_list, position) do
-        {:ok, tuple} ->
-          with {:ok, slot, package} <- slot_for_tuple(tuple, position),
-               {:ok, prefix} <- extract_prefix(analysis.document, position, slot) do
-            {:ok, %{slot: slot, prefix: prefix, package: package, repo: Deps.repo_of(tuple)}}
-          else
-            _ -> :error
-          end
-
-        :error ->
-          cursor_fallback(analysis, position)
-      end
+         {:ok, deps_list} <- Deps.list(ast),
+         {:ok, tuple} <- find_tuple_at(deps_list, position),
+         {:ok, slot, package} <- slot_for_tuple(tuple, position),
+         {:ok, prefix} <- extract_prefix(analysis.document, position, slot) do
+      {:ok, %{slot: slot, prefix: prefix, package: package, repo: Deps.repo_of(tuple)}}
     else
+      {:error, :tuple_not_found} -> cursor_fallback(analysis, position)
+      {:error, :slot_not_found} -> :error
       _ -> line_fallback(analysis.document, position)
     end
   end
@@ -110,7 +104,7 @@ defmodule Expert.CodeIntelligence.Hex.Context do
   defp cursor_inside_deps?(%Analysis{ast: ast}), do: Deps.cursor_in_deps_body?(ast)
 
   defp find_tuple_at(deps_list, position) do
-    Enum.find_value(deps_list, :error, fn node ->
+    Enum.find_value(deps_list, {:error, :tuple_not_found}, fn node ->
       if tuple_node?(node) and position_in?(node_meta(node), position) do
         {:ok, node}
       end
@@ -126,16 +120,16 @@ defmodule Expert.CodeIntelligence.Hex.Context do
 
   defp position_in?(meta, %Position{line: pl, character: pc}) do
     with {:ok, ol} <- Keyword.fetch(meta, :line),
-         {:ok, oc} <- Keyword.fetch(meta, :column) do
-      case closing_bounds(meta) do
-        {:ok, cl, cc} ->
-          {pl, pc} >= {ol, oc} and {pl, pc} <= {cl, cc + 1}
-
-        :error ->
-          pl == ol and pc >= oc
-      end
+         {:ok, oc} <- Keyword.fetch(meta, :column),
+         {:ok, cl, cc} <- closing_bounds(meta) do
+      {pl, pc} >= {ol, oc} and {pl, pc} <= {cl, cc + 1}
     else
-      _ -> false
+      {:error, :no_bounds} ->
+        {ol, oc} = {meta[:line], meta[:column]}
+        pl == ol and pc >= oc
+
+      _ ->
+        false
     end
   end
 
@@ -145,7 +139,7 @@ defmodule Expert.CodeIntelligence.Hex.Context do
          {:ok, cc} <- Keyword.fetch(closing, :column) do
       {:ok, cl, cc}
     else
-      _ -> :error
+      _ -> {:error, :no_bounds}
     end
   end
 
@@ -177,11 +171,11 @@ defmodule Expert.CodeIntelligence.Hex.Context do
         {:ok, :version, package}
 
       true ->
-        :error
+        {:error, :slot_not_found}
     end
   end
 
-  defp classify(_position, []), do: :error
+  defp classify(_position, []), do: {:error, :slot_not_found}
 
   defp past_first_arg?([{:__block__, meta, [value]} | _], %Position{} = position)
        when is_atom(value) do

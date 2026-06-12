@@ -321,46 +321,39 @@ defmodule Expert.CodeIntelligence.Hex do
   end
 
   defp do_build_version_candidates(releases, package, prefix) do
-    filtered =
-      case version_prefix_filter(prefix) do
-        "" -> releases
-        filter -> Enum.filter(releases, &String.starts_with?(&1["version"] || "", filter))
-      end
-
-    parsed =
-      Enum.map(filtered, fn release ->
-        raw = Map.get(release, "version")
-
-        parsed_version =
-          case Version.parse(raw) do
-            {:ok, %Version{} = v} -> v
-            :error -> nil
-          end
-
-        {release, parsed_version}
-      end)
-
-    {parseable, unparseable} = Enum.split_with(parsed, fn {_release, v} -> v != nil end)
-
-    top_parseable =
-      parseable
-      |> Enum.sort_by(fn {_release, v} -> v end, {:desc, Version})
-      |> Enum.take(@max_versions)
-      |> Enum.map(fn {release, _v} -> release end)
-
-    trailing = Enum.map(unparseable, fn {release, _v} -> release end)
-
-    (top_parseable ++ trailing)
+    releases
+    |> filter_by_prefix(version_prefix_filter(prefix))
+    |> sort_and_cap_versions()
     |> Enum.with_index()
     |> Enum.map(fn {release, idx} ->
       %Candidate.Version{
         package: package,
-        version: Map.get(release, "version"),
+        version: release["version"],
         index: idx,
         prefix: prefix,
-        retirement: normalize_retirement(Map.get(release, "retirement"))
+        retirement: normalize_retirement(release["retirement"])
       }
     end)
+  end
+
+  defp filter_by_prefix(releases, ""), do: releases
+
+  defp filter_by_prefix(releases, filter) do
+    Enum.filter(releases, &String.starts_with?(&1["version"] || "", filter))
+  end
+
+  defp sort_and_cap_versions(releases) do
+    {parseable, unparseable} =
+      Enum.split_with(releases, fn release ->
+        match?({:ok, _}, Version.parse(release["version"]))
+      end)
+
+    top =
+      parseable
+      |> Enum.sort_by(&Version.parse!(&1["version"]), {:desc, Version})
+      |> Enum.take(@max_versions)
+
+    top ++ unparseable
   end
 
   defp version_prefix_filter(nil), do: ""

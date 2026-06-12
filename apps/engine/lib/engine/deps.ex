@@ -33,15 +33,12 @@ defmodule Engine.Deps do
   end
 
   def project_file(:umbrella) do
-    result =
-      Engine.Mix.in_project(fn _module ->
-        case safe_call(Mix.Project, :parent_umbrella_project_file, []) do
-          nil -> safe_call(Mix.Project, :project_file, [])
-          path -> path
-        end
-      end)
-
-    case result do
+    fn _module ->
+      safe_call(Mix.Project, :parent_umbrella_project_file, []) ||
+        safe_call(Mix.Project, :project_file, [])
+    end
+    |> Engine.Mix.in_project()
+    |> case do
       {:ok, path} when is_binary(path) -> path
       _ -> nil
     end
@@ -111,12 +108,7 @@ defmodule Engine.Deps do
   """
   @spec read_config() :: {:ok, keyword()} | :error
   def read_config do
-    case Engine.Mix.in_project(fn _module ->
-           case safe_call(Hex.Config, :read, []) do
-             config when is_list(config) -> {:ok, config}
-             _ -> :error
-           end
-         end) do
+    case Engine.Mix.in_project(fn _module -> safe_call(Hex.Config, :read, []) end) do
       {:ok, config} when is_list(config) -> {:ok, config}
       _ -> :error
     end
