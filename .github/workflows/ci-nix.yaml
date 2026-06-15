@@ -31,7 +31,7 @@ jobs:
         uses: DeterminateSystems/magic-nix-cache-action@908b263ff629f4cc17666315b7fd3ec127c6244d # v14
 
       - name: Nix files are formatted
-        run:  nix develop --command bash -c "alejandra --check flake.nix ./nix/expert.nix"
+        run:  nix develop --command bash -c "nixfmt --check flake.nix ./nix/expert.nix"
 
       - name: Build
         run: nix build .#expert

@@ -67,7 +67,7 @@
               erlang = "27.3.4.1";
             };
             devShell.extraPackages = with pkgs; [
-              alejandra
+              nixfmt
               zig_0_15
               xz
               just
