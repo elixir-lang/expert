@@ -110,7 +110,7 @@ defmodule Engine.Search.Indexer.Extractors.FunctionDefinitionTest do
                extract(code, one_arity.block_range)
     end
 
-    test "indexes the first clause once for same-arity public functions" do
+    test "indexes each clause for same-arity public functions" do
       code =
         ~q[
           def greet(name) when is_atom(name) do
@@ -123,10 +123,12 @@ defmodule Engine.Search.Indexer.Extractors.FunctionDefinitionTest do
         ]
         |> in_a_module()
 
-      {:ok, [greet], _} = index(code)
+      {:ok, [first, second], _} = index(code)
 
-      assert greet.subject == "Parent.greet/1"
-      assert "greet(name) when is_atom(name)" == extract(code, greet.range)
+      assert first.subject == "Parent.greet/1"
+      assert second.subject == "Parent.greet/1"
+      assert "greet(name) when is_atom(name)" == extract(code, first.range)
+      assert "greet(name)" == extract(code, second.range)
     end
 
     test "finds multi arity public function" do

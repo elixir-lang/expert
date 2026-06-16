@@ -140,7 +140,7 @@ defmodule Engine.Search.Indexer.BeamsTest do
              )
     end
 
-    test "indexes the first BEAM metadata clause once for same-arity public functions", %{
+    test "indexes each BEAM metadata clause for same-arity public functions", %{
       tmp_dir: tmp_dir
     } do
       module = unique_module("MultiClause")
@@ -149,6 +149,7 @@ defmodule Engine.Search.Indexer.BeamsTest do
       source = """
       defmodule #{inspect(module)} do
         def greet(name) when is_atom(name), do: name
+        def greet(name) when is_binary(name), do: name
         def greet(name), do: name
       end
       """
@@ -159,14 +160,28 @@ defmodule Engine.Search.Indexer.BeamsTest do
           rewrite_source?: false
         )
 
-      assert [%Entry{range: range}] =
-               Enum.filter(
-                 entries,
-                 &(&1.subject == mfa and &1.type == {:function, :public} and
-                     &1.subtype == :definition)
-               )
+      definitions =
+        entries
+        |> Enum.filter(
+          &(&1.subject == mfa and &1.type == {:function, :public} and
+              &1.subtype == :definition)
+        )
+        |> Enum.sort_by(& &1.range.start.line)
 
-      assert extract(source, range) == "greet"
+      assert [first, second, third] = definitions
+
+      assert Enum.map([first, second, third], &extract(source, &1.range)) == [
+               "greet",
+               "greet",
+               "greet"
+             ]
+
+      assert [first.range.start.line, second.range.start.line, third.range.start.line] ==
+               Enum.uniq([
+                 first.range.start.line,
+                 second.range.start.line,
+                 third.range.start.line
+               ])
     end
 
     test "preserves defdelegate metadata without dangling block ids", %{tmp_dir: tmp_dir} do

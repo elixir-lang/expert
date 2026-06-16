@@ -39,13 +39,20 @@ defmodule Engine.Search.Indexer.Source do
   defp search_definition_key(%Entry{
          path: path,
          block_id: block_id,
+         range: range,
          subject: subject,
          subtype: :definition,
          type: {kind, _} = type
        })
        when kind in [:function, :macro] do
-    {path, block_id, subject, type}
+    {path, block_id, subject, type, range_key(range)}
   end
 
   defp search_definition_key(_entry), do: nil
+
+  defp range_key(%Forge.Document.Range{start: start, end: finish}) do
+    {start.line, start.character, finish.line, finish.character}
+  end
+
+  defp range_key(_range), do: nil
 end

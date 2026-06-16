@@ -730,15 +730,15 @@ defmodule Engine.CodeIntelligence.SymbolsTest do
     end
 
     @tag :tmp_dir
-    test "converts BEAM-backed function entries with source-backed ranges", %{tmp_dir: tmp_dir} do
-      module = Module.concat(__MODULE__, :BeamBackedWorkspaceSymbol)
-      source_path = Path.join(tmp_dir, "beam_backed_workspace_symbol.ex")
+    test "converts BEAM-backed same-arity clauses into workspace symbols", %{tmp_dir: tmp_dir} do
+      module = Module.concat(__MODULE__, :BeamBackedWorkspaceSymbolClauses)
+      source_path = Path.join(tmp_dir, "beam_backed_workspace_symbol_clauses.ex")
 
       source = """
       defmodule #{inspect(module)} do
-        def handle_request(request, lsp) do
-          {request, lsp}
-        end
+        def handle_request(request, lsp) when is_atom(request), do: {request, lsp}
+        def handle_request(request, lsp) when is_binary(request), do: {request, lsp}
+        def handle_request(request, lsp), do: {request, lsp}
       end
       """
 
@@ -756,14 +756,28 @@ defmodule Engine.CodeIntelligence.SymbolsTest do
         {:ok, entries}
       end)
 
-      [symbol] = Symbols.for_workspace("handle_request")
+      symbols = Symbols.for_workspace("handle_request")
+      assert [first, second, third] = symbols
 
-      assert symbol.name ==
-               "Engine.CodeIntelligence.SymbolsTest.BeamBackedWorkspaceSymbol.handle_request/2"
+      assert Enum.map([first, second, third], & &1.name) == [
+               "Engine.CodeIntelligence.SymbolsTest.BeamBackedWorkspaceSymbolClauses.handle_request/2",
+               "Engine.CodeIntelligence.SymbolsTest.BeamBackedWorkspaceSymbolClauses.handle_request/2",
+               "Engine.CodeIntelligence.SymbolsTest.BeamBackedWorkspaceSymbolClauses.handle_request/2"
+             ]
 
-      assert symbol.link.detail_range.start.document_line_count > 0
-      assert symbol.link.detail_range.end.document_line_count > 0
-      assert decorate(doc, symbol.link.detail_range) =~ "  def «handle_request»(request, lsp) do"
+      assert Enum.all?([first, second, third], fn symbol ->
+               symbol.link.detail_range.start.document_line_count > 0 and
+                 symbol.link.detail_range.end.document_line_count > 0
+             end)
+
+      assert decorate(doc, first.link.detail_range) =~
+               "  def «handle_request»(request, lsp) when is_atom(request), do: {request, lsp}"
+
+      assert decorate(doc, second.link.detail_range) =~
+               "  def «handle_request»(request, lsp) when is_binary(request), do: {request, lsp}"
+
+      assert decorate(doc, third.link.detail_range) =~
+               "  def «handle_request»(request, lsp), do: {request, lsp}"
     end
 
     test "converts protocol implementations" do

@@ -465,8 +465,14 @@ defmodule Engine.Search.Indexer.Beams do
   end
 
   defp function_entry_key(%Entry{} = entry) do
-    {entry.path, entry.subject, entry.type, entry.subtype}
+    {entry.path, entry.subject, entry.type, entry.subtype, range_key(entry.range)}
   end
+
+  defp range_key(%Range{start: start, end: finish}) do
+    {start.line, start.character, finish.line, finish.character}
+  end
+
+  defp range_key(_range), do: nil
 
   defp function_entries_from_definition(
          {{name, arity}, definition, metadata, clauses},
@@ -502,6 +508,7 @@ defmodule Engine.Search.Indexer.Beams do
             &1,
             definition,
             metadata,
+            clauses,
             context.source_lines,
             delegated_mfas
           )
@@ -571,17 +578,39 @@ defmodule Engine.Search.Indexer.Beams do
          arity,
          definition,
          metadata,
+         clauses,
          source_lines,
          delegated_mfas
        ) do
     case Map.get(delegated_mfas, {name, arity}) do
       nil ->
-        [function_entry(context, name, arity, definition, metadata, source_lines)]
+        function_clause_entries(context, name, arity, definition, metadata, clauses, source_lines)
 
       delegated_mfa ->
         [delegate_entry(context, name, arity, delegated_mfa)]
     end
   end
+
+  defp function_clause_entries(context, name, arity, definition, metadata, clauses, source_lines) do
+    clauses
+    |> function_clause_metadata(metadata)
+    |> Enum.map(&function_entry(context, name, arity, definition, &1, source_lines))
+  end
+
+  defp function_clause_metadata(clauses, definition_metadata) do
+    clause_metadata =
+      clauses
+      |> List.wrap()
+      |> Enum.flat_map(&clause_metadata/1)
+
+    case clause_metadata do
+      [] -> [definition_metadata]
+      [_ | _] -> clause_metadata
+    end
+  end
+
+  defp clause_metadata({metadata, _args, _guards, _body}) when is_list(metadata), do: [metadata]
+  defp clause_metadata(_clause), do: []
 
   defp function_entry(context, name, arity, definition, metadata, source_lines) do
     Entry.definition(
@@ -1021,9 +1050,9 @@ defmodule Engine.Search.Indexer.Beams do
 
   defp definition_lines(%{definitions: definitions}) when is_list(definitions) do
     Enum.flat_map(definitions, fn
-      {_name_arity, definition, metadata, _clauses}
+      {_name_arity, definition, metadata, clauses}
       when definition in [:def, :defp, :defmacro, :defmacrop] ->
-        [metadata_line(metadata)]
+        [metadata_line(metadata) | clause_lines(clauses)]
 
       _definition ->
         []
@@ -1031,6 +1060,15 @@ defmodule Engine.Search.Indexer.Beams do
   end
 
   defp definition_lines(_metadata), do: []
+
+  defp clause_lines(clauses) do
+    clauses
+    |> List.wrap()
+    |> Enum.flat_map(fn
+      {metadata, _args, _guards, _body} -> [metadata_line(metadata)]
+      _clause -> []
+    end)
+  end
 
   defp metadata_position(metadata) do
     case metadata_value(metadata, :anno) || metadata_value(metadata, :line) do
