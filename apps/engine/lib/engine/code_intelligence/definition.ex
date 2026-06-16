@@ -56,17 +56,7 @@ defmodule Engine.CodeIntelligence.Definition do
     definitions =
       mfa
       |> query_search_index(subtype: :definition)
-      |> Stream.flat_map(fn entry ->
-        case entry do
-          %Entry{type: {:function, :delegate}} ->
-            mfa = get_in(entry, [:metadata, :original_mfa])
-            query_search_index(mfa, subtype: :definition) ++ [entry]
-
-          _ ->
-            [entry]
-        end
-      end)
-      |> Stream.uniq_by(& &1.subject)
+      |> expand_definitions()
 
     locations =
       for entry <- definitions,
@@ -74,6 +64,31 @@ defmodule Engine.CodeIntelligence.Definition do
           match?({:ok, _}, result) do
         {:ok, location} = result
         location
+      end
+
+    locations =
+      case locations do
+        [] ->
+          prefix = "#{Formats.module(module)}.#{function}/"
+
+          definitions =
+            prefix
+            |> query_search_index_by_prefix(subtype: :definition)
+            |> expand_definitions()
+            |> Enum.sort_by(&arity_from_subject/1)
+
+          for entry <- definitions,
+              result = to_location(entry),
+              match?({:ok, _}, result) do
+            {:ok, location} = result
+            location
+          end
+          # A function with default arguments is indexed under several arities
+          # that all point at the same definition, so dedupe by source range.
+          |> Enum.uniq_by(&{&1.document.uri, &1.range})
+
+        locations ->
+          locations
       end
 
     maybe_fallback_to_elixir_sense(resolved, locations, analysis, position)
@@ -183,6 +198,38 @@ defmodule Engine.CodeIntelligence.Definition do
 
       _ ->
         []
+    end
+  end
+
+  defp query_search_index_by_prefix(prefix, condition) do
+    case Store.prefix(prefix, condition) do
+      {:ok, entries} ->
+        entries
+
+      _ ->
+        []
+    end
+  end
+
+  defp expand_definitions(entries) do
+    entries
+    |> Stream.flat_map(fn entry ->
+      case entry do
+        %Entry{type: {:function, :delegate}} ->
+          mfa = get_in(entry, [:metadata, :original_mfa])
+          query_search_index(mfa, subtype: :definition) ++ [entry]
+
+        _ ->
+          [entry]
+      end
+    end)
+    |> Enum.uniq_by(& &1.subject)
+  end
+
+  defp arity_from_subject(%Entry{subject: subject}) do
+    case subject |> String.split("/") |> List.last() |> Integer.parse() do
+      {arity, _} -> arity
+      :error -> :infinity
     end
   end
 end

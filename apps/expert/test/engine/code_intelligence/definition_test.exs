@@ -184,6 +184,50 @@ defmodule Expert.Engine.CodeIntelligence.DefinitionTest do
     end
   end
 
+  describe "definition/2 when remote call exact arity is missing" do
+    setup [:with_referenced_file]
+
+    test "falls back to other arities of the same function", %{
+      project: project,
+      uri: referenced_uri
+    } do
+      subject_module = ~q[
+        defmodule UsesRemoteFunction do
+          alias MyDefinition
+
+          def uses_greet() do
+            MyDefinition.gree|t("a", "b")
+          end
+        end
+      ]
+
+      assert {:ok, ^referenced_uri, definition_line} =
+               definition(project, subject_module, referenced_uri)
+
+      assert definition_line == ~S[  def «greet(name)» do]
+    end
+
+    test "prefers exact arity definitions when present", %{
+      project: project,
+      uri: referenced_uri
+    } do
+      subject_module = ~q[
+        defmodule UsesRemoteFunction do
+          alias MyDefinition
+
+          def uses_greet() do
+            MyDefinition.gree|t("World")
+          end
+        end
+      ]
+
+      assert {:ok, ^referenced_uri, definition_line} =
+               definition(project, subject_module, referenced_uri)
+
+      assert definition_line == ~S[  def «greet(name)» do]
+    end
+  end
+
   describe "definition/2 when making remote call by import" do
     setup [:with_referenced_file]
 
