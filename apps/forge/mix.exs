@@ -44,7 +44,7 @@ defmodule Forge.MixProject do
       {:deps_nix, "~> 2.4", only: :dev},
       {:gen_lsp, "~> 0.11.3"},
       {:logger_backends, "~> 1.0"},
-      {:sourceror, "~> 1.10.1"},
+      {:sourceror, "~> 1.12.2"},
       {:spitfire, "~> 0.3.5"},
       {:stream_data, "~> 1.1", only: [:test], runtime: false},
       {:patch, "~> 0.15", only: [:test], optional: true, runtime: false},
