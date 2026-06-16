@@ -2,7 +2,7 @@ defmodule Engine.Completion do
   import Forge.Document.Line
   import Forge.Logging
 
-  alias Engine.CodeMod.Format
+  alias Engine.CodeMod.Format.Cache
   alias Engine.Module.Loader
   alias Forge.Ast.Analysis
   alias Forge.Ast.Detection.StructReference
@@ -21,12 +21,19 @@ defmodule Engine.Completion do
     if String.trim(hint) == "" do
       []
     else
-      {_formatter, opts} =
+      fetch_result =
         timed_log("formatter for file", fn ->
-          Format.formatter_for_file(env.project, env.document.path)
+          Cache.fetch_formatter(env.project, env.document.path)
         end)
 
-      locals_without_parens = Keyword.fetch!(opts, :locals_without_parens)
+      locals_without_parens =
+        case fetch_result do
+          {:ok, _formatter, opts} ->
+            Keyword.fetch!(opts, :locals_without_parens)
+
+          :error ->
+            []
+        end
 
       for suggestion <-
             timed_log("ES suggestions", fn ->

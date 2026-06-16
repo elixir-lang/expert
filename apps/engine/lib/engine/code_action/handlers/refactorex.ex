@@ -26,6 +26,9 @@ defmodule Engine.CodeAction.Handlers.Refactorex do
     else
       _ -> []
     end
+  rescue
+    _ ->
+      []
   end
 
   @doc """
@@ -106,7 +109,14 @@ defmodule Engine.CodeAction.Handlers.Refactorex do
   end
 
   defp sourceror_opts(doc) do
-    {formatter, opts} = CodeMod.Format.formatter_for_file(Engine.get_project(), doc.uri)
+    {formatter, opts} =
+      case CodeMod.Format.Cache.fetch_formatter(Engine.get_project(), doc.path) do
+        {:ok, formatter, opts} ->
+          {formatter, opts}
+
+        :error ->
+          {&Code.format_string!/1, []}
+      end
 
     Keyword.reject(
       [

@@ -18,7 +18,9 @@ defmodule Engine.CodeMod.FormatTest do
 
     @impl Mix.Tasks.Format
     def format(contents, _opts) do
-      :format_project = Mix.Project.config() |> Keyword.fetch!(:app)
+      if pid = :persistent_term.get({__MODULE__, :test_pid}, nil) do
+        send(pid, :plugin_called)
+      end
 
       formatted = Code.format_string!(contents)
       IO.iodata_to_binary([formatted, ?\n])
@@ -109,6 +111,7 @@ defmodule Engine.CodeMod.FormatTest do
   setup do
     project = project()
     Engine.set_project(project)
+    start_supervised!({Format.Cache, project: project})
     {:ok, project: project}
   end
 
@@ -122,16 +125,19 @@ defmodule Engine.CodeMod.FormatTest do
     end
 
     @tag :tmp_dir
-    test "formatter plugins run with the formatted project's Mix config", %{tmp_dir: tmp_dir} do
+    test "formatter plugins are called during formatting", %{tmp_dir: tmp_dir} do
       project = write_formatter_plugin_project!(tmp_dir)
       Engine.set_project(project)
 
-      assert {:ok, result} =
+      :persistent_term.put({ProjectConfigFormatter, :test_pid}, self())
+      on_exit(fn -> :persistent_term.erase({ProjectConfigFormatter, :test_pid}) end)
+
+      assert {:ok, _result} =
                Mix.ProjectStack.on_clean_slate(fn ->
                  modify(unformatted(), project: project)
                end)
 
-      assert result == formatted()
+      assert_received :plugin_called
     end
 
     test "it will fail to format a file not in the project", %{project: project} do

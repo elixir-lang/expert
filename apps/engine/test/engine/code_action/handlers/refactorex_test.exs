@@ -31,6 +31,7 @@ defmodule Engine.CodeAction.Handlers.RefactorexTest do
   setup do
     project = project()
     Engine.set_project(project)
+    start_supervised!({Format.Cache, project: project})
 
     {:ok, project: project}
   end
@@ -89,8 +90,8 @@ defmodule Engine.CodeAction.Handlers.RefactorexTest do
   end
 
   test "Refactorex respects formatter line length" do
-    patch(Format, :formatter_for_file, fn _project, _path ->
-      {nil, [line_length: 120, locals_without_parens: []]}
+    patch(Format.Cache, :fetch_formatter, fn _project, _path ->
+      {:ok, nil, [line_length: 120, locals_without_parens: []]}
     end)
 
     assert_refactored(
@@ -111,8 +112,8 @@ defmodule Engine.CodeAction.Handlers.RefactorexTest do
   end
 
   test "Refactorex formats when formatter line length is missing" do
-    patch(Format, :formatter_for_file, fn _project, _path ->
-      {nil, [locals_without_parens: []]}
+    patch(Format.Cache, :fetch_formatter, fn _project, _path ->
+      {:ok, nil, [locals_without_parens: []]}
     end)
 
     assert_refactored(
