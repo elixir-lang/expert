@@ -234,6 +234,22 @@ let
         in
         drv;
 
+      hex_core =
+        let
+          version = "0.15.0";
+          drv = buildRebar3 {
+            inherit version;
+            name = "hex_core";
+
+            src = fetchHex {
+              inherit version;
+              pkg = "hex_core";
+              sha256 = "c2093764c7af8ef0818c104fa141eba431e7be93f8374638c45c7037b26a52f8";
+            };
+          };
+        in
+        drv;
+
       hpax =
         let
           version = "1.0.3";
@@ -441,7 +457,7 @@ let
 
       sourceror =
         let
-          version = "1.10.1";
+          version = "1.12.2";
           drv = buildMix {
             inherit version;
             name = "sourceror";
@@ -450,7 +466,7 @@ let
             src = fetchHex {
               inherit version;
               pkg = "sourceror";
-              sha256 = "288f3079d93865cd1e3e20df5b884ef2cb440e0e03e8ae393624ee8a770ba588";
+              sha256 = "da37d3da09c5b890528802c7056a8f585a061973820d7656b6e3649c14f0e9cb";
             };
           };
         in
