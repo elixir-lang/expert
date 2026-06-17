@@ -27,9 +27,7 @@ defmodule Expert.CodeIntelligence.Hex.ContextTest do
     assert :error = detect(text)
   end
 
-  test "does NOT detect version slot when cursor is immediately after the closing quote" do
-    # Cursor at `"~> 1.7"|` sits past the closing delimiter — the user is
-    # moving on to the next token, not still editing the version.
+  test "does not detect version slot when cursor is immediately after the closing quote" do
     text = ~S"""
     defmodule MyApp.MixProject do
       use Mix.Project
@@ -46,8 +44,6 @@ defmodule Expert.CodeIntelligence.Hex.ContextTest do
   end
 
   test "detects version slot when cursor is on the closing quote of a version" do
-    # Just before `"~> 1.7"`'s closing quote — user is still editing the
-    # version string and could backspace into it.
     text = ~S"""
     defmodule MyApp.MixProject do
       use Mix.Project
@@ -158,11 +154,6 @@ defmodule Expert.CodeIntelligence.Hex.ContextTest do
   end
 
   test "detects :version slot in a mid-edit tuple with an unclosed version string" do
-    # The user is mid-typing a version requirement. Sourceror's error
-    # recovery collapses the second arg into an `{:~>, _, _}` operator
-    # expression (absorbing chars until the next real `"`), so the
-    # argument is not a clean binary literal. We still know the package
-    # atom from the first arg and must classify the cursor as :version.
     text = ~S"""
     defmodule Grove.MixProject do
       use Mix.Project
@@ -183,13 +174,7 @@ defmodule Expert.CodeIntelligence.Hex.ContextTest do
     assert ctx.prefix == "~> 1."
   end
 
-  test "detects :name slot in a realistic mid-edit mix.exs with a large deps list" do
-    # Reproduces the grove scenario: the user is mid-typing a new dep on
-    # the first line of an already-populated deps list. Sourceror's
-    # parse-error recovery replaces the broken tuple with a `:__cursor__`
-    # node, and whatever `collect_dep_tuples` is doing today discards the
-    # surrounding well-formed tuples as well. We must still detect a :name
-    # slot with prefix "phonn".
+  test "detects :name slot mid-edit mix.exs with a large deps list" do
     text = ~S"""
     defmodule Grove.MixProject do
       use Mix.Project
@@ -225,11 +210,7 @@ defmodule Expert.CodeIntelligence.Hex.ContextTest do
     assert ctx.prefix == "phonn"
   end
 
-  test "detects :name slot on a standalone unclosed tuple like {:phoen|" do
-    # The user is starting a brand-new dep with no closing brace and nothing
-    # else in the list — the tightest recovery case. We should still be able
-    # to produce a :name slot with prefix "phoen" so package completion
-    # results can fire.
+  test "detects :name slot on a standalone unclosed tuple" do
     text = ~S"""
     defmodule MyApp.MixProject do
       use Mix.Project
@@ -247,10 +228,7 @@ defmodule Expert.CodeIntelligence.Hex.ContextTest do
     assert ctx.prefix == "phoen"
   end
 
-  test "still detects slot when an earlier tuple in the list is mid-edit" do
-    # The unclosed `{:phonin` on line 6 makes the mix.exs a parse-error
-    # state. Sourceror recovers the rest of the list via `:comma` nodes; we
-    # should still detect the cursor in a *later*, well-formed tuple.
+  test "detects slot when an earlier tuple in the list is mid-edit" do
     text = ~S"""
     defmodule Grove.MixProject do
       use Mix.Project

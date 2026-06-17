@@ -6,14 +6,6 @@ defmodule Expert.CodeIntelligence.Hex.RepoTest do
   alias Expert.EngineApi
   alias Forge.Project
 
-  # All repo lookups flow through `Engine.Deps.get_repo/1` via an
-  # RPC to the project's engine node. Tests mock `EngineApi.call/4` to
-  # return whatever shape `Hex.Repo.get_repo/1` would produce for that
-  # repo — atom-keyed maps with `:url`, `:auth_key`, `:public_key`,
-  # etc. — so the assertions here verify the `:hex_core` config we
-  # assemble from that shape, not the file-parsing logic (which no
-  # longer exists in Expert's process).
-
   setup do
     %{project: %Project{}}
   end
@@ -79,9 +71,6 @@ defmodule Expert.CodeIntelligence.Hex.RepoTest do
     end
 
     test "returns :error when there is no project context" do
-      # Without a project we can't RPC to the engine, so organization
-      # repos are unresolvable — this matches how `hex` itself would
-      # fail outside a Mix session.
       assert :error = Repo.resolve("hexpm:myorg", [])
     end
   end
@@ -96,20 +85,15 @@ defmodule Expert.CodeIntelligence.Hex.RepoTest do
       })
 
       assert {:ok, config} = Repo.resolve("internal", project: project)
-      # Self-hosted repos go through the repo protocol
-      # (`:hex_repo.get_package`), NOT the `/api/packages` endpoint.
       assert config[:repo_url] == "https://hex.internal.example/repo"
       assert config[:repo_name] == "internal"
       assert config[:repo_key] == "tok-int-789"
       assert config[:repo_verify] == true
       assert config[:repo_public_key] =~ "BEGIN PUBLIC KEY"
-      # `api_url` is left at the hex.pm default — self-hosted repos
-      # don't speak the API protocol, so any code path that would hit
-      # it is a bug.
       assert config[:api_url] == "https://hex.pm/api"
     end
 
-    test "still populates repo_* fields when hex.config has no public_key",
+    test "populates repo_* fields when hex.config has no public_key",
          %{project: project} do
       mock_engine_repo("internal", %{
         url: "https://hex.internal.example/repo",
@@ -119,8 +103,6 @@ defmodule Expert.CodeIntelligence.Hex.RepoTest do
       assert {:ok, config} = Repo.resolve("internal", project: project)
       assert config[:repo_url] == "https://hex.internal.example/repo"
       assert config[:repo_key] == "tok-int-789"
-      # `repo_public_key` falls back to hex.pm's default (from
-      # `:hex_core.default_config/0`).
       refute is_nil(config[:repo_public_key])
     end
 
@@ -137,8 +119,6 @@ defmodule Expert.CodeIntelligence.Hex.RepoTest do
     end
 
     test "returns :error when there is no project context" do
-      # Self-hosted repos are entirely unresolvable without a project —
-      # the engine RPC is the only path and it requires a Project.
       assert :error = Repo.resolve("internal", [])
     end
 

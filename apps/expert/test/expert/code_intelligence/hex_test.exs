@@ -91,13 +91,6 @@ defmodule Expert.CodeIntelligence.HexTest do
     end
 
     test "searches hex and returns candidates while the user is mid-typing a package name" do
-      # Realistic mid-edit scenario: the user has typed `{:phoen` and the
-      # tuple has no version, no closing brace, and sits inside a list with
-      # another broken sibling. Sourceror returns a parse-error AST, but the
-      # orchestrator must still:
-      #   * detect the name slot
-      #   * issue a search against the hex API
-      #   * return Package candidates
       search_calls = self()
 
       patch(Api, :search_packages, fn config, query ->
@@ -132,11 +125,8 @@ defmodule Expert.CodeIntelligence.HexTest do
         end
         """)
 
-      # The orchestrator actually hit the API with our in-progress prefix.
       assert_received {:search, _config, "phoen"}
 
-      # And it translated the response into Package candidates the completion
-      # pipeline can consume.
       assert [%Candidate.Package{name: "phoenix"}, %Candidate.Package{name: "phoenix_live_view"}] =
                candidates
     end
@@ -221,7 +211,6 @@ defmodule Expert.CodeIntelligence.HexTest do
         |> Enum.map(& &1.version)
 
       assert length(versions) == 50
-      # The newest 50 releases: all 30 of 1.3.x, plus the top 20 of 1.2.x.
       assert List.first(versions) == "1.3.29"
       assert List.last(versions) == "1.2.10"
       refute Enum.any?(versions, &String.starts_with?(&1, "~>"))
@@ -253,10 +242,6 @@ defmodule Expert.CodeIntelligence.HexTest do
     end
 
     test "returns the full release list when the prefix has no trailing version chars" do
-      # `"~>|` (cursor just past the operator, no digit yet) should still
-      # produce candidates — blink.cmp would hide them client-side if we
-      # relied on label fuzzy-matching because `~>` has no chars in
-      # common with version labels, but server-side we return everything.
       patch(Api, :fetch_releases, fn _config, "phoenix" ->
         {:ok,
          [
@@ -470,9 +455,6 @@ defmodule Expert.CodeIntelligence.HexTest do
   end
 
   describe "project_file?/2" do
-    # Each test uses a fresh project (unique temp dir) so the
-    # :persistent_term memoization in `Hex.project_file?/2` doesn't
-    # leak across tests.
     defp unique_project do
       dir = Path.join(System.tmp_dir!(), "hex_gate_#{System.unique_integer([:positive])}")
       File.mkdir_p!(dir)
@@ -553,12 +535,6 @@ defmodule Expert.CodeIntelligence.HexTest do
     end
 
     test "does not memoize an empty result — retries on subsequent calls" do
-      # Critical regression: if the engine is temporarily unavailable
-      # (e.g., during LSP startup before the project node is ready),
-      # the RPC returns `[]`. Memoizing an empty set would leave hex
-      # completion/hover/lens permanently disabled for the life of
-      # the LSP process. Instead, we only cache non-empty results so
-      # a follow-up call can succeed once the engine catches up.
       {project, dir} = unique_project()
       mix_exs = Path.join(dir, "mix.exs")
       counter = :counters.new(1, [])
@@ -571,12 +547,8 @@ defmodule Expert.CodeIntelligence.HexTest do
         if n == 0, do: [], else: [mix_exs]
       end)
 
-      # First call hits the RPC, gets [], does NOT cache it.
       refute Hex.project_file?(project, mix_exs)
-      # Second call hits the RPC AGAIN, gets the real list, now
-      # matches — and caches the non-empty result.
       assert Hex.project_file?(project, mix_exs)
-      # Third call uses the cache — the RPC counter does not tick.
       assert Hex.project_file?(project, mix_exs)
 
       assert :counters.get(counter, 1) == 2
@@ -620,11 +592,6 @@ defmodule Expert.CodeIntelligence.HexTest do
   end
 
   describe "candidates_for_context/2" do
-    # Direct contract tests so the per-slot dispatch doesn't rely on
-    # `Context.detect/2` being called first. `Completion.complete/4`
-    # uses this entry point to avoid re-parsing the document twice per
-    # completion request — `Context.detect` already parsed it once.
-
     test "dispatches :name slot to a network-backed package search" do
       patch(Api, :search_packages, fn _config, "phoe" ->
         {:ok,

@@ -1,11 +1,6 @@
 defmodule Expert.CodeIntelligence.Hex do
   @moduledoc """
   Orchestrates hex-aware completion and hover for `mix.exs` documents.
-
-  Uses `Hex.Context` to detect whether the cursor is inside `deps/0` and which
-  repo (default `"hexpm"`, an organization, or a self-hosted repo) the dep
-  references. Routes through `Hex.Cache` (DETS, stale-on-error) to `Hex.Api`,
-  which delegates to `:hex_api_package` from `:hex_core`.
   """
 
   alias Expert.CodeIntelligence.Hex.Api

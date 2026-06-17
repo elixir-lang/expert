@@ -21,12 +21,10 @@ defmodule Expert.CodeIntelligence.Hex.Context do
 
   @spec detect(Analysis.t(), Position.t()) :: {:ok, t()} | :error
   def detect(%Analysis{} = analysis, %Position{} = position) do
-    # Prefer Sourceror's permissive whole-file parse over the fragment-
-    # parsed `analysis.ast`. Forge's `reanalyze_to/2` pipeline truncates
-    # the document at the cursor and replaces the in-progress expression
-    # with a `:__cursor__` marker — useful for Elixir-scope awareness but
-    # destructive for tuple-in-list detection because it discards the real
-    # deps tuples. Sourceror's error-recovering parser keeps them.
+    # The `analysis.ast` replaces incomplete expressions with a `:__cursor__`
+    # marker, discarding the real deps tuples the user is writing when we
+    # provide completions. Reparsing the document and locating the deps
+    # tuple allows us to have the complete AST we need to suggest hex packages.
     with ast when not is_nil(ast) <- permissive_ast(analysis.document),
          {:ok, deps_list} <- Deps.list(ast),
          {:ok, tuple} <- find_tuple_at(deps_list, position),
@@ -61,13 +59,10 @@ defmodule Expert.CodeIntelligence.Hex.Context do
     end
   end
 
-  # Fallback when Sourceror's parse found the `deps/0` function but no
-  # tuple literal covers the cursor position. This typically means the
-  # user is mid-typing a brand-new dep that Sourceror hasn't recovered as
-  # a tuple shape. If Forge's fragment-parsed analysis confirms a
-  # `:__cursor__` marker inside the deps body — the cleanest signal that
-  # the cursor is actually inside the list — extract a `:name` slot prefix
-  # from the raw line text and return that.
+  # Fallback when we find the `deps/0` function but no tuple literal
+  # covers the cursor position. This typically means the user
+  # is mid-typing a brand-new dep that we haven't recovered as
+  # a tuple shape.
   defp cursor_fallback(%Analysis{} = analysis, %Position{} = position) do
     if cursor_inside_deps?(analysis) do
       case version_from_line(analysis.document, position) do
