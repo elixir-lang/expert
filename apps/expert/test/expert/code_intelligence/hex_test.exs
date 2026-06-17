@@ -13,16 +13,10 @@ defmodule Expert.CodeIntelligence.HexTest do
   alias Forge.Document
   alias Forge.Project
 
-  setup do
-    path =
-      Path.join(
-        System.tmp_dir!(),
-        "hex_orchestrator_test_#{System.unique_integer([:positive])}.dets"
-      )
+  @moduletag :tmp_dir
 
-    on_exit(fn -> File.rm(path) end)
-
-    start_supervised!({Cache, name: Cache, path: path})
+  setup %{tmp_dir: tmp_dir} do
+    start_supervised!({Cache, name: Cache, path: Path.join(tmp_dir, "cache.dets")})
     :ok
   end
 
