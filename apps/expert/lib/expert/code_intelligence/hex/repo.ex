@@ -67,10 +67,6 @@ defmodule Expert.CodeIntelligence.Hex.Repo do
       {:ok, %{} = entry} -> {:ok, entry}
       _ -> :error
     end
-  rescue
-    _ -> :error
-  catch
-    _, _ -> :error
   end
 
   defp fetch_string(map, key) do

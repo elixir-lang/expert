@@ -161,7 +161,5 @@ defmodule Engine.Deps do
     end
   rescue
     _ -> nil
-  catch
-    _, _ -> nil
   end
 end

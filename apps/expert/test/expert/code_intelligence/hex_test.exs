@@ -518,16 +518,6 @@ defmodule Expert.CodeIntelligence.HexTest do
       assert :counters.get(counter, 1) == 1
     end
 
-    test "returns false when the engine RPC crashes" do
-      {project, _dir} = unique_project()
-
-      patch(EngineApi, :call, fn _, Engine.Deps, :project_files, [] ->
-        raise "engine down"
-      end)
-
-      refute Hex.project_file?(project, "/tmp/anywhere/mix.exs")
-    end
-
     test "does not memoize an empty result — retries on subsequent calls" do
       {project, dir} = unique_project()
       mix_exs = Path.join(dir, "mix.exs")
@@ -569,16 +559,6 @@ defmodule Expert.CodeIntelligence.HexTest do
 
       patch(EngineApi, :call, fn _, Engine.Deps, :dep_version, ["phoenix"] ->
         :error
-      end)
-
-      refute Hex.installed_version(project, "phoenix")
-    end
-
-    test "returns nil when the engine RPC crashes" do
-      project = %Project{}
-
-      patch(EngineApi, :call, fn _, Engine.Deps, :dep_version, ["phoenix"] ->
-        raise "engine down"
       end)
 
       refute Hex.installed_version(project, "phoenix")

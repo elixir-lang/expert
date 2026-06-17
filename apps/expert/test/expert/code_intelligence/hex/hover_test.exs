@@ -68,8 +68,9 @@ defmodule Expert.CodeIntelligence.Hex.HoverTest do
        }}
     end)
 
-    patch(EngineApi, :call, fn _project, Engine.Deps, :dep_version, ["phoenix"] ->
-      {:ok, "1.7.10"}
+    patch(EngineApi, :call, fn
+      _project, Engine.Deps, :dep_version, ["phoenix"] -> {:ok, "1.7.10"}
+      _project, Engine.Deps, :configured_repos, [] -> []
     end)
 
     project = System.tmp_dir!() |> Document.Path.to_uri() |> Project.new()
@@ -99,8 +100,9 @@ defmodule Expert.CodeIntelligence.Hex.HoverTest do
        }}
     end)
 
-    patch(EngineApi, :call, fn _project, Engine.Deps, :dep_version, ["phoenix"] ->
-      {:ok, "1.7.14"}
+    patch(EngineApi, :call, fn
+      _project, Engine.Deps, :dep_version, ["phoenix"] -> {:ok, "1.7.14"}
+      _project, Engine.Deps, :configured_repos, [] -> []
     end)
 
     project = System.tmp_dir!() |> Document.Path.to_uri() |> Project.new()
@@ -130,8 +132,9 @@ defmodule Expert.CodeIntelligence.Hex.HoverTest do
        }}
     end)
 
-    patch(EngineApi, :call, fn _project, Engine.Deps, :dep_version, ["phoenix"] ->
-      :error
+    patch(EngineApi, :call, fn
+      _project, Engine.Deps, :dep_version, ["phoenix"] -> :error
+      _project, Engine.Deps, :configured_repos, [] -> []
     end)
 
     project = System.tmp_dir!() |> Document.Path.to_uri() |> Project.new()
@@ -177,13 +180,20 @@ defmodule Expert.CodeIntelligence.Hex.HoverTest do
     # engine node, so we mock both `EngineApi.call/4` (returning a fake
     # hex repo entry for "oban") and `Api.fetch_package/2` (returning
     # the sparse shape `:hex_repo.get_package/2` normalizes to).
-    patch(EngineApi, :call, fn _project, Engine.Deps, :get_repo, ["oban"] ->
-      {:ok,
-       %{
-         url: "https://getoban.pro/repo",
-         auth_key: "tok",
-         public_key: "-----BEGIN PUBLIC KEY-----\nAAA\n-----END PUBLIC KEY-----\n"
-       }}
+    patch(EngineApi, :call, fn
+      _project, Engine.Deps, :get_repo, ["oban"] ->
+        {:ok,
+         %{
+           url: "https://getoban.pro/repo",
+           auth_key: "tok",
+           public_key: "-----BEGIN PUBLIC KEY-----\nAAA\n-----END PUBLIC KEY-----\n"
+         }}
+
+      _project, Engine.Deps, :configured_repos, [] ->
+        []
+
+      _project, Engine.Deps, :dep_version, [_package] ->
+        :error
     end)
 
     patch(Api, :fetch_package, fn _config, _project, "oban_pro" ->

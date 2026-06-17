@@ -99,10 +99,6 @@ defmodule Expert.CodeIntelligence.Hex do
       _ ->
         MapSet.new()
     end
-  rescue
-    _ -> MapSet.new()
-  catch
-    _, _ -> MapSet.new()
   end
 
   defp normalize_path(path) when is_binary(path) do
@@ -117,10 +113,6 @@ defmodule Expert.CodeIntelligence.Hex do
       {:ok, version} when is_binary(version) -> version
       _ -> nil
     end
-  rescue
-    _ -> nil
-  catch
-    _, _ -> nil
   end
 
   @spec candidates(Analysis.t(), Position.t(), Project.t() | nil) :: [struct()]
@@ -241,10 +233,6 @@ defmodule Expert.CodeIntelligence.Hex do
       {:ok, repos} -> repos
       _ -> []
     end
-  rescue
-    _ -> []
-  catch
-    _, _ -> []
   end
 
   defp repo_package_names(%Project{} = project, repo) do

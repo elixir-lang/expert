@@ -104,10 +104,6 @@ defmodule Expert.CodeIntelligence.Hex.Api do
       {:ok, path} when is_binary(path) -> {:ok, path}
       _ -> :error
     end
-  rescue
-    _ -> :error
-  catch
-    _, _ -> :error
   end
 
   defp merge_tarball_metadata(data, metadata) do

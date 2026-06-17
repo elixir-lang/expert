@@ -121,13 +121,5 @@ defmodule Expert.CodeIntelligence.Hex.RepoTest do
     test "returns :error when there is no project context" do
       assert :error = Repo.resolve("internal", [])
     end
-
-    test "returns :error when the engine RPC crashes", %{project: project} do
-      patch(EngineApi, :call, fn _project, Engine.Deps, :get_repo, ["internal"] ->
-        raise "rpc died"
-      end)
-
-      assert :error = Repo.resolve("internal", project: project)
-    end
   end
 end
