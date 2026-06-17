@@ -57,7 +57,7 @@ defmodule Engine.MixProject do
       {:quokka, "~> 2.12", only: [:dev, :test], runtime: false},
       {:path_glob, "~> 0.2"},
       {:phoenix_live_view, "~> 1.0", only: [:test], runtime: false},
-      {:sourceror, "~> 1.10.1"},
+      {:sourceror, "~> 1.12.2"},
       {:stream_data, "~> 1.1", only: [:test], runtime: false},
       {:refactorex, "~> 0.1.52"}
     ]
