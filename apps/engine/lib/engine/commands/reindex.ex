@@ -19,10 +19,20 @@ defmodule Engine.Commands.Reindex do
 
     require Logger
 
-    defstruct reindex_fun: nil, index_task: nil, pending_updates: %{}
+    @default_debounce_interval_millis 1000
 
-    def new(reindex_fun) do
-      %__MODULE__{reindex_fun: reindex_fun}
+    defstruct reindex_fun: nil,
+              index_task: nil,
+              pending_updates: %{},
+              pending_uris: MapSet.new(),
+              debounce_timer: nil,
+              debounce_interval_millis: @default_debounce_interval_millis
+
+    def new(reindex_fun, debounce_interval_millis \\ @default_debounce_interval_millis) do
+      %__MODULE__{
+        reindex_fun: reindex_fun,
+        debounce_interval_millis: debounce_interval_millis
+      }
     end
 
     def set_task(%__MODULE__{} = state, {_, _} = task) do
@@ -33,26 +43,46 @@ defmodule Engine.Commands.Reindex do
       %__MODULE__{state | index_task: nil}
     end
 
-    def reindex_uri(%__MODULE__{index_task: nil} = state, uri) do
-      case entries_for_uri(uri) do
-        {:ok, path, entries} ->
-          Search.Store.update(path, entries)
+    def reindex_uri(%__MODULE__{} = state, uri) do
+      new_state = %{state | pending_uris: MapSet.put(state.pending_uris, uri)}
 
-        _ ->
-          :ok
+      if state.debounce_timer do
+        {timer, _timer_ref} = state.debounce_timer
+        Process.cancel_timer(timer)
       end
 
-      state
+      timer_ref = make_ref()
+
+      timer =
+        Process.send_after(self(), {:flush_pending, timer_ref}, state.debounce_interval_millis)
+
+      %{new_state | debounce_timer: {timer, timer_ref}}
     end
 
-    def reindex_uri(%__MODULE__{} = state, uri) do
-      case entries_for_uri(uri) do
-        {:ok, path, entries} ->
-          put_in(state.pending_updates[path], entries)
-
-        _ ->
-          state
+    def flush_pending_uris(%__MODULE__{index_task: nil} = state) do
+      for uri <- state.pending_uris,
+          {:ok, path, entries} <- [entries_for_uri(uri)] do
+        Search.Store.update(path, entries)
       end
+
+      %{state | pending_uris: MapSet.new(), debounce_timer: nil}
+    end
+
+    def flush_pending_uris(%__MODULE__{} = state) do
+      new_pending_updates =
+        Enum.reduce(state.pending_uris, state.pending_updates, fn uri, acc ->
+          case entries_for_uri(uri) do
+            {:ok, path, entries} -> Map.put(acc, path, entries)
+            _ -> acc
+          end
+        end)
+
+      %{
+        state
+        | pending_uris: MapSet.new(),
+          debounce_timer: nil,
+          pending_updates: new_pending_updates
+      }
     end
 
     def flush_pending_updates(%__MODULE__{} = state) do
@@ -77,8 +107,13 @@ defmodule Engine.Commands.Reindex do
   end
 
   def start_link(opts) do
-    [reindex_fun: fun] = Keyword.validate!(opts, reindex_fun: &do_reindex/1)
-    GenServer.start_link(__MODULE__, fun, name: __MODULE__)
+    opts =
+      Keyword.validate!(opts,
+        reindex_fun: &do_reindex/1,
+        debounce_interval_millis: 1000
+      )
+
+    GenServer.start_link(__MODULE__, opts, name: __MODULE__)
   end
 
   def uri(uri) do
@@ -98,10 +133,17 @@ defmodule Engine.Commands.Reindex do
   end
 
   @impl GenServer
-  def init(reindex_fun) do
+  def init(opts) do
     Process.flag(:fullsweep_after, 5)
     schedule_gc()
-    {:ok, State.new(reindex_fun)}
+
+    state =
+      State.new(
+        Keyword.fetch!(opts, :reindex_fun),
+        Keyword.fetch!(opts, :debounce_interval_millis)
+      )
+
+    {:ok, state}
   end
 
   @impl GenServer
@@ -137,6 +179,16 @@ defmodule Engine.Commands.Reindex do
   def handle_info(:gc, %State{} = state) do
     :erlang.garbage_collect()
     schedule_gc()
+    {:noreply, state}
+  end
+
+  @impl GenServer
+  def handle_info({:flush_pending, timer_ref}, %State{debounce_timer: {_, timer_ref}} = state) do
+    new_state = State.flush_pending_uris(state)
+    {:noreply, new_state}
+  end
+
+  def handle_info({:flush_pending, _timer_ref}, %State{} = state) do
     {:noreply, state}
   end
 
