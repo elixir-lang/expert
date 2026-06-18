@@ -156,5 +156,15 @@ defmodule Engine.Build.Document.Compilers.ConfigTest do
                |> document()
                |> compile()
     end
+
+    test "it produces no diagnostics when using config_target/0" do
+      assert {:ok, []} =
+               ~q[
+                 import Config
+                 config :my_app, target: config_target()
+               ]
+               |> document()
+               |> compile()
+    end
   end
 end

@@ -50,7 +50,7 @@ defmodule Engine.Build.Document.Compilers.Config do
     contents = Document.to_string(document)
 
     try do
-      Config.Reader.eval!(document.path, contents, env: :test)
+      Config.Reader.eval!(document.path, contents, env: :test, target: Mix.target())
       {:ok, []}
     rescue
       e ->
