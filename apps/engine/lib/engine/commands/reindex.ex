@@ -47,25 +47,23 @@ defmodule Engine.Commands.Reindex do
       new_state = %{state | pending_uris: MapSet.put(state.pending_uris, uri)}
 
       if state.debounce_timer do
-        Process.cancel_timer(state.debounce_timer)
+        {timer, _timer_ref} = state.debounce_timer
+        Process.cancel_timer(timer)
       end
 
-      timer =
-        Process.send_after(self(), :flush_pending, state.debounce_interval_millis)
+      timer_ref = make_ref()
 
-      %{new_state | debounce_timer: timer}
+      timer =
+        Process.send_after(self(), {:flush_pending, timer_ref}, state.debounce_interval_millis)
+
+      %{new_state | debounce_timer: {timer, timer_ref}}
     end
 
     def flush_pending_uris(%__MODULE__{index_task: nil} = state) do
-      Enum.each(state.pending_uris, fn uri ->
-        case entries_for_uri(uri) do
-          {:ok, path, entries} ->
-            Search.Store.update(path, entries)
-
-          _ ->
-            :ok
-        end
-      end)
+      for uri <- state.pending_uris,
+          {:ok, path, entries} <- [entries_for_uri(uri)] do
+        Search.Store.update(path, entries)
+      end
 
       %{state | pending_uris: MapSet.new(), debounce_timer: nil}
     end
@@ -185,9 +183,13 @@ defmodule Engine.Commands.Reindex do
   end
 
   @impl GenServer
-  def handle_info(:flush_pending, %State{} = state) do
+  def handle_info({:flush_pending, timer_ref}, %State{debounce_timer: {_, timer_ref}} = state) do
     new_state = State.flush_pending_uris(state)
     {:noreply, new_state}
+  end
+
+  def handle_info({:flush_pending, _timer_ref}, %State{} = state) do
+    {:noreply, state}
   end
 
   defp do_reindex(%Project{} = project) do

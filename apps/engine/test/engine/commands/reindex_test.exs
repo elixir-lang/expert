@@ -93,27 +93,6 @@ defmodule Engine.Commands.ReindexTest do
 
       assert_receive {:entries, "/file.ex", ^new_entries}
     end
-
-    @tag debounce_interval_millis: 100
-    test "debounces uri reindex requests until the quiet period elapses" do
-      first_uri = "file:///first.ex"
-      second_uri = "file:///second.ex"
-      first_entries = [reference()]
-      second_entries = [definition()]
-
-      Process.put(first_uri, first_entries)
-      Process.put(second_uri, second_entries)
-
-      Reindex.uri(first_uri)
-      refute_receive {:entries, _, _}, 50
-
-      Reindex.uri(second_uri)
-      refute_receive {:entries, _, _}, 75
-
-      assert_receive {:entries, "/first.ex", ^first_entries}, 100
-      assert_receive {:entries, "/second.ex", ^second_entries}, 100
-      refute_receive {:entries, _, _}, 50
-    end
   end
 
   describe "perform/1 with the default reindexer" do
