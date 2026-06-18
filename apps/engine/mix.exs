@@ -59,6 +59,9 @@ defmodule Engine.MixProject do
       {:phoenix_live_view, "~> 1.0", only: [:test], runtime: false},
       {:sourceror, "~> 1.12.2"},
       {:stream_data, "~> 1.1", only: [:test], runtime: false},
+      # Offline engine builds cannot depend on a local Rebar archive, so we
+      # force it to Mix
+      {:telemetry, "~> 1.3", manager: :mix, optional: false, override: true},
       {:refactorex, "~> 0.1.52"}
     ]
   end
