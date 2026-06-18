@@ -93,6 +93,10 @@ defmodule Engine.Build.State do
     state
   end
 
+  def edit_window_millis do
+    Application.get_env(:engine, :edit_window_millis, 1000)
+  end
+
   defp compile_project(%__MODULE__{} = state, initial?) do
     state = increment_build_number(state)
     project = state.project

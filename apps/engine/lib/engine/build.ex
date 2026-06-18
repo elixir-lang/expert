@@ -8,8 +8,6 @@ defmodule Engine.Build do
 
   require Logger
 
-  @timeout_interval_millis 50
-
   # Public interface
 
   def schedule_compile(%Project{} = _project, force? \\ false) do
@@ -73,7 +71,7 @@ defmodule Engine.Build do
   @impl GenServer
   def handle_call({:force_compile_file, %Document{} = document}, _from, %State{} = state) do
     State.compile_file(state, document)
-    {:reply, :ok, state, @timeout_interval_millis}
+    {:reply, :ok, state, State.edit_window_millis()}
   end
 
   @impl GenServer
@@ -86,13 +84,13 @@ defmodule Engine.Build do
   @impl GenServer
   def handle_cast({:compile, force?}, %State{} = state) do
     new_state = State.on_project_compile(state, force?)
-    {:noreply, new_state, @timeout_interval_millis}
+    {:noreply, new_state, State.edit_window_millis()}
   end
 
   @impl GenServer
   def handle_cast({:compile_file, %Document{} = document}, %State{} = state) do
     new_state = State.on_file_compile(state, document)
-    {:noreply, new_state, @timeout_interval_millis}
+    {:noreply, new_state, State.edit_window_millis()}
   end
 
   @impl GenServer
