@@ -37,7 +37,10 @@ defmodule Expert.CodeIntelligence.Completion do
       {:ok, env} ->
         hex_context =
           if Hex.project_file?(project, analysis.document) do
-            HexContext.detect(analysis, position)
+            case HexContext.detect(analysis, position) do
+              {:ok, ctx} -> ctx
+              :error -> nil
+            end
           end
 
         hex_items = hex_items_for_context(hex_context, project, env)
@@ -59,7 +62,7 @@ defmodule Expert.CodeIntelligence.Completion do
 
   defp hex_items_for_context(nil, _project, _env), do: []
 
-  defp hex_items_for_context({:ok, ctx}, %Project{} = project, %Env{} = env) do
+  defp hex_items_for_context(ctx, %Project{} = project, %Env{} = env) when is_map(ctx) do
     ctx
     |> Hex.candidates_for_context(project)
     |> Enum.map(&Translatable.translate(&1, Builder, env))
