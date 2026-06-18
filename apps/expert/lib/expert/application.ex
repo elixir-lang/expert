@@ -139,7 +139,6 @@ defmodule Expert.Application do
       {GenLSP.Buffer, [name: Expert.Buffer] ++ buffer_opts},
       {Expert.Project.Store, []},
       {Expert.EngineBuilds, []},
-      {Expert.ActiveProjects, []},
       hex_cache_child_spec(),
       {Expert,
        name: Expert,
