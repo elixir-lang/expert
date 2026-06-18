@@ -81,7 +81,13 @@ defmodule Engine.Deps do
   loaded applications — equivalent to what `mix hex.outdated` reports
   in its "Current" column.
   """
-  @spec dep_version(atom()) :: {:ok, String.t()} | :error
+  @spec dep_version(String.t() | atom()) :: {:ok, String.t()} | :error
+  def dep_version(package) when is_binary(package) do
+    dep_version(String.to_existing_atom(package))
+  rescue
+    ArgumentError -> :error
+  end
+
   def dep_version(app) when is_atom(app) do
     result =
       Engine.Mix.in_project(fn _module ->
