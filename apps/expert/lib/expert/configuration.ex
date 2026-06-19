@@ -125,6 +125,27 @@ defmodule Expert.Configuration do
     get().file_log_level
   end
 
+  @vscode_family_patterns [
+    "visual studio code",
+    "cursor",
+    "windsurf",
+    "vscodium",
+    "positron",
+    "code-server"
+  ]
+
+  @spec vscode_family?() :: boolean()
+  def vscode_family? do
+    case get().client_name do
+      nil ->
+        false
+
+      client_name ->
+        downcased = client_name |> String.trim() |> String.downcase()
+        Enum.any?(@vscode_family_patterns, &String.contains?(downcased, &1))
+    end
+  end
+
   @spec window_log_message_enabled?() :: boolean()
   def window_log_message_enabled? do
     case get().client_name do

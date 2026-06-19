@@ -123,7 +123,7 @@ defmodule Expert.CodeIntelligence.Completion do
     # If VS Code receives an empty completion list, it will never issue
     # a new request, even if `is_incomplete: true` is specified.
     # https://github.com/lexical-lsp/lexical/issues/400
-    Configuration.get().client_name == "Visual Studio Code"
+    Configuration.vscode_family?()
   end
 
   defp has_meaningful_completions?(%Env{} = env) do
