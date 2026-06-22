@@ -62,8 +62,6 @@ defmodule Engine.Compilation.DependencyTracer do
     if Engine.Mix.loaded?() do
       Path.join(Mix.Project.compile_path(), "#{Atom.to_string(module)}.beam")
     end
-  rescue
-    _ -> nil
   end
 
   defp canonical_path(path) when is_binary(path), do: Path.expand(path)
