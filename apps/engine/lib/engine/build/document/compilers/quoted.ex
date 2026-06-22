@@ -141,10 +141,13 @@ defmodule Engine.Build.Document.Compilers.Quoted do
   # The mapping is updated from module_updated broadcasts, so a rapid edit can
   # reach this compile before the previous broadcast is consumed.
   defp loaded_modules_compiled_from(path) do
-    normalized_path = normalize_path(path)
+    path = Path.expand(path)
+    path_stat = File.stat(path)
 
     for {module, _} <- :code.all_loaded(),
-        module_compile_source(module) == normalized_path do
+        source = module_compile_source(module),
+        source == path or
+          (source && match?({:ok, _}, path_stat) && File.stat(source) == path_stat) do
       module
     end
   end
@@ -152,27 +155,15 @@ defmodule Engine.Build.Document.Compilers.Quoted do
   defp module_compile_source(module) do
     compile_info = module.module_info(:compile)
 
-    compile_info
-    |> Keyword.get(:source)
-    |> source_path()
-    |> normalize_path()
+    case source_path(Keyword.get(compile_info, :source)) do
+      nil -> nil
+      path -> Path.expand(path)
+    end
   end
 
   defp source_path(path) when is_binary(path), do: path
   defp source_path(path) when is_list(path), do: List.to_string(path)
   defp source_path(_path), do: nil
-
-  defp normalize_path(nil), do: nil
-
-  defp normalize_path(path) when is_binary(path) do
-    path = Path.expand(path)
-
-    if Forge.OS.windows?() do
-      String.downcase(path)
-    else
-      path
-    end
-  end
 
   defp purge_removed_modules(old_modules, new_modules) do
     new_modules = MapSet.new(new_modules, fn {module, _bytecode} -> module end)
