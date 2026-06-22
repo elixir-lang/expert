@@ -17,7 +17,7 @@ cache_dir = Keyword.fetch!(args, :cache_dir)
 expert_data_path = Path.join(cache_dir, expert_vsn)
 
 elixir_erts_vsn = "elixir-#{System.version()}-erts-#{:erlang.system_info(:version)}"
-tooling_path = Path.join([expert_data_path, "tooling", elixir_erts_vsn])
+tooling_path = Path.join([expert_data_path, elixir_erts_vsn, "tooling"])
 mix_home = Path.join(tooling_path, "mix_home")
 mix_archives = Path.join(tooling_path, "mix_archives")
 rebar_cache = Path.join(tooling_path, "rebar_cache")
@@ -86,7 +86,7 @@ end
 
 Mix.SCM.prepend(Expert.BuildEngine.SCM)
 
-workspace_path = Path.join([expert_data_path, "engine_builds", elixir_erts_vsn])
+workspace_path = Path.join([expert_data_path, elixir_erts_vsn])
 build_root_path = Path.join(workspace_path, "_build")
 
 if force? do

@@ -2,9 +2,9 @@ defmodule Expert.Engine do
   @moduledoc """
   Utilities for managing Expert engine builds.
 
-  When Expert builds the engine for a project using Mix.install, it caches
-  the build in the user data directory. If engine dependencies change (e.g.,
-  in nightly builds), Mix.install may not know to rebuild, causing errors.
+  When Expert builds the engine for a project, it caches the build in the user
+  data directory. If engine dependencies change (e.g., in nightly builds), a
+  cached build may become stale and cause errors.
 
   This module provides functions to inspect and clean these cached builds.
   """
@@ -204,8 +204,8 @@ defmodule Expert.Engine do
     IO.puts("""
     Expert Engine Management
 
-    Manage cached engine builds created by Mix.install. Use these commands
-    to resolve dependency errors or free up disk space.
+    Manage cached engine builds. Use these commands to resolve dependency
+    errors or free up disk space.
 
     USAGE:
         expert engine <subcommand>
