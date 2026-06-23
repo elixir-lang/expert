@@ -2,7 +2,6 @@ defmodule Expert.CodeIntelligence.Completion do
   alias Expert.CodeIntelligence.Completion.Builder
   alias Expert.CodeIntelligence.Completion.Translatable
   alias Expert.CodeIntelligence.Hex
-  alias Expert.CodeIntelligence.Hex.Context, as: HexContext
   alias Expert.Configuration
   alias Expert.EngineApi
   alias Expert.Project.Intelligence
@@ -11,7 +10,6 @@ defmodule Expert.CodeIntelligence.Completion do
   alias Forge.Completion.Candidate
   alias Forge.Document.Position
   alias Forge.Project
-  alias Future.Code, as: Code
   alias GenLSP.Enumerations.CompletionTriggerKind
   alias GenLSP.Structures.CompletionContext
   alias GenLSP.Structures.CompletionItem
@@ -37,7 +35,7 @@ defmodule Expert.CodeIntelligence.Completion do
       {:ok, env} ->
         hex_context =
           if Hex.project_file?(project, analysis.document) do
-            case HexContext.detect(analysis, position) do
+            case Hex.Context.detect(analysis, position) do
               {:ok, ctx} -> ctx
               :error -> nil
             end

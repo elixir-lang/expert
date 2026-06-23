@@ -113,15 +113,15 @@ defmodule Expert.CodeIntelligence.Hex.Context do
   defp node_meta({:__block__, meta, _}), do: meta
   defp node_meta({:{}, meta, _}), do: meta
 
-  defp position_in?(meta, %Position{line: pl, character: pc}) do
-    with {:ok, ol} <- Keyword.fetch(meta, :line),
-         {:ok, oc} <- Keyword.fetch(meta, :column),
-         {:ok, cl, cc} <- closing_bounds(meta) do
-      {pl, pc} >= {ol, oc} and {pl, pc} <= {cl, cc + 1}
+  defp position_in?(meta, %Position{line: pos_line, character: pos_col}) do
+    with {:ok, open_line} <- Keyword.fetch(meta, :line),
+         {:ok, open_col} <- Keyword.fetch(meta, :column),
+         {:ok, close_line, close_col} <- closing_bounds(meta) do
+      {pos_line, pos_col} >= {open_line, open_col} and
+        {pos_line, pos_col} <= {close_line, close_col + 1}
     else
       {:error, :no_bounds} ->
-        {ol, oc} = {meta[:line], meta[:column]}
-        pl == ol and pc >= oc
+        pos_line == meta[:line] and pos_col >= meta[:column]
 
       _ ->
         false
@@ -130,9 +130,9 @@ defmodule Expert.CodeIntelligence.Hex.Context do
 
   defp closing_bounds(meta) do
     with closing when is_list(closing) <- Keyword.get(meta, :closing),
-         {:ok, cl} <- Keyword.fetch(closing, :line),
-         {:ok, cc} <- Keyword.fetch(closing, :column) do
-      {:ok, cl, cc}
+         {:ok, close_line} <- Keyword.fetch(closing, :line),
+         {:ok, close_col} <- Keyword.fetch(closing, :column) do
+      {:ok, close_line, close_col}
     else
       _ -> {:error, :no_bounds}
     end
@@ -146,9 +146,9 @@ defmodule Expert.CodeIntelligence.Hex.Context do
     classify(position, args)
   end
 
-  defp classify(position, [first | _] = args) do
-    package = package_name(first)
-    {name_node, version_node} = {Enum.at(args, 0), Enum.at(args, 1)}
+  defp classify(position, [name_node | rest_args] = args) do
+    package = package_name(name_node)
+    version_node = List.first(rest_args)
 
     cond do
       node_covers?(name_node, position) ->
@@ -257,7 +257,7 @@ defmodule Expert.CodeIntelligence.Hex.Context do
     boundary =
       before
       |> :binary.matches([",", "{"])
-      |> Enum.map(fn {p, _} -> p end)
+      |> Enum.map(fn {offset, _} -> offset end)
       |> Enum.max(fn -> -1 end)
 
     before
