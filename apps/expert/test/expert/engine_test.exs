@@ -78,6 +78,26 @@ defmodule Expert.EngineTest do
       end
     end
 
+    test "deletes engine builds using the current cache layout", %{tmp_dir: tmp_dir} do
+      build_dir = Path.join(tmp_dir, "0.1.0/elixir-1.20.0-erts-16.0/_build/dev_ns")
+      tooling_dir = Path.join(tmp_dir, "0.1.0/elixir-1.20.0-erts-16.0/tooling")
+      File.mkdir_p!(Path.join([build_dir, "lib", "engine", "ebin"]))
+      File.mkdir_p!(tooling_dir)
+
+      output =
+        capture_io(fn ->
+          exit_code = Engine.run(["clean", "--force"])
+          assert exit_code == 0
+        end)
+
+      assert output =~ "Deleted"
+      assert output =~ "elixir-1.20.0-erts-16.0"
+      refute output =~ "engine_builds"
+      refute output =~ "tooling"
+      refute File.exists?(build_dir)
+      refute File.exists?(tooling_dir)
+    end
+
     test "stops deleting after first error and returns error code 1", %{tmp_dir: tmp_dir} do
       dir1 = Path.join(tmp_dir, "0.1.0/foobar")
       dir2 = Path.join(tmp_dir, "0.2.0/foobar")
