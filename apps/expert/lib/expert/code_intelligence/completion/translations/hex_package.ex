@@ -15,17 +15,20 @@ defmodule Expert.CodeIntelligence.Completion.Translations.HexPackage do
         description: repo_label(package.repo)
       }
 
-      # Insert with the leading `:` so `{:phoe` → `{:phoenix` regardless of
-      # whether the builder's prefix range covers the `:` (unquoted atom
-      # cursor_context) or only the bare word (local_or_var context). Either
-      # way the result is a well-formed atom literal. The `filter_text`
-      # keeps matching against the bare name so fuzzy matching on "phoe"
-      # still works.
+      # Insert with the leading `:` so `{:phoe` → `{:phoenix`. The cursor sits
+      # on an unquoted atom (a colon is always present when we reach this
+      # slot), so the builder's replacement range covers the `:` too.
+      #
+      # `filter_text` must span that same range, otherwise a client that
+      # filters the typed word against `filter_text` (e.g. VS Code) matches
+      # `:phoe` against `phoenix`, fails, and drops the item.
+      name_with_colon = ":" <> package.name
+
       env
-      |> builder.plain_text(":" <> package.name,
+      |> builder.plain_text(name_with_colon,
         label: package.name,
         label_details: label_details,
-        filter_text: package.name,
+        filter_text: name_with_colon,
         kind: CompletionItemKind.module(),
         detail: "hex",
         documentation: package.description
