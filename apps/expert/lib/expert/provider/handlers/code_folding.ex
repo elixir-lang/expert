@@ -4,6 +4,7 @@ defmodule Expert.Provider.Handlers.CodeFolding do
   alias Expert.Document.Context
   alias Forge.Ast
   alias Forge.Document
+  alias GenLSP.Enumerations.FoldingRangeKind
   alias GenLSP.Requests
   alias GenLSP.Structures
 
@@ -18,19 +19,19 @@ defmodule Expert.Provider.Handlers.CodeFolding do
 
   defp folding_ranges(%Document{} = document) do
     case Ast.from(document) do
-      {:ok, ast, _comments} ->
-        ranges_from(ast)
+      {:ok, ast, comments} ->
+        ranges_from(ast, comments)
 
-      {:error, ast, _parse_error, _comments} when is_tuple(ast) ->
-        ranges_from(ast)
+      {:error, ast, _parse_error, comments} when is_tuple(ast) ->
+        ranges_from(ast, comments)
 
       _ ->
         []
     end
   end
 
-  defp ranges_from(ast) do
-    block_ranges(ast) ++ string_ranges(ast)
+  defp ranges_from(ast, comments) do
+    block_ranges(ast) ++ string_ranges(ast) ++ comment_ranges(comments)
   end
 
   defp block_ranges(ast) do
@@ -121,5 +122,41 @@ defmodule Expert.Provider.Handlers.CodeFolding do
 
   defp count_newlines(str) do
     str |> :binary.matches("\n") |> length()
+  end
+
+  defp comment_ranges(comments) do
+    comments
+    |> Enum.filter(&standalone_comment?/1)
+    |> Enum.chunk_while(
+      [],
+      &chunk_consecutive/2,
+      fn acc -> {:cont, Enum.reverse(acc), []} end
+    )
+    |> Enum.filter(fn chunk -> match?([_, _ | _], chunk) end)
+    |> Enum.map(&to_comment_folding_range/1)
+  end
+
+  # A trailing comment (`code # comment`) has no end-of-line before it, so it
+  # is not the start of a foldable comment block.
+  defp standalone_comment?(%{previous_eol_count: count}), do: count > 0
+  defp standalone_comment?(_), do: false
+
+  defp chunk_consecutive(comment, [%{line: previous_line} | _] = acc)
+       when comment.line == previous_line + 1 do
+    {:cont, [comment | acc]}
+  end
+
+  defp chunk_consecutive(comment, acc) do
+    {:cont, Enum.reverse(acc), [comment]}
+  end
+
+  defp to_comment_folding_range([first | _] = comments) do
+    last = List.last(comments)
+
+    %Structures.FoldingRange{
+      start_line: first.line - 1,
+      end_line: last.line - 1,
+      kind: FoldingRangeKind.comment()
+    }
   end
 end

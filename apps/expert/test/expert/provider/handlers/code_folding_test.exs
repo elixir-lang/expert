@@ -30,6 +30,10 @@ defmodule Expert.Provider.Handlers.CodeFoldingTest do
     %FoldingRange{start_line: start_line, end_line: end_line}
   end
 
+  defp comment_range(start_line, end_line) do
+    %FoldingRange{start_line: start_line, end_line: end_line, kind: "comment"}
+  end
+
   describe "do/end blocks" do
     test "folds a multi-line module" do
       source = """
@@ -171,6 +175,93 @@ defmodule Expert.Provider.Handlers.CodeFoldingTest do
       """
 
       assert range(2, 3) in fold(source)
+    end
+  end
+
+  describe "comments" do
+    test "folds two or more consecutive comment lines" do
+      source = """
+      # one
+      # two
+      # three
+      :ok
+      """
+
+      assert comment_range(0, 2) in fold(source)
+    end
+
+    test "folds a pair of consecutive comment lines" do
+      source = """
+      # one
+      # two
+      :ok
+      """
+
+      assert comment_range(0, 1) in fold(source)
+    end
+
+    test "does not fold a single comment line" do
+      source = """
+      # lonely
+      :ok
+      """
+
+      refute Enum.any?(fold(source), fn r -> r.kind == "comment" end)
+    end
+
+    test "does not fold across a blank line between comments" do
+      source = """
+      # one
+      # two
+
+      # three
+      # four
+      :ok
+      """
+
+      ranges = fold(source)
+
+      assert comment_range(0, 1) in ranges
+      assert comment_range(3, 4) in ranges
+    end
+
+    test "does not group a comment broken by a line of code" do
+      source = """
+      # one
+      x = 1
+      # two
+      :ok
+      """
+
+      refute Enum.any?(fold(source), fn r -> r.kind == "comment" end)
+    end
+
+    test "does not start a comment fold from a trailing comment" do
+      source = """
+      x = 1 # trailing
+      # standalone one
+      # standalone two
+      :ok
+      """
+
+      ranges = fold(source)
+
+      assert comment_range(1, 2) in ranges
+      refute comment_range(0, 2) in ranges
+    end
+
+    test "folds comments indented inside a block" do
+      source = """
+      defmodule Foo do
+        def bar do
+          # step one
+          # step two
+          :ok
+        end
+      end
+      """
+
+      assert comment_range(2, 3) in fold(source)
     end
   end
 
