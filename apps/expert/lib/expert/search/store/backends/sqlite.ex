@@ -347,7 +347,7 @@ defmodule Expert.Search.Store.Backends.Sqlite do
     case query(
            state,
            "SELECT entry FROM entries WHERE block_id = ? AND path = ? ORDER BY id",
-           [blob(entry.block_id), entry.path]
+           [block_id_key(entry.block_id), entry.path]
          ) do
       {:ok, rows} ->
         rows
@@ -485,8 +485,8 @@ defmodule Expert.Search.Store.Backends.Sqlite do
       path TEXT NOT NULL,
       subject TEXT NOT NULL,
       type BLOB NOT NULL,
-      subtype BLOB NOT NULL,
-      block_id BLOB NOT NULL,
+      subtype TEXT NOT NULL,
+      block_id INTEGER NOT NULL,
       entry BLOB NOT NULL
     )
     """)
@@ -505,7 +505,7 @@ defmodule Expert.Search.Store.Backends.Sqlite do
     with :ok <-
            exec(
              state,
-             "CREATE INDEX IF NOT EXISTS entries_subject_idx ON entries (subject, type, subtype, path)"
+             "CREATE INDEX IF NOT EXISTS entries_subject_idx ON entries (subject, type, subtype)"
            ),
          :ok <- exec(state, "CREATE INDEX IF NOT EXISTS entries_path_idx ON entries (path)"),
          :ok <-
@@ -549,8 +549,8 @@ defmodule Expert.Search.Store.Backends.Sqlite do
         entry.path,
         subject_key(entry.subject),
         blob(entry.type),
-        blob(entry.subtype),
-        blob(entry.block_id),
+        subtype_key(entry.subtype),
+        block_id_key(entry.block_id),
         blob(entry)
       ]
     )
@@ -594,8 +594,8 @@ defmodule Expert.Search.Store.Backends.Sqlite do
   defp entries_result({:error, _} = error), do: error
 
   defp constraints(initial_clauses, initial_args, type, subtype) do
-    {clauses, args} = add_constraint(initial_clauses, initial_args, "type = ?", type)
-    {clauses, args} = add_constraint(clauses, args, "subtype = ?", subtype)
+    {clauses, args} = add_type_constraint(initial_clauses, initial_args, type)
+    {clauses, args} = add_subtype_constraint(clauses, args, subtype)
     {Enum.join(Enum.reverse(clauses), " AND "), args}
   end
 
@@ -613,10 +613,15 @@ defmodule Expert.Search.Store.Backends.Sqlite do
     {["subject LIKE ? ESCAPE '\\'"], [like_prefix(subject_key(prefix))]}
   end
 
-  defp add_constraint(clauses, args, _clause, :_), do: {clauses, args}
+  defp add_type_constraint(clauses, args, :_), do: {clauses, args}
 
-  defp add_constraint(clauses, args, clause, value),
-    do: {[clause | clauses], args ++ [blob(value)]}
+  defp add_type_constraint(clauses, args, value),
+    do: {["type = ?" | clauses], args ++ [blob(value)]}
+
+  defp add_subtype_constraint(clauses, args, :_), do: {clauses, args}
+
+  defp add_subtype_constraint(clauses, args, value),
+    do: {["subtype = ?" | clauses], args ++ [subtype_key(value)]}
 
   defp transaction(%State{} = state, fun) do
     with :ok <- exec(state, "BEGIN IMMEDIATE") do
@@ -834,6 +839,11 @@ defmodule Expert.Search.Store.Backends.Sqlite do
   defp subject_key(subject) when is_atom(subject), do: inspect(subject)
   defp subject_key(subject) when is_list(subject), do: List.to_string(subject)
   defp subject_key(subject), do: inspect(subject)
+
+  defp subtype_key(subtype), do: Atom.to_string(subtype)
+
+  defp block_id_key(:root), do: 0
+  defp block_id_key(block_id) when is_integer(block_id), do: block_id
 
   defp blob(term), do: {:blob, encode_term(term)}
 
