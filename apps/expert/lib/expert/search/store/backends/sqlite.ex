@@ -14,7 +14,6 @@ defmodule Expert.Search.Store.Backends.Sqlite do
   @schema_version 1
   @database_file "source.index.sqlite3"
   @busy_timeout_ms Application.compile_env(:expert, :search_store_sqlite_busy_timeout_ms, 5_000)
-  @journal_mode Application.compile_env(:expert, :search_store_sqlite_journal_mode, "WAL")
 
   defmodule State do
     defstruct [:conn, :database_path, :project, :runtime_versions]
@@ -423,7 +422,6 @@ defmodule Expert.Search.Store.Backends.Sqlite do
 
   defp configure_database(%State{} = state) do
     with :ok <- exec(state, "PRAGMA busy_timeout = #{@busy_timeout_ms}"),
-         :ok <- exec(state, "PRAGMA journal_mode = #{@journal_mode}"),
          :ok <- exec(state, "PRAGMA synchronous = NORMAL") do
       exec(state, "PRAGMA case_sensitive_like = ON")
     end
