@@ -1,4 +1,3 @@
-Application.ensure_all_started(:refactorex)
 Forge.Identifier.start()
 
 random_number = :rand.uniform(500)
