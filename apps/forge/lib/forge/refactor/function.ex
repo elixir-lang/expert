@@ -101,7 +101,10 @@ defmodule Forge.Refactor.Function do
         zipper,
         base_name,
         &definition?/1,
-        fn {_, _, [{name, _, _}, _]} -> name end
+        fn definition ->
+          {name, _, _} = actual_header(definition)
+          name
+        end
       )
     end)
   end

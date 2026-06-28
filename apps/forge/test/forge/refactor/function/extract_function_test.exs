@@ -73,6 +73,36 @@ defmodule Forge.Refactor.Function.ExtractFunctionTest do
     )
   end
 
+  test "extracts function when module has a bodyless function declaration" do
+    assert_refactored(
+      ExtractFunction,
+      """
+      defmodule Foo do
+        defp some_function(arg1, opts \\\\ %{key1: "value1", key2: true})
+
+        def other do
+      #   v
+          42
+      #    ^
+        end
+      end
+      """,
+      """
+      defmodule Foo do
+        defp some_function(arg1, opts \\\\ %{key1: "value1", key2: true})
+
+        def other do
+          extracted_function()
+        end
+
+        defp extracted_function() do
+          42
+        end
+      end
+      """
+    )
+  end
+
   test "extracts head of a pipeline into function" do
     assert_refactored(
       ExtractFunction,
