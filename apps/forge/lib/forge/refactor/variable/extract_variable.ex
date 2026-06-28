@@ -26,6 +26,9 @@ defmodule Forge.Refactor.Variable.ExtractVariable do
       Variable.inside_declaration?(zipper) ->
         false
 
+      inside_function_reference_capture?(zipper) ->
+        false
+
       invalid_parent?(zipper) ->
         false
 
@@ -161,4 +164,41 @@ defmodule Forge.Refactor.Variable.ExtractVariable do
         false
     end
   end
+
+  defp inside_function_reference_capture?(%{node: {:&, _, [slash]}}),
+    do: function_reference_slash?(slash)
+
+  defp inside_function_reference_capture?(%{node: node} = zipper) do
+    parent = Zipper.up(zipper)
+
+    case parent do
+      %{node: {:&, _, [^node]}} ->
+        function_reference_slash?(node)
+
+      %{node: {:/, _, [function, ^node]} = slash} ->
+        function_reference?(function) and parent_is_capture?(parent, slash)
+
+      %{node: {:/, _, [^node, {:__block__, _, [arity]}]} = slash} when is_integer(arity) ->
+        function_reference?(node) and parent_is_capture?(parent, slash)
+
+      _ ->
+        false
+    end
+  end
+
+  defp function_reference_slash?({:/, _, [function, {:__block__, _, [arity]}]})
+       when is_integer(arity),
+       do: function_reference?(function)
+
+  defp function_reference_slash?(_), do: false
+
+  defp parent_is_capture?(%{node: node} = zipper, node) do
+    case Zipper.up(zipper) do
+      %{node: {:&, _, [^node]}} -> true
+      _ -> false
+    end
+  end
+
+  defp function_reference?({:&, _, [arg]}) when is_integer(arg), do: false
+  defp function_reference?(_), do: true
 end

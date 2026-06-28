@@ -294,6 +294,36 @@ defmodule Forge.Refactor.Variable.ExtractVariableTest do
     )
   end
 
+  test "ignores function names inside captured function shorthand" do
+    assert_ignored(
+      ExtractVariable,
+      """
+      defmodule Foo do
+        def all_atoms?(list) do
+          #                v
+          Enum.all?(list, &is_atom/1)
+          #                      ^
+        end
+      end
+      """
+    )
+  end
+
+  test "ignores arity inside captured function shorthand" do
+    assert_ignored(
+      ExtractVariable,
+      """
+      defmodule Foo do
+        def all_atoms?(list) do
+          #                        v
+          Enum.all?(list, &is_atom/1)
+          #                        ^
+        end
+      end
+      """
+    )
+  end
+
   test "ignores variable declarations" do
     assert_ignored(
       ExtractVariable,
