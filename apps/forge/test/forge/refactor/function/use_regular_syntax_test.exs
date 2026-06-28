@@ -77,6 +77,18 @@ defmodule Forge.Refactor.Function.UseRegularSyntaxTest do
     )
   end
 
+  test "ignores function declarations without a body" do
+    assert_ignored(
+      UseRegularSyntax,
+      """
+      defmodule Foo do
+        #       v
+        defp some_function(arg1, opts \\\\ [])
+      end
+      """
+    )
+  end
+
   test "ignores functions outside range" do
     assert_ignored(
       UseRegularSyntax,

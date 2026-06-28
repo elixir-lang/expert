@@ -10,18 +10,12 @@ defmodule Forge.Refactor.Function.UseRegularSyntax do
   alias Forge.Refactor.Function
 
   def can_refactor?(%{node: node} = zipper, line) do
-    cond do
-      not Function.definition?(node) ->
-        false
-
-      not AST.starts_at?(node, line) ->
-        false
-
-      true ->
-        %{node: {{:__block__, block_meta, _}, _}} = Function.go_to_block(zipper)
-
-        # only keyword functions have format tag
-        block_meta[:format] == :keyword
+    with true <- Function.definition?(node),
+         true <- AST.starts_at?(node, line),
+         %{node: {{:__block__, block_meta, _}, _}} <- Function.go_to_block(zipper) do
+      block_meta[:format] == :keyword
+    else
+      _ -> false
     end
   end
 
