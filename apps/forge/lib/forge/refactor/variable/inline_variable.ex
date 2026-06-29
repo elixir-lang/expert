@@ -33,10 +33,12 @@ defmodule Forge.Refactor.Variable.InlineVariable do
     %{node: {:=, _, [declaration, value]}} = parent = Zipper.up(zipper)
     [_ | usages] = Variable.find_all_references(zipper, declaration)
 
-    if(replace_assignment_by_value?(parent),
-      do: Zipper.replace(parent, value),
-      else: Zipper.remove(parent)
-    )
+    zipper =
+      if replace_assignment_by_value?(parent),
+        do: Zipper.replace(parent, value),
+        else: Zipper.remove(parent)
+
+    zipper
     |> AST.replace_nodes(usages, value)
     |> AST.go_to_node(value)
   end

@@ -40,82 +40,117 @@ defmodule Forge.Refactor.Variable.ExtractVariable do
   def refactor(zipper, selection), do: refactor(zipper, [], selection)
 
   defp refactor(%{node: node} = zipper, selection_path, selection) do
-    case parent = Zipper.up(zipper) do
-      %{node: {:->, _, [args, ^node]}} ->
-        parent
-        |> Zipper.replace(
-          {:->, [], [args, extract_and_assign(parent, [node], 0, selection_path, selection)]}
-        )
-        |> AST.go_to_node(selection)
+    refactor_parent(Zipper.up(zipper), zipper, node, selection_path, selection)
+  end
 
-      # selection is inside a COND clause
-      %{node: {:->, _, [^node, _]}} ->
-        %{node: {:cond, _, _}} = zipper_at_cond = AST.up(parent, 4)
+  defp refactor_parent(
+         %{node: {:->, _, [args, parent_node]}} = parent,
+         _zipper,
+         node,
+         selection_path,
+         selection
+       )
+       when parent_node == node do
+    parent
+    |> Zipper.replace(
+      {:->, [], [args, extract_and_assign(parent, [node], 0, selection_path, selection)]}
+    )
+    |> AST.go_to_node(selection)
+  end
 
-        refactor(
-          zipper_at_cond,
-          Zipper.path_to_ancestor(zipper, zipper_at_cond) ++ selection_path,
-          selection
-        )
+  # selection is inside a COND clause
+  defp refactor_parent(
+         %{node: {:->, _, [parent_node, _]}} = parent,
+         zipper,
+         node,
+         selection_path,
+         selection
+       )
+       when parent_node == node do
+    %{node: {:cond, _, _}} = zipper_at_cond = AST.up(parent, 4)
 
-      %{node: {:__block__, meta, statements}} ->
-        # if there is a closing tag, the block is probably a tuple
-        if meta[:closing] do
-          refactor(parent, Zipper.path_to_ancestor(zipper, parent) ++ selection_path, selection)
-        else
-          [statement_index] = Zipper.path_to_ancestor(zipper, parent)
+    refactor(
+      zipper_at_cond,
+      Zipper.path_to_ancestor(zipper, zipper_at_cond) ++ selection_path,
+      selection
+    )
+  end
 
-          parent
-          |> Zipper.replace(
-            extract_and_assign(
-              parent,
-              statements,
-              statement_index,
-              selection_path,
-              selection
-            )
-          )
-          |> AST.go_to_node(selection)
-        end
+  defp refactor_parent(
+         %{node: {:__block__, meta, statements}} = parent,
+         zipper,
+         _node,
+         selection_path,
+         selection
+       ) do
+    if meta[:closing] do
+      refactor(parent, Zipper.path_to_ancestor(zipper, parent) ++ selection_path, selection)
+    else
+      [statement_index] = Zipper.path_to_ancestor(zipper, parent)
 
-      %{node: {{:__block__, _, [tag]}, ^node}} when tag in ~w(do else)a ->
-        upper_structure = AST.up(parent, 2)
-        line = AST.get_start_line(upper_structure.node)
-
-        cond do
-          Function.UseRegularSyntax.can_refactor?(upper_structure, line) ->
-            upper_structure
-            |> Function.UseRegularSyntax.refactor(line)
-            |> AST.go_to_node(node)
-            |> refactor(selection_path, selection)
-
-          IfElse.UseRegularSyntax.can_refactor?(upper_structure, line) ->
-            upper_structure
-            |> IfElse.UseRegularSyntax.refactor(line)
-            |> AST.go_to_node(node)
-            |> refactor(selection_path, selection)
-
-          true ->
-            Zipper.update(parent, fn {block, statement} ->
-              {block, extract_and_assign(parent, [statement], 0, selection_path, selection)}
-            end)
-        end
-        |> AST.go_to_node(selection)
-
-      # same pattern matching as ExpandAnonymousFunction.can_refactor?/2
-      %{node: {:&, _, [body]}} when not is_number(body) ->
-        {%{node: new_selection}, _} = Variable.turn_captures_into_variables(selection)
-
-        parent
-        |> Function.ExpandAnonymousFunction.refactor(parent.node)
-        |> Zipper.down()
-        |> Zipper.down()
-        |> Zipper.right()
-        |> refactor(selection_path, new_selection)
-
-      _ ->
-        refactor(parent, Zipper.path_to_ancestor(zipper, parent) ++ selection_path, selection)
+      parent
+      |> Zipper.replace(
+        extract_and_assign(parent, statements, statement_index, selection_path, selection)
+      )
+      |> AST.go_to_node(selection)
     end
+  end
+
+  defp refactor_parent(
+         %{node: {{:__block__, _, [tag]}, parent_node}} = parent,
+         _zipper,
+         node,
+         selection_path,
+         selection
+       )
+       when tag in ~w(do else)a and parent_node == node do
+    upper_structure = AST.up(parent, 2)
+    line = AST.get_start_line(upper_structure.node)
+
+    refactored =
+      cond do
+        Function.UseRegularSyntax.can_refactor?(upper_structure, line) ->
+          upper_structure
+          |> Function.UseRegularSyntax.refactor(line)
+          |> AST.go_to_node(node)
+          |> refactor(selection_path, selection)
+
+        IfElse.UseRegularSyntax.can_refactor?(upper_structure, line) ->
+          upper_structure
+          |> IfElse.UseRegularSyntax.refactor(line)
+          |> AST.go_to_node(node)
+          |> refactor(selection_path, selection)
+
+        true ->
+          Zipper.update(parent, fn {block, statement} ->
+            {block, extract_and_assign(parent, [statement], 0, selection_path, selection)}
+          end)
+      end
+
+    AST.go_to_node(refactored, selection)
+  end
+
+  # same pattern matching as ExpandAnonymousFunction.can_refactor?/2
+  defp refactor_parent(
+         %{node: {:&, _, [body]}} = parent,
+         _zipper,
+         _node,
+         selection_path,
+         selection
+       )
+       when not is_number(body) do
+    {%{node: new_selection}, _} = Variable.turn_captures_into_variables(selection)
+
+    parent
+    |> Function.ExpandAnonymousFunction.refactor(parent.node)
+    |> Zipper.down()
+    |> Zipper.down()
+    |> Zipper.right()
+    |> refactor(selection_path, new_selection)
+  end
+
+  defp refactor_parent(parent, zipper, _node, selection_path, selection) do
+    refactor(parent, Zipper.path_to_ancestor(zipper, parent) ++ selection_path, selection)
   end
 
   defp extract_and_assign(zipper, statements, statement_index, selection_path, selection) do

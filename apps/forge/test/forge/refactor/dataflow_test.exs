@@ -472,10 +472,11 @@ defmodule Forge.Refactor.DataflowTest do
   end
 
   test "outer_variables returns only variables used but not declared in a block with an assignment" do
-    node = Sourceror.parse_string!("""
-    foo = 42
-    my_fun(x)
-    """)
+    node =
+      Sourceror.parse_string!("""
+      foo = 42
+      my_fun(x)
+      """)
 
     result =
       node

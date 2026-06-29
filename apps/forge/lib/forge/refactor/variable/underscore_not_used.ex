@@ -13,23 +13,21 @@ defmodule Forge.Refactor.Variable.UnderscoreNotUsed do
     start_line = AST.get_start_line(node)
     end_line = AST.get_end_line(node)
 
-    cond do
-      line < start_line or end_line < line ->
-        :skip
+    if line < start_line or end_line < line do
+      :skip
+    else
+      variables = Dataflow.group_variables_semantically(node)
 
-      true ->
-        variables = Dataflow.group_variables_semantically(node)
+      cond do
+        Enum.any?(variables, &can_underline?(&1, line)) ->
+          true
 
-        cond do
-          Enum.any?(variables, &can_underline?(&1, line)) ->
-            true
+        variables == %{} ->
+          false
 
-          variables == %{} ->
-            false
-
-          true ->
-            :skip
-        end
+        true ->
+          :skip
+      end
     end
   end
 

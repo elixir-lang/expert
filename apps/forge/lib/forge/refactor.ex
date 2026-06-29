@@ -55,7 +55,7 @@ defmodule Forge.Refactor do
       defp visit(zipper, false, selection_or_line, refactor?) do
         # Keep this boundary opaque so generated modules do not warn on impossible clauses.
         refactorability =
-          apply(Forge.Refactor, :normalize_refactorability, [
+          :erlang.apply(Forge.Refactor, :normalize_refactorability, [
             can_refactor?(zipper, selection_or_line)
           ])
 

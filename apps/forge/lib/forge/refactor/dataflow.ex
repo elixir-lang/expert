@@ -28,91 +28,100 @@ defmodule Forge.Refactor.Dataflow do
     |> Enum.uniq_by(fn {name, _, _} -> name end)
   end
 
-  defp recursive_analyze(dataflow, zipper) do
-    case zipper do
-      {id, _, [{_, _, header}, body]} when id in ~w(def defp)a ->
-        analyze_sealed_scope(dataflow, header, body)
+  defp recursive_analyze(dataflow, {id, _, [{_, _, header}, body]}) when id in ~w(def defp)a do
+    analyze_sealed_scope(dataflow, header, body)
+  end
 
-      {id, _, [{:when, _, [header, body]}]} when id in ~w(defguard defguardp)a ->
-        analyze_sealed_scope(dataflow, header, body)
+  defp recursive_analyze(dataflow, {id, _, [{:when, _, [header, body]}]})
+       when id in ~w(defguard defguardp)a do
+    analyze_sealed_scope(dataflow, header, body)
+  end
 
-      {:test, _, [_, {:%{}, _, setup}, scope]} ->
-        analyze_sealed_scope(dataflow, setup, scope)
+  defp recursive_analyze(dataflow, {:test, _, [_, {:%{}, _, setup}, scope]}) do
+    analyze_sealed_scope(dataflow, setup, scope)
+  end
 
-      {:test, _, [_ | _] = scope} ->
-        analyze_sealed_scope(dataflow, scope)
+  defp recursive_analyze(dataflow, {:test, _, [_ | _] = scope}) do
+    analyze_sealed_scope(dataflow, scope)
+  end
 
-      {id, _, [condition, clauses]} when id in ~w(if unless)a ->
-        %__MODULE__{}
-        |> recursive_analyze(condition)
-        |> then(fn if_dataflow ->
-          Enum.reduce(clauses, if_dataflow, &analyze_scope(&2, &1))
-        end)
-        |> close_scope(dataflow)
+  defp recursive_analyze(dataflow, {id, _, [condition, clauses]}) when id in ~w(if unless)a do
+    %__MODULE__{}
+    |> recursive_analyze(condition)
+    |> then(fn if_dataflow ->
+      Enum.reduce(clauses, if_dataflow, &analyze_scope(&2, &1))
+    end)
+    |> close_scope(dataflow)
+  end
 
-      {:cond, _, [[{_, clauses}]]} ->
-        Enum.reduce(clauses, dataflow, fn
-          {:->, _, clause}, dataflow -> analyze_scope(dataflow, clause)
-        end)
+  defp recursive_analyze(dataflow, {:cond, _, [[{_, clauses}]]}) do
+    Enum.reduce(clauses, dataflow, fn
+      {:->, _, clause}, dataflow -> analyze_scope(dataflow, clause)
+    end)
+  end
 
-      {:try, _, [[body | catches]]} ->
-        %__MODULE__{}
-        |> analyze_scope(body)
-        |> recursive_analyze(catches)
-        |> close_scope(dataflow)
+  defp recursive_analyze(dataflow, {:try, _, [[body | catches]]}) do
+    %__MODULE__{}
+    |> analyze_scope(body)
+    |> recursive_analyze(catches)
+    |> close_scope(dataflow)
+  end
 
-      {:case, _, [_ | _] = expression_and_clauses} ->
-        analyze_compound_scope(dataflow, expression_and_clauses, [])
+  defp recursive_analyze(dataflow, {:case, _, [_ | _] = expression_and_clauses}) do
+    analyze_compound_scope(dataflow, expression_and_clauses, [])
+  end
 
-      {:with, _, [_ | _] = children} ->
-        {
-          statements,
-          [[body | catches]]
-        } = Enum.split_while(children, &match?({:<-, _, _}, &1))
+  defp recursive_analyze(dataflow, {:with, _, [_ | _] = children}) do
+    {statements, [[body | catches]]} = Enum.split_while(children, &match?({:<-, _, _}, &1))
 
-        dataflow
-        |> analyze_compound_scope(statements, body)
-        |> recursive_analyze(catches)
+    dataflow
+    |> analyze_compound_scope(statements, body)
+    |> recursive_analyze(catches)
+  end
 
-      {:for, _, [_ | _] = children} ->
-        {statements, body} = Enum.split_while(children, &match?({_, _, _}, &1))
-        analyze_compound_scope(dataflow, statements, body)
+  defp recursive_analyze(dataflow, {:for, _, [_ | _] = children}) do
+    {statements, body} = Enum.split_while(children, &match?({_, _, _}, &1))
+    analyze_compound_scope(dataflow, statements, body)
+  end
 
-      {{:__block__, _, [:do]}, block} ->
-        analyze_scope(dataflow, block)
+  defp recursive_analyze(dataflow, {{:__block__, _, [:do]}, block}) do
+    analyze_scope(dataflow, block)
+  end
 
-      {:->, _, [[{:when, _, [left, guard]}], right]} ->
-        analyze_scope(dataflow, left, [guard, right])
+  defp recursive_analyze(dataflow, {:->, _, [[{:when, _, [left, guard]}], right]}) do
+    analyze_scope(dataflow, left, [guard, right])
+  end
 
-      {:->, _, [left, right]} ->
-        analyze_scope(dataflow, left, right)
+  defp recursive_analyze(dataflow, {:->, _, [left, right]}) do
+    analyze_scope(dataflow, left, right)
+  end
 
-      {:<-, _, [{:when, _, [left, guard]}, right]} ->
-        dataflow
-        |> recursive_analyze(right)
-        |> add_commands(gen_commands(left))
-        |> recursive_analyze(guard)
+  defp recursive_analyze(dataflow, {:<-, _, [{:when, _, [left, guard]}, right]}) do
+    dataflow
+    |> recursive_analyze(right)
+    |> add_commands(gen_commands(left))
+    |> recursive_analyze(guard)
+  end
 
-      {id, _, [left, right]} when id in ~w(= <-)a ->
-        dataflow
-        |> recursive_analyze(right)
-        |> add_commands(gen_commands(left))
+  defp recursive_analyze(dataflow, {id, _, [left, right]}) when id in ~w(= <-)a do
+    dataflow
+    |> recursive_analyze(right)
+    |> add_commands(gen_commands(left))
+  end
 
-      {:@, _, [node]} when is_variable(node) ->
-        dataflow
+  defp recursive_analyze(dataflow, {:@, _, [node]}) when is_variable(node), do: dataflow
 
-      node when is_variable(node) ->
-        add_commands(dataflow, [{:use, node}])
+  defp recursive_analyze(dataflow, node) when is_variable(node),
+    do: add_commands(dataflow, [{:use, node}])
 
-      node when is_tuple(node) or is_list(node) ->
-        if children = Zipper.children(node),
-          do: Enum.reduce(children, dataflow, &recursive_analyze(&2, &1)),
-          else: dataflow
-
-      _ ->
-        dataflow
+  defp recursive_analyze(dataflow, node) when is_tuple(node) or is_list(node) do
+    case Zipper.children(node) do
+      nil -> dataflow
+      children -> Enum.reduce(children, dataflow, &recursive_analyze(&2, &1))
     end
   end
+
+  defp recursive_analyze(dataflow, _), do: dataflow
 
   defp analyze_compound_scope(dataflow, before_statements, scope) do
     before_statements
@@ -160,12 +169,14 @@ defmodule Forge.Refactor.Dataflow do
         %{scoped_dataflow | variables: [variable | variables]}
 
       {:use, {name, _, _} = variable} ->
-        if i = Enum.find_index(variables, &(&1.name == name)) do
-          variables = update_in(variables, [Access.at(i), :usages], &[variable | &1])
+        case Enum.find_index(variables, &(&1.name == name)) do
+          nil ->
+            add_commands(scoped_dataflow, [command])
 
-          %{scoped_dataflow | variables: variables}
-        else
-          add_commands(scoped_dataflow, [command])
+          i ->
+            variables = update_in(variables, [Access.at(i), :usages], &[variable | &1])
+
+            %{scoped_dataflow | variables: variables}
         end
     end
   end

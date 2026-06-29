@@ -27,7 +27,7 @@ defmodule Forge.Test.RefactorCase do
       assert {:ok, selection_or_line} = selection_or_line(original, range)
       assert module.available?(zipper, selection_or_line)
 
-      refactored = module.execute(zipper, selection_or_line) |> Sourceror.to_string()
+      refactored = Sourceror.to_string(module.execute(zipper, selection_or_line))
 
       if unquote(raw?) do
         assert Sourceror.parse_string!(expected) == Sourceror.parse_string!(refactored)
