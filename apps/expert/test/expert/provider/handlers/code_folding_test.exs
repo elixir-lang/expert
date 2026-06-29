@@ -148,6 +148,21 @@ defmodule Expert.Provider.Handlers.CodeFoldingTest do
       assert range(2, 4) in fold(source)
     end
 
+    test "folds a function with inline heredoc string" do
+      source = """
+      defmodule Foo do
+        def bar do
+          \"\"\"
+          a
+          b
+          \"\"\"
+        end
+      end
+      """
+
+      assert range(1, 5) in fold(source)
+    end
+
     test "does not fold a 2-line heredoc with empty content" do
       source = """
       defmodule Foo do
@@ -175,6 +190,38 @@ defmodule Expert.Provider.Handlers.CodeFoldingTest do
       """
 
       assert range(2, 3) in fold(source)
+    end
+  end
+
+  describe "sigils" do
+    test "folds a multiline sigil" do
+      source = """
+      defmodule Foo do
+        def bar do
+          ~H\"\"\"
+          a
+          b
+          \"\"\"
+        end
+      end
+      """
+
+      assert range(2, 4) in fold(source)
+    end
+
+    test "folds a function with a multiline sigil" do
+      source = """
+      defmodule Foo do
+        def bar do
+          ~H\"\"\"
+          a
+          b
+          \"\"\"
+        end
+      end
+      """
+
+      assert range(1, 5) in fold(source)
     end
   end
 

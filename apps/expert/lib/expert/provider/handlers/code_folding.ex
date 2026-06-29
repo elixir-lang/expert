@@ -82,6 +82,14 @@ defmodule Expert.Provider.Handlers.CodeFolding do
         {:__block__, meta, [str]} = node, acc when is_binary(str) and is_list(meta) ->
           {node, collect_string(meta, str, acc)}
 
+        {sigil, meta, [{:<<>>, _, [str]}, _mods]} = node, acc
+        when is_atom(sigil) and is_binary(str) and is_list(meta) ->
+          if match?("sigil_" <> _, Atom.to_string(sigil)) do
+            {node, collect_string(meta, str, acc)}
+          else
+            {node, acc}
+          end
+
         node, acc ->
           {node, acc}
       end)
