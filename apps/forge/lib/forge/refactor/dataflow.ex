@@ -18,7 +18,7 @@ defmodule Forge.Refactor.Dataflow do
 
   def outer_variables(node) do
     %__MODULE__{}
-    |> recursive_analyze(node)
+    |> analyze_scope(node)
     |> Map.get(:commands)
     |> Stream.flat_map(fn
       {:use, variable} -> [variable]

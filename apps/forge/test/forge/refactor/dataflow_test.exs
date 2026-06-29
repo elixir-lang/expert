@@ -502,6 +502,40 @@ defmodule Forge.Refactor.DataflowTest do
     assert result == [variable(:x, 1, 7)]
   end
 
+  describe "outer_variables/1" do
+    test "returns variables used but not declared in the node" do
+      ast = Sourceror.parse_string!("use_it(env)")
+
+      assert [{:env, _, nil}] = Dataflow.outer_variables(ast)
+    end
+
+    test "returns no outer variables when every used variable is locally declared" do
+      ast =
+        Sourceror.parse_string!("""
+        env = build_env()
+        use_it(env)
+        """)
+
+      assert Dataflow.outer_variables(ast) == []
+    end
+
+    test "ignores local declarations even when never used and node is not scope-wrapped" do
+      ast = Sourceror.parse_string!("env = build_env()")
+
+      assert Dataflow.outer_variables(ast) == []
+    end
+
+    test "returns only the variables that come from outside the node" do
+      ast =
+        Sourceror.parse_string!("""
+        local = compute(outer1)
+        use_it(local, outer2)
+        """)
+
+      assert [{:outer1, _, nil}, {:outer2, _, nil}] = Dataflow.outer_variables(ast)
+    end
+  end
+
   defp assert_has_variables(original, expected_variables) do
     found_variables =
       original
