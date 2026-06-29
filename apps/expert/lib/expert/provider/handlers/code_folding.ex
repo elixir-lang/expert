@@ -9,6 +9,9 @@ defmodule Expert.Provider.Handlers.CodeFolding do
   alias GenLSP.Structures
 
   @impl Expert.Provider.Handler
+  def requires_engine?, do: false
+
+  @impl Expert.Provider.Handler
   def handle(
         %Requests.TextDocumentFoldingRange{params: %Structures.FoldingRangeParams{}},
         %Context{} = context

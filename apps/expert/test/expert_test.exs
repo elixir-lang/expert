@@ -259,6 +259,32 @@ defmodule Expert.ExpertTest do
              Forge.Workspace.get_workspace()
   end
 
+  test "foldingRange request is served before the engine is initialized" do
+    project = Fixtures.project()
+    lsp = initialize_lsp(project)
+
+    # Project is known but not yet ready
+    Expert.Project.Store.add_projects([project])
+
+    uri = Fixtures.file_uri(project, "lib/foo.ex")
+    document = Document.new(uri, "defmodule Foo do\n  :ok\nend\n", 1)
+
+    patch(Expert.Document.Lookup, :resolve_from_request, fn _request, _projects ->
+      {:ok, Context.new(uri, document, project)}
+    end)
+
+    request = %GenLSP.Requests.TextDocumentFoldingRange{
+      id: 1,
+      jsonrpc: "2.0",
+      method: "textDocument/foldingRange",
+      params: %GenLSP.Structures.FoldingRangeParams{
+        text_document: %GenLSP.Structures.TextDocumentIdentifier{uri: uri}
+      }
+    }
+
+    assert {:reply, [_ | _], ^lsp} = Expert.handle_request(request, lsp)
+  end
+
   test "document requests return an error when the document cannot be loaded" do
     project = Fixtures.project()
     lsp = initialize_lsp(project)

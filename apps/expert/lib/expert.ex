@@ -5,6 +5,7 @@ defmodule Expert do
   alias Expert.Project.Store
   alias Expert.Protocol.Convert
   alias Expert.Protocol.Id
+  alias Expert.Provider.Handler
   alias Expert.Provider.Handlers
   alias Expert.State
   alias Forge.Project
@@ -103,7 +104,7 @@ defmodule Expert do
 
   def handle_request(request, lsp) do
     with {:ok, handler} <- fetch_handler(request),
-         {:ok, context} <- check_engine_initialized(request),
+         {:ok, context} <- check_engine_initialized(request, handler),
          {:ok, request} <- Convert.to_native(request, context_document(context)),
          {:ok, response} <- handler.handle(request, context),
          {:ok, response} <- Expert.Protocol.Convert.to_lsp(response) do
@@ -149,12 +150,12 @@ defmodule Expert do
   defp context_document(%{document: %Forge.Document{} = document}), do: document
   defp context_document(_), do: nil
 
-  defp check_engine_initialized(request) do
+  defp check_engine_initialized(request, handler) do
     if document_request?(request) do
       projects = Store.projects()
 
       with {:ok, context} <- Lookup.resolve_from_request(request, projects) do
-        if Store.ready?(context.project) do
+        if !Handler.requires_engine?(handler) or Store.ready?(context.project) do
           {:ok, context}
         else
           {:error, :engine_not_initialized, context.project}
