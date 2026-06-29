@@ -130,6 +130,29 @@ defmodule Forge.Refactor.Variable.UnderscoreNotUsedTest do
     )
   end
 
+  test "underlines unused variable inside a defmodule-wrapped function" do
+    assert_refactored(
+      UnderscoreNotUsed,
+      """
+      defmodule MyModule do
+        def my_fun(x) do
+      #       v
+          foo = 42
+          x
+        end
+      end
+      """,
+      """
+      defmodule MyModule do
+        def my_fun(x) do
+          _foo = 42
+          x
+        end
+      end
+      """
+    )
+  end
+
   test "ignores args used on guards" do
     assert_ignored(
       UnderscoreNotUsed,

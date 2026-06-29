@@ -10,17 +10,27 @@ defmodule Forge.Refactor.Variable.UnderscoreNotUsed do
   alias Forge.Refactor.Dataflow
 
   def can_refactor?(%{node: node}, line) do
-    node
-    |> Dataflow.group_variables_semantically()
-    |> Enum.any?(fn
-      {{name, _, _} = declaration, []} ->
-        AST.starts_at?(declaration, line) and
-          not String.starts_with?("#{name}", "_")
+    start_line = AST.get_start_line(node)
+    end_line = AST.get_end_line(node)
 
-      {_declaration, _usages} ->
-        false
-    end)
-    |> if(do: true, else: :skip)
+    cond do
+      line < start_line or end_line < line ->
+        :skip
+
+      true ->
+        variables = Dataflow.group_variables_semantically(node)
+
+        cond do
+          Enum.any?(variables, &can_underline?(&1, line)) ->
+            true
+
+          variables == %{} ->
+            false
+
+          true ->
+            :skip
+        end
+    end
   end
 
   def refactor(%{node: node} = zipper, line) do
@@ -36,6 +46,13 @@ defmodule Forge.Refactor.Variable.UnderscoreNotUsed do
         end)
     end)
   end
+
+  defp can_underline?({{name, _, _} = declaration, []}, line) do
+    AST.starts_at?(declaration, line) and
+      not String.starts_with?("#{name}", "_")
+  end
+
+  defp can_underline?(_, _), do: false
 
   defp same_line_and_no_usages?({declaration, usages}, line),
     do: AST.starts_at?(declaration, line) and usages == []

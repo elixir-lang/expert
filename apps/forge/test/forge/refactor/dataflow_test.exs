@@ -471,6 +471,37 @@ defmodule Forge.Refactor.DataflowTest do
     )
   end
 
+  test "outer_variables returns only variables used but not declared in a block with an assignment" do
+    node = Sourceror.parse_string!("""
+    foo = 42
+    my_fun(x)
+    """)
+
+    result =
+      node
+      |> Dataflow.outer_variables()
+      |> Enum.map(&AST.simpler_meta/1)
+
+    assert result == [variable(:x, 2, 8)]
+  end
+
+  test "outer_variables returns empty list when selection declares a variable and uses no outer ones" do
+    node = Sourceror.parse_string!("foo = 42")
+
+    assert Dataflow.outer_variables(node) == []
+  end
+
+  test "outer_variables returns outer variable used in an assignment right-hand side" do
+    node = Sourceror.parse_string!("foo = x + 1")
+
+    result =
+      node
+      |> Dataflow.outer_variables()
+      |> Enum.map(&AST.simpler_meta/1)
+
+    assert result == [variable(:x, 1, 7)]
+  end
+
   defp assert_has_variables(original, expected_variables) do
     found_variables =
       original

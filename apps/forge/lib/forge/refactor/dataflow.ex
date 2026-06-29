@@ -20,7 +20,10 @@ defmodule Forge.Refactor.Dataflow do
     %__MODULE__{}
     |> recursive_analyze(node)
     |> Map.get(:commands)
-    |> Stream.map(fn {:use, variable} -> variable end)
+    |> Stream.flat_map(fn
+      {:use, variable} -> [variable]
+      _ -> []
+    end)
     |> Enum.reverse()
     |> Enum.uniq_by(fn {name, _, _} -> name end)
   end
@@ -101,10 +104,13 @@ defmodule Forge.Refactor.Dataflow do
       node when is_variable(node) ->
         add_commands(dataflow, [{:use, node}])
 
-      node ->
+      node when is_tuple(node) or is_list(node) ->
         if children = Zipper.children(node),
           do: Enum.reduce(children, dataflow, &recursive_analyze(&2, &1)),
           else: dataflow
+
+      _ ->
+        dataflow
     end
   end
 

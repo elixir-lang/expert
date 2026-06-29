@@ -27,6 +27,21 @@ defmodule Forge.Refactor.AST do
     |> elem(1)
   end
 
+  def get_end_line(macro) do
+    macro
+    |> Zipper.zip()
+    |> Zipper.traverse(0, fn
+      %{node: {_, meta, _}} = zipper, max_line ->
+        if is_nil(meta[:line]),
+          do: {zipper, max_line},
+          else: {zipper, max(max_line, meta[:line])}
+
+      zipper, max_line ->
+        {zipper, max_line}
+    end)
+    |> elem(1)
+  end
+
   def equal?(macro, macro), do: true
 
   def equal?({id, _, _} = macro1, {id, _, _} = macro2),

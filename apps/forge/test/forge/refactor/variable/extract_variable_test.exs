@@ -216,6 +216,25 @@ defmodule Forge.Refactor.Variable.ExtractVariableTest do
     )
   end
 
+  test "extracts from the correct branch after rewriting identical keyword if else branches" do
+    assert_refactored(
+      ExtractVariable,
+      """
+      #                                v
+      if foo(arg), do: arg + 10, else: arg + 10
+      #                                       ^
+      """,
+      """
+      if foo(arg) do
+        arg + 10
+      else
+        extracted_variable = arg + 10
+        extracted_variable
+      end
+      """
+    )
+  end
+
   test "extracts variable that is the whole block" do
     assert_refactored(
       ExtractVariable,

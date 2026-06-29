@@ -37,25 +37,44 @@ defmodule Forge.Refactor.Variable.ExtractVariable do
     end
   end
 
-  def refactor(%{node: node} = zipper, selection) do
+  def refactor(zipper, selection), do: refactor(zipper, [], selection)
+
+  defp refactor(%{node: node} = zipper, selection_path, selection) do
     case parent = Zipper.up(zipper) do
       %{node: {:->, _, [args, ^node]}} ->
         parent
-        |> Zipper.replace({:->, [], [args, extract_and_assign(parent, [node], node, selection)]})
+        |> Zipper.replace(
+          {:->, [], [args, extract_and_assign(parent, [node], 0, selection_path, selection)]}
+        )
         |> AST.go_to_node(selection)
 
       # selection is inside a COND clause
       %{node: {:->, _, [^node, _]}} ->
         %{node: {:cond, _, _}} = zipper_at_cond = AST.up(parent, 4)
-        refactor(zipper_at_cond, selection)
+
+        refactor(
+          zipper_at_cond,
+          Zipper.path_to_ancestor(zipper, zipper_at_cond) ++ selection_path,
+          selection
+        )
 
       %{node: {:__block__, meta, statements}} ->
         # if there is a closing tag, the block is probably a tuple
         if meta[:closing] do
-          refactor(parent, selection)
+          refactor(parent, Zipper.path_to_ancestor(zipper, parent) ++ selection_path, selection)
         else
+          [statement_index] = Zipper.path_to_ancestor(zipper, parent)
+
           parent
-          |> Zipper.replace(extract_and_assign(parent, statements, node, selection))
+          |> Zipper.replace(
+            extract_and_assign(
+              parent,
+              statements,
+              statement_index,
+              selection_path,
+              selection
+            )
+          )
           |> AST.go_to_node(selection)
         end
 
@@ -68,17 +87,17 @@ defmodule Forge.Refactor.Variable.ExtractVariable do
             upper_structure
             |> Function.UseRegularSyntax.refactor(line)
             |> AST.go_to_node(node)
-            |> refactor(selection)
+            |> refactor(selection_path, selection)
 
           IfElse.UseRegularSyntax.can_refactor?(upper_structure, line) ->
             upper_structure
             |> IfElse.UseRegularSyntax.refactor(line)
             |> AST.go_to_node(node)
-            |> refactor(selection)
+            |> refactor(selection_path, selection)
 
           true ->
             Zipper.update(parent, fn {block, statement} ->
-              {block, extract_and_assign(parent, [statement], statement, selection)}
+              {block, extract_and_assign(parent, [statement], 0, selection_path, selection)}
             end)
         end
         |> AST.go_to_node(selection)
@@ -92,19 +111,20 @@ defmodule Forge.Refactor.Variable.ExtractVariable do
         |> Zipper.down()
         |> Zipper.down()
         |> Zipper.right()
-        |> refactor(new_selection)
+        |> refactor(selection_path, new_selection)
 
       _ ->
-        refactor(parent, selection)
+        refactor(parent, Zipper.path_to_ancestor(zipper, parent) ++ selection_path, selection)
     end
   end
 
-  defp extract_and_assign(zipper, statements, statement, selection) do
-    {before, [_ | rest]} = Enum.split_while(statements, &(&1 != statement))
+  defp extract_and_assign(zipper, statements, statement_index, selection_path, selection) do
+    {before, [_ | rest]} = Enum.split(statements, statement_index)
+    statement = Enum.at(statements, statement_index)
 
     variable = {next_available_name(zipper), [], nil}
     assignment = {:=, [], [variable, selection]}
-    new_statement = replace_selection_by_variable(statement, selection, variable)
+    new_statement = replace_selection_by_variable(statement, selection_path, variable)
 
     {:__block__, [], before ++ [assignment, new_statement | rest]}
   end
@@ -139,17 +159,15 @@ defmodule Forge.Refactor.Variable.ExtractVariable do
     end)
   end
 
-  defp replace_selection_by_variable(statement, selection, variable) do
-    if AST.equal?(statement, selection) do
-      variable
-    else
-      statement
-      |> Zipper.zip()
-      |> AST.go_to_node(selection)
-      |> Zipper.replace(variable)
-      |> Zipper.top()
-      |> Zipper.node()
-    end
+  defp replace_selection_by_variable(_statement, [], variable), do: variable
+
+  defp replace_selection_by_variable(statement, selection_path, variable) do
+    statement
+    |> Zipper.zip()
+    |> Zipper.follow_path(selection_path)
+    |> Zipper.replace(variable)
+    |> Zipper.top()
+    |> Zipper.node()
   end
 
   defp invalid_parent?(%{node: node} = zipper) do
