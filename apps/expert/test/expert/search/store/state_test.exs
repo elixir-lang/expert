@@ -20,11 +20,12 @@ defmodule Expert.Search.Store.StateTest do
     def apply_index_update(_project, _entries, _paths),
       do: {:ok, []}
 
+    def find_by_subject(_project, :_, :module, :definition), do: [entry(1)]
     def find_by_subject(_project, _subject, _type, _subtype), do: []
     def find_by_prefix(_project, _prefix, _type, _subtype), do: []
     def find_by_ids(_project, [2], :module, :definition), do: [entry(2)]
     def find_by_ids(_project, _ids, _type, _subtype), do: []
-    def reduce(_project, acc, fun), do: fun.(entry(1), acc)
+    def path_to_ids(_project), do: %{}
     def siblings(_project, _entry), do: []
     def parent(_project, _entry), do: nil
     def structure_for_path(_project, _path), do: {:ok, %{}}
@@ -58,7 +59,7 @@ defmodule Expert.Search.Store.StateTest do
     def find_by_subject(_project, _subject, _type, _subtype), do: []
     def find_by_prefix(_project, _prefix, _type, _subtype), do: []
     def find_by_ids(_project, _ids, _type, _subtype), do: []
-    def reduce(_project, acc, _fun), do: acc
+    def path_to_ids(_project), do: %{}
     def siblings(_project, _entry), do: []
     def parent(_project, _entry), do: nil
     def structure_for_path(_project, _path), do: {:ok, %{}}

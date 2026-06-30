@@ -131,29 +131,14 @@ defmodule Expert.Search.Store.State do
     type = Keyword.get(constraints, :type, :_)
     subtype = Keyword.get(constraints, :subtype, :_)
 
-    result =
-      state.backend.reduce(state.project, [], fn
-        %Entry{} = entry, acc ->
-          if matches_constraints?(entry, type, subtype), do: [entry | acc], else: acc
-
-        _, acc ->
-          acc
-      end)
-
-    case result do
+    case state.backend.find_by_subject(state.project, :_, type, subtype) do
       {:error, _} = error -> error
       entries -> {:ok, entries}
     end
   end
 
   def path_to_ids(%__MODULE__{} = state) do
-    state.backend.reduce(state.project, %{}, fn
-      %Entry{path: path} = entry, path_to_ids when is_integer(entry.id) ->
-        Map.update(path_to_ids, path, entry.id, &max(&1, entry.id))
-
-      _entry, path_to_ids ->
-        path_to_ids
-    end)
+    state.backend.path_to_ids(state.project)
   end
 
   def resolve_mfa(%__MODULE__{} = state, module, function, arity) do
@@ -288,9 +273,5 @@ defmodule Expert.Search.Store.State do
       {:ok, fuzzy} -> %__MODULE__{state | fuzzy: fuzzy}
       {:error, _} = error -> error
     end
-  end
-
-  defp matches_constraints?(%Entry{type: t, subtype: st}, type, subtype) do
-    (type == :_ or t == type) and (subtype == :_ or st == subtype)
   end
 end

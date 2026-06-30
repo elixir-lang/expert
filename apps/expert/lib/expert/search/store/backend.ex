@@ -16,16 +16,13 @@ defmodule Expert.Search.Store.Backend do
   @type type_query :: Entry.entry_type() | wildcard()
   @type subtype_query :: Entry.entry_subtype() | wildcard()
   @type block_structure :: %{Entry.block_id() => block_structure()} | %{}
-  @type accumulator :: any()
-  @type reducer_fun :: (Entry.t(), accumulator() -> accumulator())
-
   @callback new(Project.t()) :: {:ok, priv_state()} | {:error, any()}
   @callback prepare(priv_state()) :: {:ok, load_state()} | {:error, any()}
   @callback sync(Project.t()) :: :ok | {:error, any()}
   @callback insert(Project.t(), [Entry.t()]) :: :ok | {:error, any()}
   @callback drop(Project.t()) :: boolean() | :ok | {:error, any()}
   @callback destroy(Project.t()) :: :ok | {:error, any()}
-  @callback reduce(Project.t(), accumulator(), reducer_fun()) :: accumulator() | {:error, any()}
+  @callback path_to_ids(Project.t()) :: %{Path.t() => Entry.entry_id()} | {:error, any()}
   @callback replace_all(Project.t(), [Entry.t()]) :: :ok | {:error, any()}
   @callback delete_by_path(Project.t(), Path.t()) :: {:ok, [Entry.entry_id()]} | {:error, any()}
   @callback apply_index_update(Project.t(), [Entry.t()], [Path.t()]) ::

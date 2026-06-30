@@ -153,6 +153,16 @@ defmodule Expert.Search.Store.Backends.Ets.State do
     |> List.flatten()
   end
 
+  def path_to_ids(%__MODULE__{} = state) do
+    reduce(state, %{}, fn
+      %Entry{path: path} = entry, path_to_ids when is_integer(entry.id) ->
+        Map.update(path_to_ids, path, entry.id, &max(&1, entry.id))
+
+      _entry, path_to_ids ->
+        path_to_ids
+    end)
+  end
+
   def replace_all(%__MODULE__{} = state, entries) do
     rows = Schema.entries_to_rows(entries, current_schema())
 
