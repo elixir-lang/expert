@@ -15,8 +15,13 @@ defmodule Engine.Compilation.TraceBuffer do
   alias Engine.Search.Indexer.Manifest
   alias Engine.Search.Indexer.ManifestStore
   alias Engine.Search.Indexer.Paths
+  alias Forge.Document
+  alias Forge.Document.Position
+  alias Forge.Document.Range
   alias Forge.Project
   alias Forge.Search.Indexer.Entry
+
+  @commit_timeout :infinity
 
   defstruct paths: %{}
 
@@ -55,7 +60,7 @@ defmodule Engine.Compilation.TraceBuffer do
   end
 
   def commit_project(%Project{} = project) do
-    call({:commit_project, project}, :ok)
+    call({:commit_project, project}, :ok, @commit_timeout)
   end
 
   def commit_project(_project), do: :ok
@@ -63,7 +68,7 @@ defmodule Engine.Compilation.TraceBuffer do
   def commit_path(project, path, opts \\ [])
 
   def commit_path(%Project{} = project, path, opts) when is_binary(path) and is_list(opts) do
-    call({:commit_path, project, canonical_path(path), opts}, :ok)
+    call({:commit_path, project, canonical_path(path), opts}, :ok, @commit_timeout)
   end
 
   def commit_path(_project, _path, _opts), do: :ok
@@ -115,7 +120,8 @@ defmodule Engine.Compilation.TraceBuffer do
     {reply, state} =
       commit_paths(project, [path], state,
         source_always?: true,
-        dirty_source?: Keyword.get(opts, :dirty_source?, true)
+        dirty_source?: Keyword.get(opts, :dirty_source?, true),
+        source_document: Keyword.get(opts, :source_document)
       )
 
     {:reply, reply, state}
@@ -129,10 +135,10 @@ defmodule Engine.Compilation.TraceBuffer do
     {:reply, :ok, %__MODULE__{state | paths: %{}}}
   end
 
-  defp call(message, default) do
+  defp call(message, default, timeout \\ 5_000) do
     case Process.whereis(__MODULE__) do
       nil -> default
-      pid -> GenServer.call(pid, message)
+      pid -> GenServer.call(pid, message, timeout)
     end
   end
 
@@ -176,23 +182,128 @@ defmodule Engine.Compilation.TraceBuffer do
         {:ok, state}
 
       [_ | _] ->
-        reply =
-          with :ok <- commit_search(project, paths, state.paths) do
-            commit_manifest(project, paths, state.paths, opts)
-          end
+        case commit_search(project, paths, state.paths, opts) do
+          :ok ->
+            reply = commit_manifest(project, paths, state.paths, opts)
+            {reply, %__MODULE__{state | paths: Map.drop(state.paths, paths)}}
 
-        {reply, %__MODULE__{state | paths: Map.drop(state.paths, paths)}}
+          error ->
+            {error, state}
+        end
     end
   end
 
-  defp commit_search(project, paths, path_states) do
+  defp commit_search(project, paths, path_states, opts) do
     trace_updates =
       Enum.map(paths, fn path ->
         path_state = Map.fetch!(path_states, path)
-        {path, modules(path_state), entries(path_state)}
+        {path, modules(path_state), resolve_ranges(path_state, source_document(path, opts))}
       end)
 
     Engine.ManagerApi.search_store_commit_traces(project, trace_updates)
+  end
+
+  defp resolve_ranges(%PathState{} = path_state, document) do
+    path_state
+    |> entries()
+    |> resolve_ranges(document)
+  end
+
+  defp resolve_ranges(entries, document) when is_list(entries) do
+    Enum.flat_map(entries, &resolve_ranges(&1, document))
+  end
+
+  defp resolve_ranges(
+         %Entry{metadata: %{trace_identifier: identifier}} = entry,
+         %Document{} = document
+       ) do
+    case trace_range(entry.range, document, identifier) do
+      %Range{} = range ->
+        [%Entry{entry | range: range, metadata: drop_trace_identifier(entry.metadata)}]
+
+      nil ->
+        []
+    end
+  end
+
+  defp resolve_ranges(%Entry{metadata: %{trace_identifier: _identifier}}, _document), do: []
+  defp resolve_ranges(%Entry{} = entry, _document), do: [entry]
+
+  defp drop_trace_identifier(metadata) when is_map(metadata) do
+    metadata = Map.delete(metadata, :trace_identifier)
+    if map_size(metadata) != 0, do: metadata
+  end
+
+  defp trace_range(
+         %Range{start: %Position{} = start, end: %Position{} = finish},
+         document,
+         identifier
+       ) do
+    length = max(finish.character - start.character, 1)
+
+    {column, length} =
+      trace_identifier_span(document, start.line, start.character, length, identifier)
+
+    Range.new(
+      Position.new(document, start.line, column),
+      Position.new(document, start.line, column + length)
+    )
+  end
+
+  defp trace_range(_range, _document, _identifier), do: nil
+
+  defp trace_identifier_span(%Document{} = document, line, column, fallback_length, identifier) do
+    with {:ok, line_text} <- Document.fetch_text_at(document, line),
+         {:ok, found_column, length} <- find_identifier_span(line_text, column, identifier) do
+      {found_column, length}
+    else
+      _ -> {column, fallback_length}
+    end
+  end
+
+  defp find_identifier_span(line_text, column, identifier) do
+    identifier = identifier_source(identifier)
+    search_start = max(column - 1, 0)
+    suffix = String.slice(line_text, search_start..-1//1)
+
+    case :binary.match(suffix, identifier) do
+      {start_byte, byte_length} ->
+        prefix = binary_part(suffix, 0, start_byte)
+        matched = binary_part(suffix, start_byte, byte_length)
+        {:ok, column + String.length(prefix), String.length(matched)}
+
+      :nomatch ->
+        :error
+    end
+  end
+
+  defp identifier_source(identifier) when is_atom(identifier) do
+    identifier
+    |> Macro.to_string()
+    |> String.replace_prefix("Elixir.", "")
+  end
+
+  defp identifier_source(identifier), do: to_string(identifier)
+
+  defp source_document(path, opts) do
+    case source_document_from_opts(path, opts) do
+      %Document{} = document -> document
+      _ -> source_document_from_disk(path)
+    end
+  end
+
+  defp source_document_from_opts(path, opts) do
+    case Keyword.get(opts, :source_document) do
+      %Document{path: ^path} = document -> document
+      _ -> nil
+    end
+  end
+
+  defp source_document_from_disk(path) do
+    case File.read(path) do
+      {:ok, source} -> Document.new(Document.Path.to_uri(path), source, 1)
+      _ -> nil
+    end
   end
 
   defp commit_manifest(project, paths, path_states, opts) do
@@ -308,5 +419,5 @@ defmodule Engine.Compilation.TraceBuffer do
 
   defp put_entry_path(%Entry{} = entry, path), do: %Entry{entry | path: path}
 
-  defp canonical_path(path) when is_binary(path), do: Path.expand(path)
+  defp canonical_path(path) when is_binary(path), do: path |> Path.expand() |> Forge.Path.native()
 end

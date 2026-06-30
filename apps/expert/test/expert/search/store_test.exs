@@ -46,11 +46,10 @@ defmodule Expert.Search.StoreTest do
     end
 
     def delete_by_path(project, path), do: apply_index_update(project, [], [path])
-    def reduce(project, acc, fun), do: Enum.reduce(entries(project), acc, fun)
 
     def find_by_subject(project, subject, type, subtype) do
       Enum.filter(entries(project), fn entry ->
-        entry.subject == subject and matches?(entry.type, type) and
+        matches?(entry.subject, subject) and matches?(entry.type, type) and
           matches?(entry.subtype, subtype)
       end)
     end
@@ -63,6 +62,11 @@ defmodule Expert.Search.StoreTest do
     end
 
     def find_by_ids(_project, _ids, _type, _subtype), do: []
+    def path_to_ids(project), do: newest_ids_by_path(entries(project))
+
+    def definitions_for_fuzzy(project),
+      do: Enum.filter(entries(project), &(&1.subtype == :definition))
+
     def siblings(_project, _entry), do: []
     def parent(_project, _entry), do: nil
     def structure_for_path(_project, _path), do: {:ok, %{}}
@@ -80,6 +84,16 @@ defmodule Expert.Search.StoreTest do
 
     def entries(%Project{} = project) do
       :persistent_term.get({__MODULE__, Project.unique_name(project)}, [])
+    end
+
+    defp newest_ids_by_path(entries) do
+      Enum.reduce(entries, %{}, fn
+        %Entry{path: path, id: id}, ids when is_integer(id) ->
+          Map.update(ids, path, id, &max(&1, id))
+
+        _entry, ids ->
+          ids
+      end)
     end
 
     defp matches?(_value, :_), do: true
@@ -185,10 +199,22 @@ defmodule Expert.Search.StoreTest do
     assert {:error, :not_started} = Store.commit_traces(missing_project, [])
   end
 
+  test "commit_traces makes an empty sqlite store queryable", %{project: project} do
+    path = "/trace_commit_sqlite.ex"
+    entry = definition(id: 1, path: path, subject: TraceCommit.Sqlite)
+    expected_entry = %Entry{entry | path: path |> Path.expand() |> Forge.Path.native()}
+
+    assert :ok = Store.commit_traces(project, [{path, [TraceCommit.Sqlite], [entry]}])
+
+    assert {:ok, [^expected_entry]} =
+             Store.exact(project, TraceCommit.Sqlite, type: :module, subtype: :definition)
+  end
+
   test "commit_traces enables public queries after failed initial load" do
     trace_project = project(:scratch)
     path = "/trace_commit.ex"
     entry = definition(id: 1, path: path, subject: TraceCommit.PublicQuery)
+    expected_entry = %Entry{entry | path: path |> Path.expand() |> Forge.Path.native()}
 
     DelayedBackend.set_owner(self())
     DelayedBackend.set_ready(false)
@@ -203,7 +229,7 @@ defmodule Expert.Search.StoreTest do
     assert :ok = Store.commit_traces(trace_project, [{path, [TraceCommit.PublicQuery], [entry]}])
     assert_receive {:prepare, true}
 
-    assert {:ok, [^entry]} =
+    assert {:ok, [^expected_entry]} =
              Store.exact(trace_project, TraceCommit.PublicQuery,
                type: :module,
                subtype: :definition

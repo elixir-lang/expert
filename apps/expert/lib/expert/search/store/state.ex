@@ -263,20 +263,23 @@ defmodule Expert.Search.Store.State do
   end
 
   def commit_traces(%__MODULE__{} = state, trace_updates) when is_list(trace_updates) do
-    with {:ok, state} <- prepare_for_trace_commit(state) do
+    with {:ok, load_status, state} <- prepare_for_trace_commit(state) do
       trace_updates = normalize_trace_updates(trace_updates)
 
-      if state.loaded? do
-        replace_loaded_trace_entries(state, trace_updates)
-      else
-        replace_unloaded_trace_entries(state, trace_updates)
+      case load_status do
+        :empty -> replace_unloaded_trace_entries(state, trace_updates)
+        _ -> replace_loaded_trace_entries(state, trace_updates)
       end
     end
   end
 
+  defp prepare_for_trace_commit(%__MODULE__{loaded?: true} = state) do
+    {:ok, state.load_status, state}
+  end
+
   defp prepare_for_trace_commit(%__MODULE__{} = state) do
     case load(state) do
-      {:ok, _status, %__MODULE__{} = state} -> {:ok, state}
+      {:ok, status, %__MODULE__{} = state} -> {:ok, status, state}
       {:error, _} = error -> error
       error -> {:error, error}
     end
@@ -300,34 +303,17 @@ defmodule Expert.Search.Store.State do
   end
 
   defp replace_unloaded_trace_entries(%__MODULE__{} = state, trace_updates) do
-    traced_paths = trace_paths(trace_updates)
-    traced_modules = trace_modules(trace_updates)
-    module_atoms = MapSet.new(traced_modules)
-    module_by_name = module_by_name(traced_modules)
-    match_modules? = MapSet.size(module_atoms) > 0
-    new_entries = trace_entries_with_structure(trace_updates)
+    entries = trace_entries_with_structure(trace_updates)
 
-    kept_entries =
-      state.backend.reduce(state.project, [], fn
-        %Entry{path: path} = entry, acc when is_binary(path) ->
-          replace? =
-            MapSet.member?(traced_paths, path) or
-              (match_modules? and
-                 definition_for_exact_modules?(entry, module_atoms, module_by_name))
-
-          if replace?, do: acc, else: [entry | acc]
-
-        %Entry{} = entry, acc ->
-          [entry | acc]
-
-        _entry, acc ->
-          acc
-      end)
-
-    with kept_entries when is_list(kept_entries) <- kept_entries,
-         :ok <- state.backend.replace_all(state.project, Enum.reverse(kept_entries, new_entries)),
+    with :ok <- state.backend.replace_all(state.project, entries),
          :ok <- maybe_sync(state) do
-      {:ok, %__MODULE__{state | fuzzy: Fuzzy.from_entries(state.project, new_entries)}}
+      {:ok,
+       %__MODULE__{
+         state
+         | loaded?: true,
+           load_status: :ready,
+           fuzzy: Fuzzy.from_entries(state.project, entries)
+       }}
     else
       {:error, _} = error -> error
       error -> {:error, error}
@@ -386,40 +372,46 @@ defmodule Expert.Search.Store.State do
     module_atoms = MapSet.new(modules)
     module_by_name = module_by_name(modules)
 
-    result =
-      state.backend.reduce(state.project, %{}, fn
-        %Entry{path: path} = entry, acc when is_binary(path) ->
-          if MapSet.member?(traced_paths, path) do
-            acc
-          else
-            case exact_definition_module(entry, module_atoms, module_by_name) do
-              {:ok, module} -> Map.update(acc, path, [module], &[module | &1])
-              :error -> acc
-            end
-          end
-
-        _entry, acc ->
+    state
+    |> all_definitions()
+    |> Enum.reduce(%{}, fn
+      %Entry{path: path} = entry, acc when is_binary(path) ->
+        if MapSet.member?(traced_paths, path) do
           acc
-      end)
+        else
+          case exact_definition_module(entry, module_atoms, module_by_name) do
+            {:ok, module} -> Map.update(acc, path, [module], &[module | &1])
+            :error -> acc
+          end
+        end
 
-    case result do
-      modules_by_path when is_map(modules_by_path) ->
-        Map.new(modules_by_path, fn {path, modules} -> {path, Enum.uniq(modules)} end)
-
-      _error ->
-        %{}
-    end
+      _entry, acc ->
+        acc
+    end)
+    |> Map.new(fn {path, modules} -> {path, Enum.uniq(modules)} end)
   end
 
   defp entries_for_path(%__MODULE__{} = state, path) do
-    case state.backend.reduce(state.project, [], fn
-           %Entry{path: ^path} = entry, acc -> [entry | acc]
-           _entry, acc -> acc
-         end) do
-      entries when is_list(entries) -> entries
-      _error -> []
+    entries =
+      state
+      |> all_entries()
+      |> Enum.filter(&match?(%Entry{path: ^path}, &1))
+
+    case {Enum.any?(entries, &structure?/1),
+          state.backend.structure_for_path(state.project, path)} do
+      {false, {:ok, structure}} -> [Entry.block_structure(path, structure) | entries]
+      _ -> entries
     end
   end
+
+  defp all_definitions(%__MODULE__{} = state),
+    do: entries_result(state.backend.find_by_subject(state.project, :_, :_, :definition))
+
+  defp all_entries(%__MODULE__{} = state),
+    do: entries_result(state.backend.find_by_subject(state.project, :_, :_, :_))
+
+  defp entries_result(entries) when is_list(entries), do: entries
+  defp entries_result(_error), do: []
 
   defp put_entry_path(%Entry{} = entry, path), do: %Entry{entry | path: path}
 

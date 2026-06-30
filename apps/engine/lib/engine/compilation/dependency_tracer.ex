@@ -64,6 +64,6 @@ defmodule Engine.Compilation.DependencyTracer do
     end
   end
 
-  defp canonical_path(path) when is_binary(path), do: Path.expand(path)
+  defp canonical_path(path) when is_binary(path), do: path |> Path.expand() |> Forge.Path.native()
   defp canonical_path(path), do: path
 end

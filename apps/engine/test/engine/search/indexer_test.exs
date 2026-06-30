@@ -260,8 +260,8 @@ defmodule Engine.Search.IndexerTest do
     } do
       module = Module.concat(TraceProjectIndexerTest, :ExpertLike)
       project_module = Module.concat(TraceProjectIndexerTest, :MixProject)
-      app_root = Path.join(tmp_dir, "trace_project")
-      source_path = Path.join([app_root, "lib", "expert_like.ex"])
+      app_root = native_join([tmp_dir, "trace_project"])
+      source_path = native_join([app_root, "lib", "expert_like.ex"])
 
       write_mix_project!(
         app_root,
@@ -437,7 +437,7 @@ defmodule Engine.Search.IndexerTest do
       tmp_dir: tmp_dir
     } do
       module = Module.concat(TraceProjectIndexerTest, :TraceCoveredSource)
-      source_path = Path.join([tmp_dir, "lib", "trace_covered_source.ex"])
+      source_path = native_join([tmp_dir, "lib", "trace_covered_source.ex"])
 
       write_file!(source_path, "defmodule #{inspect(module)} do end")
 
@@ -466,7 +466,7 @@ defmodule Engine.Search.IndexerTest do
       tmp_dir: tmp_dir
     } do
       module = Module.concat(TraceProjectIndexerTest, :StaleManifestClearOnly)
-      source_path = Path.join([tmp_dir, "lib", "stale_manifest_clear_only.ex"])
+      source_path = native_join([tmp_dir, "lib", "stale_manifest_clear_only.ex"])
 
       write_file!(source_path, "defmodule #{inspect(module)} do end")
 
@@ -1183,7 +1183,7 @@ defmodule Engine.Search.IndexerTest do
     target = Module.concat(SourceReferenceScriptTest, :"Target#{suffix}")
     caller = Module.concat(SourceReferenceScriptTest, :"Caller#{suffix}")
     project_module = Module.concat(SourceReferenceScriptTest, :"MixProject#{suffix}")
-    test_path = Path.join([tmp_dir, "test", "source_reference_test.exs"])
+    test_path = native_join([tmp_dir, "test", "source_reference_test.exs"])
 
     write_mix_project!(
       tmp_dir,
@@ -1217,8 +1217,8 @@ defmodule Engine.Search.IndexerTest do
     module = Keyword.fetch!(opts, :module)
     source = Keyword.fetch!(opts, :source)
     app = Keyword.get(opts, :app, :project_beam_indexer_test)
-    app_root = Path.join(tmp_dir, "project_beam")
-    source_path = Path.join([app_root, "lib", "project_beam_module.ex"])
+    app_root = native_join([tmp_dir, "project_beam"])
+    source_path = native_join([app_root, "lib", "project_beam_module.ex"])
 
     project_module =
       Module.concat(ProjectBeamIndexerTest, :"MixProject#{System.unique_integer([:positive])}")
@@ -1244,7 +1244,7 @@ defmodule Engine.Search.IndexerTest do
       |> Project.set_project_module(project_module)
 
     {:ok, build_path} = Engine.Mix.in_project(project, fn _ -> Mix.Project.build_path() end)
-    ebin_path = Path.join([build_path, "lib", Atom.to_string(app), "ebin"])
+    ebin_path = native_join([build_path, "lib", Atom.to_string(app), "ebin"])
 
     File.mkdir_p!(Path.dirname(source_path))
     File.mkdir_p!(ebin_path)
@@ -1260,7 +1260,7 @@ defmodule Engine.Search.IndexerTest do
              )
 
     %{
-      beam_path: Path.join(ebin_path, Atom.to_string(module) <> ".beam"),
+      beam_path: native_join([ebin_path, Atom.to_string(module) <> ".beam"]),
       module: module,
       project: project,
       source_path: source_path
@@ -1384,7 +1384,7 @@ defmodule Engine.Search.IndexerTest do
   end
 
   defp with_compiled_beam_dependency(tmp_dir, modules, dep_source, opts) do
-    app_root = Path.join(tmp_dir, "beam_app")
+    app_root = native_join([tmp_dir, "beam_app"])
     module = Keyword.get(opts, :module, hd(modules))
 
     project_module = Module.concat(BeamDependencyIndexerTest, :"MixProject#{unique_id()}")
@@ -1431,9 +1431,9 @@ defmodule Engine.Search.IndexerTest do
 
     {:ok, deps_root} = Engine.Mix.in_project(project, fn _ -> Mix.Project.deps_path() end)
     {:ok, build_path} = Engine.Mix.in_project(project, fn _ -> Mix.Project.build_path() end)
-    dep_root = Path.join(deps_root, "beam_dep")
-    dep_file = Path.join([dep_root, "lib", "beam_dep_module.ex"])
-    ebin_path = Path.join([build_path, "lib", Atom.to_string(dep_app), "ebin"])
+    dep_root = native_join([deps_root, "beam_dep"])
+    dep_file = native_join([dep_root, "lib", "beam_dep_module.ex"])
+    ebin_path = native_join([build_path, "lib", Atom.to_string(dep_app), "ebin"])
 
     File.mkdir_p!(Path.dirname(dep_file))
     File.mkdir_p!(ebin_path)
@@ -1464,7 +1464,7 @@ defmodule Engine.Search.IndexerTest do
       File.touch!(dep_file, {{2000, 1, 1}, {0, 0, 0}})
     end
 
-    beam_paths = Enum.map(modules, &Path.join(ebin_path, Atom.to_string(&1) <> ".beam"))
+    beam_paths = Enum.map(modules, &native_join([ebin_path, Atom.to_string(&1) <> ".beam"]))
 
     %{
       app_root: app_root,

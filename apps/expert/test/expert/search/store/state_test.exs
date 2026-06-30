@@ -1,5 +1,5 @@
 defmodule Expert.Search.Store.StateTest do
-  use ExUnit.Case, async: true
+  use ExUnit.Case, async: false
 
   import ExUnit.CaptureLog
   import Forge.Test.Fixtures
@@ -74,13 +74,19 @@ defmodule Expert.Search.Store.StateTest do
   defmodule TraceBackend do
     @behaviour Expert.Search.Store.Backend
 
-    def new(_project), do: {:ok, :new}
-    def prepare(_), do: {:ok, :stale}
+    def new(project), do: {:ok, project}
+    def prepare(project), do: {:ok, prepare_status(project)}
     def sync(_project), do: :ok
     def insert(project, entries), do: set_entries(project, entries(project) ++ entries)
-    def replace_all(project, entries), do: set_entries(project, entries)
+
+    def replace_all(project, entries) do
+      record_operation(project, :replace_all)
+      set_entries(project, entries)
+    end
 
     def apply_index_update(project, updated_entries, paths_to_clear) do
+      record_operation(project, :apply_index_update)
+
       paths_to_clear = MapSet.new(paths_to_clear)
 
       {deleted_entries, kept_entries} =
@@ -95,11 +101,9 @@ defmodule Expert.Search.Store.StateTest do
       apply_index_update(project, [], [path])
     end
 
-    def reduce(project, acc, fun), do: Enum.reduce(entries(project), acc, fun)
-
     def find_by_subject(project, subject, type, subtype) do
       Enum.filter(entries(project), fn entry ->
-        entry.subject == subject and matches?(entry.type, type) and
+        matches?(entry.subject, subject) and matches?(entry.type, type) and
           matches?(entry.subtype, subtype)
       end)
     end
@@ -112,6 +116,11 @@ defmodule Expert.Search.Store.StateTest do
     end
 
     def find_by_ids(_project, _ids, _type, _subtype), do: []
+    def path_to_ids(project), do: newest_ids_by_path(entries(project))
+
+    def definitions_for_fuzzy(project),
+      do: Enum.filter(entries(project), &(&1.subtype == :definition))
+
     def siblings(_project, _entry), do: []
     def parent(_project, _entry), do: nil
     def structure_for_path(_project, _path), do: {:ok, %{}}
@@ -127,10 +136,55 @@ defmodule Expert.Search.Store.StateTest do
       :persistent_term.get({__MODULE__, Project.unique_name(project)}, [])
     end
 
+    def reset(%Project{} = project) do
+      project_name = Project.unique_name(project)
+      :persistent_term.erase({__MODULE__, project_name})
+      :persistent_term.erase({__MODULE__, project_name, :prepare_status})
+      :persistent_term.erase({__MODULE__, project_name, :operations})
+      :ok
+    end
+
+    def set_prepare_status(%Project{} = project, status) when status in [:empty, :stale] do
+      :persistent_term.put({__MODULE__, Project.unique_name(project), :prepare_status}, status)
+    end
+
+    def operations(%Project{} = project) do
+      :persistent_term.get({__MODULE__, Project.unique_name(project), :operations}, [])
+    end
+
+    def clear_operations(%Project{} = project) do
+      :persistent_term.erase({__MODULE__, Project.unique_name(project), :operations})
+    end
+
+    defp prepare_status(%Project{} = project) do
+      :persistent_term.get({__MODULE__, Project.unique_name(project), :prepare_status}, :stale)
+    end
+
+    defp record_operation(%Project{} = project, operation) do
+      key = {__MODULE__, Project.unique_name(project), :operations}
+      operations = :persistent_term.get(key, [])
+      :persistent_term.put(key, operations ++ [operation])
+    end
+
+    defp newest_ids_by_path(entries) do
+      Enum.reduce(entries, %{}, fn
+        %Entry{path: path, id: id}, ids when is_integer(id) ->
+          Map.update(ids, path, id, &max(&1, id))
+
+        _entry, ids ->
+          ids
+      end)
+    end
+
     defp matches?(_value, :_), do: true
     defp matches?({kind, _}, {kind, :_}), do: true
     defp matches?(value, value), do: true
     defp matches?(_, _), do: false
+  end
+
+  setup do
+    TraceBackend.reset(project())
+    :ok
   end
 
   test "load/1 returns backend startup errors" do
@@ -143,7 +197,7 @@ defmodule Expert.Search.Store.StateTest do
     assert log =~ "Could not initialize index backend"
   end
 
-  test "all reduces backend entries and fuzzy uses in-memory ids" do
+  test "all queries backend entries and fuzzy uses in-memory ids" do
     project = project()
 
     fuzzy_entry = %Entry{
@@ -213,6 +267,25 @@ defmodule Expert.Search.Store.StateTest do
 
     assert {:ok, [^entry]} =
              State.exact(state, subject, type: {:function, :usage}, subtype: :reference)
+  end
+
+  test "commit_traces bulk replaces an empty backend" do
+    project = project()
+    path = "/empty_trace_commit.ex"
+    entry = definition(id: 1, path: path, subject: TraceCommit.EmptyBulk, type: :module)
+
+    TraceBackend.set_prepare_status(project, :empty)
+    TraceBackend.set_entries(project, [])
+    TraceBackend.clear_operations(project)
+
+    state = State.new(project, TraceBackend)
+
+    assert {:ok, state} = State.commit_traces(state, [{path, [TraceCommit.EmptyBulk], [entry]}])
+
+    assert state.loaded?
+    assert state.load_status == :ready
+    assert [:replace_all] = TraceBackend.operations(project)
+    assert Enum.any?(TraceBackend.entries(project), &(&1.subject == TraceCommit.EmptyBulk))
   end
 
   defp definition(opts) do

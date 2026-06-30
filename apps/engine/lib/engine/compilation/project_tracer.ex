@@ -142,7 +142,7 @@ defmodule Engine.Compilation.ProjectTracer do
     insert_reference(
       path,
       metadata,
-      name,
+      Atom.to_string(name),
       Subject.mfa(module, name, arity),
       {:function, :usage},
       module
@@ -161,14 +161,15 @@ defmodule Engine.Compilation.ProjectTracer do
     case metadata_range(metadata, identifier) do
       {:ok, range} ->
         entry =
-          Entry.reference(
-            path,
+          path
+          |> Entry.reference(
             Block.root(),
             subject,
             type,
             range,
             Engine.ApplicationCache.application(app_module)
           )
+          |> Entry.put_metadata(%{trace_identifier: identifier})
 
         TraceBuffer.add_references(path, [entry])
 
@@ -219,7 +220,7 @@ defmodule Engine.Compilation.ProjectTracer do
     %Position{line: line, character: column, starting_index: 1}
   end
 
-  defp canonical_path(path) when is_binary(path), do: Path.expand(path)
+  defp canonical_path(path) when is_binary(path), do: path |> Path.expand() |> Forge.Path.native()
   defp canonical_path(path), do: path
 
   defp trace_project_source(file, fun) when is_function(fun, 1) do

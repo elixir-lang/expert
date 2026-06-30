@@ -332,10 +332,10 @@ defmodule Engine.Search.Indexer.Paths do
   defp restore_env(name, :error), do: System.delete_env(name)
 
   defp beam_app_paths(build_dir) do
-    Path.wildcard(Path.join([build_dir, "lib", "*"]))
+    Forge.Path.glob([build_dir, "lib", "*"])
   end
 
   defp beam_files(app_path) do
-    Path.wildcard(Path.join([app_path, "ebin", "*.beam"]))
+    Forge.Path.glob([app_path, "ebin", "*.beam"])
   end
 end

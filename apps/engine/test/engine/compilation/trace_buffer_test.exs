@@ -12,6 +12,7 @@ defmodule Engine.Compilation.TraceBufferTest do
   alias Engine.Search.Indexer.ManifestStore
   alias Engine.Search.Indexer.Paths
   alias Engine.Test.SearchBackend
+  alias Forge.Document
   alias Forge.Document.Position
   alias Forge.Document.Range
   alias Forge.Formats
@@ -74,8 +75,8 @@ defmodule Engine.Compilation.TraceBufferTest do
       project: project,
       tmp_dir: tmp_dir
     } do
-      source_path = Path.join([tmp_dir, "lib", "canonical_trace.ex"])
-      beam_path = Path.join([tmp_dir, "ebin", "Elixir.CanonicalTrace.beam"])
+      source_path = native_join([tmp_dir, "lib", "canonical_trace.ex"])
+      beam_path = native_join([tmp_dir, "ebin", "Elixir.CanonicalTrace.beam"])
       module = Module.concat(__MODULE__, :CanonicalTrace)
 
       File.mkdir_p!(Path.dirname(source_path))
@@ -184,11 +185,31 @@ defmodule Engine.Compilation.TraceBufferTest do
       refute TraceBuffer.traced?(source_path)
     end
 
+    test "keeps attempted paths after a failed search commit", %{
+      project: project,
+      tmp_dir: tmp_dir
+    } do
+      module = Module.concat(__MODULE__, :FailedSearchCommitTrace)
+      source_path = Path.join(tmp_dir, "failed_search_commit_trace.ex")
+
+      File.write!(source_path, "defmodule #{inspect(module)} do end\n")
+
+      TraceBuffer.clear(source_path)
+      TraceBuffer.add_definitions(source_path, module, [module_definition(source_path, module)])
+
+      patch(Engine.ManagerApi, :search_store_commit_traces, fn ^project, _trace_updates ->
+        {:error, :not_started}
+      end)
+
+      assert {:error, :not_started} = TraceBuffer.commit_path(project, source_path)
+      assert TraceBuffer.traced?(source_path)
+    end
+
     test "trace buffer manifest commit does not discover every project path", %{
       project: project,
       tmp_dir: tmp_dir
     } do
-      source_path = Path.join(tmp_dir, "manifest_without_project_discovery.ex")
+      source_path = native_join([tmp_dir, "manifest_without_project_discovery.ex"])
       File.write!(source_path, "defmodule ManifestWithoutProjectDiscovery do end\n")
 
       patch(Paths, :for_project, fn ^project -> raise "should not discover all project paths" end)
@@ -297,6 +318,76 @@ defmodule Engine.Compilation.TraceBufferTest do
              )
     end
 
+    test "stores source-backed ranges for compiler traced references", %{
+      project: project,
+      tmp_dir: tmp_dir
+    } do
+      module = Module.concat(__MODULE__, :TracedReferenceRange)
+      path = Path.join(tmp_dir, "traced_reference_range.ex")
+
+      source = """
+      defmodule #{inspect(module)} do
+        def value do
+          Forge.Identifier.next_global!()
+        end
+      end
+      """
+
+      File.write!(path, source)
+
+      compile_project_file(tmp_dir, path)
+      assert :ok = TraceBuffer.commit_project(project)
+
+      subject = Formats.mfa(Forge.Identifier, :next_global!, 0)
+
+      assert_eventually(%Entry{} = reference_entry(subject), 500)
+
+      entry = reference_entry(subject)
+      assert entry.range.start.line == 3
+      assert entry.range.start.character == source_column(source, 3, "next_global!")
+
+      assert entry.range.end.character ==
+               entry.range.start.character + String.length("next_global!")
+
+      assert entry.range.start.document_line_count > 0
+    end
+
+    test "uses scoped dirty document when tracing reference ranges", %{
+      project: project,
+      tmp_dir: tmp_dir
+    } do
+      module = Module.concat(__MODULE__, :DirtyReferenceRange)
+      path = Path.join(tmp_dir, "dirty_reference_range.ex")
+
+      File.write!(path, "defmodule #{inspect(module)} do\n  def value, do: :disk\nend\n")
+
+      source = """
+      defmodule #{inspect(module)} do
+        def value do
+          :memory
+          Forge.Identifier.next_global!()
+        end
+      end
+      """
+
+      document = Document.new(path, source, 2)
+      Engine.set_project(project)
+
+      Tracers.with_project(project, [ProjectTracer], fn ->
+        Code.compile_string(source, path)
+      end)
+
+      assert :ok = TraceBuffer.commit_path(project, path, source_document: document)
+
+      subject = Formats.mfa(Forge.Identifier, :next_global!, 0)
+
+      assert_eventually(%Entry{} = reference_entry(subject), 500)
+
+      entry = reference_entry(subject)
+      assert entry.range.start.line == 4
+      assert entry.range.start.character == source_column(source, 4, "next_global!")
+    end
+
     test "ignores script files", %{tmp_dir: tmp_dir} do
       path = Path.join(tmp_dir, "sample.exs")
       module = Module.concat(__MODULE__, :"Script#{System.unique_integer([:positive])}")
@@ -331,11 +422,11 @@ defmodule Engine.Compilation.TraceBufferTest do
     end
 
     test "restores scoped project tracing after compile", %{tmp_dir: tmp_dir} do
-      project_path = Path.join(tmp_dir, "project")
+      project_path = native_join([tmp_dir, "project"])
       File.mkdir_p!(project_path)
 
-      project_file = Path.join(project_path, "project_module.ex")
-      ambient_file = Path.join(project_path, "ambient_module.ex")
+      project_file = native_join([project_path, "project_module.ex"])
+      ambient_file = native_join([project_path, "ambient_module.ex"])
 
       project_module =
         Module.concat(__MODULE__, :"ScopedProject#{System.unique_integer([:positive])}")
@@ -375,7 +466,7 @@ defmodule Engine.Compilation.TraceBufferTest do
       app = :"trace_buffer_manifest_#{System.unique_integer([:positive])}"
 
       write_mix_project!(tmp_dir, project_module, app)
-      source_path = Path.join([tmp_dir, "lib", "manifest_beam_path.ex"])
+      source_path = native_join([tmp_dir, "lib", "manifest_beam_path.ex"])
       File.mkdir_p!(Path.dirname(source_path))
 
       File.write!(source_path, """
@@ -390,7 +481,7 @@ defmodule Engine.Compilation.TraceBufferTest do
       {:ok, expected_beam_path} =
         Engine.Mix.in_project(project, fn _ ->
           Mix.Task.clear()
-          expected = Path.join(Mix.Project.compile_path(), "#{Atom.to_string(module)}.beam")
+          expected = native_join([Mix.Project.compile_path(), "#{Atom.to_string(module)}.beam"])
 
           Tracers.with([ProjectTracer], fn ->
             Mix.Task.run(:compile, ["--force"])
@@ -460,7 +551,7 @@ defmodule Engine.Compilation.TraceBufferTest do
       app = :"dependency_trace_buffer_manifest_#{System.unique_integer([:positive])}"
 
       write_mix_project!(tmp_dir, project_module, app)
-      source_path = Path.join([tmp_dir, "lib", "dependency_manifest_beam_path.ex"])
+      source_path = native_join([tmp_dir, "lib", "dependency_manifest_beam_path.ex"])
       File.mkdir_p!(Path.dirname(source_path))
 
       File.write!(source_path, """
@@ -474,7 +565,7 @@ defmodule Engine.Compilation.TraceBufferTest do
       {:ok, expected_beam_path} =
         Engine.Mix.in_project(project, fn _ ->
           Mix.Task.clear()
-          expected = Path.join(Mix.Project.compile_path(), "#{Atom.to_string(module)}.beam")
+          expected = native_join([Mix.Project.compile_path(), "#{Atom.to_string(module)}.beam"])
 
           Tracers.with([DependencyTracer], fn ->
             Mix.Task.run(:compile, ["--force"])
@@ -663,6 +754,12 @@ defmodule Engine.Compilation.TraceBufferTest do
     root |> Forge.Document.Path.to_uri() |> Project.bare()
   end
 
+  defp native_join(path_segments) do
+    path_segments
+    |> Path.join()
+    |> Forge.Path.native()
+  end
+
   defp write_mix_project!(root, module, app) do
     File.write!(Path.join(root, "mix.exs"), """
     defmodule #{inspect(module)} do
@@ -720,11 +817,11 @@ defmodule Engine.Compilation.TraceBufferTest do
 
   defp path_dependency_project!(tmp_dir) do
     unique = System.unique_integer([:positive])
-    app_root = Path.join(tmp_dir, "app_#{unique}")
+    app_root = native_join([tmp_dir, "app_#{unique}"])
     dep_app = :"deps_loadpaths_trace_dep_#{unique}"
     dep_name = Atom.to_string(dep_app)
     dep_root = Path.join([app_root, "deps", dep_name])
-    source_path = Path.join([dep_root, "lib", "deps_loadpaths_trace.ex"])
+    source_path = native_join([dep_root, "lib", "deps_loadpaths_trace.ex"])
 
     project_module = Module.concat(__MODULE__, :"DepsLoadpathsTraceMixProject#{unique}")
     dep_project_module = Module.concat(__MODULE__, :"DepsLoadpathsTraceDepMixProject#{unique}")
@@ -791,6 +888,22 @@ defmodule Engine.Compilation.TraceBufferTest do
       test_range(),
       nil
     )
+  end
+
+  defp reference_entry(subject) do
+    Enum.find(SearchBackend.entries(), fn entry ->
+      entry.subject == subject and entry.type == {:function, :usage} and
+        entry.subtype == :reference
+    end)
+  end
+
+  defp source_column(source, line_number, token) do
+    source
+    |> String.split("\n")
+    |> Enum.at(line_number - 1)
+    |> :binary.match(token)
+    |> elem(0)
+    |> Kernel.+(1)
   end
 
   defp test_range do

@@ -30,7 +30,11 @@ defmodule Engine.Search.Indexer.Beams do
 
   def extract_definitions_from_binary(beam, opts \\ []) when is_binary(beam) do
     with {:ok, metadata} <- extract_metadata_from_binary(beam) do
-      metadata = maybe_put_source_path(metadata, Keyword.get(opts, :source_path))
+      metadata =
+        metadata
+        |> normalize_metadata_source_path()
+        |> maybe_put_source_path(Keyword.get(opts, :source_path))
+
       source_path = Map.get(metadata, :file)
       entries = metadata_entries(metadata, source_lines(metadata), opts)
       {:ok, with_source_document_ranges(source_path, entries)}
@@ -269,6 +273,7 @@ defmodule Engine.Search.Indexer.Beams do
   end
 
   defp metadata_result_from_beam(beam_path, beam_stat, metadata) do
+    metadata = normalize_metadata_source_path(metadata)
     source_path = Map.get(metadata, :file)
     source_stat_result = stat_source(source_path)
 
@@ -375,10 +380,17 @@ defmodule Engine.Search.Indexer.Beams do
   end
 
   defp maybe_put_source_path(metadata, source_path) when is_binary(source_path) do
-    Map.put(metadata, :file, source_path)
+    Map.put(metadata, :file, Forge.Path.native(source_path))
   end
 
   defp maybe_put_source_path(metadata, _source_path), do: metadata
+
+  defp normalize_metadata_source_path(%{file: source_path} = metadata)
+       when is_binary(source_path) do
+    %{metadata | file: Forge.Path.native(source_path)}
+  end
+
+  defp normalize_metadata_source_path(metadata), do: metadata
 
   defp metadata_entries(metadata, source_lines, opts) do
     context = metadata |> entry_context() |> Map.put(:source_lines, source_lines)

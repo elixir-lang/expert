@@ -213,7 +213,10 @@ defmodule Engine.Build.State do
     do: TraceBuffer.discard_project(project)
 
   defp settle_file_trace(%Project{} = project, %Document{} = document, :success) do
-    TraceBuffer.commit_path(project, document.path, dirty_source?: true)
+    TraceBuffer.commit_path(project, document.path,
+      dirty_source?: true,
+      source_document: document
+    )
   end
 
   defp settle_file_trace(_project, %Document{} = document, _status) do
@@ -228,9 +231,14 @@ defmodule Engine.Build.State do
 
   defp compile_document(%Project{kind: :mix} = project, document) do
     Engine.Mix.in_project(project, fn _ ->
-      Tracers.with_project(project, [ProjectTracer], [buffer_beam_paths?: false], fn ->
-        Build.Document.compile(document)
-      end)
+      Tracers.with_project(
+        project,
+        [ProjectTracer],
+        [buffer_beam_paths?: false],
+        fn ->
+          Build.Document.compile(document)
+        end
+      )
     end)
   end
 

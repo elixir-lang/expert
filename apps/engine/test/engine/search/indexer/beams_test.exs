@@ -557,10 +557,14 @@ defmodule Engine.Search.Indexer.BeamsTest do
 
   defp compile_source!(tmp_dir, source, opts) do
     source_path =
-      Path.join([tmp_dir, "lib", "beam_source_#{System.unique_integer([:positive])}.ex"])
+      [tmp_dir, "lib", "beam_source_#{System.unique_integer([:positive])}.ex"]
+      |> Path.join()
+      |> Forge.Path.native()
 
     ebin_path =
-      Path.join([tmp_dir, "ebin", Integer.to_string(System.unique_integer([:positive]))])
+      [tmp_dir, "ebin", Integer.to_string(System.unique_integer([:positive]))]
+      |> Path.join()
+      |> Forge.Path.native()
 
     File.mkdir_p!(Path.dirname(source_path))
     File.mkdir_p!(ebin_path)
@@ -597,7 +601,7 @@ defmodule Engine.Search.Indexer.BeamsTest do
 
     beam_paths_by_module =
       Map.new(compiled_modules, fn module ->
-        {module, Path.join(ebin_path, Atom.to_string(module) <> ".beam")}
+        {module, ebin_path |> Path.join(Atom.to_string(module) <> ".beam") |> Forge.Path.native()}
       end)
 
     %{

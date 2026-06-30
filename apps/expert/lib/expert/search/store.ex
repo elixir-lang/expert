@@ -386,7 +386,7 @@ defmodule Expert.Search.Store do
 
   defp normalize_trace_update_paths(trace_updates) do
     Enum.map(trace_updates, fn {path, modules, entries} ->
-      {Path.expand(path), modules, entries}
+      {path |> Path.expand() |> Forge.Path.native(), modules, entries}
     end)
   end
 

@@ -48,7 +48,7 @@ defmodule Engine.CodeIntelligence.References do
     subtype = subtype(include_definitions?)
 
     case ManagerApi.search_store_prefix(Engine.get_project(), subject,
-           type: {:function, :_},
+           type: :_,
            subtype: subtype
          ) do
       {:ok, entries} -> Enum.map(entries, &to_location/1)
