@@ -6,7 +6,29 @@
 let
   version = builtins.readFile ../version.txt;
 
-  engineDeps = callPackages ../apps/engine/deps.nix { inherit lib beamPackages; };
+  engineDeps = callPackages ../apps/engine/deps.nix {
+    inherit lib beamPackages;
+    # elixir_sense ships a yecc grammar (src/elixir_sense_parser.yrl). Mix normally
+    # compiles it into src/elixir_sense_parser.erl, but at runtime the engine builds
+    # against these sources straight from the read-only Nix store, so that in-tree
+    # write fails. Pre-generate the parser so Mix finds it and skips regenerating
+    # (Nix zeroes mtimes, so the .erl is never considered stale relative to the .yrl).
+    #
+    # This lives here, in deps.nix's `overrides` hook, rather than in deps.nix itself
+    # so it survives `nix run .#update-deps` regenerating that file.
+    overrides = _final: prev: {
+      elixir_sense = prev.elixir_sense.overrideAttrs (old: {
+        postInstall = (old.postInstall or "") + ''
+          grammar="$out/src/src/elixir_sense_parser.yrl"
+          if [ -f "$grammar" ]; then
+            chmod -R u+w "$out/src/src"
+            ${beamPackages.erlang}/bin/erlc -o "$out/src/src" "$grammar"
+            test -f "$out/src/src/elixir_sense_parser.erl"
+          fi
+        '';
+      });
+    };
+  };
 in
 beamPackages.mixRelease rec {
   pname = "expert";

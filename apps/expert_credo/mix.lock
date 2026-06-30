@@ -20,7 +20,7 @@
   "nimble_parsec": {:hex, :nimble_parsec, "1.4.2", "8efba0122db06df95bfaa78f791344a89352ba04baedd3849593bfce4d0dc1c6", [:mix], [], "hexpm", "4b21398942dda052b403bbe1da991ccd03a053668d147d53fb8c4e0efe09c973"},
   "quokka": {:hex, :quokka, "2.12.1", "9fcdd6dbe6b8e950237e9c3b53c1da6d07da10496a1d89d08dc317a3160f9912", [:mix], [{:credo, "~> 1.7", [hex: :credo, repo: "hexpm", optional: false]}], "hexpm", "f5b38b8689625e90e377d124d2f6bf9f6e145e4895c33357a3f5fd8be8166aae"},
   "schematic": {:hex, :schematic, "0.2.1", "0b091df94146fd15a0a343d1bd179a6c5a58562527746dadd09477311698dbb1", [:mix], [{:telemetry, "~> 0.4 or ~> 1.0", [hex: :telemetry, repo: "hexpm", optional: false]}], "hexpm", "0b255d65921e38006138201cd4263fd8bb807d9dfc511074615cd264a571b3b1"},
-  "sourceror": {:hex, :sourceror, "1.10.1", "325753ed460fe9fa34ebb4deda76d57b2e1507dcd78a5eb9e1c41bfb78b7cdfe", [:mix], [], "hexpm", "288f3079d93865cd1e3e20df5b884ef2cb440e0e03e8ae393624ee8a770ba588"},
+  "sourceror": {:hex, :sourceror, "1.12.2", "85bfd48159f020c0cbfc72f289f11456fdc05dc43719b6f2589fb969faefa113", [:mix], [], "hexpm", "da37d3da09c5b890528802c7056a8f585a061973820d7656b6e3649c14f0e9cb"},
   "spitfire": {:hex, :spitfire, "0.3.13", "edd207b065eaec57acc5484097d0aa3e97fe4246168c54e67a9af040b8dee4c1", [:mix], [], "hexpm", "3601be88ceed4967b584e96444de3e1d12d6555ae0864a7390b9cd5332d134b4"},
   "telemetry": {:hex, :telemetry, "1.3.0", "fedebbae410d715cf8e7062c96a1ef32ec22e764197f70cda73d82778d61e7a2", [:rebar3], [], "hexpm", "7015fc8919dbe63764f4b4b87a95b7c0996bd539e0d499be6ec9d7f3875b79e6"},
   "typed_struct": {:hex, :typed_struct, "0.3.0", "939789e3c1dca39d7170c87f729127469d1315dcf99fee8e152bb774b17e7ff7", [:mix], [], "hexpm", "c50bd5c3a61fe4e198a8504f939be3d3c85903b382bde4865579bc23111d1b6d"},

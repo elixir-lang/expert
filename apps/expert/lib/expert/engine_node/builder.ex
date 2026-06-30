@@ -210,7 +210,7 @@ defmodule Expert.EngineNode.Builder do
 
     Process.flag(:trap_exit, true)
 
-    env = [{"MIX_ENV", "dev"} | env]
+    env = [{"MIX_ENV", "prod"} | env]
 
     Expert.Port.open_elixir_with_env(elixir, env,
       args: args,
