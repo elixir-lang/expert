@@ -156,6 +156,17 @@ defmodule Forge.Project do
     Document.Path.from_uri(project.root_uri)
   end
 
+  @doc """
+  Returns true if the given path belongs to the project (inside root, outside deps).
+  """
+  @spec owns_path?(t, Path.t()) :: boolean()
+  def owns_path?(%__MODULE__{} = project, path) do
+    root = root_path(project)
+    deps = Path.join(root, "deps")
+
+    Forge.Path.contains?(path, root) and not Forge.Path.contains?(path, deps)
+  end
+
   @spec project_path(t) :: Path.t() | nil
   def project_path(%__MODULE__{root_uri: nil}) do
     nil

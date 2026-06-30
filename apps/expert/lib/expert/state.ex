@@ -376,6 +376,11 @@ defmodule Expert.State do
         trigger_characters: CodeIntelligence.Completion.trigger_characters()
       }
 
+    rename_options =
+      %Structures.RenameOptions{
+        prepare_provider: true
+      }
+
     server_capabilities =
       %Structures.ServerCapabilities{
         code_action_provider: code_action_options,
@@ -388,6 +393,7 @@ defmodule Expert.State do
         folding_range_provider: true,
         hover_provider: true,
         references_provider: true,
+        rename_provider: rename_options,
         text_document_sync: sync_options,
         workspace_symbol_provider: true,
         workspace: %{

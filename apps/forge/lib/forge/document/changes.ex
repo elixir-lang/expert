@@ -14,6 +14,7 @@ defmodule Forge.Document.Changes do
   alias Forge.Document
 
   defstruct [:document, :edits]
+
   @type edits :: Document.Edit.t() | [Document.Edit.t()]
   @type t :: %__MODULE__{
           document: Document.t(),
