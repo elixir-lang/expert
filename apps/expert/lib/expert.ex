@@ -276,34 +276,41 @@ defmodule Expert do
   defp maybe_prompt_deps_fetch(lsp, project) do
     state = assigns(lsp).state
 
-    supports_show_message = Expert.Configuration.client_support(:show_message)
+    supports_show_message = show_message_supported?()
+    auto_fetch_dependencies? = Expert.Configuration.auto_fetch_dependencies?()
 
     # Avoids spamming the user with the same prompt if they already declined
     deps_declined = State.deps_declined?(state, project)
 
-    if supports_show_message && not deps_declined do
-      Store.transition(project, :blocked)
+    cond do
+      auto_fetch_dependencies? and not Store.blocked?(project) ->
+        Store.transition(project, :blocked)
+        start_deps_fetch_task(lsp, project)
 
-      response = prompt_deps_fetch(lsp, project)
+      supports_show_message and not deps_declined and not Store.blocked?(project) ->
+        Store.transition(project, :blocked)
 
-      handle_deps_fetch_result(response, lsp, project)
-    else
-      if deps_declined do
-        Logger.info(
-          "Engine failed due to dependency errors, but user declined to fetch dependencies.",
-          project: project
-        )
-      end
+        response = prompt_deps_fetch(lsp, project)
 
-      if !supports_show_message do
-        log_error(
-          lsp,
-          project,
-          "Engine failed due to dependency errors, but client does not support showing messages. Run 'mix deps.get' to fetch dependencies for #{Project.name(project)} and then restart Expert or your editor."
-        )
-      end
+        handle_deps_fetch_result(response, lsp, project)
 
-      lsp
+      true ->
+        if deps_declined do
+          Logger.info(
+            "Engine failed due to dependency errors, but user declined to fetch dependencies.",
+            project: project
+          )
+        end
+
+        if !supports_show_message do
+          log_error(
+            lsp,
+            project,
+            "Engine failed due to dependency errors, but client does not support showing messages. Run 'mix deps.get' to fetch dependencies for #{Project.name(project)} and then restart Expert or your editor."
+          )
+        end
+
+        lsp
     end
   end
 
@@ -415,6 +422,13 @@ defmodule Expert do
       )
 
     handle_deps_fetch_retry_result(response, lsp, project)
+  end
+
+  defp show_message_supported? do
+    case Expert.Configuration.client_support(:show_message) do
+      value when value in [false, nil] -> false
+      _ -> true
+    end
   end
 
   defp handle_deps_fetch_retry_result(

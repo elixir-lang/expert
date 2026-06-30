@@ -400,6 +400,35 @@ defmodule Expert.ConfigurationTest do
     end
   end
 
+  describe "on_change/1 with autoFetchDependencies" do
+    test "parses boolean values" do
+      {:ok, updated} = Configuration.on_change(build_change(%{"autoFetchDependencies" => true}))
+
+      assert updated.auto_fetch_dependencies
+      assert Configuration.auto_fetch_dependencies?()
+
+      {:ok, updated} = Configuration.on_change(build_change(%{"autoFetchDependencies" => false}))
+
+      refute updated.auto_fetch_dependencies
+    end
+
+    test "preserves previous value when setting is missing" do
+      {:ok, _updated} = Configuration.on_change(build_change(%{"autoFetchDependencies" => true}))
+      {:ok, updated} = Configuration.on_change(build_change(%{}))
+
+      assert updated.auto_fetch_dependencies
+    end
+
+    test "defaults to true for invalid values and explicit null" do
+      for value <- [nil, "true", 1] do
+        {:ok, updated} =
+          Configuration.on_change(build_change(%{"autoFetchDependencies" => value}))
+
+        assert updated.auto_fetch_dependencies
+      end
+    end
+  end
+
   describe "race condition prevention" do
     defmodule DummyServer do
       use GenServer

@@ -1221,6 +1221,7 @@ defmodule ExpertTest do
       assert :ok = notify(client, initialized_notification())
 
       assert_request(client, "client/registerCapability", fn _params -> nil end)
+      Expert.Configuration.set(%{Expert.Configuration.get() | auto_fetch_dependencies: false})
 
       send(server.lsp, {:deps_error, main_project, %{last_message: "deps failed"}})
 
@@ -1267,6 +1268,7 @@ defmodule ExpertTest do
       assert :ok = notify(client, initialized_notification())
 
       assert_request(client, "client/registerCapability", fn _params -> nil end)
+      Expert.Configuration.set(%{Expert.Configuration.get() | auto_fetch_dependencies: false})
 
       send(server.lsp, {:deps_error, main_project, %{last_message: "deps failed"}})
 
@@ -1316,6 +1318,7 @@ defmodule ExpertTest do
       assert :ok = notify(client, initialized_notification())
 
       assert_request(client, "client/registerCapability", fn _params -> nil end)
+      Expert.Configuration.set(%{Expert.Configuration.get() | auto_fetch_dependencies: false})
 
       send(server.lsp, {:deps_error, main_project, %{last_message: "deps failed"}})
 
@@ -1357,6 +1360,7 @@ defmodule ExpertTest do
       assert :ok = notify(client, initialized_notification())
 
       assert_request(client, "client/registerCapability", fn _params -> nil end)
+      Expert.Configuration.set(%{Expert.Configuration.get() | auto_fetch_dependencies: false})
 
       send(server.lsp, {:deps_error, main_project, %{last_message: "deps failed"}})
 
@@ -1389,6 +1393,7 @@ defmodule ExpertTest do
       assert :ok = notify(client, initialized_notification())
 
       assert_request(client, "client/registerCapability", fn _params -> nil end)
+      Expert.Configuration.set(%{Expert.Configuration.get() | auto_fetch_dependencies: false})
 
       send(server.lsp, {:deps_error, main_project, %{last_message: "deps failed"}})
 
@@ -1439,6 +1444,7 @@ defmodule ExpertTest do
       assert :ok = notify(client, initialized_notification())
 
       assert_request(client, "client/registerCapability", fn _params -> nil end)
+      Expert.Configuration.set(%{Expert.Configuration.get() | auto_fetch_dependencies: false})
 
       send(server.lsp, {:deps_error, main_project, %{last_message: "deps failed"}})
 
@@ -1504,6 +1510,7 @@ defmodule ExpertTest do
       assert :ok = notify(client, initialized_notification())
 
       assert_request(client, "client/registerCapability", fn _params -> nil end)
+      Expert.Configuration.set(%{Expert.Configuration.get() | auto_fetch_dependencies: false})
 
       send(server.lsp, {:deps_error, main_project, %{last_message: "deps failed"}})
 

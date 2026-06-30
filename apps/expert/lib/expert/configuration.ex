@@ -53,6 +53,11 @@ defmodule Expert.Configuration do
       parser: {:string, nil},
       missing: :preserve
     },
+    auto_fetch_dependencies: %{
+      key: "autoFetchDependencies",
+      parser: {:boolean, true},
+      missing: :preserve
+    },
     workspace_symbols: %{
       key: "workspaceSymbols",
       parser: :workspace_symbols,
@@ -71,7 +76,8 @@ defmodule Expert.Configuration do
             file_log_level: @default_file_log_level,
             elixir_source_path: nil,
             elixir_executable_path: nil,
-            erlang_executable_path: nil
+            erlang_executable_path: nil,
+            auto_fetch_dependencies: true
 
   @type t :: %__MODULE__{
           support: support | nil,
@@ -82,7 +88,8 @@ defmodule Expert.Configuration do
           file_log_level: file_level(),
           elixir_source_path: String.t() | nil,
           elixir_executable_path: String.t() | nil,
-          erlang_executable_path: String.t() | nil
+          erlang_executable_path: String.t() | nil,
+          auto_fetch_dependencies: boolean()
         }
 
   @opaque support :: Support.t()
@@ -123,6 +130,11 @@ defmodule Expert.Configuration do
   @spec file_log_level() :: file_level()
   def file_log_level do
     get().file_log_level
+  end
+
+  @spec auto_fetch_dependencies?() :: boolean()
+  def auto_fetch_dependencies? do
+    get().auto_fetch_dependencies
   end
 
   @vscode_family_patterns [
@@ -245,12 +257,21 @@ defmodule Expert.Configuration do
     default
   end
 
+  defp parse_setting(value, {:boolean, _default}) when is_boolean(value) do
+    value
+  end
+
+  defp parse_setting(_value, {:boolean, default}) do
+    default
+  end
+
   defp parse_setting(settings, :workspace_symbols) do
     WorkspaceSymbols.new(%{"workspaceSymbols" => settings})
   end
 
   defp default_setting({:enum, _values, default}), do: default
   defp default_setting({:string, default}), do: default
+  defp default_setting({:boolean, default}), do: default
 
   defp put_setting(%__MODULE__{} = config, field, value) do
     struct!(config, [{field, value}])
