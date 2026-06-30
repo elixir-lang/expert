@@ -502,10 +502,19 @@ defmodule Expert.Search.Store.Backends.Sqlite do
              state,
              "CREATE INDEX IF NOT EXISTS entries_subject_idx ON entries (subject, type, subtype)"
            ),
-         :ok <- exec(state, "CREATE INDEX IF NOT EXISTS entries_path_idx ON entries (path)"),
          :ok <-
-           exec(state, "CREATE INDEX IF NOT EXISTS entries_block_idx ON entries (block_id, path)") do
-      exec(state, "CREATE INDEX IF NOT EXISTS entries_id_idx ON entries (id, type, subtype)")
+           exec(state, "CREATE INDEX IF NOT EXISTS entries_block_idx ON entries (block_id, path)"),
+         :ok <-
+           exec(state, "CREATE INDEX IF NOT EXISTS entries_id_idx ON entries (id, type, subtype)"),
+         :ok <-
+           exec(
+             state,
+             "CREATE INDEX IF NOT EXISTS entries_path_id_idx ON entries (path, id)"
+           ) do
+      exec(
+        state,
+        "CREATE INDEX IF NOT EXISTS entries_subtype_idx ON entries (subtype)"
+      )
     end
   end
 
