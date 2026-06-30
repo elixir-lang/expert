@@ -37,8 +37,8 @@ defmodule Expert.Search.Store.Backends.Ets do
   def destroy_all(%Project{} = project), do: State.destroy_all(project)
 
   @impl Backend
-  def reduce(%Project{} = project, acc, reducer_fun) do
-    GenServer.call(name(project), {:reduce, [acc, reducer_fun]}, :infinity)
+  def path_to_ids(%Project{} = project) do
+    GenServer.call(name(project), {:path_to_ids, []})
   end
 
   @impl Backend

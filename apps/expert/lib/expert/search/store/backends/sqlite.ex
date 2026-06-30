@@ -53,8 +53,8 @@ defmodule Expert.Search.Store.Backends.Sqlite do
   def destroy_all(%Project{} = project), do: project |> root_path() |> File.rm_rf!()
 
   @impl Backend
-  def reduce(%Project{} = project, acc, reducer_fun) do
-    GenServer.call(name(project), {:reduce, acc, reducer_fun}, :infinity)
+  def path_to_ids(%Project{} = project) do
+    GenServer.call(name(project), :path_to_ids, :infinity)
   end
 
   @impl Backend
@@ -188,8 +188,8 @@ defmodule Expert.Search.Store.Backends.Sqlite do
   def handle_call({:insert, entries}, _from, %State{} = state),
     do: reply(do_insert(state, entries), state)
 
-  def handle_call({:reduce, acc, reducer_fun}, _from, %State{} = state),
-    do: reply(do_reduce(state, acc, reducer_fun), state)
+  def handle_call(:path_to_ids, _from, %State{} = state),
+    do: reply(do_path_to_ids(state), state)
 
   def handle_call({:replace_all, entries}, _from, %State{} = state),
     do: reply(do_replace_all(state, entries), state)
@@ -244,15 +244,10 @@ defmodule Expert.Search.Store.Backends.Sqlite do
     end)
   end
 
-  def do_reduce(%State{} = state, acc, reducer_fun) do
-    case query(state, "SELECT entry FROM entries ORDER BY id") do
-      {:ok, rows} ->
-        Enum.reduce(rows, acc, fn [entry_blob], acc ->
-          reducer_fun.(decode_term(entry_blob), acc)
-        end)
-
-      {:error, _} = error ->
-        error
+  def do_path_to_ids(%State{} = state) do
+    case query(state, "SELECT path, MAX(id) FROM entries WHERE id IS NOT NULL GROUP BY path") do
+      {:ok, rows} -> Map.new(rows, fn [path, id] -> {path, id} end)
+      {:error, _} = error -> error
     end
   end
 
