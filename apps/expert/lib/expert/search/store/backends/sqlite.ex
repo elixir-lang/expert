@@ -10,8 +10,10 @@ defmodule Expert.Search.Store.Backends.Sqlite do
   alias Forge.Search.Indexer.Entry
 
   require Entry
+  require Logger
 
   @schema_version 1
+  @sql_debug_threshold_ms 500
   @database_file "source.index.sqlite3"
   @busy_timeout_ms Application.compile_env(:expert, :search_store_sqlite_busy_timeout_ms, 5_000)
 
@@ -712,16 +714,64 @@ defmodule Expert.Search.Store.Backends.Sqlite do
   defp recoverable_database_error?(_reason), do: false
 
   defp exec(%State{} = state, statement, args \\ []) do
-    case Exqlite.Basic.exec(state.conn, statement, args) do
-      {:error, reason, _details} -> {:error, reason}
-      result -> rows_to_ok(result)
-    end
+    timed(state, statement, args, fn ->
+      case Exqlite.Basic.exec(state.conn, statement, args) do
+        {:error, reason, _details} -> {:error, reason}
+        result -> rows_to_ok(result)
+      end
+    end)
   end
 
   defp query(%State{} = state, statement, args \\ []) do
-    case Exqlite.Basic.exec(state.conn, statement, args) do
-      {:error, reason, _details} -> {:error, reason}
-      result -> rows(result)
+    timed(state, statement, args, fn ->
+      case Exqlite.Basic.exec(state.conn, statement, args) do
+        {:error, reason, _details} -> {:error, reason}
+        result -> rows(result)
+      end
+    end)
+  end
+
+  defp timed(%State{} = state, statement, args, fun) do
+    if sql_debug_enabled?() do
+      start = System.monotonic_time(:millisecond)
+      result = fun.()
+      elapsed = System.monotonic_time(:millisecond) - start
+      Logger.debug("[SQL] #{elapsed}ms | #{String.trim(statement)}")
+
+      if elapsed >= @sql_debug_threshold_ms do
+        log_explain_query_plan(state, statement, args, elapsed)
+      end
+
+      result
+    else
+      fun.()
+    end
+  end
+
+  defp sql_debug_enabled? do
+    System.get_env("EXPERT_SQL_DEBUG", "true") not in ["false", "0"]
+  end
+
+  defp log_explain_query_plan(%State{} = state, statement, args, elapsed) do
+    trimmed = String.trim(statement)
+
+    case Exqlite.Basic.exec(state.conn, "EXPLAIN QUERY PLAN #{statement}", args) do
+      {:error, _reason, _details} ->
+        Logger.warning("[SQL SLOW] #{elapsed}ms | #{trimmed}")
+
+      result ->
+        case Exqlite.Basic.rows(result) do
+          {:ok, rows, _columns} ->
+            plan =
+              Enum.map_join(rows, "\n", fn row ->
+                "  " <> Enum.map_join(row, " | ", &to_string/1)
+              end)
+
+            Logger.warning("[SQL SLOW] #{elapsed}ms | #{trimmed}\nEXPLAIN QUERY PLAN:\n#{plan}")
+
+          _ ->
+            Logger.warning("[SQL SLOW] #{elapsed}ms | #{trimmed}")
+        end
     end
   end
 
