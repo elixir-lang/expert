@@ -513,7 +513,7 @@ defmodule Expert.Search.Store.Backends.Sqlite do
            ) do
       exec(
         state,
-        "CREATE INDEX IF NOT EXISTS entries_subtype_idx ON entries (subtype)"
+        "CREATE INDEX IF NOT EXISTS entries_subtype_subject_idx ON entries (subtype, subject)"
       )
     end
   end
