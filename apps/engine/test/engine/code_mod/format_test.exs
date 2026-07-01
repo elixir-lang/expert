@@ -140,6 +140,30 @@ defmodule Engine.CodeMod.FormatTest do
       assert reason =~ "It is not in the project at"
     end
 
+    @tag :tmp_dir
+    test "it formats a file path inside the project root", %{tmp_dir: tmp_dir} do
+      project_path = Path.join(tmp_dir, "elixir")
+      file_path = Path.join(project_path, "lsp_elixir_test.exs")
+      project = %Project{root_uri: Document.Path.to_uri(project_path), kind: :bare}
+
+      File.mkdir_p!(project_path)
+      Engine.set_project(project)
+
+      patch(Mix.Tasks.Future.Format, :formatter_for_file, fn _file_path, _opts ->
+        formatter = fn source ->
+          source
+          |> Code.format_string!()
+          |> IO.iodata_to_binary()
+          |> Kernel.<>("\n")
+        end
+
+        {formatter, []}
+      end)
+
+      assert {:ok, result} = modify(unformatted(), file_path: file_path, project: project)
+      assert result == formatted()
+    end
+
     test "it should provide an error for a syntax error", %{project: project} do
       assert {:error, %SyntaxError{}} = ~q[
       def foo(a, ) do
