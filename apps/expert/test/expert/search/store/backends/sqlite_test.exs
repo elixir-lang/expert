@@ -17,6 +17,44 @@ defmodule Expert.Search.Store.Backends.SqliteTest do
   end
 
   describe "prepare/1" do
+    test "creates an index for wildcard subject searches constrained by type and subtype", %{
+      project: project,
+      runtime_versions: runtime_versions
+    } do
+      database_path = Sqlite.database_path(project, runtime_versions)
+
+      pid =
+        start_supervised!(%{
+          id: :sqlite,
+          start: {Sqlite, :start_link, [project, [runtime_versions: runtime_versions]]}
+        })
+
+      assert {:ok, :empty} = Sqlite.prepare(pid)
+
+      {:ok, conn} = Exqlite.Basic.open(database_path)
+
+      result =
+        Exqlite.Basic.exec(
+          conn,
+          """
+          EXPLAIN QUERY PLAN
+          SELECT entry FROM entries WHERE type = ? AND subtype = ?
+          """,
+          [{:blob, :erlang.term_to_binary(:module)}, "definition"]
+        )
+
+      assert {:ok, rows, _columns} = Exqlite.Basic.rows(result)
+      assert :ok = Exqlite.Basic.close(conn)
+
+      assert Enum.any?(rows, fn row ->
+               plan = row |> List.last() |> to_string()
+
+               String.contains?(plan, "entries_type_subtype_idx") and
+                 String.contains?(plan, "type=?") and
+                 String.contains?(plan, "subtype=?")
+             end)
+    end
+
     test "recreates a database with a different schema version", %{
       project: project,
       runtime_versions: runtime_versions

@@ -42,6 +42,11 @@ defmodule Expert.Search.Store.Backends.Ets do
   end
 
   @impl Backend
+  def definitions_for_fuzzy(%Project{} = project) do
+    find_by_subject(project, :_, :_, :definition)
+  end
+
+  @impl Backend
   def replace_all(%Project{} = project, entries) do
     GenServer.call(name(project), {:replace_all, [entries]}, :infinity)
   end
