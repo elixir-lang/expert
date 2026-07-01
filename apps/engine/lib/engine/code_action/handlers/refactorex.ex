@@ -6,8 +6,8 @@ defmodule Engine.CodeAction.Handlers.Refactorex do
   alias Forge.Document
   alias Forge.Document.Changes
   alias Forge.Document.Range
+  alias Forge.Refactor
   alias GenLSP.Enumerations
-  alias Refactorex.Refactor
 
   @impl CodeAction.Handler
   def actions(%Document{} = doc, %Range{} = range, _diagnostics) do
