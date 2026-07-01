@@ -60,6 +60,11 @@ defmodule Expert.Search.Store.Backends.Sqlite do
   end
 
   @impl Backend
+  def definitions_for_fuzzy(%Project{} = project) do
+    GenServer.call(name(project), :definitions_for_fuzzy, :infinity)
+  end
+
+  @impl Backend
   def replace_all(%Project{} = project, entries) do
     GenServer.call(name(project), {:replace_all, entries}, :infinity)
   end
@@ -193,6 +198,9 @@ defmodule Expert.Search.Store.Backends.Sqlite do
   def handle_call(:path_to_ids, _from, %State{} = state),
     do: reply(do_path_to_ids(state), state)
 
+  def handle_call(:definitions_for_fuzzy, _from, %State{} = state),
+    do: reply(do_find_definitions_for_fuzzy(state), state)
+
   def handle_call({:replace_all, entries}, _from, %State{} = state),
     do: reply(do_replace_all(state, entries), state)
 
@@ -250,6 +258,26 @@ defmodule Expert.Search.Store.Backends.Sqlite do
     case query(state, "SELECT path, MAX(id) FROM entries WHERE id IS NOT NULL GROUP BY path") do
       {:ok, rows} -> Map.new(rows, fn [path, id] -> {path, id} end)
       {:error, _} = error -> error
+    end
+  end
+
+  def do_find_definitions_for_fuzzy(%State{} = state) do
+    sql = "SELECT id, path, subject, type, subtype FROM entries WHERE subtype = 'definition'"
+
+    case query(state, sql) do
+      {:ok, rows} ->
+        Enum.map(rows, fn [id, path, subject, type_blob, subtype] ->
+          %Entry{
+            id: id,
+            path: path,
+            subject: subject,
+            type: decode_term(type_blob),
+            subtype: String.to_existing_atom(subtype)
+          }
+        end)
+
+      {:error, _} = error ->
+        error
     end
   end
 
@@ -512,6 +540,11 @@ defmodule Expert.Search.Store.Backends.Sqlite do
            exec(
              state,
              "CREATE INDEX IF NOT EXISTS entries_path_id_idx ON entries (path, id)"
+           ),
+         :ok <-
+           exec(
+             state,
+             "CREATE INDEX IF NOT EXISTS entries_type_subtype_idx ON entries (type, subtype)"
            ) do
       exec(
         state,

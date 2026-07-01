@@ -78,10 +78,11 @@ defmodule Expert.Search.Store do
     )
   end
 
-  def clear(%Project{} = project, path), do: GenServer.call(name(project), {:update, path, []})
+  def clear(%Project{} = project, path),
+    do: GenServer.call(name(project), {:update, path, []}, :infinity)
 
   def update(%Project{} = project, path, entries),
-    do: GenServer.call(name(project), {:update, path, entries})
+    do: GenServer.call(name(project), {:update, path, entries}, :infinity)
 
   def destroy(%Project{} = project), do: GenServer.call(name(project), :destroy)
   def enable(%Project{} = project), do: GenServer.call(name(project), :enable)

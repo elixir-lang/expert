@@ -23,6 +23,7 @@ defmodule Expert.Search.Store.Backend do
   @callback drop(Project.t()) :: boolean() | :ok | {:error, any()}
   @callback destroy(Project.t()) :: :ok | {:error, any()}
   @callback path_to_ids(Project.t()) :: %{Path.t() => Entry.entry_id()} | {:error, any()}
+  @callback definitions_for_fuzzy(Project.t()) :: [Entry.t()] | {:error, any()}
   @callback replace_all(Project.t(), [Entry.t()]) :: :ok | {:error, any()}
   @callback delete_by_path(Project.t(), Path.t()) :: {:ok, [Entry.entry_id()]} | {:error, any()}
   @callback apply_index_update(Project.t(), [Entry.t()], [Path.t()]) ::

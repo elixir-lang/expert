@@ -26,6 +26,7 @@ defmodule Expert.Search.Store.StateTest do
     def find_by_ids(_project, [2], :module, :definition), do: [entry(2)]
     def find_by_ids(_project, _ids, _type, _subtype), do: []
     def path_to_ids(_project), do: %{}
+    def definitions_for_fuzzy(_project), do: []
     def siblings(_project, _entry), do: []
     def parent(_project, _entry), do: nil
     def structure_for_path(_project, _path), do: {:ok, %{}}
@@ -60,6 +61,7 @@ defmodule Expert.Search.Store.StateTest do
     def find_by_prefix(_project, _prefix, _type, _subtype), do: []
     def find_by_ids(_project, _ids, _type, _subtype), do: []
     def path_to_ids(_project), do: %{}
+    def definitions_for_fuzzy(_project), do: []
     def siblings(_project, _entry), do: []
     def parent(_project, _entry), do: nil
     def structure_for_path(_project, _path), do: {:ok, %{}}
