@@ -283,7 +283,8 @@ defmodule Expert.Search.Store.Backends.Sqlite do
 
   def do_replace_all(%State{} = state, entries) when is_list(entries) do
     transaction(state, fn ->
-      with :ok <- exec(state, "DELETE FROM entries"),
+      with :ok <- exec(state, "DELETE FROM entry_blobs"),
+           :ok <- exec(state, "DELETE FROM entries"),
            :ok <- exec(state, "DELETE FROM structures") do
         insert_entries(state, entries)
       end
@@ -347,7 +348,16 @@ defmodule Expert.Search.Store.Backends.Sqlite do
         {where, args} = constraints(["id IN (#{placeholders(ids)})"], ids, type, subtype)
 
         with {:ok, rows} <-
-               query(state, "SELECT id, entry FROM entries #{where_clause(where)}", args) do
+               query(
+                 state,
+                 """
+                 SELECT entries.id, entry_blobs.entry
+                 FROM entries
+                 JOIN entry_blobs ON entry_blobs.entry_rowid = entries.rowid
+                 #{where_clause(where)}
+                 """,
+                 args
+               ) do
           entries_by_id =
             Enum.group_by(
               rows,
@@ -371,7 +381,13 @@ defmodule Expert.Search.Store.Backends.Sqlite do
   def do_siblings(%State{} = state, %Entry{} = entry) do
     case query(
            state,
-           "SELECT entry FROM entries WHERE block_id = ? AND path = ? ORDER BY id",
+           """
+           SELECT entry_blobs.entry
+           FROM entries
+           JOIN entry_blobs ON entry_blobs.entry_rowid = entries.rowid
+           WHERE block_id = ? AND path = ?
+           ORDER BY id
+           """,
            [block_id_key(entry.block_id), entry.path]
          ) do
       {:ok, rows} ->
@@ -476,8 +492,10 @@ defmodule Expert.Search.Store.Backends.Sqlite do
 
   defp reset_schema(%State{} = state) do
     with :ok <- exec(state, "DROP TABLE IF EXISTS entries"),
+         :ok <- exec(state, "DROP TABLE IF EXISTS entry_blobs"),
          :ok <- exec(state, "DROP TABLE IF EXISTS structures"),
          :ok <- create_entries_table(state),
+         :ok <- create_entry_blobs_table(state),
          :ok <- create_structures_table(state),
          :ok <- create_indexes(state),
          :ok <- exec(state, "INSERT INTO schema (version) VALUES (?)", [@schema_version]) do
@@ -488,6 +506,7 @@ defmodule Expert.Search.Store.Backends.Sqlite do
   defp reset_database_schema(%State{} = state) do
     with :ok <- exec(state, "DROP TABLE IF EXISTS schema"),
          :ok <- exec(state, "DROP TABLE IF EXISTS entries"),
+         :ok <- exec(state, "DROP TABLE IF EXISTS entry_blobs"),
          :ok <- exec(state, "DROP TABLE IF EXISTS structures"),
          :ok <- create_schema_table(state) do
       reset_schema(state)
@@ -496,6 +515,7 @@ defmodule Expert.Search.Store.Backends.Sqlite do
 
   defp load_status(%State{} = state) do
     with :ok <- create_entries_table(state),
+         :ok <- create_entry_blobs_table(state),
          :ok <- create_structures_table(state),
          :ok <- create_indexes(state),
          {:ok, [[count]]} <- query(state, "SELECT COUNT(*) FROM entries") do
@@ -511,7 +531,15 @@ defmodule Expert.Search.Store.Backends.Sqlite do
       subject TEXT NOT NULL,
       type BLOB NOT NULL,
       subtype TEXT NOT NULL,
-      block_id INTEGER NOT NULL,
+      block_id INTEGER NOT NULL
+    )
+    """)
+  end
+
+  defp create_entry_blobs_table(%State{} = state) do
+    exec(state, """
+    CREATE TABLE IF NOT EXISTS entry_blobs (
+      entry_rowid INTEGER PRIMARY KEY,
       entry BLOB NOT NULL
     )
     """)
@@ -558,14 +586,21 @@ defmodule Expert.Search.Store.Backends.Sqlite do
       state,
       [
         """
-        INSERT INTO entries (id, path, subject, type, subtype, block_id, entry)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO entries (id, path, subject, type, subtype, block_id)
+        VALUES (?, ?, ?, ?, ?, ?)
         """,
+        "INSERT INTO entry_blobs (entry_rowid, entry) VALUES (?, ?)",
         "INSERT OR REPLACE INTO structures (path, structure) VALUES (?, ?)"
       ],
-      fn [entry_statement, structure_statement] ->
+      fn [entry_statement, entry_blob_statement, structure_statement] ->
         Enum.reduce_while(entries, :ok, fn entry, :ok ->
-          case insert_entry(state, entry_statement, structure_statement, entry) do
+          case insert_entry(
+                 state,
+                 entry_statement,
+                 entry_blob_statement,
+                 structure_statement,
+                 entry
+               ) do
             :ok -> {:cont, :ok}
             {:error, _} = error -> {:halt, error}
           end
@@ -574,25 +609,40 @@ defmodule Expert.Search.Store.Backends.Sqlite do
     )
   end
 
-  defp insert_entry(%State{} = state, _entry_statement, structure_statement, %Entry{} = entry)
+  defp insert_entry(
+         %State{} = state,
+         _entry_statement,
+         _entry_blob_statement,
+         structure_statement,
+         %Entry{} = entry
+       )
        when Entry.is_structure(entry) do
     exec_statement(state, structure_statement, [entry.path, blob(entry.subject)])
   end
 
-  defp insert_entry(%State{} = state, entry_statement, _structure_statement, %Entry{} = entry) do
-    exec_statement(
-      state,
-      entry_statement,
-      [
-        entry.id,
-        entry.path,
-        subject_key(entry.subject),
-        blob(entry.type),
-        subtype_key(entry.subtype),
-        block_id_key(entry.block_id),
-        blob(entry)
-      ]
-    )
+  defp insert_entry(
+         %State{} = state,
+         entry_statement,
+         entry_blob_statement,
+         _structure_statement,
+         %Entry{} = entry
+       ) do
+    with :ok <-
+           exec_statement(
+             state,
+             entry_statement,
+             [
+               entry.id,
+               entry.path,
+               subject_key(entry.subject),
+               blob(entry.type),
+               subtype_key(entry.subtype),
+               block_id_key(entry.block_id)
+             ]
+           ),
+         {:ok, rowid} <- last_insert_rowid(state) do
+      exec_statement(state, entry_blob_statement, [rowid, blob(entry)])
+    end
   end
 
   defp affected_paths(updated_entries, paths_to_clear) do
@@ -609,11 +659,30 @@ defmodule Expert.Search.Store.Backends.Sqlite do
     with {:ok, rows} <-
            query(
              state,
-             "DELETE FROM entries WHERE path IN (#{placeholders(paths)}) RETURNING id",
+             "SELECT rowid, id FROM entries WHERE path IN (#{placeholders(paths)})",
              paths
-           ) do
-      {:ok, rows |> List.flatten() |> Enum.reject(&is_nil/1)}
+           ),
+         :ok <- delete_entry_blobs_for_rows(state, rows),
+         :ok <- exec(state, "DELETE FROM entries WHERE path IN (#{placeholders(paths)})", paths) do
+      deleted_ids =
+        rows
+        |> Enum.map(fn [_rowid, id] -> id end)
+        |> Enum.reject(&is_nil/1)
+
+      {:ok, deleted_ids}
     end
+  end
+
+  defp delete_entry_blobs_for_rows(%State{}, []), do: :ok
+
+  defp delete_entry_blobs_for_rows(%State{} = state, rows) do
+    rowids = Enum.map(rows, fn [rowid, _id] -> rowid end)
+
+    exec(
+      state,
+      "DELETE FROM entry_blobs WHERE entry_rowid IN (#{placeholders(rowids)})",
+      rowids
+    )
   end
 
   defp delete_structures_for_paths(%State{}, []), do: :ok
@@ -623,7 +692,16 @@ defmodule Expert.Search.Store.Backends.Sqlite do
   end
 
   defp query_entries(%State{} = state, where, args) do
-    query(state, "SELECT entry FROM entries #{where}", args)
+    query(
+      state,
+      """
+      SELECT entry_blobs.entry
+      FROM entries
+      JOIN entry_blobs ON entry_blobs.entry_rowid = entries.rowid
+      #{where}
+      """,
+      args
+    )
   end
 
   defp entries_result({:ok, rows}) do
@@ -863,6 +941,8 @@ defmodule Expert.Search.Store.Backends.Sqlite do
       result
     end
   end
+
+  defp last_insert_rowid(%State{conn: %{db: database}}), do: Sqlite3.last_insert_rowid(database)
 
   defp release_statement(%State{conn: %{db: database}}, statement),
     do: Sqlite3.release(database, statement)
