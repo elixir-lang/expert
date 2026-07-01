@@ -38,7 +38,10 @@ defmodule Expert.Search.Store.Backends.SqliteTest do
           conn,
           """
           EXPLAIN QUERY PLAN
-          SELECT entry FROM entries WHERE type = ? AND subtype = ?
+          SELECT entry_blobs.entry
+          FROM entries
+          JOIN entry_blobs ON entry_blobs.entry_rowid = entries.rowid
+          WHERE type = ? AND subtype = ?
           """,
           [{:blob, :erlang.term_to_binary(:module)}, "definition"]
         )
@@ -53,6 +56,34 @@ defmodule Expert.Search.Store.Backends.SqliteTest do
                  String.contains?(plan, "type=?") and
                  String.contains?(plan, "subtype=?")
              end)
+    end
+
+    test "stores full entry blobs outside the entries metadata table", %{
+      project: project,
+      runtime_versions: runtime_versions
+    } do
+      database_path = Sqlite.database_path(project, runtime_versions)
+
+      pid =
+        start_supervised!(%{
+          id: :sqlite,
+          start: {Sqlite, :start_link, [project, [runtime_versions: runtime_versions]]}
+        })
+
+      assert {:ok, :empty} = Sqlite.prepare(pid)
+
+      {:ok, conn} = Exqlite.Basic.open(database_path)
+
+      result = Exqlite.Basic.exec(conn, "PRAGMA table_info(entries)")
+      assert {:ok, entry_columns, _columns} = Exqlite.Basic.rows(result)
+
+      result = Exqlite.Basic.exec(conn, "PRAGMA table_info(entry_blobs)")
+      assert {:ok, blob_columns, _columns} = Exqlite.Basic.rows(result)
+
+      assert :ok = Exqlite.Basic.close(conn)
+
+      refute Enum.any?(entry_columns, fn [_cid, name | _] -> name == "entry" end)
+      assert Enum.any?(blob_columns, fn [_cid, name | _] -> name == "entry" end)
     end
 
     test "recreates a database with a different schema version", %{
@@ -192,6 +223,17 @@ defmodule Expert.Search.Store.Backends.SqliteTest do
 
       assert [] = Sqlite.find_by_subject(project, Replaced.Old, :_, :_)
       assert [^new_entry] = Sqlite.find_by_subject(project, Replaced.New, :_, :_)
+
+      database_path = Sqlite.database_path(project, runtime_versions)
+      {:ok, conn} = Exqlite.Basic.open(database_path)
+
+      result =
+        Exqlite.Basic.exec(conn, """
+        SELECT (SELECT COUNT(*) FROM entries), (SELECT COUNT(*) FROM entry_blobs)
+        """)
+
+      assert {:ok, [[1, 1]], _columns} = Exqlite.Basic.rows(result)
+      assert :ok = Exqlite.Basic.close(conn)
     end
   end
 
