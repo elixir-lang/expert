@@ -69,6 +69,8 @@ defmodule Engine.Search.IndexerTest do
   end
 
   defp write_file!(path, contents) do
+    path = Forge.Path.native(path)
+
     File.mkdir_p!(Path.dirname(path))
     File.write!(path, contents)
     path
@@ -95,7 +97,9 @@ defmodule Engine.Search.IndexerTest do
         |> Path.dirname()
       end)
 
-    Path.join([build_root | List.wrap(relative_path)])
+    [build_root | List.wrap(relative_path)]
+    |> Path.join()
+    |> Forge.Path.native()
   end
 
   describe "create_index/1" do
@@ -114,13 +118,13 @@ defmodule Engine.Search.IndexerTest do
     end
 
     test "indexes bare projects without treating root/deps as a dependency directory" do
-      bare_root = Path.join(fixtures_path(), "scratch")
+      bare_root = native_join([fixtures_path(), "scratch"])
       bare_project = bare_root |> Forge.Document.Path.to_uri() |> Project.bare()
 
       patch(Engine, :get_project, fn -> bare_project end)
 
       entries = create_index(bare_project)
-      assert Enum.any?(entries, &(&1.path == Path.join(bare_root, "bare_file.ex")))
+      assert Enum.any?(entries, &(&1.path == native_join([bare_root, "bare_file.ex"])))
     end
 
     @tag :tmp_dir
@@ -444,7 +448,7 @@ defmodule Engine.Search.IndexerTest do
   @ephemeral_file_name "ephemeral.ex"
 
   def with_an_ephemeral_file(%{project: project}, file_contents) do
-    file_path = Path.join([Project.root_path(project), "lib", @ephemeral_file_name])
+    file_path = native_join([Project.root_path(project), "lib", @ephemeral_file_name])
     File.write!(file_path, file_contents)
 
     on_exit(fn ->
@@ -475,7 +479,7 @@ defmodule Engine.Search.IndexerTest do
     test "deletes previously indexed configured build files even when they still exist", %{
       tmp_dir: tmp_dir
     } do
-      source_file = Path.join([tmp_dir, "lib", "source_file.ex"])
+      source_file = native_join([tmp_dir, "lib", "source_file.ex"])
       build_file = mix_build_file!(tmp_dir, "stale.ex", build_path: "custom_build")
 
       write_mix_project!(
@@ -501,7 +505,7 @@ defmodule Engine.Search.IndexerTest do
   describe "update_index/2 manifest commits" do
     @tag :tmp_dir
     test "keeps the previous manifest if committing a refresh fails", %{tmp_dir: tmp_dir} do
-      source_file = Path.join([tmp_dir, "lib", "source_file.ex"])
+      source_file = native_join([tmp_dir, "lib", "source_file.ex"])
       write_file!(source_file, "defmodule SourceFile do end")
 
       project = tmp_dir |> Forge.Document.Path.to_uri() |> Project.bare()
@@ -958,5 +962,11 @@ defmodule Engine.Search.IndexerTest do
 
   defp unique_id do
     System.unique_integer([:positive])
+  end
+
+  defp native_join(path_segments) do
+    path_segments
+    |> Path.join()
+    |> Forge.Path.native()
   end
 end

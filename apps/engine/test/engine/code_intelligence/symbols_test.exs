@@ -23,6 +23,7 @@ defmodule Engine.CodeIntelligence.SymbolsTest do
 
   def workspace_symbols(code) do
     doc = Forge.Document.new("file:///file.ex", code, 1)
+    uri = Forge.Document.Path.to_uri(doc.path)
 
     {:ok, entries} =
       Source.index_document(doc, [
@@ -42,7 +43,7 @@ defmodule Engine.CodeIntelligence.SymbolsTest do
     end)
 
     symbols = Symbols.for_workspace("")
-    {symbols, doc}
+    {symbols, doc, uri}
   end
 
   defp in_a_module(code) do
@@ -681,7 +682,7 @@ defmodule Engine.CodeIntelligence.SymbolsTest do
 
   describe "workspace symbols" do
     test "converts a module entry" do
-      {[module], doc} =
+      {[module], doc, uri} =
         ~q[
           defmodule Parent.Child do
           end
@@ -690,7 +691,7 @@ defmodule Engine.CodeIntelligence.SymbolsTest do
 
       assert module.type == :module
       assert module.name == "Parent.Child"
-      assert module.link.uri == "file:///file.ex"
+      assert module.link.uri == uri
       refute module.container_name
 
       assert decorate(doc, module.link.range) =~ "«defmodule Parent.Child do\nend»"
@@ -698,7 +699,7 @@ defmodule Engine.CodeIntelligence.SymbolsTest do
     end
 
     test "converts a function entry with zero args" do
-      {[_module, public_function, private_function], doc} =
+      {[_module, public_function, private_function], doc, uri} =
         ~q[
           defmodule Parent.Child do
             def my_fn do
@@ -712,7 +713,7 @@ defmodule Engine.CodeIntelligence.SymbolsTest do
 
       assert public_function.type == {:function, :public}
       assert String.ends_with?(public_function.name, ".my_fn/0")
-      assert public_function.link.uri == "file:///file.ex"
+      assert public_function.link.uri == uri
       refute public_function.container_name
 
       assert decorate(doc, public_function.link.range) =~ "  «def my_fn do\n  end»"
@@ -720,7 +721,7 @@ defmodule Engine.CodeIntelligence.SymbolsTest do
 
       assert private_function.type == {:function, :private}
       assert private_function.name == "Parent.Child.private_fun/2"
-      assert private_function.link.uri == "file:///file.ex"
+      assert private_function.link.uri == uri
       refute private_function.container_name
 
       assert decorate(doc, private_function.link.range) =~ "  «defp private_fun(a, b) do\n  end»"
@@ -728,7 +729,7 @@ defmodule Engine.CodeIntelligence.SymbolsTest do
     end
 
     test "converts protocol implementations" do
-      {symbols, _doc} =
+      {symbols, _doc, _uri} =
         ~q[
         defimpl SomeProtocol, for: Atom do
           def do_stuff(atom, opts) do
@@ -756,7 +757,7 @@ defmodule Engine.CodeIntelligence.SymbolsTest do
     end
 
     test "converts protocol definitions" do
-      {[protocol, function], _doc} =
+      {[protocol, function], _doc, _uri} =
         ~q[
           defprotocol MyProto do
              def do_stuff(something, other)

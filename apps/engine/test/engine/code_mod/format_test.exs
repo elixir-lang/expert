@@ -135,8 +135,11 @@ defmodule Engine.CodeMod.FormatTest do
     end
 
     test "it will fail to format a file not in the project", %{project: project} do
-      assert {:error, reason} = modify(unformatted(), file_path: "/tmp/foo.ex", project: project)
-      assert reason =~ "Cannot format file /tmp/foo.ex"
+      file_path = "/tmp/foo.ex"
+      expected_path = file_path |> Document.Path.to_uri() |> Document.Path.from_uri()
+
+      assert {:error, reason} = modify(unformatted(), file_path: file_path, project: project)
+      assert reason =~ "Cannot format file #{expected_path}"
       assert reason =~ "It is not in the project at"
     end
 

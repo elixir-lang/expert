@@ -7,20 +7,20 @@ defmodule Forge.Path do
   which have platform-specific quirks.
   """
 
-  def wildcard_pattern(path_segments) when is_list(path_segments) do
-    path_segments
-    |> Path.join()
-  end
-
   def glob(path_segments) when is_list(path_segments) do
     path_segments
-    |> wildcard_pattern()
+    |> Path.join()
     |> normalize()
     |> Path.wildcard()
+    |> native_paths()
   end
 
   def normalize(path) when is_binary(path) do
     String.replace(path, "\\", "/")
+  end
+
+  def native(path) when is_binary(path) do
+    :filename.nativename(path)
   end
 
   @doc """
@@ -48,6 +48,10 @@ defmodule Forge.Path do
 
   def normalize_paths(paths) when is_list(paths) do
     Enum.map(paths, &normalize/1)
+  end
+
+  def native_paths(paths) when is_list(paths) do
+    Enum.map(paths, &native/1)
   end
 
   @doc """

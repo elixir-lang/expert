@@ -223,8 +223,12 @@ defmodule Engine.Search.Indexer.ManifestStoreTest do
     File.write!(#{inspect(path)}, :erlang.term_to_binary(data))
     """
 
+    script_path = Path.join(Path.dirname(path), "write_legacy_manifest.exs")
+    File.mkdir_p!(Path.dirname(script_path))
+    File.write!(script_path, code)
+
     elixir = System.find_executable("elixir") || raise "could not find elixir executable"
-    {output, status} = System.cmd(elixir, ["-e", code], stderr_to_stdout: true)
+    {output, status} = System.cmd(elixir, [script_path], stderr_to_stdout: true)
     assert status == 0, output
   end
 

@@ -7,9 +7,9 @@ defmodule Engine.Search.Indexer.PathsTest do
   describe "indexable_files/1" do
     @tag :tmp_dir
     test "does not include project-local default build files", %{tmp_dir: tmp_dir} do
-      with_env("MIX_BUILD_PATH", Path.join([tmp_dir, ".expert", "build", "dev"]))
+      with_env("MIX_BUILD_PATH", native_join([tmp_dir, ".expert", "build", "dev"]))
 
-      source_file = Path.join([tmp_dir, "lib", "source_file.ex"])
+      source_file = native_join([tmp_dir, "lib", "source_file.ex"])
       build_file = mix_build_file!(tmp_dir, "generated.ex")
 
       write_mix_project!(
@@ -29,9 +29,9 @@ defmodule Engine.Search.Indexer.PathsTest do
 
     @tag :tmp_dir
     test "does not include files under a configured build path", %{tmp_dir: tmp_dir} do
-      with_env("MIX_BUILD_PATH", Path.join([tmp_dir, ".expert", "build", "dev"]))
+      with_env("MIX_BUILD_PATH", native_join([tmp_dir, ".expert", "build", "dev"]))
 
-      source_file = Path.join([tmp_dir, "lib", "source_file.ex"])
+      source_file = native_join([tmp_dir, "lib", "source_file.ex"])
       build_file = mix_build_file!(tmp_dir, "generated.ex", build_path: "custom_build")
 
       write_mix_project!(
@@ -51,12 +51,12 @@ defmodule Engine.Search.Indexer.PathsTest do
 
     @tag :tmp_dir
     test "does not include files under MIX_BUILD_ROOT", %{tmp_dir: tmp_dir} do
-      build_root = Path.join(tmp_dir, "custom_build_root")
+      build_root = native_join([tmp_dir, "custom_build_root"])
       with_env("MIX_BUILD_ROOT", build_root)
-      with_env("MIX_BUILD_PATH", Path.join([tmp_dir, ".expert", "build", "dev"]))
+      with_env("MIX_BUILD_PATH", native_join([tmp_dir, ".expert", "build", "dev"]))
 
-      source_file = Path.join([tmp_dir, "lib", "source_file.ex"])
-      build_file = Path.join(build_root, "generated.ex")
+      source_file = native_join([tmp_dir, "lib", "source_file.ex"])
+      build_file = native_join([build_root, "generated.ex"])
 
       write_mix_project!(
         tmp_dir,
@@ -75,10 +75,10 @@ defmodule Engine.Search.Indexer.PathsTest do
 
     @tag :tmp_dir
     test "does not include active path dependency source files", %{tmp_dir: tmp_dir} do
-      app_root = Path.join(tmp_dir, "app")
-      dep_root = Path.join(tmp_dir, "dep")
-      app_file = Path.join([app_root, "lib", "app_module.ex"])
-      dep_file = Path.join([dep_root, "lib", "dep_module.ex"])
+      app_root = native_join([tmp_dir, "app"])
+      dep_root = native_join([tmp_dir, "dep"])
+      app_file = native_join([app_root, "lib", "app_module.ex"])
+      dep_file = native_join([dep_root, "lib", "dep_module.ex"])
 
       write_mix_project!(
         app_root,
@@ -115,9 +115,17 @@ defmodule Engine.Search.Indexer.PathsTest do
   end
 
   defp write_file!(path, contents) do
+    path = Forge.Path.native(path)
+
     File.mkdir_p!(Path.dirname(path))
     File.write!(path, contents)
     path
+  end
+
+  defp native_join(path_segments) do
+    path_segments
+    |> Path.join()
+    |> Forge.Path.native()
   end
 
   defp write_mix_project!(root, module_name, project_config) do
@@ -141,6 +149,8 @@ defmodule Engine.Search.Indexer.PathsTest do
         |> Path.dirname()
       end)
 
-    Path.join([build_root | List.wrap(relative_path)])
+    [build_root | List.wrap(relative_path)]
+    |> Path.join()
+    |> Forge.Path.native()
   end
 end

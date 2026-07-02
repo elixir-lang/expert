@@ -23,7 +23,10 @@ expert_matrix =
 engine_matrix =
   for version <- versions do
     Map.put(version, :project, "engine")
-  end ++ [%{elixir: "1.20.0", otp: "29.0.1", project: "engine", os: "windows-2022"}]
+  end ++
+    [
+      %{elixir: "1.20.0", otp: "29.0.1", project: "engine", os: "windows-2022"}
+    ]
 
 other_project_matrix =
   for project <- ["expert_credo", "forge"], version <- versions do

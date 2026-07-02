@@ -153,8 +153,7 @@ defmodule Engine.CodeMod.Format do
   end
 
   defp subdirectory?(child, parent: parent) do
-    normalized_parent = Path.absname(parent)
-    String.starts_with?(child, normalized_parent)
+    Forge.Path.contains?(child, parent)
   end
 
   @doc """

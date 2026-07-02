@@ -84,20 +84,22 @@ defmodule Engine.Commands.ReindexTest do
 
     test "reindexes a specific uri" do
       uri = "file:///file.ex"
+      path = Document.Path.ensure_path(uri)
       entries = [reference()]
       put_entries(uri, entries)
       Reindex.uri(uri)
-      assert_receive {:entries, "/file.ex", ^entries}
+      assert_receive {:entries, ^path, ^entries}
     end
 
     test "buffers updates if a reindex is in progress", %{project: project} do
       uri = "file:///file.ex"
+      path = Document.Path.ensure_path(uri)
       new_entries = [reference(), definition()]
       put_entries(uri, new_entries)
       Reindex.perform(project)
       Reindex.uri(uri)
 
-      assert_receive {:entries, "/file.ex", ^new_entries}
+      assert_receive {:entries, ^path, ^new_entries}
     end
   end
 
