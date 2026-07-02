@@ -49,6 +49,12 @@
       "project": "engine"
     },
     {
+      "os": "windows-2022",
+      "otp": "29.0.1",
+      "elixir": "1.20.0",
+      "project": "engine"
+    },
+    {
       "os": "ubuntu-latest",
       "otp": "29",
       "elixir": "1.20",

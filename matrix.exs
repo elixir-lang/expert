@@ -20,11 +20,18 @@ expert_matrix =
       end
   ]
 
+engine_matrix =
+  for version <- versions do
+    Map.put(version, :project, "engine")
+  end ++ [%{elixir: "1.20.0", otp: "29.0.1", project: "engine", os: "windows-2022"}]
+
+other_project_matrix =
+  for project <- ["expert_credo", "forge"], version <- versions do
+    Map.put(version, :project, project)
+  end
+
 %{
-  include:
-    for project <- ["engine", "expert_credo", "forge"], version <- versions do
-      Map.put(version, :project, project)
-    end ++ expert_matrix
+  include: engine_matrix ++ other_project_matrix ++ expert_matrix
 }
 |> Jason.encode!(pretty: true)
 |> then(&File.write!(".github/matrix.json", &1))
