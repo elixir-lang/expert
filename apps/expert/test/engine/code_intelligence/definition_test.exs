@@ -237,13 +237,6 @@ defmodule Expert.Engine.CodeIntelligence.DefinitionTest do
       assert definition_line == ~S[  def «greet»(name) do]
     end
 
-    @doc """
-    This is a limitation of the ElixirSense.
-    like the `subject_module` below, it can't find the correct definition of `hello_func_in_using/0`
-    when the definition module aliased by `use` or `import`,
-    currently, it will go to the `use MyDefinition` line
-    """
-    @tag :skip
     test "find the correct definition when func defined in the quote block", %{
       project: project,
       uri: referenced_uri
@@ -261,7 +254,7 @@ defmodule Expert.Engine.CodeIntelligence.DefinitionTest do
       assert {:ok, ^referenced_uri, definition_line} =
                definition(project, subject_module, referenced_uri)
 
-      assert definition_line == ~S[  def «hello_func_in_using» do]
+      assert definition_line == ~S[      def «hello_func_in_using»() do]
     end
   end
 
