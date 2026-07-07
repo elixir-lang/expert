@@ -931,6 +931,121 @@ defmodule ExpertTest do
   end
 
   describe "text document save" do
+    test "didSave schedules compile when project engine is ready", %{
+      client: client,
+      project_root: project_root,
+      main_project: main_project
+    } do
+      test_pid = self()
+
+      patch(Expert.EngineApi, :schedule_compile, fn project, false ->
+        send(test_pid, {:scheduled_compile, project.root_uri})
+        :ok
+      end)
+
+      assert :ok =
+               request(
+                 client,
+                 initialize_request(project_root, id: 1, projects: [main_project])
+               )
+
+      assert_result(1, _)
+      assert Expert.Project.Store.transition(main_project, :ready)
+
+      file_uri = Document.Path.to_uri(Path.join([project_root, "main", "lib", "ready_save.ex"]))
+      initial_text = "defmodule ReadySave do\nend"
+
+      assert :ok =
+               notify(client, %{
+                 method: "textDocument/didOpen",
+                 jsonrpc: "2.0",
+                 params: %{
+                   textDocument: %{
+                     uri: file_uri,
+                     languageId: "elixir",
+                     version: 1,
+                     text: initial_text
+                   }
+                 }
+               })
+
+      assert :ok =
+               notify(client, %{
+                 method: "textDocument/didSave",
+                 jsonrpc: "2.0",
+                 params: %{
+                   textDocument: %{uri: file_uri}
+                 }
+               })
+
+      assert_receive {:scheduled_compile, root_uri}
+      assert root_uri == main_project.root_uri
+    end
+
+    test "didSave does not schedule compile while project engine is pending", %{
+      client: client,
+      project_root: project_root,
+      main_project: main_project
+    } do
+      test_pid = self()
+
+      patch(Expert.Project.Supervisor, :ensure_node_started, fn project ->
+        send(test_pid, {:engine_start_attempted, self(), project.root_uri})
+
+        receive do
+          :release_engine_start -> {:ok, nil}
+        after
+          1_000 -> {:ok, nil}
+        end
+      end)
+
+      patch(Expert.EngineApi, :schedule_compile, fn project, force? ->
+        send(test_pid, {:scheduled_compile, project.root_uri, force?})
+        :ok
+      end)
+
+      assert :ok =
+               request(
+                 client,
+                 initialize_request(project_root, id: 1, projects: [main_project])
+               )
+
+      assert_result(1, _)
+
+      assert :ok = notify(client, initialized_notification())
+      assert_request(client, "client/registerCapability", fn _params -> nil end)
+      assert_receive {:engine_start_attempted, engine_task, _root_uri}
+
+      file_uri = Document.Path.to_uri(Path.join([project_root, "main", "lib", "pending_save.ex"]))
+      initial_text = "defmodule PendingSave do\nend"
+
+      assert :ok =
+               notify(client, %{
+                 method: "textDocument/didOpen",
+                 jsonrpc: "2.0",
+                 params: %{
+                   textDocument: %{
+                     uri: file_uri,
+                     languageId: "elixir",
+                     version: 1,
+                     text: initial_text
+                   }
+                 }
+               })
+
+      assert :ok =
+               notify(client, %{
+                 method: "textDocument/didSave",
+                 jsonrpc: "2.0",
+                 params: %{
+                   textDocument: %{uri: file_uri}
+                 }
+               })
+
+      refute_receive {:scheduled_compile, _, _}, 100
+      send(engine_task, :release_engine_start)
+    end
+
     test "didSave does not crash when file is not in any active project", %{
       client: client,
       project_root: project_root

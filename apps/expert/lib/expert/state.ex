@@ -245,7 +245,9 @@ defmodule Expert.State do
       :ok ->
         case context do
           %Context{project: %Project{kind: :mix} = project} ->
-            EngineApi.schedule_compile(project, false)
+            if Store.ready?(project) do
+              EngineApi.schedule_compile(project, false)
+            end
 
           %Context{project: %Project{kind: :bare}} ->
             :ok
