@@ -67,6 +67,17 @@ defmodule Expert.Engine.CodeIntelligence.DefinitionTest do
     EngineApi.register_listener(project, self(), [:all])
     EngineApi.schedule_compile(project, true)
 
+    # point ElixirSense at the project node's Elixir source
+    elixir_src =
+      project
+      |> EngineApi.call(:code, :lib_dir, [:elixir])
+      |> to_string()
+      |> Path.join("../..")
+      |> Path.expand()
+
+    :ok =
+      EngineApi.call(project, Application, :put_env, [:language_server, :elixir_src, elixir_src])
+
     assert_receive project_compiled(), @project_compile_timeout
     assert_receive project_index_ready(project: ^project), @project_index_timeout
 
@@ -426,12 +437,6 @@ defmodule Expert.Engine.CodeIntelligence.DefinitionTest do
       assert referenced_uri =~ "navigations/lib/my_module.ex"
     end
 
-    @doc """
-    This is a limitation of the ElixirSense.
-    like the `subject_module` below, it can't find the correct definition of `String.to_integer/1`,
-    currently, it will always return `{:ok, nil}`
-    """
-    @tag :skip
     test "find the definition when calling a Elixir std module function",
          %{project: project, subject_uri: subject_uri} do
       subject_module = ~q[

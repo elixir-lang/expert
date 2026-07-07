@@ -405,7 +405,7 @@ defmodule Expert.EngineNode do
         configs
 
       elixir_source_path ->
-        [{:language_server, [elixir_source_path: elixir_source_path]} | configs]
+        [{:language_server, [elixir_src: elixir_source_path]} | configs]
     end
   end
 end

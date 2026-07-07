@@ -131,7 +131,8 @@ defmodule Engine.CodeIntelligence.Definition do
     position = Position.new(document, line, column)
 
     with {:ok, zipper} <- Ast.zipper_at(document, position),
-         %{node: {entity_name, meta, _}} <- Sourceror.Zipper.next(zipper) do
+         zipper = Sourceror.Zipper.next(zipper),
+         %{node: {entity_name, meta, _}} <- zipper do
       meta =
         if entity_name == :when do
           %{node: {_entity_name, meta, _}} = Sourceror.Zipper.next(zipper)
