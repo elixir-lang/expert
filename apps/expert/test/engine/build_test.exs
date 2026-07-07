@@ -130,12 +130,12 @@ defmodule Engine.BuildTest do
     end
   end
 
-  describe "compiling a project with parse errors" do
+  describe "compilng a project with parse errors" do
     setup :with_parse_errors_project
 
     @feature_condition span_in_diagnostic?: false
     @tag execute_if(@feature_condition)
-    test "reports parse errors without span diagnostics", %{project: project} do
+    test "stuff", %{project: project} do
       EngineApi.schedule_compile(project, true)
 
       assert_receive project_compiled(status: :error)
@@ -147,7 +147,7 @@ defmodule Engine.BuildTest do
 
     @feature_condition span_in_diagnostic?: true
     @tag execute_if(@feature_condition)
-    test "reports parse errors with span diagnostics", %{project: project} do
+    test "stuff when #{inspect(@feature_condition)}", %{project: project} do
       EngineApi.schedule_compile(project, true)
 
       assert_receive project_compiled(status: :error), @project_compile_timeout
@@ -178,8 +178,14 @@ defmodule Engine.BuildTest do
     end
   end
 
+  def with_patched_state_timeout(_) do
+    patch(Engine.Build.State, :should_compile?, true)
+    patch(Engine.Build.State, :edit_window_millis, 50)
+    :ok
+  end
+
   describe "compiling source files" do
-    setup [:with_metadata_project, :with_empty_module]
+    setup [:with_metadata_project, :with_empty_module, :with_patched_state_timeout]
 
     test "handles syntax errors", %{project: project} do
       source = ~S[
@@ -393,7 +399,8 @@ defmodule Engine.BuildTest do
 
       assert_receive file_compiled(status: :error)
 
-      assert_receive file_diagnostics(diagnostics: [_, _, _])
+      assert_receive file_diagnostics(diagnostics: [_, _, _] = diagnostics)
+      assert length(diagnostics) == 3
     end
 
     test "adding a new module notifies the listener", %{project: project} do
@@ -416,7 +423,7 @@ defmodule Engine.BuildTest do
       compile_document(project, source)
 
       assert_receive module_updated(name: NotLoaded, struct: fields)
-      assert [%{field: :loaded, required?: false}] = fields
+      assert [%{field: :loaded, required?: true}] = fields
     end
 
     test "adding multiple modules notifies the listener for each module", %{project: project} do
@@ -562,7 +569,7 @@ defmodule Engine.BuildTest do
     end
   end
 
-  defp loaded?(project, module) do
+  def loaded?(project, module) do
     EngineApi.call(project, Code, :ensure_loaded?, [module])
   end
 
@@ -676,9 +683,8 @@ defmodule Engine.BuildTest do
         {:ok, project} = with_project(:compilation_callback_errors)
         patch(Engine.Build.Project, :maybe_load_modules, :ok)
         EngineApi.schedule_compile(project, false)
-
         assert_receive project_compiled(status: :error), @project_compile_timeout
-        assert_receive project_diagnostics(diagnostics: [diagnostic]), @project_compile_timeout
+        assert_receive project_diagnostics(diagnostics: [diagnostic])
 
         file_name =
           diagnostic.uri

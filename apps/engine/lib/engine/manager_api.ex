@@ -19,13 +19,6 @@ defmodule Engine.ManagerApi do
     Dispatch.erpc_call(Expert.Search.Store, :update, [project, path, entries], :infinity)
   end
 
-  @spec search_store_commit_traces(Project.t(), [{Path.t(), [module()], [Entry.t()]}]) ::
-          :ok | {:error, term()}
-  def search_store_commit_traces(%Project{} = project, trace_updates)
-      when is_list(trace_updates) do
-    Dispatch.erpc_call(Expert.Search.Store, :commit_traces, [project, trace_updates], :infinity)
-  end
-
   @spec search_store_clear(Project.t(), Path.t()) :: :ok | {:error, term()}
   def search_store_clear(%Project{} = project, path) do
     Dispatch.erpc_call(Expert.Search.Store, :clear, [project, path])

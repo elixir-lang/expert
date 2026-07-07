@@ -1,11 +1,8 @@
 defmodule Engine.Build do
   use GenServer
 
-  import Forge.EngineApi.Messages
-
   alias Engine.Build.Document.Compilers.HEEx
   alias Engine.Build.State
-  alias Engine.Dispatch
   alias Forge.Document
   alias Forge.Project
 
@@ -18,7 +15,8 @@ defmodule Engine.Build do
   end
 
   def compile_document(%Project{} = _project, %Document{} = document) do
-    if compilable_document?(document) do
+    with false <- Path.absname(document.path) == "mix.exs",
+         false <- HEEx.recognizes?(document) do
       GenServer.cast(__MODULE__, {:compile_file, document})
     end
 
@@ -27,7 +25,8 @@ defmodule Engine.Build do
 
   # this is for testing
   def force_compile_document(%Document{} = document) do
-    if compilable_document?(document) do
+    with false <- Path.absname(document.path) == "mix.exs",
+         false <- HEEx.recognizes?(document) do
       GenServer.call(__MODULE__, {:force_compile_file, document})
     end
 
@@ -40,11 +39,7 @@ defmodule Engine.Build do
 
   def with_lock(func), do: Engine.with_lock(__MODULE__, func)
 
-  defp compilable_document?(%Document{} = document) do
-    Path.absname(document.path) != "mix.exs" and not HEEx.recognizes?(document)
-  end
-
-  # can't pass work token to ProjectTracer module, so store it in persistent term.
+  # can't pass work token to Tracer module, so store it in persistent term.
 
   def set_progress_token(token), do: :persistent_term.put({__MODULE__, :progress_token}, token)
 
@@ -63,7 +58,6 @@ defmodule Engine.Build do
     state = State.new(Engine.get_project())
 
     with :ok <- State.set_compiler_options() do
-      Dispatch.register_listener(self(), [project_index_ready()])
       {:ok, state, {:continue, :ensure_build_directory}}
     end
   end
@@ -105,14 +99,9 @@ defmodule Engine.Build do
     {:noreply, new_state}
   end
 
-  def handle_info(project_index_ready(project: project), %State{} = state) do
-    new_state = State.on_project_index_ready(state, project)
-    {:noreply, new_state}
-  end
-
   @impl GenServer
-  def handle_info(msg, %State{} = state) do
+  def handle_info(msg, %Project{} = project) do
     Logger.warning("Undefined message: #{inspect(msg)}")
-    {:noreply, state}
+    {:noreply, project}
   end
 end

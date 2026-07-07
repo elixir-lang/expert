@@ -114,76 +114,6 @@ defmodule Engine.Search.Indexer.BeamsTest do
              )
     end
 
-    test "extracts definitions from BEAM binaries", %{tmp_dir: tmp_dir} do
-      module = unique_module("BinaryDefinitions")
-
-      %{beam_paths_by_module: beam_paths_by_module} =
-        compile_source!(
-          tmp_dir,
-          "defmodule #{inspect(module)} do\n  def value, do: :ok\nend\n",
-          expected_modules: [module],
-          rewrite_source?: false
-        )
-
-      module_beam = File.read!(Map.fetch!(beam_paths_by_module, module))
-      assert {:ok, definitions} = Beams.extract_definitions_from_binary(module_beam)
-
-      assert Enum.any?(
-               definitions,
-               &(&1.subject == module and &1.type == :module and &1.subtype == :definition)
-             )
-
-      assert Enum.any?(
-               definitions,
-               &(&1.subject == Formats.mfa(module, :value, 0) and
-                   &1.type == {:function, :public} and &1.subtype == :definition)
-             )
-    end
-
-    test "indexes each BEAM metadata clause for same-arity public functions", %{
-      tmp_dir: tmp_dir
-    } do
-      module = unique_module("MultiClause")
-      mfa = Formats.mfa(module, :greet, 1)
-
-      source = """
-      defmodule #{inspect(module)} do
-        def greet(name) when is_atom(name), do: name
-        def greet(name) when is_binary(name), do: name
-        def greet(name), do: name
-      end
-      """
-
-      %{entries: entries} =
-        index_source!(tmp_dir, source,
-          expected_modules: [module],
-          rewrite_source?: false
-        )
-
-      definitions =
-        entries
-        |> Enum.filter(
-          &(&1.subject == mfa and &1.type == {:function, :public} and
-              &1.subtype == :definition)
-        )
-        |> Enum.sort_by(& &1.range.start.line)
-
-      assert [first, second, third] = definitions
-
-      assert Enum.map([first, second, third], &extract(source, &1.range)) == [
-               "greet",
-               "greet",
-               "greet"
-             ]
-
-      assert [first.range.start.line, second.range.start.line, third.range.start.line] ==
-               Enum.uniq([
-                 first.range.start.line,
-                 second.range.start.line,
-                 third.range.start.line
-               ])
-    end
-
     test "preserves defdelegate metadata without dangling block ids", %{tmp_dir: tmp_dir} do
       module = unique_module("Delegate")
 
@@ -355,7 +285,7 @@ defmodule Engine.Search.Indexer.BeamsTest do
       test_pid = self()
 
       patch(Engine.Dispatch, :erpc_call, fn
-        Expert.Progress, :begin, ["Indexing BEAM metadata", _opts] ->
+        Expert.Progress, :begin, ["Indexing dependencies metadata", _opts] ->
           {:ok, System.unique_integer([:positive])}
 
         Expert.Progress, :begin, [_title, _opts] ->
@@ -557,14 +487,10 @@ defmodule Engine.Search.Indexer.BeamsTest do
 
   defp compile_source!(tmp_dir, source, opts) do
     source_path =
-      [tmp_dir, "lib", "beam_source_#{System.unique_integer([:positive])}.ex"]
-      |> Path.join()
-      |> Forge.Path.native()
+      Path.join([tmp_dir, "lib", "beam_source_#{System.unique_integer([:positive])}.ex"])
 
     ebin_path =
-      [tmp_dir, "ebin", Integer.to_string(System.unique_integer([:positive]))]
-      |> Path.join()
-      |> Forge.Path.native()
+      Path.join([tmp_dir, "ebin", Integer.to_string(System.unique_integer([:positive]))])
 
     File.mkdir_p!(Path.dirname(source_path))
     File.mkdir_p!(ebin_path)
@@ -601,7 +527,7 @@ defmodule Engine.Search.Indexer.BeamsTest do
 
     beam_paths_by_module =
       Map.new(compiled_modules, fn module ->
-        {module, ebin_path |> Path.join(Atom.to_string(module) <> ".beam") |> Forge.Path.native()}
+        {module, Path.join(ebin_path, Atom.to_string(module) <> ".beam")}
       end)
 
     %{

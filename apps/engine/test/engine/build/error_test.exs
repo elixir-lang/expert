@@ -21,11 +21,15 @@ defmodule Engine.Build.ErrorTest do
     Build.Document.compile(doc)
   end
 
-  def diagnostics({status, diagnostics}) when status in [:ok, :error] do
+  def diagnostics({:error, diagnostics}) do
     diagnostics
   end
 
-  def diagnostic({status, [diagnostic]}) when status in [:ok, :error] do
+  def diagnostic({:error, [diagnostic]}) do
+    diagnostic
+  end
+
+  def diagnostic({:ok, [diagnostic]}) do
     diagnostic
   end
 

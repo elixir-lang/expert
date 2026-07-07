@@ -49,9 +49,7 @@ defmodule Engine.Search.Indexer.Sources do
         |> Enum.flat_map(&task_result!/1)
 
       elapsed = System.monotonic_time(:millisecond) - start_time
-
-      {:done, results,
-       "Checked #{length(paths)} source #{file_label(paths)} in #{format_duration(elapsed)}"}
+      {:done, results, "Completed in #{format_duration(elapsed)}"}
     end)
   end
 
@@ -62,7 +60,4 @@ defmodule Engine.Search.Indexer.Sources do
 
   defp format_duration(ms) when ms < 1000, do: "#{ms}ms"
   defp format_duration(ms), do: "#{Float.round(ms / 1000, 1)}s"
-
-  defp file_label([_path]), do: "file"
-  defp file_label(_paths), do: "files"
 end

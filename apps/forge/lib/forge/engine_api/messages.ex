@@ -8,7 +8,7 @@ defmodule Forge.EngineApi.Messages do
   defrecord :project_compiled,
     project: nil,
     build_number: 0,
-    status: :success,
+    status: :successful,
     diagnostics: [],
     elapsed_ms: 0
 
@@ -22,7 +22,7 @@ defmodule Forge.EngineApi.Messages do
     project: nil,
     build_number: 0,
     uri: nil,
-    status: :success,
+    status: :successful,
     diagnostics: [],
     elapsed_ms: 0
 
@@ -44,7 +44,7 @@ defmodule Forge.EngineApi.Messages do
 
   defrecord :search_store_loading, project: nil
 
-  @type compile_status :: :success | :error
+  @type compile_status :: :successful | :error
   @type name_and_arity :: {atom, non_neg_integer}
   @type field_list :: Keyword.t() | [atom]
   @type diagnostics :: [Mix.Task.Compiler.Diagnostic.t()]

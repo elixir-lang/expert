@@ -26,8 +26,8 @@ defmodule Engine.Search.Indexer.Manifest do
             input_path: Path.t(),
             output_path: Path.t() | nil,
             kind: kind(),
-            mtime: file_time() | nil,
-            size: non_neg_integer() | nil,
+            mtime: file_time(),
+            size: non_neg_integer(),
             source_path: Path.t() | nil,
             source_mtime: file_time() | nil,
             source_size: non_neg_integer() | nil
@@ -35,19 +35,6 @@ defmodule Engine.Search.Indexer.Manifest do
 
     def source(path) when is_binary(path) do
       from_file(path, path, :source)
-    end
-
-    def dirty_source(path) when is_binary(path) do
-      # Dirty source entries come from editor-buffer compiles, so they must not
-      # match the current disk file stat during incremental index planning.
-      {:ok,
-       %__MODULE__{
-         input_path: path,
-         output_path: path,
-         kind: :source,
-         mtime: nil,
-         size: nil
-       }}
     end
 
     def beam(path, output_path) when is_binary(path) and is_binary(output_path) do
@@ -270,35 +257,6 @@ defmodule Engine.Search.Indexer.Manifest do
     |> put_all(entries)
   end
 
-  def replace_output(%__MODULE__{} = manifest, output_path, entries)
-      when is_binary(output_path) and is_list(entries) do
-    %__MODULE__{
-      manifest
-      | entries_by_input_path:
-          Map.reject(manifest.entries_by_input_path, fn {_input_path, entry} ->
-            entry_for_output?(entry, output_path)
-          end)
-    }
-    |> put_all(entries)
-  end
-
-  def replace_outputs(%__MODULE__{} = manifest, entries_by_output)
-      when is_map(entries_by_output) do
-    Enum.reduce(entries_by_output, manifest, fn {output_path, entries}, manifest ->
-      replace_output(manifest, output_path, entries)
-    end)
-  end
-
-  def output_path(%Entry{output_path: output_path}) when is_binary(output_path), do: output_path
-  def output_path(%Entry{source_path: source_path}) when is_binary(source_path), do: source_path
-  def output_path(%Entry{kind: :source, input_path: input_path}), do: input_path
-  def output_path(%Entry{}), do: nil
-
-  def paths(%Entry{} = entry) do
-    [entry.input_path, entry.output_path, entry.source_path]
-    |> Enum.reject(&is_nil/1)
-  end
-
   def output_paths_to_clear(%__MODULE__{} = manifest, %Plan{} = plan, entries)
       when is_list(entries) do
     indexed_input_paths = plan.source_paths_to_index ++ plan.beam_paths_to_index
@@ -377,19 +335,22 @@ defmodule Engine.Search.Indexer.Manifest do
          dirty_outputs
        ) do
     dirty_beam_paths =
-      for %Entry{kind: :beam, input_path: input_path, output_path: output_path} <-
-            entries(manifest),
-          is_binary(output_path),
-          MapSet.member?(beam_paths, input_path),
-          MapSet.member?(dirty_outputs, output_path) do
-        input_path
-      end
+      manifest
+      |> entries()
+      |> Enum.flat_map(fn
+        %Entry{kind: :beam, input_path: input_path, output_path: output_path}
+        when is_binary(output_path) ->
+          if MapSet.member?(beam_paths, input_path) and MapSet.member?(dirty_outputs, output_path) do
+            [input_path]
+          else
+            []
+          end
+
+        _entry ->
+          []
+      end)
 
     Enum.uniq(beam_paths_to_index ++ dirty_beam_paths)
-  end
-
-  defp entry_for_output?(%Entry{} = entry, output_path) do
-    output_path in [entry.input_path, entry.output_path, entry.source_path]
   end
 
   defp output_paths_for_inputs(%__MODULE__{} = manifest, input_paths) do

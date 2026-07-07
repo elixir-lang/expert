@@ -1,10 +1,8 @@
 defmodule Engine.Build.State do
   import Forge.EngineApi.Messages
 
+  alias Elixir.Features
   alias Engine.Build
-  alias Engine.Compilation.ProjectTracer
-  alias Engine.Compilation.TraceBuffer
-  alias Engine.Compilation.Tracers
   alias Engine.Plugin
   alias Forge.Document
   alias Forge.Project
@@ -16,8 +14,7 @@ defmodule Engine.Build.State do
             build_number: 0,
             uri_to_document: %{},
             project_compile: :none,
-            last_deps_fetch_result: nil,
-            runtime_refresh_project: nil
+            last_deps_fetch_result: nil
 
   def new(%Project{} = project) do
     %__MODULE__{project: project}
@@ -35,7 +32,7 @@ defmodule Engine.Build.State do
     # compiled because they might have unsaved changes, and we want that state
     # to be the latest state of the project.
     new_state =
-      Enum.reduce(new_state.uri_to_document, new_state, fn {_uri, document}, state ->
+      Enum.reduce(new_state.uri_to_document, state, fn {_uri, document}, state ->
         compile_file(state, document)
       end)
 
@@ -50,9 +47,11 @@ defmodule Engine.Build.State do
   end
 
   def on_project_compile(%__MODULE__{} = state, force?) do
-    project_compile = if force?, do: :force, else: :normal
-
-    %__MODULE__{state | project_compile: project_compile}
+    if force? do
+      %__MODULE__{state | project_compile: :force}
+    else
+      %__MODULE__{state | project_compile: :normal}
+    end
   end
 
   def ensure_build_directory(%__MODULE__{} = state) do
@@ -131,12 +130,23 @@ defmodule Engine.Build.State do
       {elapsed_us, result} = :timer.tc(fn -> Build.Project.compile(project, initial?) end)
       elapsed_ms = to_ms(elapsed_us)
 
-      {status, diagnostics} = project_compile_result(result)
-      trace_result = settle_project_trace(project, status)
-      log_trace_result(trace_result, "project compile")
+      {compile_message, diagnostics} =
+        case result do
+          :ok ->
+            message = project_compiled(status: :success, project: project, elapsed_ms: elapsed_ms)
 
-      compile_message =
-        project_compiled(status: status, project: project, elapsed_ms: elapsed_ms)
+            {message, []}
+
+          {:ok, diagnostics} ->
+            message = project_compiled(status: :success, project: project, elapsed_ms: elapsed_ms)
+
+            {message, List.wrap(diagnostics)}
+
+          {:error, diagnostics} ->
+            message = project_compiled(status: :error, project: project, elapsed_ms: elapsed_ms)
+
+            {message, List.wrap(diagnostics)}
+        end
 
       diagnostics_message =
         project_diagnostics(
@@ -150,18 +160,8 @@ defmodule Engine.Build.State do
       Plugin.diagnose(project, state.build_number)
     end)
 
-    mark_runtime_refresh_pending(state)
+    state
   end
-
-  def on_project_index_ready(%__MODULE__{} = state, %Project{} = ready_project) do
-    refresh_runtime(state, ready_project)
-  end
-
-  def on_project_index_ready(%__MODULE__{} = state, _project), do: state
-
-  defp project_compile_result(:ok), do: {:success, []}
-  defp project_compile_result({:ok, diagnostics}), do: {:success, List.wrap(diagnostics)}
-  defp project_compile_result({:error, diagnostics}), do: {:error, List.wrap(diagnostics)}
 
   def compile_file(%__MODULE__{} = state, %Document{} = document) do
     state = increment_build_number(state)
@@ -174,18 +174,32 @@ defmodule Engine.Build.State do
 
       elapsed_ms = to_ms(elapsed_us)
 
-      {status, diagnostics} = file_compile_result(result)
-      trace_result = settle_file_trace(project, document, status)
-      log_trace_result(trace_result, "file compile")
+      {compile_message, diagnostics} =
+        case result do
+          {:ok, diagnostics} ->
+            message =
+              file_compiled(
+                project: project,
+                build_number: state.build_number,
+                status: :success,
+                uri: document.uri,
+                elapsed_ms: elapsed_ms
+              )
 
-      compile_message =
-        file_compiled(
-          project: project,
-          build_number: state.build_number,
-          status: status,
-          uri: document.uri,
-          elapsed_ms: elapsed_ms
-        )
+            {message, diagnostics}
+
+          {:error, diagnostics} ->
+            message =
+              file_compiled(
+                project: project,
+                build_number: state.build_number,
+                status: :error,
+                uri: document.uri,
+                elapsed_ms: elapsed_ms
+              )
+
+            {message, diagnostics}
+        end
 
       diagnostics =
         file_diagnostics(
@@ -203,43 +217,8 @@ defmodule Engine.Build.State do
     state
   end
 
-  defp file_compile_result({:ok, diagnostics}), do: {:success, diagnostics}
-  defp file_compile_result({:error, diagnostics}), do: {:error, diagnostics}
-
-  defp settle_project_trace(%Project{} = project, :success),
-    do: TraceBuffer.commit_project(project)
-
-  defp settle_project_trace(%Project{} = project, _status),
-    do: TraceBuffer.discard_project(project)
-
-  defp settle_file_trace(%Project{} = project, %Document{} = document, :success) do
-    TraceBuffer.commit_path(project, document.path,
-      dirty_source?: true,
-      source_document: document
-    )
-  end
-
-  defp settle_file_trace(_project, %Document{} = document, _status) do
-    TraceBuffer.discard(document.path)
-  end
-
-  defp log_trace_result(:ok, _operation), do: :ok
-
-  defp log_trace_result({:error, reason}, operation) do
-    Logger.warning("Failed to commit trace data for #{operation}: #{inspect(reason)}")
-  end
-
-  defp compile_document(%Project{kind: :mix} = project, document) do
-    Engine.Mix.in_project(project, fn _ ->
-      Tracers.with_project(
-        project,
-        [ProjectTracer],
-        [buffer_beam_paths?: false],
-        fn ->
-          Build.Document.compile(document)
-        end
-      )
-    end)
+  defp compile_document(%Project{kind: :mix}, document) do
+    Engine.Mix.in_project(fn _ -> Build.Document.compile(document) end)
   end
 
   defp compile_document(%Project{}, document) do
@@ -248,8 +227,8 @@ defmodule Engine.Build.State do
 
   def set_compiler_options do
     Code.compiler_options(
-      debug_info: true,
-      parser_options: [columns: true, token_metadata: true]
+      parser_options: parser_options(),
+      tracers: [Engine.Compilation.Tracer]
     )
 
     :ok
@@ -276,33 +255,13 @@ defmodule Engine.Build.State do
     microseconds / 1000
   end
 
+  defp parser_options do
+    [columns: true, token_metadata: true]
+  end
+
   defp increment_build_number(%__MODULE__{} = state) do
     %__MODULE__{state | build_number: state.build_number + 1}
   end
-
-  defp refresh_runtime(
-         %__MODULE__{runtime_refresh_project: %Project{} = pending_project} = state,
-         %Project{} = ready_project
-       ) do
-    if same_project?(pending_project, ready_project) do
-      Engine.Build.Project.refresh_runtime(pending_project)
-      %__MODULE__{state | runtime_refresh_project: nil}
-    else
-      state
-    end
-  end
-
-  defp refresh_runtime(%__MODULE__{} = state, _project), do: state
-
-  defp same_project?(%Project{} = left, %Project{} = right) do
-    Project.unique_name(left) == Project.unique_name(right)
-  end
-
-  defp mark_runtime_refresh_pending(%__MODULE__{project: %Project{kind: :mix} = project} = state) do
-    %__MODULE__{state | runtime_refresh_project: project}
-  end
-
-  defp mark_runtime_refresh_pending(%__MODULE__{} = state), do: state
 
   @two_month_seconds 86_400 * 31 * 2
   defp maybe_delete_old_builds(%Project{} = project) do
@@ -325,9 +284,10 @@ defmodule Engine.Build.State do
   end
 
   defp newest_beam_mtime(directory) do
-    beam_files = directory |> Path.join("**/*.beam") |> Path.wildcard()
-
-    case beam_files do
+    directory
+    |> Path.join("**/*.beam")
+    |> Path.wildcard()
+    |> then(fn
       [] ->
         0
 
@@ -335,6 +295,6 @@ defmodule Engine.Build.State do
         beam_files
         |> Enum.map(&File.stat!(&1, time: :posix).mtime)
         |> Enum.max()
-    end
+    end)
   end
 end

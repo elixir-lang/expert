@@ -15,11 +15,6 @@ defmodule Expert.Progress do
 
   # Behaviour implementations
 
-  def log_info(message) when is_binary(message) do
-    Logger.info(message)
-    :ok
-  end
-
   @doc """
   Begins server-initiated progress.
 

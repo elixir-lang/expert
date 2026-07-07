@@ -47,14 +47,7 @@ defmodule Expert.Engine.ModulesTest do
       EngineApi.schedule_compile(project, true)
       assert_receive project_compiled(), :timer.seconds(30)
 
-      # Simulate the project config being loaded on the engine node.
-      assert :ok =
-               EngineApi.call(project, Application, :put_env, [
-                 :elixir,
-                 :time_zone_database,
-                 Tzdata.TimeZoneDatabase
-               ])
-
+      # Verify the time_zone_database config was loaded on the engine node
       tz_db = EngineApi.call(project, Application, :get_env, [:elixir, :time_zone_database])
       assert tz_db == Tzdata.TimeZoneDatabase
 

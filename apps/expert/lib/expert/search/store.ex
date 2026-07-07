@@ -84,14 +84,6 @@ defmodule Expert.Search.Store do
   def update(%Project{} = project, path, entries),
     do: GenServer.call(name(project), {:update, path, entries}, :infinity)
 
-  def commit_traces(%Project{} = project, trace_updates) when is_list(trace_updates) do
-    call_if_started(
-      project,
-      {:commit_traces, normalize_trace_update_paths(trace_updates)},
-      {:error, :not_started}
-    )
-  end
-
   def destroy(%Project{} = project), do: GenServer.call(name(project), :destroy)
   def enable(%Project{} = project), do: GenServer.call(name(project), :enable)
 
@@ -226,24 +218,6 @@ defmodule Expert.Search.Store do
     {:reply, reply, {new_ref, new_state}}
   end
 
-  def handle_call({:commit_traces, trace_updates}, _from, {ref, %State{} = state}) do
-    case State.commit_traces(state, trace_updates) do
-      {:ok, state} -> {:reply, :ok, {schedule_flush(ref), state}}
-      {:error, _} = error -> {:reply, error, {ref, state}}
-    end
-  end
-
-  def handle_call({:commit_traces, trace_updates}, _from, %State{} = state) do
-    case State.commit_traces(state, trace_updates) do
-      {:ok, state} ->
-        mark_enabled(state.project)
-        {:reply, :ok, {schedule_flush(), state}}
-
-      {:error, _} = error ->
-        {:reply, error, state}
-    end
-  end
-
   def handle_call({:parent, entry}, _from, {_, %State{} = state} = orig_state) do
     state
     |> State.parent(entry)
@@ -338,7 +312,7 @@ defmodule Expert.Search.Store do
   defp load_store(%State{} = state) do
     case State.load(state) do
       {:ok, _status, state} ->
-        mark_enabled(state.project)
+        :persistent_term.put({__MODULE__, Project.unique_name(state.project), :enabled?}, true)
         server_state = {nil, state}
         {:ok, server_state}
 
@@ -361,10 +335,6 @@ defmodule Expert.Search.Store do
 
   defp schedule_gc, do: Process.send_after(self(), :gc, :timer.seconds(5))
 
-  defp mark_enabled(%Project{} = project) do
-    :persistent_term.put({__MODULE__, Project.unique_name(project), :enabled?}, true)
-  end
-
   defp call_or_default(%Project{} = project, call, default) do
     if enabled?(project) do
       GenServer.call(name(project), call, :infinity)
@@ -373,21 +343,6 @@ defmodule Expert.Search.Store do
     end
   catch
     :exit, _ -> default
-  end
-
-  defp call_if_started(%Project{} = project, call, default) do
-    case Process.whereis(name(project)) do
-      nil -> default
-      _pid -> GenServer.call(name(project), call, :infinity)
-    end
-  catch
-    :exit, _ -> default
-  end
-
-  defp normalize_trace_update_paths(trace_updates) do
-    Enum.map(trace_updates, fn {path, modules, entries} ->
-      {path |> Path.expand() |> Forge.Path.native(), modules, entries}
-    end)
   end
 
   defp enabled?(%Project{} = project) do

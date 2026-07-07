@@ -6,7 +6,6 @@ defmodule Engine.CodeIntelligence.SymbolsTest do
   import Forge.Test.RangeSupport
 
   alias Engine.CodeIntelligence.Symbols
-  alias Engine.Search.Indexer.Beams
   alias Engine.Search.Indexer.Extractors
   alias Engine.Search.Indexer.Source
   alias Forge.CodeIntelligence.Symbols.Document
@@ -392,7 +391,7 @@ defmodule Engine.CodeIntelligence.SymbolsTest do
       assert struct.type == :struct
     end
 
-    test "struct references are skipped" do
+    test "struct references are skippedd" do
       assert {[], _doc} =
                ~q[%OtherModule{}]
                |> document_symbols()
@@ -729,57 +728,6 @@ defmodule Engine.CodeIntelligence.SymbolsTest do
       assert decorate(doc, private_function.link.detail_range) =~ "  defp «private_fun(a, b)» do"
     end
 
-    @tag :tmp_dir
-    test "converts BEAM-backed same-arity clauses into workspace symbols", %{tmp_dir: tmp_dir} do
-      module = Module.concat(__MODULE__, :BeamBackedWorkspaceSymbolClauses)
-      source_path = Path.join(tmp_dir, "beam_backed_workspace_symbol_clauses.ex")
-
-      source = """
-      defmodule #{inspect(module)} do
-        def handle_request(request, lsp) when is_atom(request), do: {request, lsp}
-        def handle_request(request, lsp) when is_binary(request), do: {request, lsp}
-        def handle_request(request, lsp), do: {request, lsp}
-      end
-      """
-
-      doc = Forge.Document.new(Forge.Document.Path.to_uri(source_path), source, 1)
-
-      File.write!(source_path, source)
-
-      entries =
-        source_path
-        |> compile_beam!(tmp_dir, module)
-        |> beam_definitions!()
-        |> Enum.filter(&(&1.type == {:function, :public}))
-
-      patch(Engine.ManagerApi, :search_store_fuzzy, fn _project, "handle_request", [] ->
-        {:ok, entries}
-      end)
-
-      symbols = Symbols.for_workspace("handle_request")
-      assert [first, second, third] = symbols
-
-      assert Enum.map([first, second, third], & &1.name) == [
-               "Engine.CodeIntelligence.SymbolsTest.BeamBackedWorkspaceSymbolClauses.handle_request/2",
-               "Engine.CodeIntelligence.SymbolsTest.BeamBackedWorkspaceSymbolClauses.handle_request/2",
-               "Engine.CodeIntelligence.SymbolsTest.BeamBackedWorkspaceSymbolClauses.handle_request/2"
-             ]
-
-      assert Enum.all?([first, second, third], fn symbol ->
-               symbol.link.detail_range.start.document_line_count > 0 and
-                 symbol.link.detail_range.end.document_line_count > 0
-             end)
-
-      assert decorate(doc, first.link.detail_range) =~
-               "  def «handle_request»(request, lsp) when is_atom(request), do: {request, lsp}"
-
-      assert decorate(doc, second.link.detail_range) =~
-               "  def «handle_request»(request, lsp) when is_binary(request), do: {request, lsp}"
-
-      assert decorate(doc, third.link.detail_range) =~
-               "  def «handle_request»(request, lsp), do: {request, lsp}"
-    end
-
     test "converts protocol implementations" do
       {symbols, _doc, _uri} =
         ~q[
@@ -823,32 +771,5 @@ defmodule Engine.CodeIntelligence.SymbolsTest do
       assert function.type == {:function, :usage}
       assert function.name == "MyProto.do_stuff/2"
     end
-  end
-
-  defp compile_beam!(source_path, tmp_dir, module) do
-    ebin_path = Path.join(tmp_dir, "ebin")
-    File.mkdir_p!(ebin_path)
-
-    compiler_options = Code.compiler_options()
-
-    try do
-      Code.compiler_options(debug_info: true)
-
-      assert {:ok, [^module], %{compile_warnings: [], runtime_warnings: []}} =
-               Kernel.ParallelCompiler.compile_to_path([source_path], ebin_path,
-                 return_diagnostics: true
-               )
-    after
-      Code.compiler_options(compiler_options)
-    end
-
-    ebin_path
-    |> Path.join(Atom.to_string(module) <> ".beam")
-    |> File.read!()
-  end
-
-  defp beam_definitions!(beam) do
-    assert {:ok, definitions} = Beams.extract_definitions_from_binary(beam)
-    definitions
   end
 end
