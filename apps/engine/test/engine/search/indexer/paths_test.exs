@@ -21,7 +21,7 @@ defmodule Engine.Search.Indexer.PathsTest do
       write_file!(source_file, "defmodule SourceFile do end")
       write_file!(build_file, "defmodule GeneratedBuildFile do end")
 
-      project = tmp_dir |> Forge.Document.Path.to_uri() |> Project.new()
+      project = project(tmp_dir)
 
       assert source_file in Paths.indexable_files(project)
       refute build_file in Paths.indexable_files(project)
@@ -43,7 +43,7 @@ defmodule Engine.Search.Indexer.PathsTest do
       write_file!(source_file, "defmodule SourceFile do end")
       write_file!(build_file, "defmodule GeneratedBuildFile do end")
 
-      project = tmp_dir |> Forge.Document.Path.to_uri() |> Project.new()
+      project = project(tmp_dir)
 
       assert source_file in Paths.indexable_files(project)
       refute build_file in Paths.indexable_files(project)
@@ -67,7 +67,7 @@ defmodule Engine.Search.Indexer.PathsTest do
       write_file!(source_file, "defmodule SourceFile do end")
       write_file!(build_file, "defmodule GeneratedBuildFile do end")
 
-      project = tmp_dir |> Forge.Document.Path.to_uri() |> Project.new()
+      project = project(tmp_dir)
 
       assert source_file in Paths.indexable_files(project)
       refute build_file in Paths.indexable_files(project)
@@ -95,10 +95,78 @@ defmodule Engine.Search.Indexer.PathsTest do
       write_file!(app_file, "defmodule AppModule do end")
       write_file!(dep_file, "defmodule DepModule do end")
 
-      project = app_root |> Forge.Document.Path.to_uri() |> Project.new()
+      project = project(app_root)
 
       assert app_file in Paths.indexable_files(project)
       refute dep_file in Paths.indexable_files(project)
+    end
+  end
+
+  describe "project_source?/2" do
+    @tag :tmp_dir
+    test "matches project .ex files and excludes scripts, build outputs, deps, and workspace files",
+         %{
+           tmp_dir: tmp_dir
+         } do
+      project = project(tmp_dir)
+
+      assert Paths.project_source?(project, Path.join([tmp_dir, "lib", "source.ex"]))
+
+      refute Paths.project_source?(project, Path.join([tmp_dir, "lib", "script.exs"]))
+      refute Paths.project_source?(project, Path.join([tmp_dir, "_build", "generated.ex"]))
+      refute Paths.project_source?(project, Path.join([tmp_dir, "deps", "dep", "lib", "dep.ex"]))
+      refute Paths.project_source?(project, Path.join([tmp_dir, ".expert", "generated.ex"]))
+      refute Paths.project_source?(project, Path.join([tmp_dir <> "_other", "source.ex"]))
+    end
+
+    @tag :tmp_dir
+    test "excludes configured build paths", %{tmp_dir: tmp_dir} do
+      with_env("MIX_BUILD_PATH", Path.join([tmp_dir, ".expert", "build", "dev"]))
+
+      source_file = Path.join([tmp_dir, "lib", "source_file.ex"])
+      build_file = mix_build_file!(tmp_dir, "generated.ex", build_path: "custom_build")
+
+      write_mix_project!(
+        tmp_dir,
+        "ConfiguredBuildProjectSourceTest.MixProject",
+        ~s([app: :configured_build_project_source_test, version: "0.1.0", build_path: "custom_build"])
+      )
+
+      write_file!(source_file, "defmodule SourceFile do end")
+      write_file!(build_file, "defmodule GeneratedBuildFile do end")
+
+      project = project(tmp_dir)
+
+      assert Paths.project_source?(project, source_file)
+      refute Paths.project_source?(project, build_file)
+    end
+
+    @tag :tmp_dir
+    test "excludes active in-root path dependencies", %{tmp_dir: tmp_dir} do
+      app_root = Path.join(tmp_dir, "app")
+      dep_root = Path.join([app_root, "deps", "dep"])
+      app_file = Path.join([app_root, "lib", "app_module.ex"])
+      dep_file = Path.join([dep_root, "lib", "dep_module.ex"])
+
+      write_mix_project!(
+        app_root,
+        "PathDependencyProjectSourceTest.MixProject",
+        ~s([app: :path_dependency_project_source_test, version: "0.1.0", deps: [{:dep, path: "deps/dep"}]])
+      )
+
+      write_mix_project!(
+        dep_root,
+        "PathDependencyProjectSourceTest.DepMixProject",
+        ~s([app: :dep, version: "0.1.0"])
+      )
+
+      write_file!(app_file, "defmodule AppModule do end")
+      write_file!(dep_file, "defmodule DepModule do end")
+
+      project = project(app_root)
+
+      assert Paths.project_source?(project, app_file)
+      refute Paths.project_source?(project, dep_file)
     end
   end
 
@@ -106,12 +174,19 @@ defmodule Engine.Search.Indexer.PathsTest do
     original = System.fetch_env(name)
     System.put_env(name, value)
 
-    on_exit(fn ->
-      case original do
-        {:ok, value} -> System.put_env(name, value)
-        :error -> System.delete_env(name)
-      end
-    end)
+    on_exit(fn -> restore_env(name, original) end)
+  end
+
+  defp restore_env(name, {:ok, value}) do
+    System.put_env(name, value)
+  end
+
+  defp restore_env(name, :error) do
+    System.delete_env(name)
+  end
+
+  defp project(root) do
+    root |> Forge.Document.Path.to_uri() |> Project.new()
   end
 
   defp write_file!(path, contents) do

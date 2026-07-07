@@ -7,6 +7,11 @@ defmodule Engine.Progress do
 
   alias Engine.Dispatch
 
+  def log_info(message) when is_binary(message) do
+    Dispatch.erpc_cast(Expert.Progress, :log_info, [message])
+    :ok
+  end
+
   @impl true
   def begin(title, opts \\ []) when is_list(opts) do
     Dispatch.erpc_call(Expert.Progress, :begin, [title, opts])

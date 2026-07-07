@@ -1,11 +1,15 @@
 defmodule Engine.Build.StateTest do
   use ExUnit.Case, async: false
+  use Forge.Test.EventualAssertions
   use Patch
 
+  import Forge.EngineApi.Messages
   import Forge.Test.Fixtures
 
   alias Engine.Build
   alias Engine.Build.State
+  alias Engine.Compilation.TraceBuffer
+  alias Engine.Dispatch
   alias Engine.Plugin
   alias Forge.Document
   alias Forge.Project
@@ -81,6 +85,7 @@ defmodule Engine.Build.StateTest do
   def with_patched_compilation(_) do
     patch(Build.Document, :compile, :ok)
     patch(Build.Project, :compile, :ok)
+    patch(Build.Project, :refresh_runtime, :ok)
     :ok
   end
 
@@ -131,6 +136,41 @@ defmodule Engine.Build.StateTest do
       |> State.on_timeout()
 
       assert_called(Build.Project.compile(_, false))
+    end
+  end
+
+  describe "project trace commit ordering" do
+    test "broadcasts project compile after project trace commit completes" do
+      test_pid = self()
+      project = Project.new("file://#{Path.join(fixtures_path(), "project_metadata")}")
+      Engine.set_project(project)
+
+      start_supervised!(Engine.ApplicationCache)
+      start_supervised!(Engine.Compilation.TraceBuffer)
+      start_supervised!(Build)
+
+      Dispatch.register_listener(self(), [project_compiled()])
+
+      patch(Build.Project, :compile, :ok)
+      patch(Build.Project, :refresh_runtime, :ok)
+
+      patch(TraceBuffer, :commit_project, fn ^project ->
+        send(test_pid, {:trace_commit_started, self()})
+
+        receive do
+          :finish_trace_commit -> :ok
+        end
+      end)
+
+      Build.schedule_compile(project, false)
+
+      assert_receive {:trace_commit_started, trace_commit_pid}
+      refute_receive project_compiled(), 100
+      refute_receive :index_started, 100
+
+      send(trace_commit_pid, :finish_trace_commit)
+
+      assert_receive project_compiled(status: :success)
     end
   end
 

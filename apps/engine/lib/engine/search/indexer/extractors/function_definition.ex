@@ -13,13 +13,13 @@ defmodule Engine.Search.Indexer.Extractors.FunctionDefinition do
     with {:ok, detail_range} <- Ast.Range.fetch(def_ast, reducer.analysis.document),
          {:ok, module} <- Analyzer.current_module(reducer.analysis, detail_range.start),
          {fun_name, arity} when is_atom(fun_name) <- fun_name_and_arity(def_ast) do
-      min_arity = arity - count_defaults(extract_args(def_ast))
+      arities = arity_range(def_ast, arity)
       block_r = block_range(reducer.analysis, ast)
       fun_type = type(definition)
       app = Engine.ApplicationCache.application(module)
 
       entries =
-        for a <- min_arity..arity do
+        for a <- arities do
           Entry.block_definition(
             reducer.analysis.document.path,
             Reducer.current_block(reducer),
@@ -56,7 +56,7 @@ defmodule Engine.Search.Indexer.Extractors.FunctionDefinition do
       }
 
       entries =
-        for a <- (arity - count_defaults(extract_args(call)))..arity do
+        for a <- arity_range(call, arity) do
           document.path
           |> Entry.definition(
             Reducer.current_block(reducer),
@@ -109,13 +109,18 @@ defmodule Engine.Search.Indexer.Extractors.FunctionDefinition do
     Enum.count(args, &match?({:\\, _, _}, &1))
   end
 
+  defp arity_range(call_ast, max_arity) do
+    min_arity = max_arity - count_defaults(extract_args(call_ast))
+
+    min_arity..max_arity
+  end
+
   defp type(:def), do: {:function, :public}
   defp type(:defp), do: {:function, :private}
   defp type(:defmacro), do: {:macro, :public}
   defp type(:defmacrop), do: {:macro, :private}
 
   defp fun_name_and_arity({:when, _, [{fun_name, _, fun_args} | _]}) do
-    # a function with guards
     {fun_name, arity(fun_args)}
   end
 

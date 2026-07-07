@@ -29,6 +29,26 @@ defmodule Engine.Search.Indexer.ManifestTest do
     end
   end
 
+  describe "replace_output/3" do
+    test "replaces beam entries tied to a source output with a source entry", %{tmp_dir: tmp_dir} do
+      source_path = Path.join(tmp_dir, "source.ex")
+      beam_path = Path.join(tmp_dir, "Elixir.Source.beam")
+
+      File.write!(source_path, "defmodule Source do end")
+      File.write!(beam_path, "beam")
+
+      assert {:ok, beam_entry} = Entry.beam(beam_path, source_path)
+      assert {:ok, source_entry} = Entry.source(source_path)
+
+      manifest =
+        [beam_entry]
+        |> Manifest.new()
+        |> Manifest.replace_output(source_path, [source_entry])
+
+      assert [%Entry{kind: :source, input_path: ^source_path}] = Manifest.entries(manifest)
+    end
+  end
+
   defp beam_paths(tmp_dir, count) do
     root = Path.join(tmp_dir, "ebin")
     File.mkdir_p!(root)

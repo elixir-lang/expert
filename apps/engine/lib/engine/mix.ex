@@ -43,6 +43,24 @@ defmodule Engine.Mix do
     end)
   end
 
+  @doc false
+  def in_project_with_clean_stack(%Project{kind: :mix} = project, fun)
+      when is_function(fun, 1) do
+    code_paths = :code.get_path()
+
+    try do
+      Mix.ProjectStack.on_clean_slate(fn ->
+        project
+        |> ensure_project_loaded()
+        |> in_loaded_project(fun)
+      end)
+    after
+      code_paths
+      |> Enum.map(&List.to_string/1)
+      |> Code.prepend_paths()
+    end
+  end
+
   defp ensure_project_loaded(%Project{kind: :mix, project_module: nil} = project) do
     load_project_from_mix_exs(project)
   end
@@ -106,18 +124,11 @@ defmodule Engine.Mix do
       exception_error(ex, __STACKTRACE__)
   end
 
-  defp normalize_result(result) do
-    case result do
-      error when is_tuple(error) and elem(error, 0) == :error ->
-        error
+  defp normalize_result(result)
+       when is_tuple(result) and tuple_size(result) > 0 and elem(result, 0) in [:ok, :error],
+       do: result
 
-      ok when is_tuple(ok) and elem(ok, 0) == :ok ->
-        ok
-
-      other ->
-        {:ok, other}
-    end
-  end
+  defp normalize_result(other), do: {:ok, other}
 
   defp exception_error(exception, stacktrace) do
     blamed = Exception.blame(:error, exception, stacktrace)

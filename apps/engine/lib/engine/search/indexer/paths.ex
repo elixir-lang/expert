@@ -21,11 +21,45 @@ defmodule Engine.Search.Indexer.Paths do
     source_paths(project)
   end
 
-  defp source_paths(%Project{} = project) do
+  def project_source?(%Project{} = project, path) when is_binary(path) do
+    %{source_roots: source_roots, excluded_roots: excluded_roots} = source_scope(project)
+
+    Path.extname(path) == ".ex" and contained_in_any?(path, source_roots) and
+      not contained_in_any?(path, excluded_roots)
+  end
+
+  def project_source?(%Project{}, _path), do: false
+
+  @doc false
+  def source_scope(%Project{} = project) do
+    root_path = Project.root_path(project)
     source_roots = source_index_roots(project)
     dependency_roots = dependency_roots(project)
     roots_with_build_outputs = source_roots ++ dependency_roots
-    excluded_roots = dependency_roots ++ build_exclusion_roots(project, roots_with_build_outputs)
+    base_excluded_roots = base_exclusion_roots(project, root_path)
+
+    excluded_roots =
+      base_excluded_roots
+      |> Enum.concat(dependency_roots)
+      |> Enum.concat(build_exclusion_roots(project, roots_with_build_outputs))
+      |> Enum.reject(&is_nil/1)
+      |> Enum.uniq()
+
+    %{source_roots: source_roots, excluded_roots: excluded_roots}
+  end
+
+  defp base_exclusion_roots(%Project{} = project, root_path) when is_binary(root_path) do
+    [
+      Project.workspace_path(project),
+      Path.join(root_path, "_build"),
+      Path.join(root_path, "deps")
+    ]
+  end
+
+  defp base_exclusion_roots(%Project{}, _root_path), do: []
+
+  defp source_paths(%Project{} = project) do
+    %{source_roots: source_roots, excluded_roots: excluded_roots} = source_scope(project)
 
     source_roots
     |> Enum.flat_map(&indexable_files_in/1)
@@ -57,13 +91,11 @@ defmodule Engine.Search.Indexer.Paths do
 
   defp beam_paths(%Project{kind: :mix} = project) do
     build_dir = build_dir(project)
-    dependency_app_names = dependency_app_names(project)
+    dependency_app_names = project |> dependency_app_names() |> MapSet.new()
 
     build_dir
     |> beam_app_paths()
-    |> Enum.filter(fn app_path ->
-      Path.basename(app_path) in dependency_app_names
-    end)
+    |> Enum.filter(&(Path.basename(&1) in dependency_app_names))
     |> Enum.flat_map(&beam_files/1)
   end
 
@@ -71,8 +103,18 @@ defmodule Engine.Search.Indexer.Paths do
 
   @spec dependency_app_names(Project.t()) :: [String.t()]
   defp dependency_app_names(%Project{} = project) do
-    (mix_dependency_app_names(project) ++ configured_dependency_app_names(project))
+    project
+    |> mix_dependency_app_names()
+    |> Enum.concat(configured_dependency_app_names(project))
+    |> Enum.concat(project_app_names(project))
     |> Enum.uniq()
+  end
+
+  defp project_app_names(%Project{} = project) do
+    case Engine.Mix.in_project(project, fn _ -> Keyword.get(Mix.Project.config(), :app) end) do
+      {:ok, app} when is_atom(app) -> [Atom.to_string(app)]
+      _ -> []
+    end
   end
 
   @spec mix_dependency_app_names(Project.t()) :: [String.t()]
@@ -82,7 +124,7 @@ defmodule Engine.Search.Indexer.Paths do
            Mix.Project.clear_deps_cache()
            Mix.Project.deps_apps()
          end) do
-      {:ok, app_names} -> app_names |> Enum.map(&Atom.to_string/1) |> Enum.uniq()
+      {:ok, app_names} when is_list(app_names) -> atom_names(app_names)
       _ -> []
     end
   end
@@ -93,7 +135,8 @@ defmodule Engine.Search.Indexer.Paths do
   end
 
   @spec configured_dependency_app_names(Project.t(), [String.t()]) :: [String.t()]
-  defp configured_dependency_app_names(%Project{} = project, seen_roots) do
+  defp configured_dependency_app_names(%Project{} = project, seen_roots)
+       when is_list(seen_roots) do
     root = Project.root_path(project)
 
     if root in seen_roots do
@@ -109,13 +152,14 @@ defmodule Engine.Search.Indexer.Paths do
              {dependency_app_names(config, env, target),
               path_dependency_paths(config, env, target)}
            end) do
-        {:ok, {app_names, path_roots}} ->
+        {:ok, {app_names, path_roots}} when is_list(app_names) and is_list(path_roots) ->
           Enum.reduce(path_roots, app_names, fn path_root, app_names ->
-            path_root
-            |> project_for_path()
-            |> configured_dependency_app_names(seen_roots)
-            |> Kernel.++(app_names)
-            |> Enum.uniq()
+            child_app_names =
+              path_root
+              |> project_for_path()
+              |> configured_dependency_app_names(seen_roots)
+
+            Enum.uniq(child_app_names ++ app_names)
           end)
 
         _ ->
@@ -129,6 +173,12 @@ defmodule Engine.Search.Indexer.Paths do
     config
     |> Keyword.get(:deps, [])
     |> Enum.flat_map(&dependency_app_name(&1, env, target))
+    |> atom_names()
+  end
+
+  defp atom_names(apps) do
+    apps
+    |> Enum.filter(&is_atom/1)
     |> Enum.map(&Atom.to_string/1)
     |> Enum.uniq()
   end
@@ -144,8 +194,8 @@ defmodule Engine.Search.Indexer.Paths do
 
   defp dependency_app_name(_dep, _env, _target), do: []
 
-  defp dependency_app_name_from_opts(app, opts, env, target) do
-    app = Keyword.get(opts, :app, app)
+  defp dependency_app_name_from_opts(default_app, opts, env, target) do
+    app = Keyword.get(opts, :app, default_app)
 
     if app != false and is_atom(app) and dependency_active?(opts, env, target) do
       [app]
@@ -282,10 +332,10 @@ defmodule Engine.Search.Indexer.Paths do
   defp restore_env(name, :error), do: System.delete_env(name)
 
   defp beam_app_paths(build_dir) do
-    Path.wildcard(Path.join([build_dir, "lib", "*"]))
+    Forge.Path.glob([build_dir, "lib", "*"])
   end
 
   defp beam_files(app_path) do
-    Path.wildcard(Path.join([app_path, "ebin", "*.beam"]))
+    Forge.Path.glob([app_path, "ebin", "*.beam"])
   end
 end
