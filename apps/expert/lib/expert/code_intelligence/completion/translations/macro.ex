@@ -234,7 +234,7 @@ defmodule Expert.CodeIntelligence.Completion.Translations.Macro do
     |> builder.set_sort_scope(SortScope.global())
   end
 
-  def translate(%Candidate.Macro{name: "use", arity: 1}, builder, env) do
+  def translate(%Candidate.Macro{name: "use", arity: 2}, builder, env) do
     label = "use (invoke another module's __using__ macro)"
     snippet = "use $0"
 
