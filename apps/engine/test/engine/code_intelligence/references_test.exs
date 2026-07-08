@@ -57,7 +57,6 @@ defmodule Engine.CodeIntelligence.ReferencesTest do
     do: String.starts_with?(entry_subject, subject)
 
   defp matches_constraint?(_value, :_), do: true
-  defp matches_constraint?({kind, _}, {kind, :_}), do: true
   defp matches_constraint?(value, value), do: true
   defp matches_constraint?(_, _), do: false
 
@@ -133,6 +132,30 @@ defmodule Engine.CodeIntelligence.ReferencesTest do
       /
       assert [%Location{} = location] = references(project, "Functions.do_map|(a, b)", code)
       assert decorate(code, location.range) =~ "def func(x), do: «do_map(x, & &1 + 1)»"
+    end
+
+    test "finds local and remote calls to the same function", %{project: project} do
+      referenced = ~q/
+        defmodule Functions do
+          def do_map|(a, b), do: Enum.map(a, b)
+
+          def local_call(x), do: do_map(x, & &1 + 1)
+        end
+
+        defmodule Caller do
+          def remote_call(x), do: Functions.do_map(x, & &1 + 1)
+        end
+      /
+
+      {_, code} = pop_cursor(referenced)
+
+      references = references(project, referenced, code)
+
+      assert [local, remote] = Enum.sort_by(references, & &1.range.start.line)
+      assert decorate(code, local.range) =~ "def local_call(x), do: «do_map(x, & &1 + 1)»"
+
+      assert decorate(code, remote.range) =~
+               "def remote_call(x), do: «Functions.do_map(x, & &1 + 1)»"
     end
 
     test "are found in function definitions with optional arguments", %{project: project} do

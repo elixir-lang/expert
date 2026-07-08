@@ -48,11 +48,16 @@ defmodule Engine.CodeIntelligence.References do
     subtype = subtype(include_definitions?)
 
     case ManagerApi.search_store_prefix(Engine.get_project(), subject,
-           type: {:function, :_},
+           type: :_,
            subtype: subtype
          ) do
-      {:ok, entries} -> Enum.map(entries, &to_location/1)
-      _ -> []
+      {:ok, entries} ->
+        entries
+        |> Enum.filter(&function_entry?/1)
+        |> Enum.map(&to_location/1)
+
+      _ ->
+        []
     end
   end
 
@@ -78,6 +83,9 @@ defmodule Engine.CodeIntelligence.References do
     Logger.info("Not attempting to find references for unhandled type: #{inspect(resolved)}")
     :error
   end
+
+  defp function_entry?(%Entry{type: {:function, _}}), do: true
+  defp function_entry?(_), do: false
 
   def maybe_rewrite_resolution({:call, Kernel, :defstruct, 1}, analysis, position) do
     case Analyzer.current_module(analysis, position) do
