@@ -40,7 +40,7 @@ defmodule Expert.Search.Store.Backends.SqliteTest do
           EXPLAIN QUERY PLAN
           SELECT entry_blobs.entry
           FROM entries
-          JOIN entry_blobs ON entry_blobs.entry_rowid = entries.rowid
+          JOIN entry_blobs ON entry_blobs.entry_key = entries.entry_key
           WHERE type = ? AND subtype = ?
           """,
           [{:blob, :erlang.term_to_binary(:module)}, "definition"]
@@ -83,7 +83,20 @@ defmodule Expert.Search.Store.Backends.SqliteTest do
       assert :ok = Exqlite.Basic.close(conn)
 
       refute Enum.any?(entry_columns, fn [_cid, name | _] -> name == "entry" end)
+
+      assert Enum.any?(entry_columns, fn [_cid, name, type | _] ->
+               name == "entry_key" and type == "INTEGER"
+             end)
+
+      assert Enum.any?(entry_columns, fn [_cid, name, type | _] ->
+               name == "id" and type == "INTEGER"
+             end)
+
       assert Enum.any?(blob_columns, fn [_cid, name | _] -> name == "entry" end)
+
+      assert Enum.any?(blob_columns, fn [_cid, name, type | _] ->
+               name == "entry_key" and type == "INTEGER"
+             end)
     end
 
     test "recreates a database with a different schema version", %{
@@ -121,7 +134,7 @@ defmodule Expert.Search.Store.Backends.SqliteTest do
 
       {:ok, conn} = Exqlite.Basic.open(database_path)
       result = Exqlite.Basic.exec(conn, "SELECT version FROM schema")
-      assert {:ok, [[1]], ["version"]} = Exqlite.Basic.rows(result)
+      assert {:ok, [[2]], ["version"]} = Exqlite.Basic.rows(result)
       assert :ok = Exqlite.Basic.close(conn)
     end
   end

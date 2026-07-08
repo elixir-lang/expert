@@ -5,14 +5,19 @@ defmodule Expert.Search.Store.Backends.Sqlite do
 
   alias Expert.EngineApi
   alias Expert.Search.Store.Backend
-  alias Exqlite.Sqlite3
   alias Forge.Project
   alias Forge.Search.Indexer.Entry
 
   require Entry
 
-  @schema_version 1
+  @schema_version 2
   @database_file "source.index.sqlite3"
+  # NOTE(doorgan): SQLite has a variable limit of 32766. Entry batches use 7 params
+  # per entry. 4000 entries per batch is 28000 params per batch, below SQLite's
+  # limit.
+  # If the schema changes and we need a different number of params per entry,
+  # this number needs to be updated.
+  @insert_batch_size 4_000
   @busy_timeout_ms Application.compile_env(:expert, :search_store_sqlite_busy_timeout_ms, 5_000)
 
   defmodule State do
@@ -351,8 +356,9 @@ defmodule Expert.Search.Store.Backends.Sqlite do
                  """
                  SELECT entries.id, entry_blobs.entry
                  FROM entries
-                 JOIN entry_blobs ON entry_blobs.entry_rowid = entries.rowid
+                 JOIN entry_blobs ON entry_blobs.entry_key = entries.entry_key
                  #{where_clause(where)}
+                 ORDER BY entries.entry_key
                  """,
                  args
                ) do
@@ -382,7 +388,7 @@ defmodule Expert.Search.Store.Backends.Sqlite do
            """
            SELECT entry_blobs.entry
            FROM entries
-           JOIN entry_blobs ON entry_blobs.entry_rowid = entries.rowid
+            JOIN entry_blobs ON entry_blobs.entry_key = entries.entry_key
            WHERE block_id = ? AND path = ?
            ORDER BY id
            """,
@@ -524,7 +530,8 @@ defmodule Expert.Search.Store.Backends.Sqlite do
   defp create_entries_table(%State{} = state) do
     exec(state, """
     CREATE TABLE IF NOT EXISTS entries (
-      id INTEGER,
+      entry_key INTEGER PRIMARY KEY,
+      id INTEGER NOT NULL,
       path TEXT NOT NULL,
       subject TEXT NOT NULL,
       type BLOB NOT NULL,
@@ -537,7 +544,7 @@ defmodule Expert.Search.Store.Backends.Sqlite do
   defp create_entry_blobs_table(%State{} = state) do
     exec(state, """
     CREATE TABLE IF NOT EXISTS entry_blobs (
-      entry_rowid INTEGER PRIMARY KEY,
+      entry_key INTEGER PRIMARY KEY,
       entry BLOB NOT NULL
     )
     """)
@@ -580,67 +587,98 @@ defmodule Expert.Search.Store.Backends.Sqlite do
   end
 
   defp insert_entries(%State{} = state, entries) do
-    with_prepared_statements(
-      state,
-      [
-        """
-        INSERT INTO entries (id, path, subject, type, subtype, block_id)
-        VALUES (?, ?, ?, ?, ?, ?)
-        """,
-        "INSERT INTO entry_blobs (entry_rowid, entry) VALUES (?, ?)",
-        "INSERT OR REPLACE INTO structures (path, structure) VALUES (?, ?)"
-      ],
-      fn [entry_statement, entry_blob_statement, structure_statement] ->
-        Enum.reduce_while(entries, :ok, fn entry, :ok ->
-          case insert_entry(
-                 state,
-                 entry_statement,
-                 entry_blob_statement,
-                 structure_statement,
-                 entry
-               ) do
-            :ok -> {:cont, :ok}
-            {:error, _} = error -> {:halt, error}
-          end
-        end)
-      end
-    )
-  end
+    {structures, entries} = Enum.split_with(entries, fn entry -> Entry.is_structure(entry) end)
 
-  defp insert_entry(
-         %State{} = state,
-         _entry_statement,
-         _entry_blob_statement,
-         structure_statement,
-         %Entry{} = entry
-       )
-       when Entry.is_structure(entry) do
-    exec_statement(state, structure_statement, [entry.path, blob(entry.subject)])
-  end
-
-  defp insert_entry(
-         %State{} = state,
-         entry_statement,
-         entry_blob_statement,
-         _structure_statement,
-         %Entry{} = entry
-       ) do
-    with :ok <-
-           exec_statement(
-             state,
-             entry_statement,
-             [
-               entry.id,
-               entry.path,
-               subject_key(entry.subject),
-               blob(entry.type),
-               subtype_key(entry.subtype),
-               block_id_key(entry.block_id)
-             ]
-           ),
-         {:ok, rowid} <- last_insert_rowid(state) do
-      exec_statement(state, entry_blob_statement, [rowid, blob(entry)])
+    with :ok <- insert_entry_batches(state, entries) do
+      insert_structures(state, structures)
     end
+  end
+
+  defp insert_entry_batches(%State{}, []), do: :ok
+
+  defp insert_entry_batches(%State{} = state, entries) do
+    entries
+    |> Stream.chunk_every(@insert_batch_size)
+    |> Enum.reduce_while(:ok, fn batch, :ok ->
+      case insert_entry_batch(state, batch) do
+        :ok -> {:cont, :ok}
+        {:error, _} = error -> {:halt, error}
+      end
+    end)
+  end
+
+  defp insert_entry_batch(%State{} = state, batch) do
+    with {:ok, entry_key} <- next_entry_key(state) do
+      rows = Enum.with_index(batch, entry_key)
+
+      with :ok <- insert_entry_rows(state, rows) do
+        insert_entry_blobs(state, rows)
+      end
+    end
+  end
+
+  defp next_entry_key(%State{} = state) do
+    case query(state, "SELECT COALESCE(MAX(entry_key), 0) + 1 FROM entries") do
+      {:ok, [[entry_key]]} -> {:ok, entry_key}
+      {:error, _} = error -> error
+    end
+  end
+
+  defp insert_entry_rows(%State{} = state, rows) do
+    sql = """
+    INSERT INTO entries (entry_key, id, path, subject, type, subtype, block_id)
+    VALUES #{row_placeholders(rows, 7)}
+    """
+
+    args = Enum.flat_map(rows, &entry_args/1)
+
+    exec(state, sql, args)
+  end
+
+  defp insert_entry_blobs(%State{} = state, rows) do
+    sql =
+      "INSERT INTO entry_blobs (entry_key, entry) VALUES #{row_placeholders(rows, 2)}"
+
+    args =
+      Enum.flat_map(rows, fn {entry, entry_key} ->
+        [entry_key, blob(entry)]
+      end)
+
+    exec(state, sql, args)
+  end
+
+  defp insert_structures(%State{}, []), do: :ok
+
+  defp insert_structures(%State{} = state, structures) do
+    structures
+    |> Enum.chunk_every(@insert_batch_size)
+    |> Enum.reduce_while(:ok, fn structures, :ok ->
+      case insert_structure_batch(state, structures) do
+        :ok -> {:cont, :ok}
+        {:error, _} = error -> {:halt, error}
+      end
+    end)
+  end
+
+  defp insert_structure_batch(%State{} = state, structures) do
+    sql =
+      "INSERT OR REPLACE INTO structures (path, structure) VALUES #{row_placeholders(structures, 2)}"
+
+    args = Enum.flat_map(structures, fn entry -> [entry.path, blob(entry.subject)] end)
+
+    exec(state, sql, args)
+  end
+
+  defp entry_args({%Entry{} = entry, entry_key}) do
+    [
+      entry_key,
+      entry.id,
+      entry.path,
+      subject_key(entry.subject),
+      blob(entry.type),
+      subtype_key(entry.subtype),
+      block_id_key(entry.block_id)
+    ]
   end
 
   defp affected_paths(updated_entries, paths_to_clear) do
@@ -657,14 +695,14 @@ defmodule Expert.Search.Store.Backends.Sqlite do
     with {:ok, rows} <-
            query(
              state,
-             "SELECT rowid, id FROM entries WHERE path IN (#{placeholders(paths)})",
+             "SELECT entry_key, id FROM entries WHERE path IN (#{placeholders(paths)})",
              paths
            ),
          :ok <- delete_entry_blobs_for_rows(state, rows),
          :ok <- exec(state, "DELETE FROM entries WHERE path IN (#{placeholders(paths)})", paths) do
       deleted_ids =
         rows
-        |> Enum.map(fn [_rowid, id] -> id end)
+        |> Enum.map(fn [_entry_key, id] -> id end)
         |> Enum.reject(&is_nil/1)
 
       {:ok, deleted_ids}
@@ -674,12 +712,12 @@ defmodule Expert.Search.Store.Backends.Sqlite do
   defp delete_entry_blobs_for_rows(%State{}, []), do: :ok
 
   defp delete_entry_blobs_for_rows(%State{} = state, rows) do
-    rowids = Enum.map(rows, fn [rowid, _id] -> rowid end)
+    entry_keys = Enum.map(rows, fn [entry_key, _id] -> entry_key end)
 
     exec(
       state,
-      "DELETE FROM entry_blobs WHERE entry_rowid IN (#{placeholders(rowids)})",
-      rowids
+      "DELETE FROM entry_blobs WHERE entry_key IN (#{placeholders(entry_keys)})",
+      entry_keys
     )
   end
 
@@ -695,7 +733,7 @@ defmodule Expert.Search.Store.Backends.Sqlite do
       """
       SELECT entry_blobs.entry
       FROM entries
-      JOIN entry_blobs ON entry_blobs.entry_rowid = entries.rowid
+      JOIN entry_blobs ON entry_blobs.entry_key = entries.entry_key
       #{where}
       """,
       args
@@ -718,6 +756,11 @@ defmodule Expert.Search.Store.Backends.Sqlite do
   defp where_clause(where), do: "WHERE #{where}"
 
   defp placeholders(values), do: Enum.map_join(values, ", ", fn _ -> "?" end)
+
+  defp row_placeholders(rows, columns) do
+    row = "(" <> placeholders(1..columns) <> ")"
+    Enum.map_join(rows, ", ", fn _ -> row end)
+  end
 
   defp subject_constraint(:_), do: {[], []}
   defp subject_constraint(subject), do: {["subject = ?"], [subject_key(subject)]}
@@ -839,63 +882,6 @@ defmodule Expert.Search.Store.Backends.Sqlite do
       result -> rows(result)
     end
   end
-
-  defp with_prepared_statements(%State{} = state, statements, callback) do
-    case prepare_statements(state, statements) do
-      {:ok, prepared_statements} ->
-        result = callback.(prepared_statements)
-        Enum.each(prepared_statements, &release_statement(state, &1))
-        result
-
-      {:error, _} = error ->
-        error
-    end
-  end
-
-  defp prepare_statements(%State{} = state, statements) do
-    result =
-      Enum.reduce_while(statements, {:ok, []}, fn statement, {:ok, prepared_statements} ->
-        case prepare_statement(state, statement) do
-          {:ok, prepared_statement} ->
-            {:cont, {:ok, [prepared_statement | prepared_statements]}}
-
-          {:error, _} = error ->
-            Enum.each(prepared_statements, &release_statement(state, &1))
-            {:halt, error}
-        end
-      end)
-
-    case result do
-      {:ok, prepared_statements} -> {:ok, Enum.reverse(prepared_statements)}
-      {:error, _} = error -> error
-    end
-  end
-
-  defp prepare_statement(%State{conn: %{db: database}}, statement) do
-    case Sqlite3.prepare(database, statement) do
-      {:ok, prepared_statement} -> {:ok, prepared_statement}
-      {:error, reason} -> {:error, reason}
-    end
-  end
-
-  defp exec_statement(%State{conn: %{db: database}}, statement, args) do
-    with :ok <- Sqlite3.bind(statement, args) do
-      result =
-        case Sqlite3.step(database, statement) do
-          :done -> :ok
-          {:error, reason} -> {:error, reason}
-          :busy -> {:error, "Database busy"}
-        end
-
-      :ok = Sqlite3.reset(statement)
-      result
-    end
-  end
-
-  defp last_insert_rowid(%State{conn: %{db: database}}), do: Sqlite3.last_insert_rowid(database)
-
-  defp release_statement(%State{conn: %{db: database}}, statement),
-    do: Sqlite3.release(database, statement)
 
   defp rows_to_ok(result) do
     case Exqlite.Basic.rows(result) do
