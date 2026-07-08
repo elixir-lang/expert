@@ -274,7 +274,7 @@ defmodule Expert.State do
 
   defp propagate_elixir_source_path(%Configuration{elixir_source_path: nil}) do
     for project <- ActiveProjects.projects(), ActiveProjects.active?(project) do
-      EngineApi.call(project, Application, :delete_env, [:language_server, :elixir_source_path])
+      EngineApi.call(project, Application, :delete_env, [:language_server, :elixir_src])
     end
   rescue
     _ -> :ok
@@ -284,7 +284,7 @@ defmodule Expert.State do
     for project <- ActiveProjects.projects(), ActiveProjects.active?(project) do
       EngineApi.call(project, Application, :put_env, [
         :language_server,
-        :elixir_source_path,
+        :elixir_src,
         elixir_source_path
       ])
     end
