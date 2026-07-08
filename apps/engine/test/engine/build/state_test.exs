@@ -17,6 +17,7 @@ defmodule Engine.Build.StateTest do
   setup do
     start_supervised!(Engine.Dispatch)
     start_supervised!(Engine.Api.Proxy)
+    start_supervised!(TraceBuffer)
     start_supervised!(Build.CaptureServer)
     start_supervised!(Engine.ModuleMappings)
     start_supervised!(Plugin.Runner.Coordinator)
@@ -146,7 +147,6 @@ defmodule Engine.Build.StateTest do
       Engine.set_project(project)
 
       start_supervised!(Engine.ApplicationCache)
-      start_supervised!(Engine.Compilation.TraceBuffer)
       start_supervised!(Build)
 
       Dispatch.register_listener(self(), [project_compiled()])

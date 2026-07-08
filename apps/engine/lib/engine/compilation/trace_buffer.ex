@@ -39,28 +39,28 @@ defmodule Engine.Compilation.TraceBuffer do
   end
 
   def clear(path) when is_binary(path) do
-    call({:clear, canonical_path(path)}, :ok)
+    GenServer.cast(__MODULE__, {:clear, canonical_path(path)})
   end
 
   def add_definitions(path, module, definitions)
       when is_binary(path) and is_atom(module) and is_list(definitions) do
-    call({:add_definitions, canonical_path(path), module, definitions}, :ok)
+    GenServer.cast(__MODULE__, {:add_definitions, canonical_path(path), module, definitions})
   end
 
   def add_references(path, references) when is_binary(path) and is_list(references) do
-    call({:add_references, canonical_path(path), references}, :ok)
+    GenServer.cast(__MODULE__, {:add_references, canonical_path(path), references})
   end
 
   def add_beam_path(path, beam_path) when is_binary(path) and is_binary(beam_path) do
-    call({:add_beam_path, canonical_path(path), canonical_path(beam_path)}, :ok)
+    GenServer.cast(__MODULE__, {:add_beam_path, canonical_path(path), canonical_path(beam_path)})
   end
 
   def traced?(path) when is_binary(path) do
-    call({:traced?, canonical_path(path)}, false)
+    GenServer.call(__MODULE__, {:traced?, canonical_path(path)})
   end
 
   def commit_project(%Project{} = project) do
-    call({:commit_project, project}, :ok, @commit_timeout)
+    GenServer.call(__MODULE__, {:commit_project, project}, @commit_timeout)
   end
 
   def commit_project(_project), do: :ok
@@ -68,45 +68,50 @@ defmodule Engine.Compilation.TraceBuffer do
   def commit_path(project, path, opts \\ [])
 
   def commit_path(%Project{} = project, path, opts) when is_binary(path) and is_list(opts) do
-    call({:commit_path, project, canonical_path(path), opts}, :ok, @commit_timeout)
+    GenServer.call(
+      __MODULE__,
+      {:commit_path, project, canonical_path(path), opts},
+      @commit_timeout
+    )
   end
 
   def commit_path(_project, _path, _opts), do: :ok
 
   def discard_project(%Project{} = _project) do
-    call(:discard_project, :ok)
+    GenServer.call(__MODULE__, :discard_project)
   end
 
   def discard_project(_project), do: :ok
 
   def discard(path) when is_binary(path) do
-    call({:discard, canonical_path(path)}, :ok)
+    GenServer.call(__MODULE__, {:discard, canonical_path(path)})
   end
 
   @impl true
   def init(%__MODULE__{} = state), do: {:ok, state}
 
   @impl true
-  def handle_call({:clear, path}, _from, %__MODULE__{} = state) do
-    {:reply, :ok, put_path_state(state, path, %PathState{})}
+  def handle_cast({:clear, path}, %__MODULE__{} = state) do
+    {:noreply, put_path_state(state, path, %PathState{})}
   end
 
-  def handle_call({:add_definitions, path, module, definitions}, _from, %__MODULE__{} = state) do
+  def handle_cast({:add_definitions, path, module, definitions}, %__MODULE__{} = state) do
     definitions = Enum.map(definitions, &put_entry_path(&1, path))
 
-    {:reply, :ok, add_definitions_to_path(state, path, module, definitions)}
+    {:noreply, add_definitions_to_path(state, path, module, definitions)}
   end
 
-  def handle_call({:add_references, path, references}, _from, %__MODULE__{} = state) do
+  def handle_cast({:add_references, path, references}, %__MODULE__{} = state) do
     references = Enum.map(references, &put_entry_path(&1, path))
 
-    {:reply, :ok, add_references_to_path(state, path, references)}
+    {:noreply, add_references_to_path(state, path, references)}
   end
 
-  def handle_call({:add_beam_path, path, beam_path}, _from, %__MODULE__{} = state) do
-    {:reply, :ok, add_beam_path_to_path(state, path, beam_path)}
+  def handle_cast({:add_beam_path, path, beam_path}, %__MODULE__{} = state) do
+    {:noreply, add_beam_path_to_path(state, path, beam_path)}
   end
 
+  @impl true
   def handle_call({:traced?, path}, _from, %__MODULE__{} = state) do
     {:reply, Map.has_key?(state.paths, path), state}
   end
@@ -133,13 +138,6 @@ defmodule Engine.Compilation.TraceBuffer do
 
   def handle_call(:discard_project, _from, %__MODULE__{} = state) do
     {:reply, :ok, %__MODULE__{state | paths: %{}}}
-  end
-
-  defp call(message, default, timeout \\ 5_000) do
-    case Process.whereis(__MODULE__) do
-      nil -> default
-      pid -> GenServer.call(pid, message, timeout)
-    end
   end
 
   defp put_path_state(%__MODULE__{} = state, path, %PathState{} = path_state) do
