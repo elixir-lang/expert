@@ -1,11 +1,10 @@
 defmodule Engine.Compilation.Tracers do
   @moduledoc false
 
-  alias Engine.Compilation.DependencyTracer
   alias Engine.Compilation.ProjectTracer
   alias Forge.Project
 
-  @expert_tracers [ProjectTracer, DependencyTracer]
+  @expert_tracers [ProjectTracer]
 
   def with(tracers, fun) when is_list(tracers) and is_function(fun, 0) do
     __MODULE__.with(tracers, [], fun)

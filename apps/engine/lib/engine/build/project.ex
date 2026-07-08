@@ -1,7 +1,6 @@
 defmodule Engine.Build.Project do
   alias Engine.Build
   alias Engine.Build.Isolation
-  alias Engine.Compilation.DependencyTracer
   alias Engine.Compilation.ProjectTracer
   alias Engine.Compilation.Tracers
   alias Engine.Module.Loader
@@ -12,8 +11,6 @@ defmodule Engine.Build.Project do
   alias Mix.Task.Compiler.Diagnostic
 
   require Logger
-
-  @dependency_compile_partition_env "MIX_OS_DEPS_COMPILE_PARTITION_COUNT"
 
   def compile(%Project{kind: :mix} = project, force?) do
     Engine.Mix.in_project(fn project_module ->
@@ -39,7 +36,7 @@ defmodule Engine.Build.Project do
 
       with_build_progress(title, "Dependency fetch finished", fn token ->
         prepare_for_project_build(token)
-        trace_dependency_compilation(project, token)
+        load_dependency_paths(project, token)
         load_plugins(token)
         :ok
       end)
@@ -118,7 +115,7 @@ defmodule Engine.Build.Project do
 
     if force?, do: prepare_for_project_build(token)
 
-    trace_dependency_compilation(project, token)
+    load_dependency_paths(project, token)
 
     if force?, do: load_plugins(token)
 
@@ -212,14 +209,12 @@ defmodule Engine.Build.Project do
     Mix.Task.run(:loadconfig)
   end
 
-  defp trace_dependency_compilation(project, token) do
+  defp load_dependency_paths(project, token) do
     Progress.report(token, message: "mix deps.loadpaths")
 
     {elapsed_ms, _result} =
       timed(fn ->
-        Tracers.with([DependencyTracer], fn ->
-          run_deps_loadpaths_with_clean_project_stack(project)
-        end)
+        run_deps_loadpaths_with_clean_project_stack(project)
       end)
 
     message = "mix deps.loadpaths took #{format_duration(elapsed_ms)}"
@@ -227,33 +222,13 @@ defmodule Engine.Build.Project do
   end
 
   defp run_deps_loadpaths_with_clean_project_stack(project) do
-    with_dependency_compile_partitions_serialized(fn ->
-      Engine.Mix.in_project_with_clean_stack(project, fn _ ->
-        Mix.Task.clear()
-        Mix.Dep.clear_cached()
-        Mix.Project.clear_deps_cache()
-        Mix.Task.rerun("deps.loadpaths")
-      end)
+    Engine.Mix.in_project_with_clean_stack(project, fn _ ->
+      Mix.Task.clear()
+      Mix.Dep.clear_cached()
+      Mix.Project.clear_deps_cache()
+      Mix.Task.rerun("deps.loadpaths")
     end)
   end
-
-  defp with_dependency_compile_partitions_serialized(fun) when is_function(fun, 0) do
-    # As of Elixir 1.20, the compiler options are not propagated to the deps
-    # compiler partition workers, so we need to force the partitions to 1
-    # to ensure the DependencyTracer runs for every trace event.
-    # See https://github.com/elixir-lang/elixir/issues/15457
-    original = System.fetch_env(@dependency_compile_partition_env)
-    System.put_env(@dependency_compile_partition_env, "1")
-
-    try do
-      fun.()
-    after
-      restore_env(@dependency_compile_partition_env, original)
-    end
-  end
-
-  defp restore_env(name, {:ok, value}), do: System.put_env(name, value)
-  defp restore_env(name, :error), do: System.delete_env(name)
 
   defp load_plugins(token) do
     Progress.report(token, message: "Loading plugins")
@@ -276,8 +251,8 @@ defmodule Engine.Build.Project do
         --no-prune-code-paths
     )
 
-    # mix compile runs deps.loadpath, which checks and compiles
-    # deps under DependencyTracer, before compiling the project code.
+    # mix compile runs deps.loadpaths, which checks and compiles deps before
+    # compiling the project code.
     # Skipping the compile-time deps check prevents Mix from compiling any
     # remaining deps later using ProjectTracer instead.
     opts = ["--no-deps-check" | opts]

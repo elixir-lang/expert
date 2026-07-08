@@ -4,7 +4,6 @@ defmodule Engine.Compilation.TraceBufferTest do
   use Patch
 
   alias Engine.Build
-  alias Engine.Compilation.DependencyTracer
   alias Engine.Compilation.ProjectTracer
   alias Engine.Compilation.TraceBuffer
   alias Engine.Compilation.Tracers
@@ -21,7 +20,6 @@ defmodule Engine.Compilation.TraceBufferTest do
   alias Forge.Search.Indexer.Source.Block
 
   @moduletag :tmp_dir
-  @dependency_compile_partition_env "MIX_OS_DEPS_COMPILE_PARTITION_COUNT"
 
   setup %{tmp_dir: tmp_dir} do
     project = project(tmp_dir)
@@ -500,185 +498,6 @@ defmodule Engine.Compilation.TraceBufferTest do
     end
   end
 
-  describe "dependency tracer" do
-    test "buffers public definitions without references", %{project: project, tmp_dir: tmp_dir} do
-      path = Path.join(tmp_dir, "dependency_progress.ex")
-
-      module =
-        Module.concat(__MODULE__, :"DependencyProgress#{System.unique_integer([:positive])}")
-
-      File.write!(
-        path,
-        "defmodule #{inspect(module)} do\n  def value, do: private()\n  defp private, do: Enum.map([], & &1)\nend\n"
-      )
-
-      Tracers.with([DependencyTracer], fn ->
-        assert_progress_reported(fn -> Code.compile_file(path) end)
-      end)
-
-      assert :ok = TraceBuffer.commit_project(project)
-
-      entries = SearchBackend.entries()
-
-      assert Enum.any?(
-               entries,
-               &(&1.subject == module and &1.type == :module and &1.subtype == :definition)
-             )
-
-      assert Enum.any?(
-               entries,
-               &(&1.subject == Formats.mfa(module, :value, 0) and
-                   &1.type == {:function, :public} and &1.subtype == :definition)
-             )
-
-      refute Enum.any?(entries, &(&1.subject == Formats.mfa(module, :private, 0)))
-      refute Enum.any?(entries, &(&1.subtype == :reference))
-    end
-
-    test "records the actual BEAM path in the manifest", %{tmp_dir: tmp_dir} do
-      module =
-        Module.concat(
-          __MODULE__,
-          :"DependencyManifestBeamPath#{System.unique_integer([:positive])}"
-        )
-
-      project_module =
-        Module.concat(
-          __MODULE__,
-          :"DependencyManifestMixProject#{System.unique_integer([:positive])}"
-        )
-
-      app = :"dependency_trace_buffer_manifest_#{System.unique_integer([:positive])}"
-
-      write_mix_project!(tmp_dir, project_module, app)
-      source_path = native_join([tmp_dir, "lib", "dependency_manifest_beam_path.ex"])
-      File.mkdir_p!(Path.dirname(source_path))
-
-      File.write!(source_path, """
-      defmodule #{inspect(module)} do
-        def value, do: :ok
-      end
-      """)
-
-      project = tmp_dir |> Forge.Document.Path.to_uri() |> Project.new()
-
-      {:ok, expected_beam_path} =
-        Engine.Mix.in_project(project, fn _ ->
-          Mix.Task.clear()
-          expected = native_join([Mix.Project.compile_path(), "#{Atom.to_string(module)}.beam"])
-
-          Tracers.with([DependencyTracer], fn ->
-            Mix.Task.run(:compile, ["--force", "--no-prune-code-paths"])
-          end)
-
-          expected
-        end)
-
-      assert :ok = TraceBuffer.commit_project(project)
-      assert {:ok, manifest} = ManifestStore.load(project)
-
-      assert [%{input_path: ^expected_beam_path}] =
-               manifest
-               |> Manifest.entries()
-               |> Enum.filter(&(&1.source_path == source_path))
-    end
-
-    test "deps.loadpaths traces dependencies from a clean project stack", %{tmp_dir: tmp_dir} do
-      %{dep_module: dep_module, project: project, project_module: project_module} =
-        path_dependency_project!(tmp_dir)
-
-      Engine.set_project(project)
-
-      assert {:ok, ^project_module} = Engine.Mix.in_project(project, fn module -> module end)
-      project = Project.set_project_module(project, project_module)
-      code_paths = MapSet.new(:code.get_path())
-
-      Tracers.with([DependencyTracer], fn ->
-        Engine.Mix.in_project_with_clean_stack(project, fn _ ->
-          Mix.Task.clear()
-          Mix.Dep.clear_cached()
-          Mix.Project.clear_deps_cache()
-          Mix.Task.rerun("deps.loadpaths")
-        end)
-      end)
-
-      assert MapSet.subset?(code_paths, MapSet.new(:code.get_path()))
-
-      assert :ok = TraceBuffer.commit_project(project)
-
-      entries = SearchBackend.entries()
-
-      assert Enum.any?(entries, &(&1.subject == dep_module and &1.subtype == :definition))
-    end
-
-    test "normal project compiles trace dependencies before project compilation", %{
-      tmp_dir: tmp_dir
-    } do
-      %{
-        dep_module: dep_module,
-        project: project,
-        project_module: project_module,
-        source_path: source_path
-      } = path_dependency_project!(tmp_dir)
-
-      Engine.set_project(project)
-
-      assert {:ok, ^project_module} = Engine.Mix.in_project(project, fn module -> module end)
-      project = Project.set_project_module(project, project_module)
-
-      patch_progress()
-      patch(Engine.Mix, :ensure_hex_and_rebar, fn -> :ok end)
-
-      assert {:ok, []} = Engine.Build.Project.compile(project, false)
-
-      assert :ok = TraceBuffer.commit_project(project)
-      entries = SearchBackend.entries()
-      assert {:ok, manifest} = ManifestStore.load(project)
-      manifest_entries = Manifest.entries(manifest)
-
-      assert Enum.any?(entries, &(&1.subject == dep_module and &1.subtype == :definition))
-
-      assert Enum.any?(
-               manifest_entries,
-               &(&1.kind == :beam and &1.source_path == source_path)
-             )
-    end
-
-    test "dependency tracing serializes OS dependency compile partitions", %{tmp_dir: tmp_dir} do
-      unique = System.unique_integer([:positive])
-      project_module = Module.concat(__MODULE__, :"PartitionMixProject#{unique}")
-      app = :"partition_trace_#{unique}"
-      dep_apps = [:"partition_dep_a_#{unique}", :"partition_dep_b_#{unique}"]
-
-      write_partition_project!(tmp_dir, project_module, app, dep_apps)
-
-      project = tmp_dir |> Forge.Document.Path.to_uri() |> Project.new()
-      Engine.set_project(project)
-
-      assert {:ok, ^project_module} = Engine.Mix.in_project(project, fn module -> module end)
-      project = Project.set_project_module(project, project_module)
-
-      original_partition_count = System.fetch_env(@dependency_compile_partition_env)
-      System.put_env(@dependency_compile_partition_env, "4")
-
-      on_exit(fn -> restore_env(@dependency_compile_partition_env, original_partition_count) end)
-
-      patch_progress()
-      patch(Engine.Mix, :ensure_hex_and_rebar, fn -> :ok end)
-
-      assert {:ok, []} = Engine.Build.Project.compile(project, false)
-
-      for dep_app <- dep_apps do
-        assert "1" =
-                 [tmp_dir, "deps", Atom.to_string(dep_app), "partition_count.txt"]
-                 |> Path.join()
-                 |> File.read!()
-      end
-
-      assert System.get_env(@dependency_compile_partition_env) == "4"
-    end
-  end
-
   describe "project compilation" do
     test "reports actual compile duration", %{tmp_dir: tmp_dir} do
       module =
@@ -704,6 +523,7 @@ defmodule Engine.Compilation.TraceBufferTest do
 
       project = tmp_dir |> Forge.Document.Path.to_uri() |> Project.new()
       Engine.set_project(project)
+      code_paths = MapSet.new(:code.get_path())
       test_pid = self()
       token = System.unique_integer([:positive])
 
@@ -734,6 +554,7 @@ defmodule Engine.Compilation.TraceBufferTest do
       assert_receive {:progress_report, [message: "Compiling " <> _]}, 500
       assert_receive {:progress_report, [message: "mix compile took " <> _]}, 500
       assert_receive {:progress_complete, [message: "Compilation finished in " <> _]}, 500
+      assert MapSet.subset?(code_paths, MapSet.new(:code.get_path()))
     end
   end
 
@@ -773,102 +594,6 @@ defmodule Engine.Compilation.TraceBufferTest do
       end
     end
     """)
-  end
-
-  defp write_partition_project!(root, project_module, app, dep_apps) do
-    deps =
-      Enum.map(dep_apps, fn dep_app ->
-        dep_name = Atom.to_string(dep_app)
-        {dep_app, [path: "deps/#{dep_name}", compile: "elixir record_partition.exs"]}
-      end)
-
-    File.write!(Path.join(root, "mix.exs"), """
-    defmodule #{inspect(project_module)} do
-      use Mix.Project
-
-      def project do
-        [app: #{inspect(app)}, version: "0.1.0", deps: #{inspect(deps)}]
-      end
-    end
-    """)
-
-    Enum.each(dep_apps, &write_partition_dependency!(root, &1))
-  end
-
-  defp write_partition_dependency!(root, dep_app) do
-    dep_root = Path.join([root, "deps", Atom.to_string(dep_app)])
-    File.mkdir_p!(Path.join(dep_root, "ebin"))
-
-    File.write!(Path.join([dep_root, "ebin", "#{dep_app}.app"]), """
-    {application, #{dep_app}, [{applications, [kernel, stdlib]}, {vsn, "0.1.0"}, {modules, []}]}.
-    """)
-
-    File.write!(Path.join(dep_root, "mix.exs"), """
-    defmodule #{[dep_app, :MixProject] |> Module.concat() |> inspect()} do
-      use Mix.Project
-
-      def project do
-        [app: #{inspect(dep_app)}, version: "0.1.0"]
-      end
-    end
-    """)
-
-    File.write!(Path.join(dep_root, "record_partition.exs"), """
-    File.write!("partition_count.txt", System.get_env(#{inspect(@dependency_compile_partition_env)}) || "unset")
-    """)
-  end
-
-  defp path_dependency_project!(tmp_dir) do
-    unique = System.unique_integer([:positive])
-    app_root = native_join([tmp_dir, "app_#{unique}"])
-    dep_app = :"deps_loadpaths_trace_dep_#{unique}"
-    dep_name = Atom.to_string(dep_app)
-    dep_root = Path.join([app_root, "deps", dep_name])
-    source_path = native_join([dep_root, "lib", "deps_loadpaths_trace.ex"])
-
-    project_module = Module.concat(__MODULE__, :"DepsLoadpathsTraceMixProject#{unique}")
-    dep_project_module = Module.concat(__MODULE__, :"DepsLoadpathsTraceDepMixProject#{unique}")
-    dep_module = Module.concat(__MODULE__, :"DepsLoadpathsTraceDep#{unique}")
-    app = :"deps_loadpaths_trace_#{unique}"
-
-    File.mkdir_p!(Path.dirname(source_path))
-
-    File.write!(Path.join(app_root, "mix.exs"), """
-    defmodule #{inspect(project_module)} do
-      use Mix.Project
-
-      def project do
-        [app: #{inspect(app)}, version: "0.1.0", deps: deps()]
-      end
-
-      defp deps do
-        [{#{inspect(dep_app)}, path: "deps/#{dep_name}"}]
-      end
-    end
-    """)
-
-    File.write!(Path.join(dep_root, "mix.exs"), """
-    defmodule #{inspect(dep_project_module)} do
-      use Mix.Project
-
-      def project do
-        [app: #{inspect(dep_app)}, version: "0.1.0"]
-      end
-    end
-    """)
-
-    File.write!(source_path, """
-    defmodule #{inspect(dep_module)} do
-      def value, do: :ok
-    end
-    """)
-
-    %{
-      dep_module: dep_module,
-      project: app_root |> Forge.Document.Path.to_uri() |> Project.new(),
-      project_module: project_module,
-      source_path: source_path
-    }
   end
 
   defp module_definition(path, module) do
@@ -915,9 +640,6 @@ defmodule Engine.Compilation.TraceBufferTest do
       %Position{line: 1, character: 2, starting_index: 1}
     )
   end
-
-  defp restore_env(name, {:ok, value}), do: System.put_env(name, value)
-  defp restore_env(name, :error), do: System.delete_env(name)
 
   defp patch_progress do
     token = System.unique_integer([:positive])
