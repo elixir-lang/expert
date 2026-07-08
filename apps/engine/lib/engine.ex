@@ -8,6 +8,7 @@ defmodule Engine do
   alias Engine.Api.Proxy
   alias Engine.CodeAction
   alias Engine.CodeIntelligence
+  alias Engine.Commands
   alias Engine.Progress
   alias Forge.Project
 
@@ -20,9 +21,9 @@ defmodule Engine do
 
   defdelegate format(document), to: Proxy
 
-  defdelegate reindex, to: Proxy
+  defdelegate reindex, to: Commands.Reindex, as: :perform
 
-  defdelegate index_running?, to: Proxy
+  defdelegate index_running?, to: Commands.Reindex, as: :running?
 
   defdelegate broadcast(message), to: Proxy
 

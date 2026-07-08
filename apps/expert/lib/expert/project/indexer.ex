@@ -85,14 +85,18 @@ defmodule Expert.Project.Indexer do
   @impl GenServer
   def handle_continue(:maybe_initial_compile, %State{initial_compile?: true} = state) do
     Node.trigger_build(state.project)
-    {:noreply, state}
+    {:noreply, start_or_queue_index(state)}
   end
 
-  def handle_continue(:maybe_initial_compile, %State{} = state), do: {:noreply, state}
+  def handle_continue(:maybe_initial_compile, %State{} = state) do
+    {:noreply, start_or_queue_index(state)}
+  end
 
+  # Indexing isn't gated on compilation; the initial index starts at boot and
+  # compile completions (successful or not) trigger a refresh to pick up
+  # whatever the compile produced.
   @impl GenServer
-  def handle_info(project_compiled(status: status), %State{} = state)
-      when status in [:success, :successful] do
+  def handle_info(project_compiled(), %State{} = state) do
     {:noreply, start_or_queue_index(state)}
   end
 
