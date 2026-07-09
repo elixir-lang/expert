@@ -214,6 +214,5 @@ defmodule Engine.Api.ProxyTest do
 
       assert_called(Build.compile_document(^project, ^doc), 1)
     end
-
   end
 end

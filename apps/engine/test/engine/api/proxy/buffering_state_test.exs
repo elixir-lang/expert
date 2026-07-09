@@ -92,7 +92,6 @@ defmodule Engine.Api.Proxy.BufferingStateStateTest do
 
       assert [{:mfa, Build, :compile_document, [^project, ^document], _}] = flushed_messages
     end
-
   end
 
   defp wrap_broadcasts(messages) do
