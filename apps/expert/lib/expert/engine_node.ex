@@ -207,7 +207,7 @@ defmodule Expert.EngineNode do
   end
 
   def start(project, token \\ Progress.noop_token()) do
-    start_net_kernel(project)
+    Expert.Clustering.start_net_kernel()
 
     node_name = Project.node_name(project)
 
@@ -245,22 +245,6 @@ defmodule Expert.EngineNode do
 
       {:done, result, "Engine is ready"}
     end)
-  end
-
-  defp start_net_kernel(%Project{} = project) do
-    project
-    |> Project.manager_node_name()
-    |> start_manager_node()
-  end
-
-  if Version.match?(System.version(), ">= 1.19.0") do
-    defp start_manager_node(manager) do
-      Node.start(manager, name_domain: :longnames)
-    end
-  else
-    defp start_manager_node(manager) do
-      Node.start(manager, :longnames)
-    end
   end
 
   defp ensure_apps_started(node, token) do

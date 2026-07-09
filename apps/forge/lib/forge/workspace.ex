@@ -3,14 +3,19 @@ defmodule Forge.Workspace do
   The representation of the root directory where the server is running.
   """
 
-  defstruct [:root_path]
+  defstruct [:root_path, entropy: 1]
 
   @type t :: %__MODULE__{
-          root_path: String.t() | nil
+          root_path: String.t() | nil,
+          entropy: non_neg_integer()
         }
 
-  def new(root_path) do
-    %__MODULE__{root_path: root_path}
+  @spec new(String.t()) :: t()
+  def new(root_path) when is_binary(root_path) do
+    %__MODULE__{
+      root_path: root_path,
+      entropy: :rand.uniform(65_536)
+    }
   end
 
   def name(workspace) do
