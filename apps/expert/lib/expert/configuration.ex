@@ -18,14 +18,16 @@ defmodule Expert.Configuration do
             client_name: nil,
             additional_watched_extensions: nil,
             workspace_symbols: %WorkspaceSymbols{},
-            log_level: @default_lsp_log_level
+            log_level: @default_lsp_log_level,
+            elixir_source_path: nil
 
   @type t :: %__MODULE__{
           support: support | nil,
           client_name: String.t() | nil,
           additional_watched_extensions: [String.t()] | nil,
           workspace_symbols: WorkspaceSymbols.t(),
-          log_level: lsp_level()
+          log_level: lsp_level(),
+          elixir_source_path: String.t() | nil
         }
 
   @opaque support :: Support.t()
@@ -128,6 +130,7 @@ defmodule Expert.Configuration do
       old_config
       |> set_lsp_log_level(settings)
       |> set_workspace_symbols(settings)
+      |> set_elixir_source_path(settings)
       |> set()
 
     maybe_watched_extensions_request(new_config, settings)
@@ -146,6 +149,19 @@ defmodule Expert.Configuration do
   defp parse_lsp_log_level(%{"logLevel" => "info"}), do: :info
   defp parse_lsp_log_level(%{"logLevel" => "log"}), do: :log
   defp parse_lsp_log_level(_), do: @default_lsp_log_level
+
+  defp set_elixir_source_path(%__MODULE__{} = config, %{"elixirSourcePath" => value})
+       when is_binary(value) do
+    %__MODULE__{config | elixir_source_path: value}
+  end
+
+  defp set_elixir_source_path(%__MODULE__{} = config, %{"elixirSourcePath" => _}) do
+    %__MODULE__{config | elixir_source_path: nil}
+  end
+
+  defp set_elixir_source_path(%__MODULE__{} = config, _settings) do
+    config
+  end
 
   defp set_workspace_symbols(%__MODULE__{} = config, settings) do
     %__MODULE__{config | workspace_symbols: WorkspaceSymbols.new(settings)}
