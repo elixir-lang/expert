@@ -60,7 +60,7 @@ defmodule Engine.Mix do
       Mix.Project.in_project(
         Project.atom_name(project),
         mix_exs_dir,
-        [prune_code_paths: false, build_path: build_path],
+        [build_path: build_path],
         fn project_module ->
           Project.set_project_module(project, project_module)
         end
@@ -84,10 +84,7 @@ defmodule Engine.Mix do
 
   defp push_project(%Project{} = project) do
     Engine.with_lock(Engine.Mix.StackMutation, fn ->
-      Mix.ProjectStack.post_config(
-        prune_code_paths: false,
-        build_path: Project.versioned_build_path(project)
-      )
+      Mix.ProjectStack.post_config(build_path: Project.versioned_build_path(project))
 
       Mix.Project.push(
         project.project_module,

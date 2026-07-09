@@ -151,6 +151,10 @@ defmodule Engine.Build.Project do
   end
 
   defp mix_compile_opts do
+    # --no-prune-code-paths keeps mix from deleting the engine's own code
+    # paths during the project compile. It only applies to the top-level
+    # compile; dependencies each compile in their own project frame with
+    # pruning enabled, which is what isolates them from undeclared siblings.
     ~w(
         --return-errors
         --ignore-module-conflict
@@ -158,6 +162,7 @@ defmodule Engine.Build.Project do
         --docs
         --debug-info
         --no-protocol-consolidation
+        --no-prune-code-paths
     )
   end
 end

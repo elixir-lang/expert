@@ -76,14 +76,33 @@ defmodule Engine do
   def ensure_apps_started(token \\ Progress.noop_token()) do
     apps_to_start = [:elixir, :runtime_tools | @allowed_apps]
 
-    Enum.reduce_while(apps_to_start, :ok, fn app_name, _ ->
-      Progress.report(token, message: "Starting #{app_name}...")
+    result =
+      Enum.reduce_while(apps_to_start, :ok, fn app_name, _ ->
+        Progress.report(token, message: "Starting #{app_name}...")
 
-      case :application.ensure_all_started(app_name) do
-        {:ok, _} -> {:cont, :ok}
-        error -> {:halt, error}
-      end
-    end)
+        case :application.ensure_all_started(app_name) do
+          {:ok, _} -> {:cont, :ok}
+          error -> {:halt, error}
+        end
+      end)
+
+    with :ok <- result do
+      Progress.report(token, message: "Loading engine modules...")
+      ensure_modules_loaded()
+    end
+  end
+
+  # Compiling a dependency prunes the code paths to the dependency's own
+  # deps, which removes the engine's paths from the code server. Any engine
+  # module that isn't already resident becomes unloadable during that window,
+  # so all engine modules are loaded up front.
+  def ensure_modules_loaded do
+    for app <- @allowed_apps,
+        {:ok, modules} <- [:application.get_key(app, :modules)] do
+      :code.ensure_modules_loaded(modules)
+    end
+
+    :ok
   end
 
   def deps_paths do
