@@ -45,7 +45,25 @@ beamPackages.mixRelease rec {
     ];
   };
 
-  mixNixDeps = callPackages ../apps/expert/deps.nix { inherit lib beamPackages; };
+  mixNixDeps = callPackages ../apps/expert/deps.nix {
+    inherit lib beamPackages;
+    # exqlite bundles the SQLite amalgamation and compiles a NIF through elixir_make.
+    # elixir_make first populates a precompiled-artefact cache under $HOME/.cache
+    # (or ~/Library/Caches on darwin). In the Nix build sandbox HOME is
+    # /homeless-shelter, so that mkdir fails and the build aborts. Point the cache at
+    # a writable location; the sandboxed download then fails and elixir_make falls
+    # back to compiling the bundled C source, which is what we want.
+    #
+    # This lives here, in deps.nix's `overrides` hook, rather than in deps.nix itself
+    # so it survives `mix deps.nix` regenerating that file.
+    overrides = _final: prev: {
+      exqlite = prev.exqlite.overrideAttrs (old: {
+        preConfigure = (old.preConfigure or "") + ''
+          export ELIXIR_MAKE_CACHE_DIR="$TMPDIR/elixir_make"
+        '';
+      });
+    };
+  };
 
   mixReleaseName = "plain";
 
