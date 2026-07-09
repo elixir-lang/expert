@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.1.6](https://github.com/expert-lsp/expert/compare/v0.1.5...v0.1.6) (2026-07-09)
+
+
+### Features
+
+* allow setting Elixir source directory ([#776](https://github.com/expert-lsp/expert/issues/776)) ([cd91d54](https://github.com/expert-lsp/expert/commit/cd91d54d2987a9e50bba41f4f7622b721e657bec))
+* bring back remote shell ([#775](https://github.com/expert-lsp/expert/issues/775)) ([b4ac3bb](https://github.com/expert-lsp/expert/commit/b4ac3bb2699742512141c829676df3b0cb958c19))
+
+
+### Bug Fixes
+
+* **engine:** increase build timeout duration, add batch uri reindex with debounce ([#733](https://github.com/expert-lsp/expert/issues/733)) ([72a2f9e](https://github.com/expert-lsp/expert/commit/72a2f9e18f2d82986206e77369e410dd516cfe2b)), closes [#698](https://github.com/expert-lsp/expert/issues/698)
+* **engine:** set target when evaluating config diagnostics ([#735](https://github.com/expert-lsp/expert/issues/735)) ([b447094](https://github.com/expert-lsp/expert/commit/b447094911c20a691310eb89a60d487b4e172944))
+* **expert:** extend list of editors having VSCode completion bug ([#738](https://github.com/expert-lsp/expert/issues/738)) ([83d2ffd](https://github.com/expert-lsp/expert/commit/83d2ffd0a4d51803f2bfe2a169642981d40756e2)), closes [#736](https://github.com/expert-lsp/expert/issues/736)
+* **forge:** monitor beam rewriting worker process ([#741](https://github.com/expert-lsp/expert/issues/741)) ([fefc5c7](https://github.com/expert-lsp/expert/commit/fefc5c710d4b55e1ff97f3ae4d19c68151fa463a))
+* port Refactorex into Forge ([#747](https://github.com/expert-lsp/expert/issues/747)) ([#754](https://github.com/expert-lsp/expert/issues/754)) ([131d642](https://github.com/expert-lsp/expert/commit/131d6422ed7deb40827b4d2f7581ffcddd666feb))
+
 ## [0.1.5](https://github.com/expert-lsp/expert/compare/v0.1.4...v0.1.5) (2026-06-10)
 
 
