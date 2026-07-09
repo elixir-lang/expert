@@ -67,13 +67,8 @@ defmodule Expert.Engine.CodeIntelligence.DefinitionTest do
     EngineApi.register_listener(project, self(), [:all])
     EngineApi.schedule_compile(project, true)
 
-    # point ElixirSense at the project node's Elixir source
-    elixir_src =
-      project
-      |> EngineApi.call(:code, :lib_dir, [:elixir])
-      |> to_string()
-      |> Path.join("../..")
-      |> Path.expand()
+    elixir_src = EngineApi.call(project, Engine.CodeIntelligence.ElixirSource, :detect, [])
+    assert is_binary(elixir_src)
 
     :ok =
       EngineApi.call(project, Application, :put_env, [:language_server, :elixir_src, elixir_src])

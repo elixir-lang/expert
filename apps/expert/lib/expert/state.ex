@@ -296,24 +296,49 @@ defmodule Expert.State do
     %__MODULE__{state | deps_declined_projects: MapSet.put(declined, project.root_uri)}
   end
 
-  defp propagate_elixir_source_path(%Configuration{elixir_source_path: nil}) do
+  @doc """
+  Resolves and applies the Elixir source path for a single project that has just
+  become ready.
+  """
+  def propagate_elixir_source_path_for(%Project{} = project) do
+    if Store.ready?(project) do
+      apply_elixir_source_path(project, Configuration.get())
+    end
+
+    :ok
+  rescue
+    _ -> :ok
+  end
+
+  defp propagate_elixir_source_path(%Configuration{} = config) do
     for project <- Store.projects(), Store.ready?(project) do
-      EngineApi.call(project, Application, :delete_env, [:language_server, :elixir_src])
+      apply_elixir_source_path(project, config)
     end
   rescue
     _ -> :ok
   end
 
-  defp propagate_elixir_source_path(%Configuration{elixir_source_path: elixir_source_path}) do
-    for project <- Store.projects(), Store.ready?(project) do
-      EngineApi.call(project, Application, :put_env, [
-        :language_server,
-        :elixir_src,
-        elixir_source_path
-      ])
+  defp apply_elixir_source_path(%Project{} = project, %Configuration{} = config) do
+    source_path =
+      case config.elixir_source_path do
+        nil ->
+          EngineApi.call(project, Engine.CodeIntelligence.ElixirSource, :detect, [])
+
+        path ->
+          path
+      end
+
+    case source_path do
+      nil ->
+        EngineApi.call(project, Application, :delete_env, [:language_server, :elixir_src])
+
+      elixir_source_path ->
+        EngineApi.call(project, Application, :put_env, [
+          :language_server,
+          :elixir_src,
+          elixir_source_path
+        ])
     end
-  rescue
-    _ -> :ok
   end
 
   defp apply_configuration_side_effects(%Configuration{} = old_config, %Configuration{} = config) do

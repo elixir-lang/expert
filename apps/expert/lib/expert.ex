@@ -236,6 +236,8 @@ defmodule Expert do
   def handle_info({:engine_initialized, project, {:ok, _pid}}, lsp) do
     Store.transition(project, :ready)
 
+    State.propagate_elixir_source_path_for(project)
+
     Logger.info(
       "Engine initialized for project #{Project.name(project)}",
       project: project
