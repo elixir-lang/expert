@@ -2,8 +2,7 @@
   beamPackages,
   callPackages,
   lib,
-}:
-let
+}: let
   version = builtins.readFile ../version.txt;
 
   engineDeps = callPackages ../apps/engine/deps.nix {
@@ -18,62 +17,80 @@ let
     # so it survives `nix run .#update-deps` regenerating that file.
     overrides = _final: prev: {
       elixir_sense = prev.elixir_sense.overrideAttrs (old: {
-        postInstall = (old.postInstall or "") + ''
-          grammar="$out/src/src/elixir_sense_parser.yrl"
-          if [ -f "$grammar" ]; then
-            chmod -R u+w "$out/src/src"
-            ${beamPackages.erlang}/bin/erlc -o "$out/src/src" "$grammar"
-            test -f "$out/src/src/elixir_sense_parser.erl"
-          fi
-        '';
+        postInstall =
+          (old.postInstall or "")
+          + ''
+            grammar="$out/src/src/elixir_sense_parser.yrl"
+            if [ -f "$grammar" ]; then
+              chmod -R u+w "$out/src/src"
+              ${beamPackages.erlang}/bin/erlc -o "$out/src/src" "$grammar"
+              test -f "$out/src/src/elixir_sense_parser.erl"
+            fi
+          '';
       });
     };
   };
 in
-beamPackages.mixRelease rec {
-  pname = "expert";
-  inherit version;
+  beamPackages.mixRelease rec {
+    pname = "expert";
+    inherit version;
 
-  src = lib.fileset.toSource {
-    root = ./..;
-    fileset = lib.fileset.unions [
-      ../apps
-      ../mix_credo.exs
-      ../mix_dialyzer.exs
-      ../mix_includes.exs
-      ../version.txt
-    ];
-  };
+    src = lib.fileset.toSource {
+      root = ./..;
+      fileset = lib.fileset.unions [
+        ../apps
+        ../mix_credo.exs
+        ../mix_dialyzer.exs
+        ../mix_includes.exs
+        ../version.txt
+      ];
+    };
 
-  mixNixDeps = callPackages ../apps/expert/deps.nix { inherit lib beamPackages; };
+    mixNixDeps = callPackages ../apps/expert/deps.nix {inherit lib beamPackages;};
 
-  mixReleaseName = "plain";
+    mixReleaseName = "plain";
 
-  preConfigure = ''
-    # copy the logic from mixRelease to build a deps dir for engine
-    mkdir -p apps/engine/deps
-    ${lib.concatMapAttrsStringSep "\n" (name: dep: ''
-      dep_path="apps/engine/deps/${name}"
-      if [ -d "${dep}/src" ]; then
-        ln -sv ${dep}/src $dep_path
-      fi
-    '') engineDeps}
+    preConfigure = ''
+      # copy the logic from mixRelease to build a deps dir for engine
+      mkdir -p apps/engine/deps
+      ${lib.concatMapAttrsStringSep "\n" (name: dep: ''
+          dep_path="apps/engine/deps/${name}"
+          if [ -d "${dep}/src" ]; then
+            ln -sv ${dep}/src $dep_path
+          fi
+        '')
+        engineDeps}
 
-      cd apps/expert
-  '';
+        cd apps/expert
+    '';
 
-  postInstall = ''
-    mv $out/bin/plain $out/bin/expert
-    wrapProgram $out/bin/expert --add-flag "eval" --add-flag "System.no_halt(true); Application.ensure_all_started(:xp_expert)"
-  '';
+    postInstall = ''
+      mv $out/bin/plain $out/bin/expert
+      wrapProgram $out/bin/expert --add-flag "eval" --add-flag "System.no_halt(true); Application.ensure_all_started(:xp_expert)"
 
-  removeCookie = false;
+      for dep in "$out"/lib/xp_expert-*/priv/engine_source/apps/engine/deps/elixir_sense; do
+        if [ -L "$dep" ]; then
+          target="$(readlink -f "$dep")"
+          rm "$dep"
+          cp -R "$target" "$dep"
+          chmod -R u+w "$dep"
+        fi
 
-  passthru = {
-    # not used by package, but exposed for repl and direct build access
-    # e.g. nix build .#expert.mixNixDeps.jason
-    inherit engineDeps mixNixDeps;
-  };
+        grammar="$dep/src/elixir_sense_parser.yrl"
+        if [ -f "$grammar" ] && [ ! -f "$dep/src/elixir_sense_parser.erl" ]; then
+          ${beamPackages.erlang}/bin/erlc -o "$dep/src" "$grammar"
+          test -f "$dep/src/elixir_sense_parser.erl"
+        fi
+      done
+    '';
 
-  meta.mainProgram = "expert";
-}
+    removeCookie = false;
+
+    passthru = {
+      # not used by package, but exposed for repl and direct build access
+      # e.g. nix build .#expert.mixNixDeps.jason
+      inherit engineDeps mixNixDeps;
+    };
+
+    meta.mainProgram = "expert";
+  }
