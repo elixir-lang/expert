@@ -186,6 +186,27 @@ defmodule Engine.Build.StateTest do
     end
   end
 
+  describe "project compilation with exception" do
+    setup [:with_metadata_project]
+
+    test "broadcasts exception as invalid diagnostic when compile returns {:error, {:exception, ...}}",
+         %{state: state} do
+      exception = %Mix.Error{message: "Hex dependency resolution failed"}
+      stacktrace = [{Mix, :raise, 2, [file: ~c"lib/mix.ex", line: 647]}]
+      blamed = {exception, stacktrace}
+
+      patch(Build.Project, :compile, {:error, {:exception, blamed, stacktrace}})
+
+      state
+      |> State.on_project_compile(true)
+      |> State.on_timeout()
+
+      assert_receive {:project_diagnostics, _, _, diagnostics}
+
+      assert Enum.all?(diagnostics, &match?(%Forge.Plugin.V1.Diagnostic.Result{}, &1))
+    end
+  end
+
   describe "fetching deps" do
     test "stores :ok when deps fetch succeeds" do
       {:ok, state} = with_project_state(:project_metadata)
