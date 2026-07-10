@@ -248,6 +248,58 @@ defmodule Expert.Search.Store.Backends.SqliteTest do
       assert {:ok, [[1, 1]], _columns} = Exqlite.Basic.rows(result)
       assert :ok = Exqlite.Basic.close(conn)
     end
+
+    test "chunks blob deletes that exceed SQLite's variable limit", %{
+      project: project,
+      runtime_versions: runtime_versions
+    } do
+      path = "/large_generated.ex"
+
+      old_entries =
+        Enum.map(1..32_767, fn id ->
+          %Entry{
+            id: id,
+            subject: "Old",
+            path: path,
+            type: :module,
+            subtype: :definition,
+            block_id: :root
+          }
+        end)
+
+      new_entry = %Entry{
+        id: 32_768,
+        subject: "New",
+        path: path,
+        type: :module,
+        subtype: :definition,
+        block_id: :root
+      }
+
+      pid =
+        start_supervised!(%{
+          id: :sqlite,
+          start: {Sqlite, :start_link, [project, [runtime_versions: runtime_versions]]}
+        })
+
+      assert {:ok, :empty} = Sqlite.prepare(pid)
+      assert :ok = Sqlite.replace_all(project, old_entries)
+      assert {:ok, deleted_ids} = Sqlite.apply_index_update(project, [new_entry], [])
+      assert length(deleted_ids) == 32_767
+      assert [] = Sqlite.find_by_subject(project, "Old", :_, :_)
+      assert [^new_entry] = Sqlite.find_by_subject(project, "New", :_, :_)
+
+      database_path = Sqlite.database_path(project, runtime_versions)
+      {:ok, conn} = Exqlite.Basic.open(database_path)
+
+      result =
+        Exqlite.Basic.exec(conn, """
+        SELECT (SELECT COUNT(*) FROM entries), (SELECT COUNT(*) FROM entry_blobs)
+        """)
+
+      assert {:ok, [[1, 1]], _columns} = Exqlite.Basic.rows(result)
+      assert :ok = Exqlite.Basic.close(conn)
+    end
   end
 
   describe "parent/2" do

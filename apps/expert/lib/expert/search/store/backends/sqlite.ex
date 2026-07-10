@@ -17,8 +17,7 @@ defmodule Expert.Search.Store.Backends.Sqlite do
   # NOTE(doorgan): SQLite has a variable limit of 32766. Entry batches use 7 params
   # per entry. 4000 entries per batch is 28000 params per batch, below SQLite's
   # limit.
-  # If the schema changes and we need a different number of params per entry,
-  # this number needs to be updated.
+  @sqlite_variable_limit 32_766
   @insert_batch_size 4_000
   @busy_timeout_ms Application.compile_env(:expert, :search_store_sqlite_busy_timeout_ms, 5_000)
 
@@ -714,13 +713,20 @@ defmodule Expert.Search.Store.Backends.Sqlite do
   defp delete_entry_blobs_for_rows(%State{}, []), do: :ok
 
   defp delete_entry_blobs_for_rows(%State{} = state, rows) do
-    entry_keys = Enum.map(rows, fn [entry_key, _id] -> entry_key end)
+    rows
+    |> Stream.chunk_every(@sqlite_variable_limit)
+    |> Enum.reduce_while(:ok, fn rows, :ok ->
+      entry_keys = Enum.map(rows, fn [entry_key, _id] -> entry_key end)
 
-    exec(
-      state,
-      "DELETE FROM entry_blobs WHERE entry_key IN (#{placeholders(entry_keys)})",
-      entry_keys
-    )
+      case exec(
+             state,
+             "DELETE FROM entry_blobs WHERE entry_key IN (#{placeholders(entry_keys)})",
+             entry_keys
+           ) do
+        :ok -> {:cont, :ok}
+        {:error, _} = error -> {:halt, error}
+      end
+    end)
   end
 
   defp delete_structures_for_paths(%State{}, []), do: :ok
