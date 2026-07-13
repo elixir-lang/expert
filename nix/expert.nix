@@ -8,6 +8,26 @@ let
 
   engineDeps = callPackages ../apps/engine/deps.nix {
     inherit lib beamPackages;
+    # The runtime engine build compiles dependencies directly from their packaged
+    # sources. Generate ElixirSense's parser here and remove the grammar so Mix
+    # cannot try to regenerate it through a read-only Nix store symlink.
+    #
+    # Keep this outside the generated deps.nix so `nix run .#update-deps` does
+    # not remove the workaround.
+    overrides = _final: prev: {
+      elixir_sense = prev.elixir_sense.overrideAttrs (old: {
+        postPatch = (old.postPatch or "") + ''
+          grammar="src/elixir_sense_parser.yrl"
+          parser="src/elixir_sense_parser.erl"
+
+          if [ -f "$grammar" ]; then
+            ${beamPackages.erlang}/bin/erlc -o src "$grammar"
+            test -f "$parser"
+            rm "$grammar"
+          fi
+        '';
+      });
+    };
   };
 in
 beamPackages.mixRelease rec {
@@ -45,21 +65,6 @@ beamPackages.mixRelease rec {
   postInstall = ''
     mv $out/bin/plain $out/bin/expert
     wrapProgram $out/bin/expert --add-flag "eval" --add-flag "System.no_halt(true); Application.ensure_all_started(:xp_expert)"
-
-    for dep in "$out"/lib/xp_expert-*/priv/engine_source/apps/engine/deps/elixir_sense; do
-      if [ -L "$dep" ]; then
-        target="$(readlink -f "$dep")"
-        rm "$dep"
-        cp -R "$target" "$dep"
-        chmod -R u+w "$dep"
-      fi
-
-      grammar="$dep/src/elixir_sense_parser.yrl"
-      if [ -f "$grammar" ] && [ ! -f "$dep/src/elixir_sense_parser.erl" ]; then
-        ${beamPackages.erlang}/bin/erlc -o "$dep/src" "$grammar"
-        test -f "$dep/src/elixir_sense_parser.erl"
-      fi
-    done
   '';
 
   removeCookie = false;
