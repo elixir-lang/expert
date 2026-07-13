@@ -523,8 +523,11 @@ defmodule Expert.Search.Store.Backends.Sqlite do
          :ok <- create_entry_blobs_table(state),
          :ok <- create_structures_table(state),
          :ok <- create_indexes(state),
-         {:ok, [[count]]} <- query(state, "SELECT COUNT(*) FROM entries") do
-      if count == 0, do: {:ok, :empty}, else: {:ok, :stale}
+         {:ok, result} <- query(state, "SELECT 1 FROM entries LIMIT 1") do
+      case result do
+        [] -> {:ok, :empty}
+        [[1]] -> {:ok, :stale}
+      end
     end
   end
 
