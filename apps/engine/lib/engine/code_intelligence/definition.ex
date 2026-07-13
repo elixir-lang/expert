@@ -227,7 +227,11 @@ defmodule Engine.CodeIntelligence.Definition do
   end
 
   defp arity_from_subject(%Entry{subject: subject}) do
-    case subject |> String.split("/") |> List.last() |> Integer.parse() do
+    subject
+    |> String.split("/")
+    |> List.last()
+    |> Integer.parse()
+    |> case do
       {arity, _} -> arity
       :error -> :infinity
     end
