@@ -1,9 +1,17 @@
 {
-  pkgs,
   lib,
   beamPackages,
+  cmake,
+  extend,
+  lexbor,
+  fetchFromGitHub,
+  oniguruma,
   overrides ? (x: y: { }),
   overrideFenixOverlay ? null,
+  rustlerPrecompiledOverrides ? { },
+  pkg-config,
+  vips,
+  writeText,
 }:
 
 let
@@ -12,23 +20,26 @@ let
 
   workarounds = {
     portCompiler = _unusedArgs: old: {
-      buildPlugins = [ pkgs.beamPackages.pc ];
+      buildPlugins = [ beamPackages.pc ];
     };
 
     rustlerPrecompiled =
       {
         toolchain ? null,
+        buildInputs ? [ ],
+        nativeBuildInputs ? [ ],
+        env ? { },
         ...
       }:
       old:
       let
-        extendedPkgs = pkgs.extend fenixOverlay;
+        extendedPkgs = extend fenixOverlay;
         fenixOverlay =
           if overrideFenixOverlay == null then
             import "${
               fetchTarball {
-                url = "https://github.com/nix-community/fenix/archive/056c9393c821a4df356df6ce7f14c722dc8717ec.tar.gz";
-                sha256 = "sha256:1cdfh6nj81gjmn689snigidyq7w98gd8hkl5rvhly6xj7vyppmnd";
+                url = "https://github.com/nix-community/fenix/archive/6399553b7a300c77e7f07342904eb696a5b6bf9d.tar.gz";
+                sha256 = "sha256-C6tT7K1Lx6VsYw1BY5S3OavtapUvEnDQtmQB5DSgbCc=";
               }
             }/overlay.nix"
           else
@@ -40,21 +51,23 @@ let
           else
             extendedPkgs.fenix.fromToolchainName toolchain;
         native =
-          (extendedPkgs.makeRustPlatform {
-            inherit (fenix) cargo rustc;
-          }).buildRustPackage
+          (
+            (extendedPkgs.makeRustPlatform {
+              inherit (fenix) cargo rustc;
+            }).buildRustPackage
             {
-              pname = "${old.packageName}-native";
+              inherit env buildInputs;
+              pname = "${old.beamModuleName}-native";
               version = old.version;
               src = nativeDir;
               cargoLock = {
                 lockFile = "${nativeDir}/Cargo.lock";
               };
-              nativeBuildInputs = [
-                extendedPkgs.cmake
-              ];
+              nativeBuildInputs = [ extendedPkgs.cmake ] ++ nativeBuildInputs;
               doCheck = false;
-            };
+            }
+          ).overrideAttrs
+            rustlerPrecompiledOverrides.${old.beamModuleName} or { };
 
       in
       {
@@ -67,11 +80,16 @@ let
           mkdir -p priv/native
           for lib in ${native}/lib/*
           do
-            ln -s "$lib" "priv/native/$(basename "$lib")"
+            dest="$(basename "$lib")"
+            if [[ "''${dest##*.}" = "dylib" ]]
+            then
+              dest="''${dest%.dylib}.so"
+            fi
+            ln -s "$lib" "priv/native/$dest"
           done
         '';
 
-        buildPhase = ''
+        preBuild = ''
           suggestion() {
             echo "***********************************************"
             echo "                 deps_nix                      "
@@ -88,18 +106,33 @@ let
             echo -n " "
             grep -Rl 'use RustlerPrecompiled' lib \
               | xargs grep 'defmodule' \
-              | sed 's/defmodule \(.*\) do/config :${old.packageName}, \1, skip_compilation?: true/'
+              | sed 's/defmodule \(.*\) do/config :${old.beamModuleName}, \1, skip_compilation?: true/'
             echo "***********************************************"
             exit 1
           }
           trap suggestion ERR
-          ${old.buildPhase}
         '';
       };
 
-    exqlite = _unusedArgs: old: {
-      preConfigure = (old.preConfigure or "") + ''
-        export ELIXIR_MAKE_CACHE_DIR="$TMPDIR/elixir_make"
+    elixirMake = _unusedArgs: old: {
+      preConfigure = ''
+        export ELIXIR_MAKE_CACHE_DIR="$TEMPDIR/elixir_make_cache"
+      '';
+    };
+
+    lazyHtml = _unusedArgs: old: {
+      preConfigure = ''
+        export ELIXIR_MAKE_CACHE_DIR="$TEMPDIR/elixir_make_cache"
+      '';
+
+      postPatch = ''
+        substituteInPlace mix.exs \
+          --replace-fail "Fine.include_dir()" '"${packages.fine}/src/c_include"' \
+          --replace-fail '@lexbor_git_sha "244b84956a6dc7eec293781d051354f351274c46"' '@lexbor_git_sha ""'
+      '';
+
+      preBuild = ''
+        install -Dm644           -t _build/c/third_party/lexbor/$LEXBOR_GIT_SHA/build           ${lexbor}/lib/liblexbor_static.a
       '';
     };
   };
@@ -118,14 +151,9 @@ let
           {
             name = "rustlerPrecompiled";
             toolchain = {
-              name = "nightly-2024-11-01";
-              sha256 = "sha256-wq7bZ1/IlmmLkSa3GUJgK17dTWcKyf5A+ndS9yRwB88=";
+              name = "nightly-2025-06-23";
+              sha256 = "sha256-UAoZcxg3iWtS+2n8TFNfANFt/GmkuOMDf7QAE0fRxeA=";
             };
-          }
-        ];
-        exqlite = [
-          {
-            name = "exqlite";
           }
         ];
         snappyer = [
@@ -215,7 +243,7 @@ let
             ];
           };
         in
-        drv;
+        drv.override (workarounds.elixirMake { } drv);
 
       db_connection =
         let
@@ -276,7 +304,7 @@ let
             ];
           };
         in
-        drv;
+        drv.override (workarounds.elixirMake { } drv);
 
       finch =
         let
@@ -345,7 +373,7 @@ let
 
       hpax =
         let
-          version = "1.0.3";
+          version = "1.0.4";
           drv = buildMix {
             inherit version;
             name = "hpax";
@@ -354,7 +382,7 @@ let
             src = fetchHex {
               inherit version;
               pkg = "hpax";
-              sha256 = "8eab6e1cfa8d5918c2ce4ba43588e894af35dbd8e91e6e55c817bca5847df34a";
+              sha256 = "afc7cb142ebcc2d01ce7816190b98ce5dd49e799111b24249f3443d730f377ca";
             };
           };
         in
@@ -413,7 +441,7 @@ let
 
       mint =
         let
-          version = "1.7.1";
+          version = "1.9.1";
           drv = buildMix {
             inherit version;
             name = "mint";
@@ -422,7 +450,7 @@ let
             src = fetchHex {
               inherit version;
               pkg = "mint";
-              sha256 = "fceba0a4d0f24301ddee3024ae116df1c3f4bb7a563a731f45fdfeb9d39a231b";
+              sha256 = "831101bd560b086316fab5f7adb21a4f3455717d8e4bc8368b052e09aa9163e0";
             };
 
             beamDeps = [

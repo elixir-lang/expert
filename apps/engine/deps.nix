@@ -1,9 +1,17 @@
 {
-  pkgs,
   lib,
   beamPackages,
+  cmake,
+  extend,
+  lexbor,
+  fetchFromGitHub,
+  oniguruma,
   overrides ? (x: y: { }),
   overrideFenixOverlay ? null,
+  rustlerPrecompiledOverrides ? { },
+  pkg-config,
+  vips,
+  writeText,
 }:
 
 let
@@ -12,23 +20,26 @@ let
 
   workarounds = {
     portCompiler = _unusedArgs: old: {
-      buildPlugins = [ pkgs.beamPackages.pc ];
+      buildPlugins = [ beamPackages.pc ];
     };
 
     rustlerPrecompiled =
       {
         toolchain ? null,
+        buildInputs ? [ ],
+        nativeBuildInputs ? [ ],
+        env ? { },
         ...
       }:
       old:
       let
-        extendedPkgs = pkgs.extend fenixOverlay;
+        extendedPkgs = extend fenixOverlay;
         fenixOverlay =
           if overrideFenixOverlay == null then
             import "${
               fetchTarball {
-                url = "https://github.com/nix-community/fenix/archive/056c9393c821a4df356df6ce7f14c722dc8717ec.tar.gz";
-                sha256 = "sha256:1cdfh6nj81gjmn689snigidyq7w98gd8hkl5rvhly6xj7vyppmnd";
+                url = "https://github.com/nix-community/fenix/archive/6399553b7a300c77e7f07342904eb696a5b6bf9d.tar.gz";
+                sha256 = "sha256-C6tT7K1Lx6VsYw1BY5S3OavtapUvEnDQtmQB5DSgbCc=";
               }
             }/overlay.nix"
           else
@@ -40,21 +51,23 @@ let
           else
             extendedPkgs.fenix.fromToolchainName toolchain;
         native =
-          (extendedPkgs.makeRustPlatform {
-            inherit (fenix) cargo rustc;
-          }).buildRustPackage
+          (
+            (extendedPkgs.makeRustPlatform {
+              inherit (fenix) cargo rustc;
+            }).buildRustPackage
             {
-              pname = "${old.packageName}-native";
+              inherit env buildInputs;
+              pname = "${old.beamModuleName}-native";
               version = old.version;
               src = nativeDir;
               cargoLock = {
                 lockFile = "${nativeDir}/Cargo.lock";
               };
-              nativeBuildInputs = [
-                extendedPkgs.cmake
-              ];
+              nativeBuildInputs = [ extendedPkgs.cmake ] ++ nativeBuildInputs;
               doCheck = false;
-            };
+            }
+          ).overrideAttrs
+            rustlerPrecompiledOverrides.${old.beamModuleName} or { };
 
       in
       {
@@ -67,11 +80,16 @@ let
           mkdir -p priv/native
           for lib in ${native}/lib/*
           do
-            ln -s "$lib" "priv/native/$(basename "$lib")"
+            dest="$(basename "$lib")"
+            if [[ "''${dest##*.}" = "dylib" ]]
+            then
+              dest="''${dest%.dylib}.so"
+            fi
+            ln -s "$lib" "priv/native/$dest"
           done
         '';
 
-        buildPhase = ''
+        preBuild = ''
           suggestion() {
             echo "***********************************************"
             echo "                 deps_nix                      "
@@ -88,14 +106,35 @@ let
             echo -n " "
             grep -Rl 'use RustlerPrecompiled' lib \
               | xargs grep 'defmodule' \
-              | sed 's/defmodule \(.*\) do/config :${old.packageName}, \1, skip_compilation?: true/'
+              | sed 's/defmodule \(.*\) do/config :${old.beamModuleName}, \1, skip_compilation?: true/'
             echo "***********************************************"
             exit 1
           }
           trap suggestion ERR
-          ${old.buildPhase}
         '';
       };
+
+    elixirMake = _unusedArgs: old: {
+      preConfigure = ''
+        export ELIXIR_MAKE_CACHE_DIR="$TEMPDIR/elixir_make_cache"
+      '';
+    };
+
+    lazyHtml = _unusedArgs: old: {
+      preConfigure = ''
+        export ELIXIR_MAKE_CACHE_DIR="$TEMPDIR/elixir_make_cache"
+      '';
+
+      postPatch = ''
+        substituteInPlace mix.exs \
+          --replace-fail "Fine.include_dir()" '"${packages.fine}/src/c_include"' \
+          --replace-fail '@lexbor_git_sha "244b84956a6dc7eec293781d051354f351274c46"' '@lexbor_git_sha ""'
+      '';
+
+      preBuild = ''
+        install -Dm644           -t _build/c/third_party/lexbor/$LEXBOR_GIT_SHA/build           ${lexbor}/lib/liblexbor_static.a
+      '';
+    };
   };
 
   defaultOverrides = (
@@ -112,8 +151,8 @@ let
           {
             name = "rustlerPrecompiled";
             toolchain = {
-              name = "nightly-2024-11-01";
-              sha256 = "sha256-wq7bZ1/IlmmLkSa3GUJgK17dTWcKyf5A+ndS9yRwB88=";
+              name = "nightly-2025-06-23";
+              sha256 = "sha256-UAoZcxg3iWtS+2n8TFNfANFt/GmkuOMDf7QAE0fRxeA=";
             };
           }
         ];
@@ -164,17 +203,17 @@ let
 
       elixir_sense =
         let
-          version = "fb9ee0e68db8b46fbff4d7a78ee4bb7f63db0669";
+          version = "2.0.0";
           drv = buildMix {
             inherit version;
             name = "elixir_sense";
             appConfigPath = ./config;
 
-            src = pkgs.fetchFromGitHub {
+            src = fetchFromGitHub {
               owner = "elixir-lsp";
               repo = "elixir_sense";
-              rev = "fb9ee0e68db8b46fbff4d7a78ee4bb7f63db0669";
-              hash = "sha256-mFhHK0CmnWw6TP3WpVJ/ckihvWZTBZrA7gwj/pGtHME=";
+              rev = "da065ae9ccc125d05b901b9eb6981ff559a8f9f1";
+              hash = "sha256-hIWAon1kttZNjm2z1NubUEqtXjCZabyifbGyAvkfjF8=";
             };
           };
         in
@@ -288,27 +327,6 @@ let
 
             beamDeps = [
               nimble_parsec
-            ];
-          };
-        in
-        drv;
-
-      refactorex =
-        let
-          version = "0.1.52";
-          drv = buildMix {
-            inherit version;
-            name = "refactorex";
-            appConfigPath = ./config;
-
-            src = fetchHex {
-              inherit version;
-              pkg = "refactorex";
-              sha256 = "4927fe6c3acd1f4695d6d3e443380167d61d004d507b1279c6084433900c94d0";
-            };
-
-            beamDeps = [
-              sourceror
             ];
           };
         in

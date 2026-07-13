@@ -41,7 +41,7 @@ defmodule Forge.MixProject do
       {:briefly, "~> 0.5"},
       Mix.Credo.dependency(),
       Mix.Dialyzer.dependency(),
-      {:deps_nix, "~> 2.4", only: :dev},
+      {:deps_nix, "~> 3.0", only: :dev},
       {:gen_lsp, "~> 0.11.3"},
       {:logger_backends, "~> 1.0"},
       {:sourceror, "~> 1.12.2"},
