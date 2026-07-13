@@ -4,7 +4,7 @@ defmodule Engine.CodeIntelligence.ElixirSource do
   """
 
   # A stable file that every standard Elixir install ships under its root.
-  @sentinel Path.join("lib", "elixir/lib/kernel.ex")
+  @sentinel "lib/elixir/lib/kernel.ex"
 
   @doc """
   Returns the root of the Elixir source tree for the current installation, or
