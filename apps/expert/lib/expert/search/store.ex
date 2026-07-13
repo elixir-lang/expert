@@ -85,7 +85,11 @@ defmodule Expert.Search.Store do
     do: GenServer.call(name(project), {:update, path, entries}, :infinity)
 
   def destroy(%Project{} = project), do: GenServer.call(name(project), :destroy)
-  def enable(%Project{} = project), do: GenServer.call(name(project), :enable)
+
+  # we need higher timeout for this, as it performs optimization via PRAGMA optimize
+  # on existing database
+  def enable(%Project{} = project),
+    do: GenServer.call(name(project), :enable, :timer.seconds(30))
 
   @spec start_link(Project.t()) :: GenServer.on_start()
   def start_link(%Project{} = project), do: start_link(project, backend())

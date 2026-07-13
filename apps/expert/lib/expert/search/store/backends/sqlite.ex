@@ -286,13 +286,16 @@ defmodule Expert.Search.Store.Backends.Sqlite do
   end
 
   def do_replace_all(%State{} = state, entries) when is_list(entries) do
-    transaction(state, fn ->
-      with :ok <- exec(state, "DELETE FROM entry_blobs"),
-           :ok <- exec(state, "DELETE FROM entries"),
-           :ok <- exec(state, "DELETE FROM structures") do
-        insert_entries(state, entries)
-      end
-    end)
+    with :ok <-
+           transaction(state, fn ->
+             with :ok <- exec(state, "DELETE FROM entry_blobs"),
+                  :ok <- exec(state, "DELETE FROM entries"),
+                  :ok <- exec(state, "DELETE FROM structures") do
+               insert_entries(state, entries)
+             end
+           end) do
+      exec(state, "PRAGMA optimize = 0x10002")
+    end
   end
 
   def do_apply_index_update(%State{} = state, updated_entries, paths_to_clear)
@@ -461,8 +464,10 @@ defmodule Expert.Search.Store.Backends.Sqlite do
   defp initialize_schema(%State{} = state) do
     with :ok <- configure_database(state),
          :ok <- create_schema_table(state),
-         {:ok, current_version} <- current_schema_version(state) do
-      load_or_reset_schema(state, current_version)
+         {:ok, current_version} <- current_schema_version(state),
+         {:ok, status} <- load_or_reset_schema(state, current_version),
+         :ok <- exec(state, "PRAGMA optimize = 0x10002") do
+      {:ok, status}
     end
   end
 
