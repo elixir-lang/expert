@@ -9,14 +9,15 @@ defmodule Expert.Search.Store.Backends.Sqlite do
   alias Forge.Search.Indexer.Entry
 
   require Entry
+  require Logger
 
   @schema_version 2
   @database_file "source.index.sqlite3"
+  @slow_query_threshold_ms 500
   # NOTE(doorgan): SQLite has a variable limit of 32766. Entry batches use 7 params
   # per entry. 4000 entries per batch is 28000 params per batch, below SQLite's
   # limit.
-  # If the schema changes and we need a different number of params per entry,
-  # this number needs to be updated.
+  @sqlite_variable_limit 32_766
   @insert_batch_size 4_000
   @busy_timeout_ms Application.compile_env(:expert, :search_store_sqlite_busy_timeout_ms, 5_000)
 
@@ -712,13 +713,20 @@ defmodule Expert.Search.Store.Backends.Sqlite do
   defp delete_entry_blobs_for_rows(%State{}, []), do: :ok
 
   defp delete_entry_blobs_for_rows(%State{} = state, rows) do
-    entry_keys = Enum.map(rows, fn [entry_key, _id] -> entry_key end)
+    rows
+    |> Stream.chunk_every(@sqlite_variable_limit)
+    |> Enum.reduce_while(:ok, fn rows, :ok ->
+      entry_keys = Enum.map(rows, fn [entry_key, _id] -> entry_key end)
 
-    exec(
-      state,
-      "DELETE FROM entry_blobs WHERE entry_key IN (#{placeholders(entry_keys)})",
-      entry_keys
-    )
+      case exec(
+             state,
+             "DELETE FROM entry_blobs WHERE entry_key IN (#{placeholders(entry_keys)})",
+             entry_keys
+           ) do
+        :ok -> {:cont, :ok}
+        {:error, _} = error -> {:halt, error}
+      end
+    end)
   end
 
   defp delete_structures_for_paths(%State{}, []), do: :ok
@@ -870,16 +878,58 @@ defmodule Expert.Search.Store.Backends.Sqlite do
   defp recoverable_database_error?(_reason), do: false
 
   defp exec(%State{} = state, statement, args \\ []) do
-    case Exqlite.Basic.exec(state.conn, statement, args) do
-      {:error, reason, _details} -> {:error, reason}
-      result -> rows_to_ok(result)
-    end
+    timed(state, statement, args, fn ->
+      case Exqlite.Basic.exec(state.conn, statement, args) do
+        {:error, reason, _details} -> {:error, reason}
+        result -> rows_to_ok(result)
+      end
+    end)
   end
 
   defp query(%State{} = state, statement, args \\ []) do
-    case Exqlite.Basic.exec(state.conn, statement, args) do
-      {:error, reason, _details} -> {:error, reason}
-      result -> rows(result)
+    timed(state, statement, args, fn ->
+      case Exqlite.Basic.exec(state.conn, statement, args) do
+        {:error, reason, _details} -> {:error, reason}
+        result -> rows(result)
+      end
+    end)
+  end
+
+  defp timed(%State{} = state, statement, args, fun) do
+    started_at = System.monotonic_time(:millisecond)
+    result = fun.()
+    elapsed_ms = System.monotonic_time(:millisecond) - started_at
+
+    if elapsed_ms > @slow_query_threshold_ms do
+      log_slow_query(state, statement, args, elapsed_ms)
+    end
+
+    result
+  end
+
+  defp log_slow_query(%State{} = state, statement, args, elapsed_ms) do
+    query = String.trim(statement)
+
+    case Exqlite.Basic.exec(state.conn, "EXPLAIN QUERY PLAN #{statement}", args) do
+      {:error, _reason, _details} ->
+        Logger.warning("[SQL SLOW] #{elapsed_ms}ms | #{query}")
+
+      result ->
+        case Exqlite.Basic.rows(result) do
+          {:ok, [], _columns} ->
+            Logger.warning("[SQL SLOW] #{elapsed_ms}ms | #{query}")
+
+          {:ok, rows, _columns} ->
+            plan =
+              Enum.map_join(rows, "\n", fn row ->
+                "  " <> Enum.map_join(row, " | ", &to_string/1)
+              end)
+
+            Logger.warning("[SQL SLOW] #{elapsed_ms}ms | #{query}\nEXPLAIN QUERY PLAN:\n#{plan}")
+
+          {:error, _reason} ->
+            Logger.warning("[SQL SLOW] #{elapsed_ms}ms | #{query}")
+        end
     end
   end
 

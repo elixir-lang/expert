@@ -5,6 +5,7 @@ defmodule Engine.Build.State do
   alias Engine.Build
   alias Engine.Plugin
   alias Forge.Document
+  alias Forge.Plugin.V1.Diagnostic
   alias Forge.Project
   alias Forge.VM.Versions
 
@@ -140,12 +141,22 @@ defmodule Engine.Build.State do
           {:ok, diagnostics} ->
             message = project_compiled(status: :success, project: project, elapsed_ms: elapsed_ms)
 
-            {message, List.wrap(diagnostics)}
+            diagnostics =
+              diagnostics
+              |> List.wrap()
+              |> Enum.filter(&match?(%Diagnostic.Result{}, &1))
+
+            {message, diagnostics}
 
           {:error, diagnostics} ->
             message = project_compiled(status: :error, project: project, elapsed_ms: elapsed_ms)
 
-            {message, List.wrap(diagnostics)}
+            diagnostics =
+              diagnostics
+              |> List.wrap()
+              |> Enum.filter(&match?(%Diagnostic.Result{}, &1))
+
+            {message, diagnostics}
         end
 
       diagnostics_message =
