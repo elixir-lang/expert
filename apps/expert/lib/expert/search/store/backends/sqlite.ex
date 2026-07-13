@@ -259,7 +259,38 @@ defmodule Expert.Search.Store.Backends.Sqlite do
   end
 
   def do_path_to_ids(%State{} = state) do
-    case query(state, "SELECT path, MAX(id) FROM entries WHERE id IS NOT NULL GROUP BY path") do
+    # Used to be:
+    #   SELECT path, MAX(id) FROM entries WHERE id IS NOT NULL GROUP BY path
+    #
+    # However, even though it had high index coverage, it turned out to be inefficient,
+    # as GROUP BY forced it to scan the whole index.
+    sql = """
+    WITH RECURSIVE paths(path) AS (
+      SELECT MIN(path)
+      FROM entries
+
+      UNION ALL
+
+      SELECT (
+        SELECT MIN(path)
+        FROM entries
+        WHERE path > paths.path
+      )
+      FROM paths
+      WHERE path IS NOT NULL
+    )
+    SELECT
+      path,
+      (
+        SELECT MAX(id)
+        FROM entries
+        WHERE entries.path = paths.path
+      )
+    FROM paths
+    WHERE path IS NOT NULL
+    """
+
+    case query(state, sql) do
       {:ok, rows} -> Map.new(rows, fn [path, id] -> {path, id} end)
       {:error, _} = error -> error
     end
