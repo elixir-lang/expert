@@ -9,6 +9,7 @@ defmodule Engine.CodeIntelligence.ReferencesTest do
 
   alias Engine.CodeIntelligence.References
   alias Engine.Search.Indexer.Source
+  alias Forge.Ast
   alias Forge.Document
   alias Forge.Document.Location
 
@@ -323,6 +324,187 @@ defmodule Engine.CodeIntelligence.ReferencesTest do
       assert [definition, reference] = references(project, query, code, true)
       assert decorate(code, definition.range) =~ "«@attr 3»"
       assert decorate(code, reference.range) =~ "  def fun(«@attr»), do: true"
+    end
+
+    test "uses the current analysis without reparsing or querying the index" do
+      query = ~q[
+      defmodule Refs do
+        @attr 3
+
+        def fun(@att|r), do: true
+      end
+      ]
+
+      {position, document} = pop_cursor(query, as: :document)
+      analysis = Ast.analyze(document)
+
+      patch(Ast, :analyze, fn _document -> flunk("references reparsed the document") end)
+
+      assert [reference] = References.references(analysis, position, false)
+      assert decorate(document, reference.range) =~ "  def fun(«@attr»), do: true"
+      refute_called(Engine.ManagerApi.search_store_exact(_, _, _))
+    end
+
+    test "falls back to the index when the full AST is unavailable", %{project: project} do
+      code = ~q[
+      defmodule Refs do
+        @attr 3
+        def fun(@attr), do: true
+      end
+      ]
+
+      query = ~q[
+      defmodule Refs do
+        @att|r 3
+      end
+      ]
+
+      {position, referenced} = pop_cursor(query, as: :document)
+      {:ok, document} = project_module(project, code)
+      {:ok, entries} = Source.index(document.path, code)
+      :ok = Engine.ManagerApi.search_store_replace(project, entries)
+      analysis = %{Ast.analyze(referenced) | ast: nil, scopes: []}
+
+      assert [reference] = References.references(analysis, position, false)
+      assert decorate(code, reference.range) =~ "def fun(«@attr»), do: true"
+    end
+
+    test "uses a definition-only dirty analysis without querying the index" do
+      query = ~q[
+      defmodule Refs do
+        @att|r 3
+      end
+      ]
+
+      {position, document} = pop_cursor(query, as: :document)
+      analysis = document |> Document.mark_dirty() |> Ast.analyze()
+
+      assert [definition] = References.references(analysis, position, true)
+      assert decorate(document, definition.range) =~ "«@attr 3»"
+      refute_called(Engine.ManagerApi.search_store_exact(_, _, _))
+    end
+
+    test "does not return stale indexed references after the last local usage is removed", %{
+      project: project
+    } do
+      indexed = ~q[
+      defmodule Refs do
+        @attr 3
+        def fun(@attr), do: true
+      end
+      ]
+
+      query = ~q[
+      defmodule Refs do
+        @att|r 3
+      end
+      ]
+
+      {:ok, entries} = Source.index("refs.ex", indexed)
+      :ok = Engine.ManagerApi.search_store_replace(project, entries)
+      {position, document} = pop_cursor(query, as: :document)
+      analysis = document |> Document.mark_dirty() |> Ast.analyze()
+
+      assert [] = References.references(analysis, position, false)
+      refute_called(Engine.ManagerApi.search_store_exact(_, _, _))
+    end
+
+    test "does not return stale same-document references after the document is saved", %{
+      project: project
+    } do
+      indexed = ~q[
+      defmodule Refs do
+        @attr 3
+        def fun(@attr), do: true
+      end
+      ]
+
+      query = ~q[
+      defmodule Refs do
+        @att|r 3
+      end
+      ]
+
+      {position, document} = pop_cursor(query, document: file_path(project, "refs.ex"))
+      {:ok, entries} = Source.index(document.path, indexed)
+      :ok = Engine.ManagerApi.search_store_replace(project, entries)
+      analysis = Ast.analyze(document)
+
+      assert [] = References.references(analysis, position, false)
+      assert_called(Engine.ManagerApi.search_store_exact(_, _, _))
+    end
+
+    test "filters stale same-document results from a cross-document fallback", %{
+      project: project
+    } do
+      indexed = ~q[
+      defmodule Refs do
+        @attr 3
+        def fun(@attr), do: true
+      end
+      ]
+
+      query = ~q[
+      defmodule Refs do
+        @att|r 3
+      end
+      ]
+
+      {position, document} = pop_cursor(query, document: file_path(project, "refs.ex"))
+      {:ok, same_document} = Source.index(document.path, indexed)
+      {:ok, other_document} = Source.index(file_path(project, "other.ex"), indexed)
+      :ok = Engine.ManagerApi.search_store_replace(project, same_document ++ other_document)
+
+      assert [reference] = References.references(Ast.analyze(document), position, false)
+      refute reference.uri == document.uri
+    end
+
+    test "does not return the same attribute from a nested module" do
+      query = ~q[
+      defmodule Parent do
+        @attr :parent
+        def parent, do: @attr
+
+        defmodule Child do
+          @attr :child
+          def child, do: @att|r
+        end
+      end
+      ]
+
+      {position, document} = pop_cursor(query, as: :document)
+
+      references =
+        document
+        |> Ast.analyze()
+        |> References.references(position, true)
+
+      assert [definition, reference] = references
+      assert decorate(document, definition.range) =~ "«@attr :child»"
+      assert decorate(document, reference.range) =~ "def child, do: «@attr»"
+    end
+
+    test "uses a recoverable AST while the document is invalid" do
+      query = ~q[
+      defmodule Partial do
+        @attr 42
+        def first, do: @att|r
+        def second, do: @attr
+        def incomplete(
+      end
+      ]
+
+      {position, document} = pop_cursor(query, as: :document)
+      analysis = Ast.analyze(document)
+      refute analysis.valid?
+
+      assert [first, second] = References.references(analysis, position, false)
+      assert decorate(document, first.range) =~ "def first, do: «@attr»"
+      assert decorate(document, second.range) =~ "def second, do: «@attr»"
+
+      assert [definition, ^first, ^second] = References.references(analysis, position, true)
+      assert decorate(document, definition.range) =~ "«@attr 42»"
+      refute_called(Engine.ManagerApi.search_store_exact(_, _, _))
     end
   end
 

@@ -3,11 +3,14 @@ defmodule Engine.CodeIntelligence.References do
   alias Engine.CodeIntelligence.Entity
   alias Engine.CodeIntelligence.Variable
   alias Engine.ManagerApi
+  alias Engine.Search.Indexer.Extractors.ModuleAttribute
+  alias Engine.Search.Indexer.Quoted
   alias Engine.Search.Subject
   alias Forge.Ast.Analysis
   alias Forge.Document
   alias Forge.Document.Location
   alias Forge.Document.Position
+  alias Forge.Document.Range
   alias Forge.Search.Indexer.Entry
 
   require Logger
@@ -63,14 +66,52 @@ defmodule Engine.CodeIntelligence.References do
 
   defp find_references(
          {:module_attribute, module, attribute_name},
-         _analysis,
+         %Analysis{ast: nil},
          _position,
          include_definitions?
        ) do
     subject = Subject.module_attribute(module, attribute_name)
-    subtype = subtype(include_definitions?)
 
-    query(subject, type: :module_attribute, subtype: subtype)
+    query(subject,
+      type: :module_attribute,
+      subtype: subtype(include_definitions?)
+    )
+  end
+
+  defp find_references(
+         {:module_attribute, module, attribute_name},
+         %Analysis{} = analysis,
+         position,
+         include_definitions?
+       ) do
+    subject = Subject.module_attribute(module, attribute_name)
+    scope = Analysis.module_scope(analysis, Range.new(position, position))
+
+    entries =
+      for %Entry{subject: ^subject, type: :module_attribute} = entry <-
+            module_attribute_entries(analysis),
+          Analysis.module_scope(analysis, entry.range).id == scope.id,
+          do: entry
+
+    locations =
+      for entry <- entries,
+          include_definitions? or entry.subtype == :reference,
+          do: to_location(entry)
+
+    if analysis.document.dirty? or Enum.any?(entries, &(&1.subtype == :reference)) do
+      locations
+    else
+      indexed =
+        query(subject,
+          type: :module_attribute,
+          subtype: subtype(include_definitions?)
+        )
+
+      case Enum.reject(indexed, &(&1.uri == analysis.document.uri)) do
+        [] -> locations
+        cross_document -> cross_document
+      end
+    end
   end
 
   defp find_references({:variable, var_name}, analysis, position, include_definitions?) do
@@ -82,6 +123,10 @@ defmodule Engine.CodeIntelligence.References do
   defp find_references(resolved, _, _, _include_definitions?) do
     Logger.info("Not attempting to find references for unhandled type: #{inspect(resolved)}")
     :error
+  end
+
+  defp module_attribute_entries(%Analysis{} = analysis) do
+    Quoted.extract_entries(%Analysis{analysis | valid?: true}, [ModuleAttribute])
   end
 
   defp function_entry?(%Entry{type: {:function, _}}), do: true
