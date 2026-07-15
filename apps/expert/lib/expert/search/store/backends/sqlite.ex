@@ -1035,6 +1035,7 @@ defmodule Expert.Search.Store.Backends.Sqlite do
   defp subtype_key(subtype), do: Atom.to_string(subtype)
 
   defp block_id_key(:root), do: 0
+  defp block_id_key(nil), do: 0
   defp block_id_key(block_id) when is_integer(block_id), do: block_id
 
   defp blob(term), do: {:blob, encode_term(term)}

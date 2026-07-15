@@ -171,6 +171,25 @@ defmodule Expert.Search.Store.Backends.SqliteTest do
     end
   end
 
+  describe "replace_all/2 with indexed source entries" do
+    test "handles modules defined with keyword do syntax", %{
+      project: project,
+      runtime_versions: runtime_versions
+    } do
+      start_supervised!(Engine.ApplicationCache)
+      {:ok, entries} = Engine.Search.Indexer.Source.index("/foo.ex", "defmodule Foo, do: :ok")
+
+      pid =
+        start_supervised!(%{
+          id: :sqlite,
+          start: {Sqlite, :start_link, [project, [runtime_versions: runtime_versions]]}
+        })
+
+      assert {:ok, :empty} = Sqlite.prepare(pid)
+      assert :ok = Sqlite.replace_all(project, entries)
+    end
+  end
+
   describe "insert/2" do
     test "persists entries", %{project: project, runtime_versions: runtime_versions} do
       entry = %Entry{
