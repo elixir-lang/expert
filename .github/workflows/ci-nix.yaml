@@ -53,15 +53,7 @@ jobs:
         uses: DeterminateSystems/magic-nix-cache-action@908b263ff629f4cc17666315b7fd3ec127c6244d # v14
 
       - name: Regenerate deps.nix
-        run: |
-          nix develop --command bash -c '
-            set -euo pipefail
-            mix local.hex --force
-            mix local.rebar --force
-            for app in expert engine forge expert_credo; do
-              (cd "apps/$app" && mix deps.get && mix deps.nix)
-            done
-          '
+        run: nix run .#update-deps
 
       - name: Ensure deps.nix is up to date
         run: |
