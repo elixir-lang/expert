@@ -40,13 +40,14 @@ defmodule Engine.Search.Indexer.Sources do
       results =
         paths
         |> Task.async_stream(
-          fn path ->
-            report.(message: message, add: 1)
-            processor.(path)
-          end,
+          fn path -> processor.(path) end,
           timeout: :infinity
         )
-        |> Enum.flat_map(&task_result!/1)
+        |> Enum.flat_map(fn task_result ->
+          results = task_result!(task_result)
+          report.(message: message, add: 1)
+          results
+        end)
 
       elapsed = System.monotonic_time(:millisecond) - start_time
       {:done, results, "Completed in #{format_duration(elapsed)}"}

@@ -2,6 +2,7 @@ defmodule Engine.Search.IndexerTest do
   use ExUnit.Case
   use Patch
 
+  import Engine.Test.Entry.Builder
   import Forge.Test.Fixtures
 
   alias Engine.Dispatch
@@ -10,6 +11,8 @@ defmodule Engine.Search.IndexerTest do
   alias Engine.Search.Indexer.Manifest
   alias Engine.Search.Indexer.Manifest.Entry, as: ManifestEntry
   alias Engine.Search.Indexer.ManifestStore
+  alias Engine.Search.Indexer.Source
+  alias Engine.Search.Indexer.Sources
   alias Forge.Project
   alias Forge.Search.Indexer.Entry
 
@@ -100,6 +103,42 @@ defmodule Engine.Search.IndexerTest do
     [build_root | List.wrap(relative_path)]
     |> Path.join()
     |> Forge.Path.native()
+  end
+
+  describe "Sources.index/1" do
+    @tag :tmp_dir
+    test "reports progress after source indexing finishes", %{tmp_dir: tmp_dir} do
+      path = Path.join(tmp_dir, "progress.ex")
+      source = "defmodule Progress do end"
+      File.write!(path, source)
+      test_pid = self()
+
+      patch(Dispatch, :erpc_call, fn
+        Expert.Progress, :begin, [_title, _opts] ->
+          {:ok, System.unique_integer([:positive])}
+
+        Expert.Progress, :report, [_token, opts] ->
+          send(test_pid, {:progress_report, opts})
+          :ok
+      end)
+
+      patch(Source, :index, fn ^path, ^source ->
+        send(test_pid, {:source_index_started, self()})
+        assert_receive :finish_source_index
+
+        {:ok, [structure(path: path), definition(path: path)]}
+      end)
+
+      task = Task.async(fn -> Sources.index([path]) end)
+
+      assert_receive {:source_index_started, worker_pid}
+      refute_receive {:progress_report, _opts}, 100
+
+      send(worker_pid, :finish_source_index)
+
+      assert {[_structure, _definition], [_manifest_entry]} = Task.await(task)
+      assert_receive {:progress_report, [message: "Indexing", percentage: 100]}
+    end
   end
 
   describe "create_index/1" do

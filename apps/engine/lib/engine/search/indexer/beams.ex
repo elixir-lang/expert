@@ -40,12 +40,16 @@ defmodule Engine.Search.Indexer.Beams do
       results =
         beams
         |> beam_chunks()
-        |> Task.async_stream(&index_beam_chunk(&1, report),
+        |> Task.async_stream(&index_beam_chunk/1,
           max_concurrency: @beam_index_concurrency,
           ordered: false,
           timeout: :infinity
         )
-        |> Enum.flat_map(&task_result!/1)
+        |> Enum.flat_map(fn task_result ->
+          {chunk_bytes, chunk_results} = task_result!(task_result)
+          report.(message: "Indexing dependencies", add: chunk_bytes)
+          chunk_results
+        end)
 
       elapsed = System.monotonic_time(:millisecond) - start_time
       {:done, results, "Completed in #{format_duration(elapsed)}"}
@@ -73,9 +77,8 @@ defmodule Engine.Search.Indexer.Beams do
 
   defp beam_size({_path, %File.Stat{size: size}}), do: size
 
-  defp index_beam_chunk({chunk_bytes, beams}, report) do
-    report.(message: "Indexing dependencies", add: chunk_bytes)
-    Enum.flat_map(beams, &metadata_from_beam/1)
+  defp index_beam_chunk({chunk_bytes, beams}) do
+    {chunk_bytes, Enum.flat_map(beams, &metadata_from_beam/1)}
   end
 
   defp entries_and_manifest_entries(results) do
