@@ -241,9 +241,8 @@ defmodule Engine.CodeMod.Format.Cache do
     {:ok, entry}
   rescue
     exception ->
-      Logger.warning(
-        "Could not resolve formatter for #{file_path}: #{Exception.message(exception)}"
-      )
+      formatted_stack = Exception.format(:error, exception, __STACKTRACE__)
+      Logger.warning(["Could not resolve formatter for ", file_path, ": ", formatted_stack])
 
       :error
   end
