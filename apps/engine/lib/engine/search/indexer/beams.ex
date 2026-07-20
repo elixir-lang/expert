@@ -74,8 +74,9 @@ defmodule Engine.Search.Indexer.Beams do
   defp beam_size({_path, %File.Stat{size: size}}), do: size
 
   defp index_beam_chunk({chunk_bytes, beams}, report) do
+    results = Enum.flat_map(beams, &metadata_from_beam/1)
     report.(message: "Indexing dependencies", add: chunk_bytes)
-    Enum.flat_map(beams, &metadata_from_beam/1)
+    results
   end
 
   defp entries_and_manifest_entries(results) do

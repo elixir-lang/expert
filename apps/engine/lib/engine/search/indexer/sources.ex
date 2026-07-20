@@ -34,15 +34,18 @@ defmodule Engine.Search.Indexer.Sources do
   defp map_paths([], _title, _message, _processor), do: []
 
   defp map_paths(paths, title, message, processor) do
-    Progress.with_tracked_progress(title, length(paths), fn report ->
+    {sized_paths, total_bytes} = stat_paths(paths)
+
+    Progress.with_tracked_progress(title, total_bytes, fn report ->
       start_time = System.monotonic_time(:millisecond)
 
       results =
-        paths
+        sized_paths
         |> Task.async_stream(
-          fn path ->
-            report.(message: message, add: 1)
-            processor.(path)
+          fn {path, size} ->
+            result = processor.(path)
+            report.(message: message, add: size)
+            result
           end,
           timeout: :infinity
         )
@@ -51,6 +54,20 @@ defmodule Engine.Search.Indexer.Sources do
       elapsed = System.monotonic_time(:millisecond) - start_time
       {:done, results, "Completed in #{format_duration(elapsed)}"}
     end)
+  end
+
+  defp stat_paths(paths) do
+    sized_paths = Enum.map(paths, fn path -> {path, file_size(path)} end)
+    total_bytes = sized_paths |> Enum.map(fn {_path, size} -> size end) |> Enum.sum()
+
+    {sized_paths, total_bytes}
+  end
+
+  defp file_size(path) do
+    case File.stat(path) do
+      {:ok, %File.Stat{size: size}} -> size
+      _ -> 0
+    end
   end
 
   defp task_result!({:ok, items}), do: items

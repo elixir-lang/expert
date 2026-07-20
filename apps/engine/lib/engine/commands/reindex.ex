@@ -8,6 +8,7 @@ defmodule Engine.Commands.Reindex do
   import Forge.EngineApi.Messages
 
   alias Engine.ManagerApi
+  alias Engine.Progress
   alias Engine.Search.Indexer
   alias Forge.Document
   alias Forge.Project
@@ -203,9 +204,8 @@ defmodule Engine.Commands.Reindex do
 
     {elapsed_us, result} =
       :timer.tc(fn ->
-        with {:ok, entries, manifest} <- Indexer.create_index(project),
-             :ok <- replace_search_store(project, entries) do
-          Indexer.commit_manifest(project, manifest)
+        with {:ok, entries, manifest} <- Indexer.create_index(project) do
+          persist_index(project, entries, manifest)
         end
       end)
 
@@ -227,6 +227,17 @@ defmodule Engine.Commands.Reindex do
 
   defp schedule_gc do
     Process.send_after(self(), :gc, :timer.seconds(5))
+  end
+
+  defp persist_index(%Project{} = project, entries, manifest) do
+    Progress.with_progress("Persisting index", fn _token ->
+      result =
+        with :ok <- replace_search_store(project, entries) do
+          Indexer.commit_manifest(project, manifest)
+        end
+
+      {:done, result}
+    end)
   end
 
   defp replace_search_store(%Project{} = project, entries) do

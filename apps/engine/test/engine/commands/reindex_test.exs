@@ -8,6 +8,7 @@ defmodule Engine.Commands.ReindexTest do
   import Forge.Test.Fixtures
 
   alias Engine.Commands.Reindex
+  alias Engine.Dispatch
   alias Engine.Search.Indexer
   alias Forge.Document
 
@@ -15,6 +16,16 @@ defmodule Engine.Commands.ReindexTest do
     debounce_interval_millis = Map.get(context, :debounce_interval_millis, 0)
     project = project()
     Engine.set_project(project)
+
+    patch(Dispatch, :erpc_call, fn
+      Expert.Progress, :begin, [_title, _opts] ->
+        {:ok, System.unique_integer([:positive])}
+
+      Expert.Progress, :report, _args ->
+        :ok
+    end)
+
+    patch(Dispatch, :erpc_cast, fn Expert.Progress, _function, _args -> true end)
 
     case Map.get(context, :reindex_fun, :sleep) do
       :default ->

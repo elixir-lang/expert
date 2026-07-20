@@ -8,6 +8,7 @@ defmodule Expert.Project.Indexer do
   import Forge.EngineApi.Messages
 
   alias Expert.EngineApi
+  alias Expert.Progress
   alias Expert.Project.Node
   alias Expert.Search
   alias Forge.Project
@@ -140,14 +141,24 @@ defmodule Expert.Project.Indexer do
   end
 
   defp persist_index(%Project{} = project, :empty, create_index, _update_index) do
-    with {:ok, entries, after_apply} <- create_index.(project),
-         :ok <- Search.Store.replace(project, entries) do
-      after_apply.()
+    with {:ok, entries, after_apply} <- create_index.(project) do
+      persist_full_index(project, entries, after_apply)
     end
   end
 
   defp persist_index(%Project{} = project, _status, create_index, update_index) do
     persist_incremental_index(project, create_index, update_index)
+  end
+
+  defp persist_full_index(%Project{} = project, entries, after_apply) do
+    Progress.with_progress("Persisting index", fn _token ->
+      result =
+        with :ok <- Search.Store.replace(project, entries) do
+          after_apply.()
+        end
+
+      {:done, result}
+    end)
   end
 
   defp persist_incremental_index(%Project{} = project, create_index, update_index) do
