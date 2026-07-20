@@ -13,7 +13,7 @@ defmodule Expert.Engine.CodeIntelligence.DefinitionTest do
   alias Expert.EngineSupervisor
   alias Expert.Project.Indexer
   alias Expert.Search.Store
-  alias Expert.Search.Store.Backends.Ets
+  alias Expert.Search.Store.Backends.Sqlite
   alias Forge.Document
 
   @project_compile_timeout :timer.seconds(15)
@@ -58,9 +58,9 @@ defmodule Expert.Engine.CodeIntelligence.DefinitionTest do
     start_supervised!({Document.Store, derive: [analysis: &Forge.Ast.analyze/1]})
     {:ok, _} = start_supervised({EngineSupervisor, project})
     {:ok, _, _} = EngineNode.start(project)
-    start_supervised!({Ets, project})
+    start_supervised!({Sqlite, project})
 
-    start_supervised!({Store, [project, Ets]})
+    start_supervised!({Store, [project, Sqlite]})
     start_supervised!({Task.Supervisor, name: Indexer.task_supervisor_name(project)})
     start_supervised!({Indexer, project})
 
