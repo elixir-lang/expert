@@ -8,7 +8,7 @@ defmodule Engine.CodeMod.Format do
   alias Forge.Document.Changes
   alias Forge.Project
 
-  @type formatter_function :: (String.t() -> any) | nil
+  @type formatter_function :: (String.t() -> {:ok, String.t()} | {:error, Exception.t()}) | nil
 
   @spec edits(Document.t()) :: {:ok, Changes.t()} | {:error, any}
   def edits(%Document{} = document) do
@@ -30,14 +30,15 @@ defmodule Engine.CodeMod.Format do
     timed_log("format: format document", fn ->
       with :ok <- check_current_directory(document, project_path),
            {:ok, formatter} <- formatter_for(project, document) do
-        formatted =
-          document
-          |> Document.to_string()
-          |> formatter.()
-
-        {:ok, formatted}
+        apply_formatter(document, formatter)
       end
     end)
+  end
+
+  defp apply_formatter(%Document{} = document, formatter) do
+    document
+    |> Document.to_string()
+    |> formatter.()
   end
 
   @spec formatter_for(Project.t(), Document.t()) :: {:ok, formatter_function} | {:error, term()}

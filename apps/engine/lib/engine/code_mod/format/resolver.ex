@@ -144,7 +144,7 @@ defmodule Engine.CodeMod.Format.Resolver do
   defp wrap_with_try_catch(formatter_fn) do
     fn code ->
       try do
-        formatter_fn.(code)
+        {:ok, formatter_fn.(code)}
       rescue
         e -> {:error, e}
       end

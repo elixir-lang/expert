@@ -24,6 +24,12 @@ defmodule Engine.CodeMod.Format.CacheTest do
     start_supervised!(Document.Store)
     start_supervised!({Cache, project: project, refresh_interval: :timer.hours(1)})
 
+    # Refresh evicts entries for closed documents, so cached paths must be
+    # open in the store to survive it, as they are in production.
+    for path <- [ex_path, other_ex_path] do
+      :ok = path |> Document.Path.to_uri() |> Document.Store.open("", 1)
+    end
+
     {:ok,
      dot_formatter_path: dot_formatter_path,
      ex_path: ex_path,

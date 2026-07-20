@@ -281,13 +281,18 @@ defmodule Engine.CodeMod.Format.Cache do
 
   @spec discover_dot_formatters(Project.t()) :: State.dot_formatters()
   defp discover_dot_formatters(%Project{} = project) do
-    project
-    |> Project.root_path()
-    |> discover_dot_formatters()
+    case Project.root_path(project) do
+      nil ->
+        %{}
+
+      root_path ->
+        discover_dot_formatters_at_path(root_path, %{})
+    end
   end
 
-  @spec discover_dot_formatters(Path.t(), State.dot_formatters()) :: State.dot_formatters()
-  defp discover_dot_formatters(dir, dot_formatters \\ %{}) do
+  @spec discover_dot_formatters_at_path(Path.t(), State.dot_formatters()) ::
+          State.dot_formatters()
+  defp discover_dot_formatters_at_path(dir, dot_formatters) do
     formatter_exs = Path.join(dir, ".formatter.exs")
 
     case File.stat(formatter_exs, time: :posix) do
@@ -297,7 +302,7 @@ defmodule Engine.CodeMod.Format.Cache do
         formatter_exs
         |> subdirectories_from_formatter_config()
         |> Enum.reduce(dot_formatters, fn sub, acc ->
-          discover_dot_formatters(sub, acc)
+          discover_dot_formatters_at_path(sub, acc)
         end)
 
       {:error, _} ->
