@@ -13,12 +13,15 @@ defmodule Engine.CodeMod.Format do
   @spec edits(Document.t()) :: {:ok, Changes.t()} | {:error, any}
   def edits(%Document{} = document) do
     project = Engine.get_project()
+    format_result = do_format(project, document)
 
-    with {:ok, formatted} <- do_format(project, document) do
-      # Compiling first would make the format request wait on the Engine.Mix
-      # lock for the compile it just scheduled; formatting runs first and the
-      # compile keeps diagnostics fresh afterwards.
-      Build.compile_document(project, document)
+    # Compiling first would make the format request wait on the Engine.Mix
+    # lock for the compile it just scheduled; formatting runs first and the
+    # compile keeps diagnostics fresh afterwards — including the syntax-error
+    # diagnostics when formatting fails.
+    Build.compile_document(project, document)
+
+    with {:ok, formatted} <- format_result do
       edits = Diff.diff(document, formatted)
       {:ok, Changes.new(document, edits)}
     end
