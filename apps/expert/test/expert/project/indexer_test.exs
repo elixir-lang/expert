@@ -33,7 +33,7 @@ defmodule Expert.Project.IndexerTest do
     {:ok, project: project, task_supervisor: task_supervisor}
   end
 
-  test "creates the initial index after a successful project compile", %{
+  test "updates the initial index after a successful initial project compile", %{
     project: project,
     task_supervisor: task_supervisor
   } do
@@ -61,10 +61,11 @@ defmodule Expert.Project.IndexerTest do
        ]}
     )
 
+    assert_receive :create_index
+
     EngineApi.broadcast(project, project_compiled(project: project, status: :success))
 
-    assert_receive :create_index
-    refute_receive :update_index
+    assert_receive :update_index
     assert_receive {:after_apply, {:ok, [^entry]}}
     assert_receive project_index_ready(project: ^project)
     assert_eventually {:ok, [^entry]} = Store.exact(project, ProjectIndexer.Initial, [])

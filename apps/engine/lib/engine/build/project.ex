@@ -62,7 +62,7 @@ defmodule Engine.Build.Project do
     compile_fun = fn ->
       Mix.Task.clear()
       Progress.report(token, message: "Compiling #{Project.display_name(project)}")
-      result = compile_in_isolation()
+      result = compile_in_isolation(project)
       maybe_load_modules()
       Engine.Mix.ensure_hex_and_rebar()
       Mix.Task.run(:loadpaths)
@@ -101,7 +101,7 @@ defmodule Engine.Build.Project do
     end
   end
 
-  defp compile_in_isolation do
+  defp compile_in_isolation(%Project{} = project) do
     compile_fun = fn ->
       Engine.Mix.ensure_hex_and_rebar()
       Mix.Task.run(:compile, mix_compile_opts())
@@ -111,13 +111,28 @@ defmodule Engine.Build.Project do
       {:ok, result} ->
         result
 
-      {:error, {exception, [{_mod, _fun, _arity, meta} | _]}} ->
+      {:error, {exception, [{_mod, _fun, _arity, meta} | _]}} when is_exception(exception) ->
         diagnostic = %Diagnostic{
           file: Keyword.get(meta, :file),
           severity: :error,
           message: Exception.message(exception),
           compiler_name: "Elixir",
           position: Keyword.get(meta, :line, 1)
+        }
+
+        {:error, [diagnostic]}
+
+      {:error, reason} ->
+        # Mix exits rather than raises when a dependency fails to compile, so
+        # the exit reason carries no exception or location. The project's
+        # build file is the natural home for a build-wide failure, and unlike
+        # the failing dependency's files, it's part of the workspace.
+        diagnostic = %Diagnostic{
+          file: Project.mix_exs_path(project),
+          severity: :error,
+          message: "Compilation failed: #{Exception.format_exit(reason)}",
+          compiler_name: "Elixir",
+          position: 1
         }
 
         {:error, [diagnostic]}
