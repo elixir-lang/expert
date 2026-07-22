@@ -92,7 +92,7 @@ defmodule Expert.Project.Indexer do
 
   @impl GenServer
   def handle_info(project_compiled(status: status), %State{} = state)
-      when status in [:success, :successful] do
+      when status in [:success, :successful, :error] do
     {:noreply, start_or_queue_index(state)}
   end
 

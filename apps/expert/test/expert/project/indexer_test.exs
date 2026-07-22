@@ -70,6 +70,42 @@ defmodule Expert.Project.IndexerTest do
     assert_eventually {:ok, [^entry]} = Store.exact(project, ProjectIndexer.Initial, [])
   end
 
+  test "creates the initial index even when the project compile reports an error", %{
+    project: project,
+    task_supervisor: task_supervisor
+  } do
+    test_pid = self()
+    entry = definition(id: 1, subject: ProjectIndexer.OnError, path: "/on_error.ex")
+
+    start_supervised!(
+      {Indexer,
+       [
+         project,
+         task_supervisor: task_supervisor,
+         create_index: fn ^project ->
+           send(test_pid, :create_index)
+
+           {:ok, [entry],
+            fn ->
+              send(test_pid, {:after_apply, Store.exact(project, ProjectIndexer.OnError, [])})
+              :ok
+            end}
+         end,
+         update_index: fn ^project, _path_to_ids ->
+           send(test_pid, :update_index)
+           {:ok, [], [], fn -> :ok end}
+         end
+       ]}
+    )
+
+    EngineApi.broadcast(project, project_compiled(project: project, status: :error))
+
+    assert_receive :create_index
+    assert_receive {:after_apply, {:ok, [^entry]}}
+    assert_receive project_index_ready(project: ^project)
+    assert_eventually {:ok, [^entry]} = Store.exact(project, ProjectIndexer.OnError, [])
+  end
+
   test "updates an existing index after later successful project compiles", %{
     project: project,
     task_supervisor: task_supervisor
