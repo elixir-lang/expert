@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.7](https://github.com/expert-lsp/expert/compare/v0.1.6...v0.1.7) (2026-07-20)
+
+
+### Bug Fixes
+
+* **engine:** preload deps and don't prune code paths ([#770](https://github.com/expert-lsp/expert/issues/770)) ([173ed70](https://github.com/expert-lsp/expert/commit/173ed70d6ed3c9afdfc445304afdc1cccf004613))
+
 ## [0.1.6](https://github.com/expert-lsp/expert/compare/v0.1.5...v0.1.6) (2026-07-09)
 
 
