@@ -11,7 +11,7 @@ defmodule Expert.Search.Store.Backends.Sqlite do
   require Entry
   require Logger
 
-  @schema_version 2
+  @schema_version 3
   @database_file "source.index.sqlite3"
   @slow_query_threshold_ms 500
   # NOTE(doorgan): SQLite has a variable limit of 32766. Entry batches use 7 params
@@ -619,9 +619,11 @@ defmodule Expert.Search.Store.Backends.Sqlite do
              state,
              "CREATE INDEX IF NOT EXISTS entries_type_subtype_idx ON entries (type, subtype)"
            ) do
+      # We only ever use subtype column by filtering it to definitions, so partial index makes it smaller (without references),
+      # while also making inserting references faster and being able to query for fuzzy definitions using index only
       exec(
         state,
-        "CREATE INDEX IF NOT EXISTS entries_subtype_subject_idx ON entries (subtype, subject)"
+        "CREATE INDEX IF NOT EXISTS entries_definitions_idx ON entries (subject, id, path, type) WHERE subtype = 'definition'"
       )
     end
   end
