@@ -1,5 +1,7 @@
 defmodule Engine.CodeIntelligence.Definition do
+  alias ElixirSense.Core.Introspection
   alias ElixirSense.Providers.Location, as: ElixirSenseLocation
+  alias Engine.CodeIntelligence.Definition.ArityFallback
   alias Engine.CodeIntelligence.Entity
   alias Engine.ManagerApi
   alias Forge.Ast
@@ -104,7 +106,14 @@ defmodule Engine.CodeIntelligence.Definition do
         Logger.info("No definition found for #{inspect(resolved)} with Indexer.")
 
         analysis = Engine.CodeIntelligence.Heex.maybe_normalize(analysis, position)
-        elixir_sense_definition(analysis, position)
+
+        case elixir_sense_definition(analysis, position) do
+          {:ok, nil} ->
+            elixir_sense_definitions_for_other_arities(resolved, analysis.document)
+
+          result ->
+            result
+        end
 
       [location] ->
         {:ok, location}
@@ -120,6 +129,35 @@ defmodule Engine.CodeIntelligence.Definition do
     |> ElixirSense.definition(position.line, position.character)
     |> parse_location(analysis.document)
   end
+
+  defp elixir_sense_definitions_for_other_arities(
+         {:call, module, function, requested_arity},
+         document
+       )
+       when is_atom(module) and not is_nil(module) do
+    locations =
+      module
+      |> Introspection.get_exports()
+      |> ArityFallback.other_arities(function, requested_arity)
+      |> Enum.flat_map(fn arity ->
+        module
+        |> ElixirSenseLocation.find_mod_fun_source(function, arity)
+        |> parse_location(document)
+        |> case do
+          {:ok, location} when not is_nil(location) -> [location]
+          _ -> []
+        end
+      end)
+      |> Enum.uniq_by(&{&1.document.uri, &1.range})
+
+    case locations do
+      [] -> {:ok, nil}
+      [location] -> {:ok, location}
+      locations -> {:ok, locations}
+    end
+  end
+
+  defp elixir_sense_definitions_for_other_arities(_, _document), do: {:ok, nil}
 
   defp parse_location(%ElixirSenseLocation{} = location, document) do
     %{file: file, line: line, column: column, type: type} = location
@@ -202,7 +240,7 @@ defmodule Engine.CodeIntelligence.Definition do
   end
 
   defp query_search_index_by_prefix(prefix, condition) do
-    case Store.prefix(prefix, condition) do
+    case ManagerApi.search_store_prefix(Engine.get_project(), prefix, condition) do
       {:ok, entries} ->
         entries
 

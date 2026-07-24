@@ -243,6 +243,28 @@ defmodule Expert.Engine.CodeIntelligence.DefinitionTest do
 
       assert definition_line == ~S[  def «sum(a, b, c)» do]
     end
+
+    test "falls back to other arities with ElixirSense", %{
+      project: project,
+      multi_arity_uri: multi_arity_uri
+    } do
+      subject_module = ~q[
+        defmodule UsesRemoteFunction do
+          alias MultiArity
+
+          def uses_sum() do
+            MultiArity.su|m(1, 2, 3, 4)
+          end
+        end
+      ]
+
+      assert {:ok, definitions} = definition(project, subject_module, [])
+
+      assert definitions == [
+               {multi_arity_uri, ~S[  def «sum(a, b)» do]},
+               {multi_arity_uri, ~S[  def «sum(a, b, c)» do]}
+             ]
+    end
   end
 
   describe "definition/2 when making remote call by import" do
