@@ -104,6 +104,38 @@ defmodule Engine.AnalyzerTest do
                Analyzer.expand_alias([:Something, :Baz], analysis, position)
     end
 
+    test "does not apply an unrelated alias to the trailing segment of a literal module" do
+      {position, document} =
+        ~q[
+          defmodule Parent do
+            alias MyApp.User
+            |
+          end
+        ]
+        |> pop_cursor(as: :document)
+
+      analysis = Ast.analyze(document)
+
+      assert {:ok, Dependency.User} =
+               Analyzer.expand_alias([:Dependency, :User], analysis, position)
+    end
+
+    test "works with trailing aliases from the multi-alias curly syntax" do
+      {position, document} =
+        ~q[
+          defmodule Parent do
+            alias Foo.{First, Second.Third}
+            |
+          end
+        ]
+        |> pop_cursor(as: :document)
+
+      analysis = Ast.analyze(document)
+
+      assert {:ok, Foo.Second.Third} =
+               Analyzer.expand_alias([:Second, :Third], analysis, position)
+    end
+
     test "works with protocol definitions nested in a module" do
       {position, document} =
         ~q[
