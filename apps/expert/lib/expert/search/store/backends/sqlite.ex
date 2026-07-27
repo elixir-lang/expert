@@ -619,8 +619,9 @@ defmodule Expert.Search.Store.Backends.Sqlite do
              state,
              "CREATE INDEX IF NOT EXISTS entries_type_subtype_idx ON entries (type, subtype)"
            ) do
-      # We only ever use subtype column by filtering it to definitions, so partial index makes it smaller (without references),
-      # while also making inserting references faster and being able to query for fuzzy definitions using index only
+      # We only ever use subtype column by filtering it to definitions, so partial index makes it smaller
+      # (without references), while also making inserting references faster and being able to query
+      # for fuzzy definitions using index only.
       exec(
         state,
         "CREATE INDEX IF NOT EXISTS entries_definitions_idx ON entries (subject, id, path, type) WHERE subtype = 'definition'"
