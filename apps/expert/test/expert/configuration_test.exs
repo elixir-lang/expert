@@ -455,6 +455,38 @@ defmodule Expert.ConfigurationTest do
     end
   end
 
+  describe "on_change/1 with compileOnType" do
+    test "defaults to enabled" do
+      assert Configuration.compile_on_type?()
+    end
+
+    test "parses boolean values" do
+      {:ok, updated} = Configuration.on_change(build_change(%{"compileOnType" => false}))
+
+      refute updated.compile_on_type
+      refute Configuration.compile_on_type?()
+
+      {:ok, updated} = Configuration.on_change(build_change(%{"compileOnType" => true}))
+
+      assert updated.compile_on_type
+    end
+
+    test "preserves the previous value when the setting is missing" do
+      {:ok, _updated} = Configuration.on_change(build_change(%{"compileOnType" => false}))
+      {:ok, updated} = Configuration.on_change(build_change(%{}))
+
+      refute updated.compile_on_type
+    end
+
+    test "defaults to enabled for invalid values and explicit null" do
+      for value <- [nil, "true", 1] do
+        {:ok, updated} = Configuration.on_change(build_change(%{"compileOnType" => value}))
+
+        assert updated.compile_on_type
+      end
+    end
+  end
+
   describe "race condition prevention" do
     defmodule DummyServer do
       use GenServer

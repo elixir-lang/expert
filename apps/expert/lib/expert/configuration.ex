@@ -58,6 +58,11 @@ defmodule Expert.Configuration do
       parser: {:boolean, true},
       missing: :preserve
     },
+    compile_on_type: %{
+      key: "compileOnType",
+      parser: {:boolean, true},
+      missing: :preserve
+    },
     workspace_symbols: %{
       key: "workspaceSymbols",
       parser: :workspace_symbols,
@@ -77,7 +82,8 @@ defmodule Expert.Configuration do
             elixir_source_path: nil,
             elixir_executable_path: nil,
             erlang_executable_path: nil,
-            auto_fetch_dependencies: true
+            auto_fetch_dependencies: true,
+            compile_on_type: true
 
   @type t :: %__MODULE__{
           support: support | nil,
@@ -89,7 +95,8 @@ defmodule Expert.Configuration do
           elixir_source_path: String.t() | nil,
           elixir_executable_path: String.t() | nil,
           erlang_executable_path: String.t() | nil,
-          auto_fetch_dependencies: boolean()
+          auto_fetch_dependencies: boolean(),
+          compile_on_type: boolean()
         }
 
   @opaque support :: Support.t()
@@ -149,6 +156,11 @@ defmodule Expert.Configuration do
   @spec auto_fetch_dependencies?() :: boolean()
   def auto_fetch_dependencies? do
     get().auto_fetch_dependencies
+  end
+
+  @spec compile_on_type?() :: boolean()
+  def compile_on_type? do
+    get().compile_on_type
   end
 
   @vscode_family_patterns [

@@ -96,7 +96,7 @@ Scopes are the most important part of the analysis. Each scope describes which m
 
 Expert performs two kinds of compilation:
 
-- Document compilation for eligible open documents after `textDocument/didChange`.
+- Document compilation for eligible open documents after `textDocument/didChange` when `compileOnType` is enabled.
 - Full project compilation when an engine starts, when a project build is explicitly triggered, or when a file in a Mix project is saved.
 
 Document compilation runs through `Engine.Build.Document` and compiles only the changed document. It is used to provide file-level diagnostics without waiting for a full project build.
