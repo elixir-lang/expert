@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.8](https://github.com/expert-lsp/expert/compare/v0.1.7...v0.1.8) (2026-07-27)
+
+
+### Bug Fixes
+
+* exclude debug applications with MIX_ENV=prod ([#794](https://github.com/expert-lsp/expert/issues/794)) ([#817](https://github.com/expert-lsp/expert/issues/817)) ([833c46d](https://github.com/expert-lsp/expert/commit/833c46d27adc6f39801261dcc45db58654e90e6a))
+
 ## [0.1.7](https://github.com/expert-lsp/expert/compare/v0.1.6...v0.1.7) (2026-07-20)
 
 
