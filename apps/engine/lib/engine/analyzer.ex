@@ -201,8 +201,31 @@ defmodule Engine.Analyzer do
     # in one go, like Foo.{First, Second.Third, Fourth}
     # Our alias mapping will have Third mapped to Foo.Second.Third, so we need to look
     # for Third, whereas the leading alias will look for Second in the mappings.
-    with {:ok, resolved} <- Map.fetch(aliases_mapping, [List.last(segments)]) do
+    # The resolved module must end with all the segments being resolved; otherwise an
+    # unrelated alias sharing the last segment (e.g. alias A.B.User while resolving
+    # Foo.User) would shadow the literal module.
+    with {:ok, resolved} <- Map.fetch(aliases_mapping, [List.last(segments)]),
+         true <- ends_with_segments?(resolved, segments) do
       {:ok, List.wrap(resolved)}
+    else
+      _ ->
+        :error
     end
+  end
+
+  defp ends_with_segments?(resolved, segments) when is_atom(resolved) do
+    case Ast.Module.safe_split(resolved, as: :atoms) do
+      {:elixir, resolved_segments} ->
+        resolved_segments
+        |> Enum.reverse()
+        |> List.starts_with?(Enum.reverse(segments))
+
+      _ ->
+        false
+    end
+  end
+
+  defp ends_with_segments?(_resolved, _segments) do
+    false
   end
 end
