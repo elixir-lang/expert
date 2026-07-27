@@ -24,9 +24,26 @@ defmodule Expert.MixProject do
 
   def application do
     [
-      extra_applications: [:logger, :runtime_tools, :kernel, :wx, :observer, :telemetry],
+      extra_applications: extra_applications() ++ debug_applications(Mix.env()),
       mod: {Expert.Application, []}
     ]
+  end
+
+  def extra_applications do
+    [
+      :logger,
+      :runtime_tools,
+      :kernel,
+      :telemetry
+    ]
+  end
+
+  def debug_applications(:prod) do
+    []
+  end
+
+  def debug_applications(_) do
+    [:wx, :observer]
   end
 
   def aliases do
