@@ -188,7 +188,10 @@ defmodule Expert.State do
             )
 
           EngineApi.broadcast(context.project, updated_message)
-          EngineApi.compile_document(context.project, updated_source)
+
+          if Configuration.compile_on_type?() do
+            EngineApi.compile_document(context.project, updated_source)
+          end
         end
 
         {:ok, state}
