@@ -178,6 +178,14 @@ defmodule Engine.BuildTest do
     end
   end
 
+  test "does not report defined protocol functions as undefined" do
+    {:ok, project} = with_project(:protocol_diagnostics)
+    EngineApi.schedule_compile(project, true)
+
+    assert_receive project_compiled(status: :success), @project_compile_timeout
+    assert_receive project_diagnostics(diagnostics: [])
+  end
+
   def with_patched_state_timeout(_) do
     patch(Engine.Build.State, :should_compile?, true)
     patch(Engine.Build.State, :edit_window_millis, 50)

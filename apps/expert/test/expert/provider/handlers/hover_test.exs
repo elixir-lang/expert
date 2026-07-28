@@ -80,9 +80,8 @@ defmodule Expert.Provider.Handlers.HoverTest do
         fun.()
       after
         for module <- modules do
-          path = EngineApi.call(project, :code, :which, [module])
           EngineApi.call(project, :code, :delete, [module])
-          File.rm!(path)
+          File.rm!(Path.join(compile_path, Atom.to_string(module) <> ".beam"))
         end
       end
     end)
@@ -969,10 +968,8 @@ defmodule Expert.Provider.Handlers.HoverTest do
         fun.()
       after
         for module <- modules do
-          path = EngineApi.call(project, :code, :which, [module])
           EngineApi.call(project, :code, :delete, [module])
-          # only delete the .beam file, not the source file (which with_tmp_file handles)
-          if is_binary(path), do: File.rm(path)
+          File.rm!(Path.join(compile_path, Atom.to_string(module) <> ".beam"))
         end
       end
     end)
