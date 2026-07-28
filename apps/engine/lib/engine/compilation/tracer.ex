@@ -18,12 +18,7 @@ defmodule Engine.Compilation.Tracer do
 
   def extract_module_updated(module, module_binary, filename) do
     if !Loader.ensure_loaded?(module) do
-      erlang_filename =
-        filename
-        |> ensure_filename()
-        |> String.to_charlist()
-
-      :code.load_binary(module, erlang_filename, module_binary)
+      :code.load_binary(module, [], module_binary)
     end
 
     functions = module.__info__(:functions)
@@ -45,15 +40,6 @@ defmodule Engine.Compilation.Tracer do
       name: module,
       struct: struct
     )
-  end
-
-  defp ensure_filename(:none) do
-    unique = System.unique_integer([:positive, :monotonic])
-    Path.join(System.tmp_dir(), "file-#{unique}.ex")
-  end
-
-  defp ensure_filename(filename) when is_binary(filename) do
-    filename
   end
 
   defp maybe_report_progress(file) do
