@@ -35,15 +35,14 @@ defmodule Engine.CodeMod.Format.Cache do
   defmodule Entry do
     @moduledoc false
 
-    defstruct [:id, :formatter, :opts, :extension, :path]
+    defstruct [:id, :formatter, :opts, :extension]
     @type id :: non_neg_integer()
 
     @type t :: %__MODULE__{
             id: id(),
             formatter: Engine.CodeMod.Format.formatter_function(),
             opts: keyword(),
-            extension: String.t(),
-            path: Path.t()
+            extension: String.t()
           }
 
     @spec new(Format.formatter_function(), keyword(), Path.t()) :: t()
@@ -54,8 +53,7 @@ defmodule Engine.CodeMod.Format.Cache do
         id: :erlang.unique_integer([:positive]),
         formatter: formatter,
         opts: opts,
-        extension: extension,
-        path: file_path
+        extension: extension
       }
     end
 
@@ -330,18 +328,25 @@ defmodule Engine.CodeMod.Format.Cache do
   end
 
   defp clean_closed_entries do
-    closed_entries =
-      @entries_table
-      |> :ets.tab2list()
-      |> Enum.reject(fn entry_row(entry: %Entry{} = entry) ->
-        entry.path
-        |> Document.Path.to_uri()
-        |> Document.Store.open?()
-      end)
+    @paths_table
+    |> :ets.tab2list()
+    |> Enum.each(fn path_row(path: path) ->
+      if not (path |> Document.Path.to_uri() |> Document.Store.open?()) do
+        true = :ets.delete(@paths_table, path)
+      end
+    end)
 
-    Enum.each(closed_entries, fn entry_row(entry: %Entry{} = entry) ->
-      true = :ets.delete(@entries_table, entry.id)
-      true = :ets.delete(@paths_table, entry.path)
+    referenced_entry_ids =
+      @paths_table
+      |> :ets.tab2list()
+      |> MapSet.new(fn path_row(entry_id: entry_id) -> entry_id end)
+
+    @entries_table
+    |> :ets.tab2list()
+    |> Enum.each(fn entry_row(id: entry_id) ->
+      if !MapSet.member?(referenced_entry_ids, entry_id) do
+        true = :ets.delete(@entries_table, entry_id)
+      end
     end)
   end
 end
