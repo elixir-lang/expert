@@ -15,6 +15,11 @@ defmodule Expert.Project.IndexerTest do
   alias Forge.Project
   alias Forge.Search.Indexer.Entry
 
+  # The first assertion after a broadcast waits on `Search.Store.enable/1`, which the store
+  # allows 30 seconds for. Setup destroys the database first, so a cold rebuild can outlast the
+  # global `assert_receive_timeout` of one second.
+  @enable_timeout :timer.seconds(5)
+
   setup do
     project = project()
     DispatchFake.start()
@@ -63,7 +68,7 @@ defmodule Expert.Project.IndexerTest do
 
     EngineApi.broadcast(project, project_compiled(project: project, status: :success))
 
-    assert_receive :create_index
+    assert_receive :create_index, @enable_timeout
     refute_receive :update_index
     assert_receive {:after_apply, {:ok, [^entry]}}
     assert_receive project_index_ready(project: ^project)
@@ -100,7 +105,7 @@ defmodule Expert.Project.IndexerTest do
 
     EngineApi.broadcast(project, project_compiled(project: project, status: :error))
 
-    assert_receive :create_index
+    assert_receive :create_index, @enable_timeout
     assert_receive {:after_apply, {:ok, [^entry]}}
     assert_receive project_index_ready(project: ^project)
     assert_eventually {:ok, [^entry]} = Store.exact(project, ProjectIndexer.OnError, [])
@@ -140,7 +145,7 @@ defmodule Expert.Project.IndexerTest do
 
     EngineApi.broadcast(project, project_compiled(project: project, status: :success))
 
-    assert_receive {:update_index, %{^path => 1}}
+    assert_receive {:update_index, %{^path => 1}}, @enable_timeout
     refute_receive :create_index
     assert_receive {:after_apply, {:ok, [^new_entry]}}
     assert_receive project_index_ready(project: ^project)
