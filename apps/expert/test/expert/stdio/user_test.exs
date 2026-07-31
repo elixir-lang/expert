@@ -76,6 +76,23 @@ defmodule Expert.Stdio.UserTest do
     assert stdout == "Content-Length: 2\r\n\r\n{}"
   end
 
+  # A dead descriptor is unrecoverable, so the VM goes down rather than lingering without a
+  # transport. It has to stay up long enough to report why, though.
+  test "losing the port shuts the VM down, but reports first" do
+    merged =
+      run(
+        """
+        send(:user, {:EXIT, :sys.get_state(:user).port, :simulated_failure})
+        Process.sleep(1_500)
+        IO.puts(:stderr, "STILL_RUNNING")
+        """,
+        stderr: :merge
+      )
+
+    assert merged =~ "stdio port terminated (:simulated_failure)"
+    refute merged =~ "STILL_RUNNING"
+  end
+
   # `-user` names the module as a string that nothing compiles or type checks, and the release
   # runs it under the `XP` namespace. A rename would silently leave the release booting
   # `user_drv` and sharing stdout again, so pin the two together here.
@@ -110,16 +127,25 @@ defmodule Expert.Stdio.UserTest do
     # through the same way the release does.
     args = ["--erl", erl_flags, path] ++ if(opts[:stdio] == false, do: [], else: ["--stdio"])
 
+    # `elixir` is a batch file on Windows, which `spawn_executable` cannot run directly.
+    {executable, args} =
+      case :os.type() do
+        {:win32, _} -> {System.find_executable("cmd"), ["/c", elixir() | args]}
+        _ -> {elixir(), args}
+      end
+
     port_opts = [:binary, :exit_status, args: args]
 
     port_opts =
       if opts[:stderr] == :merge, do: [:stderr_to_stdout | port_opts], else: port_opts
 
-    port = Port.open({:spawn_executable, System.find_executable("elixir")}, port_opts)
+    port = Port.open({:spawn_executable, executable}, port_opts)
     if stdin = opts[:stdin], do: Port.command(port, stdin)
 
     collect(port, "")
   end
+
+  defp elixir, do: System.find_executable("elixir")
 
   defp collect(port, acc) do
     receive do

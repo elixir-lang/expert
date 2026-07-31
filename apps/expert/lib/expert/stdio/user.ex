@@ -1,6 +1,6 @@
 defmodule Expert.Stdio.User do
   @moduledoc """
-  An alternative OTP's `user_drv` that allows Expert to isolate `:stdio` to GenLSP's Buffer.
+  An alternative to OTP's `user_drv` that allows Expert to isolate `:stdio` to GenLSP's Buffer.
 
   Installed with the `-user` emulator flag in `vm.args.eex` which makes `user_sup` call `start/0`
   rather than Erlang's `user_drv`. Ordinary `io_request`s are forwarded verbatim to `:standard_error`,
@@ -76,13 +76,20 @@ defmodule Expert.Stdio.User do
     {:reply, :ok, state}
   end
 
-  def handle_call(:claim, _from, %State{} = state) do
-    {:reply, {:error, :already_claimed}, state}
+  # Reclaim the lease when the holder is gone but its `:DOWN` has not landed yet. Nothing
+  # depends on this today; it only keeps a restarted transport from being locked out.
+  def handle_call(:claim, {pid, _tag}, %State{owner: owner} = state) do
+    if Process.alive?(owner) do
+      {:reply, {:error, :already_claimed}, state}
+    else
+      Process.monitor(pid)
+
+      {:reply, :ok, %State{state | owner: pid}}
+    end
   end
 
-  # stdin starts flowing at kernel boot, long before the transport is supervised, so anything
-  # that arrived in the meantime is replayed here. Dropping it would lose an `initialize`
-  # request from a client that writes immediately.
+  # stdin starts flowing at kernel boot before the transport is supervised,
+  # so anything that arrived in the meantime is replayed here.
   def handle_call(:subscribe, {pid, _tag}, %State{reader: nil} = state) do
     Process.monitor(pid)
 
@@ -96,27 +103,25 @@ defmodule Expert.Stdio.User do
     {:reply, :ok, state}
   end
 
-  def handle_call(:subscribe, _from, %State{} = state) do
-    {:reply, {:error, :already_subscribed}, state}
+  def handle_call(:subscribe, {pid, _tag}, %State{reader: reader} = state) do
+    if Process.alive?(reader) do
+      {:reply, {:error, :already_subscribed}, state}
+    else
+      Process.monitor(pid)
+
+      {:reply, :ok, %State{state | reader: pid}}
+    end
   end
 
+  # noop `:setopts` since we're forwarding to `:standard_error`.
   @impl GenServer
-  # `:standard_error` only accepts the encoding, onlcr and log options and answers
-  # `{:error, :enotsup}` to anything else, including the `[binary: true]` Elixir sets on
-  # standard_io while booting. Relaying that would kill the VM before Elixir starts.
   def handle_info({:io_request, from, reply_as, {:setopts, _opts}}, %State{} = state) do
     io_reply(from, reply_as, :ok)
 
     {:noreply, state}
   end
 
-  def handle_info({:io_request, from, reply_as, :getopts}, %State{} = state) do
-    io_reply(from, reply_as, binary: true, encoding: :latin1)
-
-    {:noreply, state}
-  end
-
-  # Nothing should be reading from `:user` as stdin belongs to the LSP transport.
+  # stdin belongs to the LSP transport, other reads get immediate `:eof`.
   def handle_info({:io_request, from, reply_as, request}, %State{} = state)
       when elem(request, 0) in [:get_chars, :get_line, :get_until, :get_password] do
     io_reply(from, reply_as, :eof)
@@ -124,8 +129,6 @@ defmodule Expert.Stdio.User do
     {:noreply, state}
   end
 
-  # Forwarding the tuple unchanged matters: `:standard_error` replies straight to the original
-  # caller, which keeps `IO.write/2` synchronous for it.
   def handle_info({:io_request, from, _reply_as, _request} = request, %State{} = state)
       when is_pid(from) do
     send(state.stderr, request)
@@ -140,7 +143,7 @@ defmodule Expert.Stdio.User do
     {:noreply, state}
   end
 
-  def handle_info({port, {:data, bytes}}, %State{port: port} = state) do
+  def handle_info({port, {:data, bytes}}, %State{port: port, reader: nil} = state) do
     {:noreply, %State{state | pending: state.pending <> bytes}}
   end
 
@@ -150,7 +153,6 @@ defmodule Expert.Stdio.User do
     {:noreply, %State{state | eof?: true}}
   end
 
-  # Let a restarted transport claim the channel again. The port outlives it.
   def handle_info({:DOWN, _ref, :process, pid, _reason}, %State{owner: pid} = state) do
     {:noreply, %State{state | owner: nil}}
   end
@@ -163,8 +165,14 @@ defmodule Expert.Stdio.User do
     {:noreply, state}
   end
 
+  # Lost stdio -> Initiate an async shutdown and continue this process so logs can write.
   def handle_info({:EXIT, port, reason}, %State{port: port} = state) do
-    {:stop, {:stdio_port_terminated, reason}, state}
+    message = "stdio port terminated (#{inspect(reason)}), shutting down\n"
+    send(state.stderr, {:io_request, self(), make_ref(), {:put_chars, :unicode, message}})
+
+    System.stop()
+
+    {:noreply, state}
   end
 
   # As `:user` this is the group leader of last resort, so unrecognised messages are routine.
