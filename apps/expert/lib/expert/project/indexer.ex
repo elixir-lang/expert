@@ -173,8 +173,7 @@ defmodule Expert.Project.Indexer do
   defp apply_trace_definitions(_project, trace_batch) when map_size(trace_batch) == 0, do: :ok
 
   defp apply_trace_definitions(%Project{} = project, trace_batch) when is_map(trace_batch) do
-    with {:ok, all_entries} <- Search.Store.all(project, []) do
-      current_entries = Enum.filter(all_entries, &Map.has_key?(trace_batch, &1.path))
+    with {:ok, current_entries} <- Search.Store.all(project, paths: Map.keys(trace_batch)) do
       trace_entries = missing_trace_entries(current_entries, trace_batch)
 
       case trace_entries do

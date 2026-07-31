@@ -417,4 +417,22 @@ defmodule Expert.Search.Store.Backends.SqliteTest do
       assert [^three, ^one, ^three] = Sqlite.find_by_ids(project, [3, 1, 3], :_, :definition)
     end
   end
+
+  describe "find_by_paths/4" do
+    test "chunks path lists that exceed SQLite's variable limit", %{
+      project: project,
+      runtime_versions: runtime_versions
+    } do
+      paths = Enum.map(1..32_767, &"/generated/#{&1}.ex")
+
+      pid =
+        start_supervised!(%{
+          id: :sqlite,
+          start: {Sqlite, :start_link, [project, [runtime_versions: runtime_versions]]}
+        })
+
+      assert {:ok, :empty} = Sqlite.prepare(pid)
+      assert [] = Sqlite.find_by_paths(project, paths, :module, :definition)
+    end
+  end
 end

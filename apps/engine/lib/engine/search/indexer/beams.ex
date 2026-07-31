@@ -736,9 +736,9 @@ defmodule Engine.Search.Indexer.Beams do
   end
 
   defp position(line, column, context_line) do
-    # NOTE(doorgan): We need to populate the `document_line_count` otherwise the
-    # will end up pointing to the top of the file. We are faking it here instead
-    # of actually reading the file for performance, and it seems to work
+    # NOTE(doorgan): We need to populate `document_line_count` otherwise the LSP
+    # range will end up pointing to the top of the file. We are faking it here
+    # instead of actually reading the file for performance, and it seems to work
     # well despite being a hack.
     %Position{
       line: line,

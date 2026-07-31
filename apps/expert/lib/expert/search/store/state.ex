@@ -130,11 +130,20 @@ defmodule Expert.Search.Store.State do
   def all(%__MODULE__{} = state, constraints) do
     type = Keyword.get(constraints, :type, :_)
     subtype = Keyword.get(constraints, :subtype, :_)
+    paths = Keyword.get(constraints, :paths, :_)
 
-    case state.backend.find_by_subject(state.project, :_, type, subtype) do
+    case all_entries(state, paths, type, subtype) do
       {:error, _} = error -> error
       entries -> {:ok, entries}
     end
+  end
+
+  defp all_entries(state, :_, type, subtype) do
+    state.backend.find_by_subject(state.project, :_, type, subtype)
+  end
+
+  defp all_entries(state, paths, type, subtype) when is_list(paths) do
+    state.backend.find_by_paths(state.project, paths, type, subtype)
   end
 
   def path_to_ids(%__MODULE__{} = state) do
