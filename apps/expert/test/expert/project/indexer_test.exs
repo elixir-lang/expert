@@ -156,17 +156,21 @@ defmodule Expert.Project.IndexerTest do
     assert {:ok, [^new_entry]} = Store.exact(project, ProjectIndexer.Fresh, [])
   end
 
-  test "applies compiler trace definitions after the normal index write", %{
+  test "applies compiler trace entries after the normal index write", %{
     project: project,
     task_supervisor: task_supervisor
   } do
     test_pid = self()
-    structure_entry = Entry.block_structure("/generated.ex", %{root: %{}})
-    source_entry = definition(id: 1, subject: ProjectIndexer.Source, path: "/generated.ex")
-    trace_entry = definition(id: 2, subject: ProjectIndexer.Generated, path: "/generated.ex")
+    path = "/generated.ex"
+    structure_entry = Entry.block_structure(path, %{root: %{}})
+    source_entry = definition(id: 1, subject: ProjectIndexer.Source, path: path)
+    trace_entry = definition(id: 2, subject: ProjectIndexer.Generated, path: path)
+
+    integration_entry =
+      Entry.integration(path, "test", :metadata, ProjectIndexer.Generated, %{})
 
     patch(EngineApi, :call, fn ^project, Engine.Compilation.TraceBuffer, :drain_definitions, [] ->
-      {:ok, %{trace_entry.path => [trace_entry]}}
+      {:ok, %{path => [trace_entry, integration_entry]}}
     end)
 
     start_supervised!(
@@ -197,6 +201,12 @@ defmodule Expert.Project.IndexerTest do
              Store.exact(project, ProjectIndexer.Generated, [])
 
     assert {:ok, [^source_entry]} = Store.exact(project, ProjectIndexer.Source, [])
+
+    assert {:ok, [^integration_entry]} =
+             Store.exact(project, integration_entry.subject,
+               type: :metadata,
+               subtype: :integration
+             )
   end
 
   test "uses the latest trace batch when successful compiles overlap indexing", %{

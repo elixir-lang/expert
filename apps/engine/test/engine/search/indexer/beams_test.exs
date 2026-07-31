@@ -4,6 +4,7 @@ defmodule Engine.Search.Indexer.BeamsTest do
 
   import Forge.Test.RangeSupport
 
+  alias Engine.Compilation.TraceBuffer
   alias Engine.Search.Indexer.Beams
   alias Forge.Formats
   alias Forge.Search.Indexer.Entry
@@ -129,6 +130,47 @@ defmodule Engine.Search.Indexer.BeamsTest do
       assert start_pos.valid?
       assert start_pos.document_line_count >= start_pos.line
       assert start_pos.context_line != nil
+    end
+
+    test "extracts integration entries from compiler trace binaries", %{tmp_dir: tmp_dir} do
+      start_supervised!(TraceBuffer)
+      suffix = System.unique_integer([:positive])
+      behaviour = unique_module("TraceBehaviour#{suffix}")
+      implementation = unique_module("TraceImplementation#{suffix}")
+
+      %{beam_paths_by_module: beam_paths_by_module, source_path: source_path} =
+        compile_source!(
+          tmp_dir,
+          """
+          defmodule #{inspect(behaviour)} do
+            @callback run() :: term()
+          end
+
+          defmodule #{inspect(implementation)} do
+            @behaviour #{inspect(behaviour)}
+            def run, do: :ok
+          end
+          """,
+          expected_modules: [behaviour, implementation],
+          rewrite_source?: false
+        )
+
+      binary = beam_paths_by_module |> Map.fetch!(implementation) |> File.read!()
+      assert :ok = TraceBuffer.record_module(source_path, binary)
+      native_source_path = Forge.Path.native(source_path)
+      assert {:ok, %{^native_source_path => entries}} = TraceBuffer.drain_definitions()
+
+      relation =
+        Entry.integration_subject(
+          "spark",
+          :behaviour,
+          "#{Atom.to_string(behaviour)}/#{Atom.to_string(implementation)}"
+        )
+
+      assert %Entry{subject: ^relation, metadata: %{payload: %{module: module}}} =
+               Enum.find(entries, &(&1.subject == relation))
+
+      assert module == Atom.to_string(implementation)
     end
 
     test "synthesizes contextual ranges for macro-generated definitions from beam metadata", %{

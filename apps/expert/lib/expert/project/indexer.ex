@@ -184,19 +184,12 @@ defmodule Expert.Project.Indexer do
   end
 
   defp missing_trace_entries(current_entries, trace_batch) do
-    current_keys =
-      current_entries
-      |> Enum.filter(&definition?/1)
-      |> MapSet.new(&definition_identity/1)
-
-    trace_entries =
-      trace_batch
-      |> Enum.flat_map(fn {_path, entries} -> entries end)
-      |> Enum.filter(&definition?/1)
+    current_keys = MapSet.new(current_entries, &entry_identity/1)
+    trace_entries = Enum.flat_map(trace_batch, fn {_path, entries} -> entries end)
 
     {_keys, missing_entries} =
       Enum.reduce(trace_entries, {current_keys, []}, fn entry, {keys, entries} ->
-        key = definition_identity(entry)
+        key = entry_identity(entry)
 
         if MapSet.member?(keys, key),
           do: {keys, entries},
@@ -206,11 +199,8 @@ defmodule Expert.Project.Indexer do
     Enum.reverse(missing_entries)
   end
 
-  defp definition?(%{subtype: :definition}), do: true
-  defp definition?(_entry), do: false
-
-  defp definition_identity(%{path: path, subject: subject, subtype: :definition, type: type}) do
-    {path, subject, :definition, type}
+  defp entry_identity(%{path: path, subject: subject, subtype: subtype, type: type}) do
+    {path, subject, subtype, type}
   end
 
   defp persist_index(%Project{} = project, :empty, create_index, _update_index) do
