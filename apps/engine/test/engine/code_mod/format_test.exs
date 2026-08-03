@@ -108,6 +108,52 @@ defmodule Engine.CodeMod.FormatTest do
     |> Project.new()
   end
 
+  # The dependency is fetched but never compiled, and its .formatter.exs derives
+  # config from Mix.Project.config/0.
+  def write_import_deps_project!(tmp_dir) do
+    root = Path.join(tmp_dir, "import_deps_project")
+    lib_dir = Path.join(root, "lib")
+    dep_dir = Path.join([root, "deps", "my_dep"])
+
+    File.mkdir_p!(lib_dir)
+    File.mkdir_p!(dep_dir)
+
+    File.write!(Path.join(root, "mix.exs"), """
+    defmodule ImportDepsProject.MixProject do
+      use Mix.Project
+
+      def project do
+        [
+          app: :import_deps_project,
+          version: "0.1.0",
+          elixir: "~> 1.15",
+          deps: [{:my_dep, path: "deps/my_dep"}]
+        ]
+      end
+    end
+    """)
+
+    File.write!(Path.join(root, ".formatter.exs"), """
+    [import_deps: [:my_dep], inputs: ["lib/**/*.{ex,exs}"]]
+    """)
+
+    File.write!(Path.join(dep_dir, ".formatter.exs"), """
+    locals_without_parens = [my_dsl: 1]
+
+    [minor | _] = Regex.run(~r/([\\d\\.]+)/, Mix.Project.config()[:elixir])
+
+    [
+      locals_without_parens: locals_without_parens,
+      export: [locals_without_parens: locals_without_parens],
+      minimum_elixir: minor
+    ]
+    """)
+
+    File.write!(Path.join(lib_dir, "format.ex"), "my_dsl :foo\n")
+
+    Project.new(Document.Path.to_uri(root))
+  end
+
   setup do
     project = project()
     Engine.set_project(project)
@@ -138,6 +184,45 @@ defmodule Engine.CodeMod.FormatTest do
                end)
 
       assert_received :plugin_called
+    end
+
+    @tag :tmp_dir
+    test "keeps locals_without_parens imported from an uncompiled dependency",
+         %{tmp_dir: tmp_dir} do
+      project = write_import_deps_project!(tmp_dir)
+      Engine.set_project(project)
+
+      file_path = Path.join([Project.root_path(project), "lib", "format.ex"])
+
+      # The engine node formats with an empty Mix stack, where the dependency's
+      # .formatter.exs would otherwise read an empty config.
+      assert {:ok, result} =
+               Mix.ProjectStack.on_clean_slate(fn ->
+                 # Dependency paths are recorded while the project is loaded, as
+                 # a build does.
+                 Engine.Mix.in_project(project, fn _ -> :ok end)
+                 modify("my_dsl :foo\n", file_path: file_path, project: project)
+               end)
+
+      assert result == "my_dsl :foo"
+    end
+
+    @tag :tmp_dir
+    test "formats while a build holds the project on the Mix stack",
+         %{tmp_dir: tmp_dir} do
+      project = write_import_deps_project!(tmp_dir)
+      Engine.set_project(project)
+
+      file_path = Path.join([Project.root_path(project), "lib", "format.ex"])
+
+      # Pushing a project that is already on the stack raises, so the one the
+      # build pushed has to be reused.
+      assert {:ok, "my_dsl :foo"} =
+               Mix.ProjectStack.on_clean_slate(fn ->
+                 Engine.Mix.in_project(project, fn _ ->
+                   modify("my_dsl :foo\n", file_path: file_path, project: project)
+                 end)
+               end)
     end
 
     test "it will fail to format a file not in the project", %{project: project} do

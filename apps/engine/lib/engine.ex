@@ -109,32 +109,6 @@ defmodule Engine do
     :ok
   end
 
-  def deps_paths do
-    deps_paths(get_project())
-  end
-
-  defp deps_paths(%Project{kind: :mix}) do
-    case :persistent_term.get({__MODULE__, :deps_paths}, :error) do
-      :error ->
-        {:ok, deps_paths} =
-          Engine.Mix.in_project(fn _ ->
-            Engine.Mix.ensure_hex_and_rebar()
-            Mix.Task.run("loadpaths")
-            Mix.Project.deps_paths()
-          end)
-
-        :persistent_term.put({__MODULE__, :deps_paths}, deps_paths)
-        deps_paths
-
-      deps_paths ->
-        deps_paths
-    end
-  end
-
-  defp deps_paths(%Project{}) do
-    []
-  end
-
   def with_lock(lock_type, func) do
     :global.trans({lock_type, self()}, func, [Node.self()])
   end
