@@ -5,8 +5,11 @@ defmodule Engine.Build.StateTest do
   import Forge.Test.Fixtures
 
   alias Engine.Build
+  alias Engine.Build.Isolation
   alias Engine.Build.State
   alias Engine.Plugin
+  alias Engine.Progress
+  alias Engine.Search.Indexer.ManifestStore
   alias Forge.Document
   alias Forge.Project
 
@@ -187,6 +190,18 @@ defmodule Engine.Build.StateTest do
     end
   end
 
+  describe "project compilation with indexer changes" do
+    setup [:with_metadata_project]
+
+    test "forces compilation when integrations changed", %{state: state} do
+      assert "--force" in project_compile_options(state.project, true)
+    end
+
+    test "does not force compilation when integrations are unchanged", %{state: state} do
+      refute "--force" in project_compile_options(state.project, false)
+    end
+  end
+
   describe "project compilation with exception" do
     setup [:with_metadata_project]
 
@@ -230,5 +245,27 @@ defmodule Engine.Build.StateTest do
 
       assert State.last_deps_fetch_result(state) == {:error, "deps failed"}
     end
+  end
+
+  defp project_compile_options(project, integrations_changed?) do
+    test_pid = self()
+
+    patch(ManifestStore, :integrations_changed?, fn ^project -> integrations_changed? end)
+    patch(Engine.Mix, :in_project, fn compile -> compile.(nil) end)
+    patch(Engine.Mix, :ensure_hex_and_rebar, :ok)
+    patch(Progress, :with_progress, fn _title, work -> elem(work.(nil), 1) end)
+    patch(Isolation, :invoke, fn compile -> {:ok, compile.()} end)
+    patch(Build.Project, :maybe_load_modules, :ok)
+
+    patch(Mix.Tasks.Compile, :run, fn options ->
+      send(test_pid, {:project_compile_options, options})
+      {:ok, []}
+    end)
+
+    patch(Mix.Tasks.Loadpaths, :run, fn [] -> :ok end)
+
+    Build.Project.compile(project, false)
+    assert_receive {:project_compile_options, options}
+    options
   end
 end

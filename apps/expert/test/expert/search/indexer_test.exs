@@ -52,4 +52,14 @@ defmodule Expert.Search.IndexerTest do
     assert :ok = after_apply.()
     assert_receive :commit_manifest
   end
+
+  test "record_integrations/1 uses the engine indexer boundary", %{project: project} do
+    patch(EngineApi, :call, fn
+      ^project, Engine.Search.Indexer, :record_integrations, [^project] -> :ok
+    end)
+
+    assert :ok = Indexer.record_integrations(project)
+
+    assert_called(EngineApi.call(project, Engine.Search.Indexer, :record_integrations, [project]))
+  end
 end

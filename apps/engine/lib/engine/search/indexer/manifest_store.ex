@@ -3,11 +3,13 @@ defmodule Engine.Search.Indexer.ManifestStore do
   Persists the indexer's incremental input registry.
   """
 
+  alias Engine.Integrations
   alias Engine.Search.Indexer.Manifest
   alias Engine.Search.Indexer.Manifest.Entry
   alias Forge.Project
 
   @file_name "index_manifest.etf"
+  @integrations_file_name "integrations.etf"
 
   @doc false
   def load(%Project{} = project) do
@@ -33,8 +35,33 @@ defmodule Engine.Search.Indexer.ManifestStore do
     end
   end
 
+  def integrations_changed?(%Project{} = project) do
+    case load(project) do
+      {:ok, %Manifest{} = manifest} -> integrations_changed?(project, manifest)
+      :missing -> true
+    end
+  end
+
+  def integrations_changed?(%Project{} = project, %Manifest{}) do
+    with {:ok, binary} <- File.read(integrations_path(project)),
+         {:ok, indexers} when is_list(indexers) <- safe_binary_to_term(binary) do
+      indexers != Integrations.indexer_module_names()
+    else
+      _ -> true
+    end
+  end
+
+  def record_integrations(%Project{} = project) do
+    path = integrations_path(project)
+
+    with :ok <- File.mkdir_p(Path.dirname(path)) do
+      write_file(path, :erlang.term_to_binary(Integrations.indexer_module_names()))
+    end
+  end
+
   def invalidate(%Project{} = project) do
     File.rm(manifest_path(project))
+    File.rm(integrations_path(project))
     :ok
   end
 
@@ -132,6 +159,9 @@ defmodule Engine.Search.Indexer.ManifestStore do
   end
 
   defp manifest_path(%Project{} = project), do: Path.join(root_path(project), @file_name)
+
+  defp integrations_path(%Project{} = project),
+    do: Path.join(root_path(project), @integrations_file_name)
 
   defp root_path(%Project{} = project) do
     Project.workspace_path(project, ["indexes", "manifest"])

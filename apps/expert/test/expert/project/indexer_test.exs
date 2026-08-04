@@ -9,6 +9,7 @@ defmodule Expert.Project.IndexerTest do
 
   alias Expert.EngineApi
   alias Expert.Project.Indexer
+  alias Expert.Search.Indexer, as: SearchIndexer
   alias Expert.Search.Store
   alias Expert.Search.Store.Backends.Sqlite
   alias Expert.Test.DispatchFake
@@ -18,6 +19,7 @@ defmodule Expert.Project.IndexerTest do
   setup do
     project = project()
     DispatchFake.start()
+    patch(SearchIndexer, :record_integrations, fn _project -> :ok end)
     Sqlite.destroy_all(project)
 
     start_supervised!({Sqlite, [project, runtime_versions: runtime_versions()]})
@@ -39,6 +41,11 @@ defmodule Expert.Project.IndexerTest do
   } do
     test_pid = self()
     entry = definition(id: 1, subject: ProjectIndexer.Initial, path: "/initial.ex")
+
+    patch(SearchIndexer, :record_integrations, fn ^project ->
+      send(test_pid, :record_integrations)
+      :ok
+    end)
 
     patch(EngineApi, :call, fn ^project, Engine.Compilation.TraceBuffer, :drain_definitions, [] ->
       {:ok, %{}}
@@ -70,6 +77,7 @@ defmodule Expert.Project.IndexerTest do
     refute_receive :update_index
 
     assert_receive {:after_apply, {:ok, [^entry]}}
+    assert_receive :record_integrations
     assert_receive project_index_ready(project: ^project)
     assert_eventually {:ok, [^entry]} = Store.exact(project, ProjectIndexer.Initial, [])
   end
@@ -80,6 +88,11 @@ defmodule Expert.Project.IndexerTest do
   } do
     test_pid = self()
     entry = definition(id: 1, subject: ProjectIndexer.OnError, path: "/on_error.ex")
+
+    patch(SearchIndexer, :record_integrations, fn ^project ->
+      send(test_pid, :record_integrations)
+      :ok
+    end)
 
     start_supervised!(
       {Indexer,
@@ -106,8 +119,40 @@ defmodule Expert.Project.IndexerTest do
 
     assert_receive :create_index
     assert_receive {:after_apply, {:ok, [^entry]}}
+    refute_receive :record_integrations
     assert_receive project_index_ready(project: ^project)
     assert_eventually {:ok, [^entry]} = Store.exact(project, ProjectIndexer.OnError, [])
+  end
+
+  test "does not record integrations when compiler traces cannot be drained", %{
+    project: project,
+    task_supervisor: task_supervisor
+  } do
+    test_pid = self()
+
+    patch(EngineApi, :call, fn ^project, Engine.Compilation.TraceBuffer, :drain_definitions, [] ->
+      {:error, :unavailable}
+    end)
+
+    patch(SearchIndexer, :record_integrations, fn ^project ->
+      send(test_pid, :record_integrations)
+      :ok
+    end)
+
+    start_supervised!(
+      {Indexer,
+       [
+         project,
+         task_supervisor: task_supervisor,
+         create_index: fn ^project -> {:ok, [], fn -> :ok end} end,
+         update_index: fn ^project, _path_to_ids -> {:ok, [], [], fn -> :ok end} end
+       ]}
+    )
+
+    EngineApi.broadcast(project, project_compiled(project: project, status: :success))
+
+    assert_receive project_index_ready(project: ^project)
+    refute_receive :record_integrations
   end
 
   test "updates an existing index after later successful project compiles", %{
@@ -173,6 +218,19 @@ defmodule Expert.Project.IndexerTest do
       {:ok, %{path => [trace_entry, integration_entry]}}
     end)
 
+    patch(SearchIndexer, :record_integrations, fn ^project ->
+      send(
+        test_pid,
+        {:commit_after_trace,
+         Store.exact(project, integration_entry.subject,
+           type: :metadata,
+           subtype: :integration
+         )}
+      )
+
+      :ok
+    end)
+
     start_supervised!(
       {Indexer,
        [
@@ -195,6 +253,7 @@ defmodule Expert.Project.IndexerTest do
 
     send(index_task, :finish_index)
 
+    assert_receive {:commit_after_trace, {:ok, [^integration_entry]}}
     assert_receive project_index_ready(project: ^project)
 
     assert {:ok, [%Entry{subject: ProjectIndexer.Generated}]} =

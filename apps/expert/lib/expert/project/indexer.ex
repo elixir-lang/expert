@@ -94,7 +94,7 @@ defmodule Expert.Project.Indexer do
   @impl GenServer
   def handle_info(project_compiled(status: status), %State{} = state)
       when status in [:success, :successful, :error] do
-    trace_batch = if status == :error, do: %{}, else: drain_trace_definitions(state)
+    trace_batch = if status != :error, do: drain_trace_definitions(state)
     state = %State{state | trace_batch: trace_batch}
     {:noreply, start_or_queue_index(state)}
   end
@@ -134,12 +134,15 @@ defmodule Expert.Project.Indexer do
   defp complete_index(%State{} = state, :ok) do
     state = %State{state | task: nil}
 
-    case apply_trace_definitions(state.project, state.trace_batch) do
+    state.project
+    |> apply_trace_definitions(state.trace_batch)
+    |> record_integrations(state)
+    |> case do
       :ok ->
         broadcast_index_ready(state)
 
       {:error, reason} ->
-        Logger.warning("Could not apply compiler trace index supplement: #{inspect(reason)}")
+        Logger.warning("Could not finalize search index: #{inspect(reason)}")
         broadcast_index_ready(state)
     end
   end
@@ -159,6 +162,13 @@ defmodule Expert.Project.Indexer do
     %State{state | trace_batch: nil}
   end
 
+  defp record_integrations(:ok, %State{trace_batch: trace_batch} = state)
+       when is_map(trace_batch),
+       do: Search.Indexer.record_integrations(state.project)
+
+  defp record_integrations(:ok, %State{}), do: :ok
+  defp record_integrations(error, %State{}), do: error
+
   defp drain_trace_definitions(%State{project: project}) do
     case EngineApi.call(project, Engine.Compilation.TraceBuffer, :drain_definitions, []) do
       {:ok, entries_by_path} when is_map(entries_by_path) ->
@@ -166,10 +176,11 @@ defmodule Expert.Project.Indexer do
 
       {:error, reason} ->
         Logger.warning("Could not drain compiler trace index supplement: #{inspect(reason)}")
-        %{}
+        nil
     end
   end
 
+  defp apply_trace_definitions(_project, nil), do: :ok
   defp apply_trace_definitions(_project, trace_batch) when map_size(trace_batch) == 0, do: :ok
 
   defp apply_trace_definitions(%Project{} = project, trace_batch) when is_map(trace_batch) do
