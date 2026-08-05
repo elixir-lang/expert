@@ -41,16 +41,9 @@ defmodule Engine.Mix do
     :persistent_term.get({__MODULE__, :deps_paths}, %{})
   end
 
-  # in_project/2 without the Engine.Mix lock and without changing the working
-  # directory: a build holds that lock for a whole compile and formatting must
-  # not wait on one, and callers pass project-relative paths in.
-  # https://github.com/expert-lsp/expert/pull/804
-  def with_project_config(%Project{kind: :mix} = project, fun) do
-    run_and_normalize(fn -> with_pushed_project(project, fun) end)
-  end
-
-  def with_project_config(%Project{}, fun) do
-    run_and_normalize(fn -> fun.(nil) end)
+  def deps_formatter_opts do
+    {_, formatter_opts} = :persistent_term.get({__MODULE__, :deps_formatter}, {%{}, %{}})
+    formatter_opts
   end
 
   defp ensure_project_loaded(%Project{kind: :mix, project_module: nil} = project) do
@@ -79,7 +72,7 @@ defmodule Engine.Mix do
   defp in_loaded_project(%Project{} = project, fun) do
     File.cd!(Project.root_path(project), fn ->
       with_pushed_project(project, fn project_module ->
-        record_deps_paths()
+        record_deps(project)
         fun.(project_module)
       end)
     end)
@@ -99,16 +92,72 @@ defmodule Engine.Mix do
     end
   end
 
-  defp record_deps_paths do
-    key = {__MODULE__, :deps_paths}
+  defp record_deps(%Project{} = project) do
     deps_paths = Mix.Project.deps_paths()
-
-    if :persistent_term.get(key, nil) != deps_paths do
-      :persistent_term.put(key, deps_paths)
-    end
+    put_persistent({__MODULE__, :deps_paths}, deps_paths)
+    record_deps_formatter_opts(project, deps_paths)
   rescue
     ex ->
-      Logger.warning("Could not record dependency paths: #{Exception.message(ex)}")
+      Logger.warning("Could not record dependency formatter options: #{Exception.message(ex)}")
+  end
+
+  defp record_deps_formatter_opts(%Project{} = project, deps_paths) do
+    project_config = Mix.Project.config()
+    imported_deps = imported_formatter_deps(Project.root_path(project))
+    key = {__MODULE__, :deps_formatter}
+    {previous_sources, previous_opts} = :persistent_term.get(key, {%{}, %{}})
+
+    {sources, formatter_opts} =
+      Enum.reduce(imported_deps, {%{}, %{}}, fn dep, {sources, formatter_opts} ->
+        with {:ok, dep_path} <- Map.fetch(deps_paths, dep),
+             formatter_path = Path.join(dep_path, ".formatter.exs"),
+             {:ok, contents} <- File.read(formatter_path) do
+          source = {formatter_path, contents, project_config}
+
+          opts =
+            if previous_sources[dep] == source do
+              previous_opts[dep]
+            else
+              {opts, _binding} = Code.eval_file(formatter_path)
+              true = Keyword.keyword?(opts)
+              opts
+            end
+
+          {Map.put(sources, dep, source), Map.put(formatter_opts, dep, opts)}
+        else
+          _ -> {sources, formatter_opts}
+        end
+      end)
+
+    put_persistent(key, {sources, formatter_opts})
+  end
+
+  defp imported_formatter_deps(root_path) do
+    root_path
+    |> collect_formatter_deps(MapSet.new())
+    |> MapSet.to_list()
+  end
+
+  defp collect_formatter_deps(dir, deps) do
+    formatter_path = Path.join(dir, ".formatter.exs")
+
+    with true <- File.regular?(formatter_path),
+         {opts, _binding} <- Code.eval_file(formatter_path) do
+      deps = Enum.reduce(Keyword.get(opts, :import_deps, []), deps, &MapSet.put(&2, &1))
+
+      opts
+      |> Keyword.get(:subdirectories, [])
+      |> Enum.flat_map(&Path.wildcard(Path.expand(&1, dir)))
+      |> Enum.reduce(deps, &collect_formatter_deps/2)
+    else
+      _ -> deps
+    end
+  end
+
+  defp put_persistent(key, value) do
+    if :persistent_term.get(key, :missing) != value do
+      :persistent_term.put(key, value)
+    end
   end
 
   # Mix.Project.config/0 only reflects the project while it is on the project
