@@ -369,6 +369,9 @@ defmodule Mix.Tasks.Future.Format do
     * `:deps_paths` (since v1.18.0) - the dependencies path to be used to resolve
       `import_deps`. It defaults to `Mix.Project.deps_paths`.
 
+    * `:deps_formatter_opts` - pre-evaluated formatter options keyed by dependency.
+      This avoids evaluating dependency formatter files in the current Mix project.
+
     * `:dot_formatter` - use the given file as the `dot_formatter`
       root. If this option is not specified, it uses the default one.
       The default one is cached, so use this option only if necessary.
@@ -502,10 +505,17 @@ defmodule Mix.Tasks.Future.Format do
         dep_path = assert_valid_dep_and_fetch_path(dep, deps_paths),
         dep_dot_formatter = Path.join(dep_path, ".formatter.exs"),
         File.regular?(dep_dot_formatter),
-        dep_opts = eval_file_with_keyword_list(dep_dot_formatter),
+        dep_opts = deps_formatter_opts(dep, dep_dot_formatter, opts),
         parenless_call <- dep_opts[:export][:locals_without_parens] || [],
         uniq: true,
         do: parenless_call
+  end
+
+  defp deps_formatter_opts(dep, path, opts) do
+    case opts[:deps_formatter_opts] do
+      %{^dep => formatter_opts} -> formatter_opts
+      _ -> eval_file_with_keyword_list(path)
+    end
   end
 
   defp eval_subs_opts(subs, cwd, sources, opts) do

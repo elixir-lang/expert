@@ -111,20 +111,23 @@ defmodule Engine.CodeMod.FormatTest do
   # The dependency is fetched but never compiled, and its .formatter.exs derives
   # config from Mix.Project.config/0.
   def write_import_deps_project!(tmp_dir) do
-    root = Path.join(tmp_dir, "import_deps_project")
+    suffix = System.unique_integer([:positive])
+    app = :"import_deps_project_#{suffix}"
+    root = Path.join(tmp_dir, Atom.to_string(app))
     lib_dir = Path.join(root, "lib")
     dep_dir = Path.join([root, "deps", "my_dep"])
+    project_module = Module.concat([:"ImportDepsProject#{suffix}", MixProject])
 
     File.mkdir_p!(lib_dir)
     File.mkdir_p!(dep_dir)
 
     File.write!(Path.join(root, "mix.exs"), """
-    defmodule ImportDepsProject.MixProject do
+    defmodule #{inspect(project_module)} do
       use Mix.Project
 
       def project do
         [
-          app: :import_deps_project,
+          app: #{inspect(app)},
           version: "0.1.0",
           elixir: "~> 1.15",
           deps: [{:my_dep, path: "deps/my_dep"}]
@@ -208,21 +211,75 @@ defmodule Engine.CodeMod.FormatTest do
     end
 
     @tag :tmp_dir
+    test "captures imports from newly matched formatter subdirectories", %{tmp_dir: tmp_dir} do
+      project = write_import_deps_project!(tmp_dir)
+      Engine.set_project(project)
+      root = Project.root_path(project)
+      child = Path.join([root, "apps", "child"])
+      file_path = Path.join([child, "lib", "format.ex"])
+
+      File.write!(
+        Path.join(root, ".formatter.exs"),
+        ~s([subdirectories: ["apps/*"], inputs: ["lib/**/*.{ex,exs}"]]\n)
+      )
+
+      Mix.ProjectStack.on_clean_slate(fn ->
+        assert {:ok, :ok} = Engine.Mix.in_project(project, fn _ -> :ok end)
+
+        File.mkdir_p!(Path.dirname(file_path))
+
+        File.write!(
+          Path.join(child, ".formatter.exs"),
+          ~s([import_deps: [:my_dep], inputs: ["lib/**/*.{ex,exs}"]]\n)
+        )
+
+        assert {:ok, :ok} = Engine.Mix.in_project(project, fn _ -> :ok end)
+
+        assert {:ok, "my_dsl :foo"} =
+                 modify("my_dsl :foo\n", file_path: file_path, project: project)
+      end)
+    end
+
+    @tag :tmp_dir
     test "formats while a build holds the project on the Mix stack",
          %{tmp_dir: tmp_dir} do
       project = write_import_deps_project!(tmp_dir)
       Engine.set_project(project)
 
       file_path = Path.join([Project.root_path(project), "lib", "format.ex"])
+      parent = self()
 
-      # Pushing a project that is already on the stack raises, so the one the
-      # build pushed has to be reused.
-      assert {:ok, "my_dsl :foo"} =
-               Mix.ProjectStack.on_clean_slate(fn ->
-                 Engine.Mix.in_project(project, fn _ ->
-                   modify("my_dsl :foo\n", file_path: file_path, project: project)
-                 end)
-               end)
+      Mix.ProjectStack.on_clean_slate(fn ->
+        build =
+          Task.async(fn ->
+            Engine.Mix.in_project(project, fn _ ->
+              send(parent, :build_project_pushed)
+
+              receive do
+                :finish_build -> :ok
+              end
+            end)
+          end)
+
+        assert_receive :build_project_pushed
+
+        patch(Engine, :with_lock, fn lock, fun ->
+          send(parent, {:lock_acquired, self(), lock})
+          real(Engine).with_lock(lock, fun)
+        end)
+
+        formatter =
+          Task.async(fn ->
+            modify("my_dsl :foo\n", file_path: file_path, project: project)
+          end)
+
+        formatter_pid = formatter.pid
+        assert {:ok, "my_dsl :foo"} = Task.await(formatter, 250)
+        refute_received {:lock_acquired, ^formatter_pid, _lock}
+
+        send(build.pid, :finish_build)
+        assert {:ok, :ok} = Task.await(build)
+      end)
     end
 
     test "it will fail to format a file not in the project", %{project: project} do
