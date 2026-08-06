@@ -174,7 +174,7 @@ jobs:
 
       - uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29 # v2.2.1
         with:
-          version: "0.15.2"
+          version: "0.16.0"
 
       - name: Cache deps
         id: cache-deps
@@ -196,13 +196,13 @@ jobs:
     outputs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
     steps:
-     - name: Checkout to repository
-       uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-       with:
-         persist-credentials: false
-     - name: Set matrix data
-       id: set-matrix
-       run: echo "matrix=$(jq -c . < .github/matrix.json)" >> "$GITHUB_OUTPUT"
+      - name: Checkout to repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set matrix data
+        id: set-matrix
+        run: echo "matrix=$(jq -c . < .github/matrix.json)" >> "$GITHUB_OUTPUT"
 
   test:
     runs-on: ${{matrix.os}}
@@ -265,4 +265,3 @@ jobs:
         run: |
           echo "::error Some required job has failed!"
           exit 1
-

@@ -110,7 +110,7 @@ defmodule Expert.MixProject do
 
   defp deps do
     [
-      {:burrito, "~> 1.5"},
+      {:burrito, "~> 1.6"},
       {:deps_nix, "~> 3.0", only: :dev},
       Mix.Credo.dependency(),
       Mix.Dialyzer.dependency(),

@@ -33,15 +33,15 @@ just release
 ```
 
 You can then point your editor to the `start_expert` executable from the generated
-release (`apps/expert/_build/prod/rel/plain`). You can also run `start_expert --help`
+release (`apps/expert/_build/prod/rel/plain/bin`). You can also run `start_expert --help`
 to see all available options.
 
 > [!IMPORTANT]
 >
 > If your editor doesn't do it automatically, make sure to pass the `--stdio` flag to Expert.
 
-To build Expert using burrito, you need Zig `0.15.2` installed on your system.
-Later versions will not work.
+To build Expert using burrito, you need Zig `0.16.0` installed on your system.
+Other versions will not work.
 
 Then you can run the following command:
 
