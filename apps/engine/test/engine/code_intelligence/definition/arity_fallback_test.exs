@@ -4,7 +4,7 @@ arity_fallback =
     __DIR__
   )
 
-unless Code.ensure_loaded?(Engine.CodeIntelligence.Definition.ArityFallback) do
+if !Code.ensure_loaded?(Engine.CodeIntelligence.Definition.ArityFallback) do
   Code.require_file(arity_fallback)
 end
 

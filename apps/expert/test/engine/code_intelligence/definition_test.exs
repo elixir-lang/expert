@@ -261,8 +261,8 @@ defmodule Expert.Engine.CodeIntelligence.DefinitionTest do
       assert {:ok, definitions} = definition(project, subject_module, [])
 
       assert definitions == [
-               {multi_arity_uri, ~S[  def «sum(a, b)» do]},
-               {multi_arity_uri, ~S[  def «sum(a, b, c)» do]}
+               {multi_arity_uri, ~S[  def «sum»(a, b) do]},
+               {multi_arity_uri, ~S[  def «sum»(a, b, c) do]}
              ]
     end
   end
