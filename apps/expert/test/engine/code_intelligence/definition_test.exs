@@ -34,6 +34,21 @@ defmodule Expert.Engine.CodeIntelligence.DefinitionTest do
     %{uri: uri}
   end
 
+  defp with_multi_arity_file(%{project: project}) do
+    uri =
+      project
+      |> file_path(Path.join("lib", "multi_arity.ex"))
+      |> Document.Path.ensure_uri()
+
+    {:ok, _document} = Document.Store.open_temporary(uri)
+
+    on_exit(fn ->
+      :ok = Document.Store.close(uri)
+    end)
+
+    %{multi_arity_uri: uri}
+  end
+
   defp subject_module_uri(project) do
     project
     |> file_path(Path.join("lib", "my_module.ex"))
@@ -181,6 +196,74 @@ defmodule Expert.Engine.CodeIntelligence.DefinitionTest do
 
       assert definition_line == ~S[  def «sum»(a, b, c) do]
       assert referenced_uri =~ "navigations/lib/multi_arity.ex"
+    end
+  end
+
+  describe "definition/2 when remote call exact arity is missing" do
+    setup [:with_multi_arity_file]
+
+    test "falls back to other arities of the same function", %{
+      project: project,
+      multi_arity_uri: multi_arity_uri
+    } do
+      subject_module = ~q[
+        defmodule UsesRemoteFunction do
+          alias MultiArity
+
+          def uses_sum() do
+            MultiArity.su|m(1, 2, 3, 4)
+          end
+        end
+      ]
+
+      assert {:ok, definitions} = definition(project, subject_module, multi_arity_uri)
+
+      assert definitions == [
+               {multi_arity_uri, ~S[  def «sum(a, b)» do]},
+               {multi_arity_uri, ~S[  def «sum(a, b, c)» do]}
+             ]
+    end
+
+    test "prefers exact arity definitions when present", %{
+      project: project,
+      multi_arity_uri: multi_arity_uri
+    } do
+      subject_module = ~q[
+        defmodule UsesRemoteFunction do
+          alias MultiArity
+
+          def uses_sum() do
+            MultiArity.su|m(1, 2, 3)
+          end
+        end
+      ]
+
+      assert {:ok, ^multi_arity_uri, definition_line} =
+               definition(project, subject_module, multi_arity_uri)
+
+      assert definition_line == ~S[  def «sum(a, b, c)» do]
+    end
+
+    test "falls back to other arities with ElixirSense", %{
+      project: project,
+      multi_arity_uri: multi_arity_uri
+    } do
+      subject_module = ~q[
+        defmodule UsesRemoteFunction do
+          alias MultiArity
+
+          def uses_sum() do
+            MultiArity.su|m(1, 2, 3, 4)
+          end
+        end
+      ]
+
+      assert {:ok, definitions} = definition(project, subject_module, [])
+
+      assert definitions == [
+               {multi_arity_uri, ~S[  def «sum»(a, b) do]},
+               {multi_arity_uri, ~S[  def «sum»(a, b, c) do]}
+             ]
     end
   end
 
