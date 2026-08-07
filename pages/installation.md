@@ -390,7 +390,7 @@ The Elixir extension will [download the latest Expert release](https://github.co
 
 If using Termux, you will need to wrap Expert with `termux-chroot`. Expert distributables uses `erlexec`, which expects `/tmp` to be accessible. Termux does not provide access to it, resulting in `error: FileNotFound` being printed when launching Expert.
 
-To workaround this, first install the `pkroot` package:
+To workaround this, first install the `proot` package:
 
 ```sh
 pkg install proot
