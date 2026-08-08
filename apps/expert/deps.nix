@@ -203,7 +203,7 @@ let
 
       burrito =
         let
-          version = "1.5.0";
+          version = "1.6.0";
           drv = buildMix {
             inherit version;
             name = "burrito";
@@ -212,7 +212,7 @@ let
             src = fetchHex {
               inherit version;
               pkg = "burrito";
-              sha256 = "3861abda7bffa733862b48da3e03df0b4cd41abf6fd24b91745f5c16d971e5fa";
+              sha256 = "e636a00b032c45a69ff755d9fc53fa5fdc9e1d21bdbd229075fe4a15b05355fe";
             };
 
             beamDeps = [
@@ -534,7 +534,7 @@ let
 
       req =
         let
-          version = "0.7.1";
+          version = "0.7.2";
           drv = buildMix {
             inherit version;
             name = "req";
@@ -543,7 +543,7 @@ let
             src = fetchHex {
               inherit version;
               pkg = "req";
-              sha256 = "254638b15ceb9a2624d15aff13bf7903ea2e95cd4b9c1aa18da1fb06e1086b50";
+              sha256 = "c9cdfa276b05d8db2a27fda5d233e6858b764d47189d76cbb186e130a871ae0b";
             };
 
             beamDeps = [
