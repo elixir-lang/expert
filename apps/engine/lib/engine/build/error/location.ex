@@ -1,8 +1,8 @@
 defmodule Engine.Build.Error.Location do
+  alias Forge.Diagnostic
   alias Forge.Document
   alias Forge.Document.Position
   alias Forge.Document.Range
-  alias Forge.Plugin.V1.Diagnostic.Result
 
   require Logger
 
@@ -67,8 +67,8 @@ defmodule Engine.Build.Error.Location do
     exacts = Enum.filter(diagnostics, fn diagnostic -> match?(%Range{}, diagnostic.position) end)
 
     extract_uri_and_line = fn
-      %Result{uri: uri, position: {line, _column}} -> {uri, line}
-      %Result{uri: uri, position: line} -> {uri, line}
+      %Diagnostic{uri: uri, position: {line, _column}} -> {uri, line}
+      %Diagnostic{uri: uri, position: line} -> {uri, line}
     end
 
     # Note: Sometimes error and warning appear on one line at the same time

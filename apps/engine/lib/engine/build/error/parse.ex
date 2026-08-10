@@ -1,8 +1,8 @@
 defmodule Engine.Build.Error.Parse do
   alias Engine.Build.Error.Location
+  alias Forge.Diagnostic
   alias Forge.Document
   alias Forge.Document.Range
-  alias Forge.Plugin.V1.Diagnostic.Result
 
   @elixir_source "Elixir"
 
@@ -69,7 +69,7 @@ defmodule Engine.Build.Error.Parse do
     case Location.fetch_range(source, context) do
       {:ok, %Range{end: end_pos}} ->
         [
-          Result.new(
+          Diagnostic.new(
             source.uri,
             {end_pos.line, end_pos.character},
             message,
@@ -94,7 +94,7 @@ defmodule Engine.Build.Error.Parse do
       end
 
     diagnostic =
-      Result.new(source.uri, Location.context_to_position(context), message, :error, "Elixir")
+      Diagnostic.new(source.uri, Location.context_to_position(context), message, :error, "Elixir")
 
     [diagnostic]
   end
@@ -129,14 +129,14 @@ defmodule Engine.Build.Error.Parse do
         context[:column] + opening_delimiter_length
       )
 
-    result = Result.new(source.uri, pos, message, :error, @elixir_source)
+    result = Diagnostic.new(source.uri, pos, message, :error, @elixir_source)
     [result]
   end
 
   defp build_syntax_error_diagnostic(%Document{} = source, context, message_info, token) do
     message = "#{message_info}#{token}"
     pos = Location.position(context[:line], context[:column])
-    result = Result.new(source.uri, pos, message, :error, @elixir_source)
+    result = Diagnostic.new(source.uri, pos, message, :error, @elixir_source)
     [result]
   end
 
@@ -148,7 +148,7 @@ defmodule Engine.Build.Error.Parse do
           ~s[The #{format_token(token)} here is missing terminator #{format_token(missing)}]
 
         position = String.to_integer(start_line)
-        result = Result.new(source.uri, position, message, :error, @elixir_source)
+        result = Diagnostic.new(source.uri, position, message, :error, @elixir_source)
         [result]
 
       _ ->
@@ -162,7 +162,7 @@ defmodule Engine.Build.Error.Parse do
       [_whole_message, _hint, message, hint_line] ->
         message = "HINT:" <> String.replace(message, ~r/on line \d+/, "here")
         position = String.to_integer(hint_line)
-        result = Result.new(source.uri, position, message, :error, @elixir_source)
+        result = Diagnostic.new(source.uri, position, message, :error, @elixir_source)
         [result]
 
       _ ->
@@ -180,7 +180,7 @@ defmodule Engine.Build.Error.Parse do
       [[matched, line_number]] ->
         line_number = String.to_integer(line_number)
         message = String.replace(detail, matched, "here")
-        result = Result.new(source.uri, line_number, message, :error, @elixir_source)
+        result = Diagnostic.new(source.uri, line_number, message, :error, @elixir_source)
         [result]
 
       _ ->

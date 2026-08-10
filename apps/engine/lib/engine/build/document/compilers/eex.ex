@@ -6,8 +6,8 @@ defmodule Engine.Build.Document.Compilers.EEx do
 
   alias Engine.Build
   alias Engine.Build.Document.Compilers
+  alias Forge.Diagnostic
   alias Forge.Document
-  alias Forge.Plugin.V1.Diagnostic.Result
 
   @impl true
   def recognizes?(%Document{language_id: "eex"}), do: true
@@ -42,7 +42,7 @@ defmodule Engine.Build.Document.Compilers.EEx do
       {:error, [error_to_result(document, error)]}
   end
 
-  @spec eval_quoted(Document.t(), Macro.t()) :: :ok | {:error, [Result.t()]}
+  @spec eval_quoted(Document.t(), Macro.t()) :: :ok | {:error, [Diagnostic.t()]}
   def eval_quoted(%Document{} = document, quoted_ast) do
     result =
       if Elixir.Features.with_diagnostics?() do
@@ -117,7 +117,7 @@ defmodule Engine.Build.Document.Compilers.EEx do
     # NOTE: Ignoring error for assigns makes sense,
     # because we don't want such a error report,
     # for example: `<%= @name %>`
-    Enum.reject(errors, fn %Result{message: message} ->
+    Enum.reject(errors, fn %Diagnostic{message: message} ->
       message =~ ~s[undefined variable "assigns"]
     end)
   end
@@ -125,6 +125,6 @@ defmodule Engine.Build.Document.Compilers.EEx do
   defp error_to_result(%Document{} = document, %EEx.SyntaxError{} = error) do
     position = {error.line, error.column}
 
-    Result.new(document.uri, position, error.message, :error, "EEx")
+    Diagnostic.new(document.uri, position, error.message, :error, "EEx")
   end
 end

@@ -3,9 +3,8 @@ defmodule Engine.Build.State do
 
   alias Elixir.Features
   alias Engine.Build
-  alias Engine.Plugin
+  alias Forge.Diagnostic
   alias Forge.Document
-  alias Forge.Plugin.V1.Diagnostic
   alias Forge.Project
   alias Forge.VM.Versions
 
@@ -145,7 +144,7 @@ defmodule Engine.Build.State do
             diagnostics =
               diagnostics
               |> List.wrap()
-              |> Enum.filter(&match?(%Diagnostic.Result{}, &1))
+              |> Enum.filter(&match?(%Diagnostic{}, &1))
 
             {message, diagnostics}
 
@@ -156,7 +155,7 @@ defmodule Engine.Build.State do
             diagnostics =
               diagnostics
               |> List.wrap()
-              |> Enum.filter(&match?(%Diagnostic.Result{}, &1))
+              |> Enum.filter(&match?(%Diagnostic{}, &1))
 
             {message, diagnostics}
         end
@@ -170,7 +169,6 @@ defmodule Engine.Build.State do
 
       Engine.broadcast(compile_message)
       Engine.broadcast(diagnostics_message)
-      Plugin.diagnose(project, state.build_number)
     end)
 
     state
@@ -224,7 +222,6 @@ defmodule Engine.Build.State do
 
       Engine.broadcast(compile_message)
       Engine.broadcast(diagnostics)
-      Plugin.diagnose(project, state.build_number, document)
     end)
 
     state

@@ -1,17 +1,17 @@
-defmodule Forge.Protocol.Convertibles.Forge.Plugin.V1.Diagnostic.ResultTest do
+defmodule Forge.Protocol.Convertibles.Forge.DiagnosticTest do
   use Expert.Test.Protocol.ConvertibleSupport
 
   import Forge.Test.CodeSigil
 
+  alias Forge.Diagnostic
   alias Forge.Document
-  alias Forge.Plugin.V1.Diagnostic
   alias GenLSP.Enumerations.DiagnosticSeverity
   alias GenLSP.Structures
 
-  defp plugin_diagnostic(file_path, position) do
+  defp diagnostic(file_path, position) do
     file_path
     |> Document.Path.ensure_uri()
-    |> Diagnostic.Result.new(position, "Broken!", :error, "Elixir")
+    |> Diagnostic.new(position, "Broken!", :error, "Elixir")
   end
 
   def open_file_contents do
@@ -31,7 +31,7 @@ defmodule Forge.Protocol.Convertibles.Forge.Plugin.V1.Diagnostic.ResultTest do
     setup [:with_an_open_file]
 
     test "it should translate a diagnostic with a line as a position", %{uri: uri} do
-      assert {:ok, %Structures.Diagnostic{} = converted} = to_lsp(plugin_diagnostic(uri, 1), uri)
+      assert {:ok, %Structures.Diagnostic{} = converted} = to_lsp(diagnostic(uri, 1), uri)
 
       assert converted.message == "Broken!"
       assert converted.severity == DiagnosticSeverity.error()
@@ -41,7 +41,7 @@ defmodule Forge.Protocol.Convertibles.Forge.Plugin.V1.Diagnostic.ResultTest do
 
     test "it should translate a diagnostic with a line and a column", %{uri: uri} do
       assert {:ok, %Structures.Diagnostic{} = converted} =
-               to_lsp(plugin_diagnostic(uri, {1, 1}), uri)
+               to_lsp(diagnostic(uri, {1, 1}), uri)
 
       assert converted.message == "Broken!"
       assert converted.range == range(:lsp, position(:lsp, 0, 0), position(:lsp, 1, 0))
@@ -49,13 +49,13 @@ defmodule Forge.Protocol.Convertibles.Forge.Plugin.V1.Diagnostic.ResultTest do
 
     test "it should translate a diagnostic with a four-elements tuple position", %{uri: uri} do
       assert {:ok, %Structures.Diagnostic{} = converted} =
-               to_lsp(plugin_diagnostic(uri, {2, 5, 2, 8}), uri)
+               to_lsp(diagnostic(uri, {2, 5, 2, 8}), uri)
 
       assert converted.message == "Broken!"
       assert converted.range == range(:lsp, position(:lsp, 1, 4), position(:lsp, 1, 7))
 
       assert {:ok, %Structures.Diagnostic{} = converted} =
-               to_lsp(plugin_diagnostic(uri, {1, 0, 3, 0}), uri)
+               to_lsp(diagnostic(uri, {1, 0, 3, 0}), uri)
 
       assert converted.message == "Broken!"
       assert converted.range == range(:lsp, position(:lsp, 0, 0), position(:lsp, 2, 0))
@@ -64,26 +64,26 @@ defmodule Forge.Protocol.Convertibles.Forge.Plugin.V1.Diagnostic.ResultTest do
     test "it should translate a diagnostic line that is out of bounds (elixir can do this)", %{
       uri: uri
     } do
-      assert {:ok, %Structures.Diagnostic{} = converted} = to_lsp(plugin_diagnostic(uri, 9), uri)
+      assert {:ok, %Structures.Diagnostic{} = converted} = to_lsp(diagnostic(uri, 9), uri)
 
       assert converted.message == "Broken!"
       assert converted.range == range(:lsp, position(:lsp, 7, 0), position(:lsp, 8, 0))
     end
 
     test "it can translate a diagnostic of a file that isn't open", %{uri: uri} do
-      assert {:ok, %Structures.Diagnostic{}} = to_lsp(plugin_diagnostic(__ENV__.file, 2), uri)
+      assert {:ok, %Structures.Diagnostic{}} = to_lsp(diagnostic(__ENV__.file, 2), uri)
     end
 
     test "it can translate a diagnostic that starts after an emoji", %{uri: uri} do
       assert {:ok, %Structures.Diagnostic{} = converted} =
-               to_lsp(plugin_diagnostic(uri, {6, 10}), uri)
+               to_lsp(diagnostic(uri, {6, 10}), uri)
 
       assert converted.range == range(:lsp, position(:lsp, 5, 10), position(:lsp, 6, 0))
     end
 
     test "it converts expert positions", %{uri: uri, document: document} do
       assert {:ok, %Structures.Diagnostic{} = converted} =
-               to_lsp(plugin_diagnostic(uri, Document.Position.new(document, 1, 1)), uri)
+               to_lsp(diagnostic(uri, Document.Position.new(document, 1, 1)), uri)
 
       assert converted.range == %Structures.Range{
                start: %Structures.Position{line: 0, character: 0},
@@ -99,7 +99,7 @@ defmodule Forge.Protocol.Convertibles.Forge.Plugin.V1.Diagnostic.ResultTest do
         )
 
       assert {:ok, %Structures.Diagnostic{} = converted} =
-               to_lsp(plugin_diagnostic(uri, expert_range), uri)
+               to_lsp(diagnostic(uri, expert_range), uri)
 
       assert %Structures.Range{start: start_pos, end: end_pos} = converted.range
       assert start_pos.line == 1

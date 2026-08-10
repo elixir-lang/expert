@@ -1,6 +1,6 @@
 defmodule Expert.Project.Diagnostics.State do
+  alias Forge.Diagnostic
   alias Forge.Document
-  alias Forge.Plugin.V1.Diagnostic
   alias Forge.Project
 
   require Logger
@@ -82,7 +82,7 @@ defmodule Expert.Project.Diagnostics.State do
     %__MODULE__{state | entries_by_uri: entries_by_uri, file_entries_by_uri: file_entries_by_uri}
   end
 
-  def add(%__MODULE__{} = state, build_number, %Diagnostic.Result{} = diagnostic) do
+  def add(%__MODULE__{} = state, build_number, %Diagnostic{} = diagnostic) do
     entries_by_uri = add_to_entries(state.entries_by_uri, build_number, diagnostic)
 
     %__MODULE__{state | entries_by_uri: entries_by_uri}
@@ -93,7 +93,7 @@ defmodule Expert.Project.Diagnostics.State do
     state
   end
 
-  def add_file(%__MODULE__{} = state, build_number, %Diagnostic.Result{} = diagnostic) do
+  def add_file(%__MODULE__{} = state, build_number, %Diagnostic{} = diagnostic) do
     file_entries_by_uri = add_to_entries(state.file_entries_by_uri, build_number, diagnostic)
 
     %__MODULE__{state | file_entries_by_uri: file_entries_by_uri}

@@ -9,8 +9,8 @@ defmodule Engine.Build.Document.Compilers.HeexTest do
   alias Engine.Build.Document.Compilers
   alias Engine.Dispatch
   alias Engine.ModuleMappings
+  alias Forge.Diagnostic
   alias Forge.Document
-  alias Forge.Plugin.V1.Diagnostic.Result
 
   def with_capture_server(_) do
     start_supervised!(CaptureServer)
@@ -61,7 +61,7 @@ defmodule Engine.Build.Document.Compilers.HeexTest do
         <div><%= thing %></div>
       ])
 
-      assert {:error, [%Result{} = result]} = compile(document)
+      assert {:error, [%Diagnostic{} = result]} = compile(document)
 
       if Features.with_diagnostics?() do
         assert result.message =~ ~S[undefined variable "thing"]
@@ -98,7 +98,7 @@ defmodule Engine.Build.Document.Compilers.HeexTest do
       document = document_with_content(~q[
         <div>thing
       ])
-      assert {:error, [%Result{} = result]} = compile(document)
+      assert {:error, [%Diagnostic{} = result]} = compile(document)
 
       assert result.message =~
                "end of template reached without closing tag for <div>\n  |\n1 | <div>thing\n  | ^"
@@ -114,7 +114,7 @@ defmodule Engine.Build.Document.Compilers.HeexTest do
         <span id=@id}></span>
       ])
 
-      assert {:error, [%Result{} = result]} = compile(document)
+      assert {:error, [%Diagnostic{} = result]} = compile(document)
 
       assert result.message =~ "invalid attribute value after `=`. "
       assert result.position == {1, 10}
@@ -127,7 +127,7 @@ defmodule Engine.Build.Document.Compilers.HeexTest do
       document = document_with_content(~q[
         <%= IO.
       ])
-      assert {:error, [%Result{} = result]} = compile(document)
+      assert {:error, [%Diagnostic{} = result]} = compile(document)
 
       assert result.message =~ "'%>'"
       assert result.source == "EEx"

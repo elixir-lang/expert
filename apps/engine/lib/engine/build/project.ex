@@ -2,7 +2,6 @@ defmodule Engine.Build.Project do
   alias Engine.Build
   alias Engine.Build.Isolation
   alias Engine.Module.Loader
-  alias Engine.Plugin
   alias Engine.Progress
   alias Forge.Internet
   alias Forge.Project
@@ -150,9 +149,6 @@ defmodule Engine.Build.Project do
       Progress.report(token, message: "mix deps.compile")
       Mix.Task.run("deps.safe_compile", ~w(--skip-umbrella-children))
     end
-
-    Progress.report(token, message: "Loading plugins")
-    Plugin.Discovery.run()
   end
 
   defp mix_compile_opts do
