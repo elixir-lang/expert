@@ -203,7 +203,7 @@ defmodule Engine.CodeMod.FormatTest do
                Mix.ProjectStack.on_clean_slate(fn ->
                  # Dependency paths are recorded while the project is loaded, as
                  # a build does.
-                 Engine.Mix.in_project(project, fn _ -> :ok end)
+                 Engine.Mix.in_project(project, fn _ -> Engine.Mix.record_deps(project) end)
                  modify("my_dsl :foo\n", file_path: file_path, project: project)
                end)
 
@@ -224,7 +224,8 @@ defmodule Engine.CodeMod.FormatTest do
       )
 
       Mix.ProjectStack.on_clean_slate(fn ->
-        assert {:ok, :ok} = Engine.Mix.in_project(project, fn _ -> :ok end)
+        assert {:ok, :ok} =
+                 Engine.Mix.in_project(project, fn _ -> Engine.Mix.record_deps(project) end)
 
         File.mkdir_p!(Path.dirname(file_path))
 
@@ -233,7 +234,8 @@ defmodule Engine.CodeMod.FormatTest do
           ~s([import_deps: [:my_dep], inputs: ["lib/**/*.{ex,exs}"]]\n)
         )
 
-        assert {:ok, :ok} = Engine.Mix.in_project(project, fn _ -> :ok end)
+        assert {:ok, :ok} =
+                 Engine.Mix.in_project(project, fn _ -> Engine.Mix.record_deps(project) end)
 
         assert {:ok, "my_dsl :foo"} =
                  modify("my_dsl :foo\n", file_path: file_path, project: project)
@@ -253,6 +255,7 @@ defmodule Engine.CodeMod.FormatTest do
         build =
           Task.async(fn ->
             Engine.Mix.in_project(project, fn _ ->
+              Engine.Mix.record_deps(project)
               send(parent, :build_project_pushed)
 
               receive do

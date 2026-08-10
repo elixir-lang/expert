@@ -41,6 +41,7 @@ defmodule Engine.Build.Project do
 
           try do
             prepare_for_project_build(token)
+            Engine.Mix.record_deps(project)
             {:done, :ok}
           after
             Build.clear_progress_token()
@@ -57,7 +58,11 @@ defmodule Engine.Build.Project do
   defp do_compile(project, initial?, token) do
     Mix.Task.clear()
 
-    if initial?, do: prepare_for_project_build(token)
+    if initial? do
+      prepare_for_project_build(token)
+    end
+
+    Engine.Mix.record_deps(project)
 
     compile_fun = fn ->
       Mix.Task.clear()

@@ -72,7 +72,6 @@ defmodule Engine.Mix do
   defp in_loaded_project(%Project{} = project, fun) do
     File.cd!(Project.root_path(project), fn ->
       with_pushed_project(project, fn project_module ->
-        record_deps(project)
         fun.(project_module)
       end)
     end)
@@ -92,7 +91,7 @@ defmodule Engine.Mix do
     end
   end
 
-  defp record_deps(%Project{} = project) do
+  def record_deps(%Project{} = project) do
     deps_paths = Mix.Project.deps_paths()
     put_persistent({__MODULE__, :deps_paths}, deps_paths)
     record_deps_formatter_opts(project, deps_paths)
