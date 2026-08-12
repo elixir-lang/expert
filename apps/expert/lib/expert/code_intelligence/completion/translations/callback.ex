@@ -66,7 +66,7 @@ defmodule Expert.CodeIntelligence.Completion.Translations.Callback do
       start_char =
         case String.split(line, "def", parts: 2) do
           [i, _] -> String.length(i) + 1
-          [_] -> 0
+          [_] -> Forge.Text.count_leading_spaces(line) + 1
         end
 
       end_char = String.length(line) + 1
