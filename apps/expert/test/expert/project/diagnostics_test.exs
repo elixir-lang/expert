@@ -132,5 +132,28 @@ defmodule Expert.Project.DiagnosticsTest do
                start: %Structures.Position{character: 0, line: 3}
              }
     end
+
+    test "it keeps project diagnostics when a file has no diagnostics", %{project: project} do
+      document = open_file(project, "defmodule Dummy")
+
+      EngineApi.broadcast(
+        project,
+        project_diagnostics(
+          build_number: 1,
+          diagnostics: [diagnostic(document.uri, message: "boundary warning")]
+        )
+      )
+
+      assert_receive {:transport, %TextDocumentPublishDiagnostics{}}
+
+      EngineApi.broadcast(project, file_diagnostics(build_number: 2, uri: document.uri))
+
+      assert_receive {:transport,
+                      %TextDocumentPublishDiagnostics{
+                        params: %PublishDiagnosticsParams{
+                          diagnostics: [%Structures.Diagnostic{message: "boundary warning"}]
+                        }
+                      }}
+    end
   end
 end
