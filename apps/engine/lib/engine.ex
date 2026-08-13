@@ -44,6 +44,8 @@ defmodule Engine do
 
   defdelegate contextual_completion(env), to: Engine.Integrations, as: :complete
 
+  defdelegate contextual_hover(env), to: Engine.Integrations, as: :hover
+
   defdelegate complete_struct_fields(analysis, position),
     to: Engine.Completion,
     as: :struct_fields
