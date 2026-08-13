@@ -111,6 +111,11 @@ defmodule Expert.Search.Store.Backends.Sqlite do
   end
 
   @impl Backend
+  def find_by_paths(%Project{} = project, paths, type, subtype) when is_list(paths) do
+    GenServer.call(name(project), {:find_by_paths, paths, type, subtype}, :infinity)
+  end
+
+  @impl Backend
   def structure_for_path(%Project{} = project, path) do
     GenServer.call(name(project), {:structure_for_path, path}, :infinity)
   end
@@ -227,6 +232,9 @@ defmodule Expert.Search.Store.Backends.Sqlite do
 
   def handle_call({:find_by_ids, ids, type, subtype}, _from, %State{} = state),
     do: reply(do_find_by_ids(state, ids, type, subtype), state)
+
+  def handle_call({:find_by_paths, paths, type, subtype}, _from, %State{} = state),
+    do: reply(do_find_by_paths(state, paths, type, subtype), state)
 
   def handle_call({:structure_for_path, path}, _from, %State{} = state),
     do: reply(do_structure_for_path(state, path), state)
@@ -406,6 +414,26 @@ defmodule Expert.Search.Store.Backends.Sqlite do
 
           Enum.flat_map(ids, fn id -> Map.get(entries_by_id, id, []) end)
         end
+    end
+  end
+
+  def do_find_by_paths(%State{}, [], _type, _subtype), do: []
+
+  def do_find_by_paths(%State{} = state, paths, type, subtype) when is_list(paths) do
+    result =
+      paths
+      |> Enum.uniq()
+      |> Stream.chunk_every(path_chunk_size(type, subtype))
+      |> Enum.reduce_while([], fn paths, batches ->
+        case find_by_path_chunk(state, paths, type, subtype) do
+          entries when is_list(entries) -> {:cont, [entries | batches]}
+          {:error, _} = error -> {:halt, error}
+        end
+      end)
+
+    case result do
+      {:error, _} = error -> error
+      batches -> batches |> Enum.reverse() |> List.flatten()
     end
   end
 
@@ -788,6 +816,19 @@ defmodule Expert.Search.Store.Backends.Sqlite do
       """,
       args
     )
+  end
+
+  defp find_by_path_chunk(%State{} = state, paths, type, subtype) do
+    {where, args} =
+      constraints(["entries.path IN (#{placeholders(paths)})"], paths, type, subtype)
+
+    state
+    |> query_entries(where_clause(where), args)
+    |> entries_result()
+  end
+
+  defp path_chunk_size(type, subtype) do
+    @sqlite_variable_limit - Enum.count([type, subtype], &(&1 != :_))
   end
 
   defp entries_result({:ok, rows}) do

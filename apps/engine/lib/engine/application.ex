@@ -15,6 +15,7 @@ defmodule Engine.Application do
           Engine.Api.Proxy,
           Engine.Commands.Reindex,
           Engine.Module.Loader,
+          Engine.Compilation.TraceBuffer,
           Engine.Dispatch,
           Engine.ModuleMappings,
           Engine.Build,

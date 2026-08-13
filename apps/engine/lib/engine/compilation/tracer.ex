@@ -2,10 +2,12 @@ defmodule Engine.Compilation.Tracer do
   import Forge.EngineApi.Messages
 
   alias Engine.Build
+  alias Engine.Compilation.TraceBuffer
   alias Engine.Module.Loader
   alias Engine.Progress
 
   def trace({:on_module, module_binary, _filename}, %Macro.Env{} = env) do
+    maybe_record_module(env.file, module_binary)
     message = extract_module_updated(env.module, module_binary, env.file)
     maybe_report_progress(env.file)
     Engine.broadcast(message)
@@ -48,6 +50,13 @@ defmodule Engine.Compilation.Tracer do
       Progress.report(token, message: progress_message(file))
     end
   end
+
+  defp maybe_record_module(file, module_binary)
+       when is_binary(file) and is_binary(module_binary) do
+    TraceBuffer.record_module(file, module_binary)
+  end
+
+  defp maybe_record_module(_file, _module_binary), do: :ok
 
   defp progress_message(file) do
     relative_path_elements =

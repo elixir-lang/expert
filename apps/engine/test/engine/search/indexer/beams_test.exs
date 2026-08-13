@@ -93,6 +93,100 @@ defmodule Engine.Search.Indexer.BeamsTest do
       refute Enum.any?(entries, &(&1.subject == private_fun and &1.subtype == :definition))
     end
 
+    test "indexes definitions from module binaries", %{
+      tmp_dir: tmp_dir
+    } do
+      module = unique_module("BinaryDefinitions")
+
+      %{beam_paths_by_module: beam_paths_by_module} =
+        compile_source!(
+          tmp_dir,
+          """
+          defmodule #{inspect(module)} do
+            def public_fun, do: :ok
+          end
+          """,
+          expected_modules: [module],
+          rewrite_source?: false
+        )
+
+      {entries, _manifest_entries} = Beams.index([Map.fetch!(beam_paths_by_module, module)])
+
+      for {subject, type} <- [
+            {module, :module},
+            {Formats.mfa(module, :public_fun, 0), {:function, :public}}
+          ] do
+        assert Enum.any?(
+                 entries,
+                 &(&1.subject == subject and &1.type == type and &1.subtype == :definition)
+               )
+      end
+
+      assert %Entry{range: %{start: start_pos}} =
+               Enum.find(entries, &(&1.subject == Formats.mfa(module, :public_fun, 0)))
+
+      assert start_pos.line == 2
+      assert start_pos.valid?
+      assert start_pos.document_line_count >= start_pos.line
+      assert start_pos.context_line != nil
+    end
+
+    test "synthesizes contextual ranges for macro-generated definitions from beam metadata", %{
+      tmp_dir: tmp_dir
+    } do
+      macro_module = unique_module("GeneratedFunctionMacro")
+      target_module = unique_module("GeneratedFunctionTarget")
+
+      source = """
+      defmodule #{inspect(macro_module)} do
+        defmacro fun(name) do
+          quote do
+            def unquote(name), do: :ok
+          end
+        end
+      end
+
+      defmodule #{inspect(target_module)} do
+        require #{inspect(macro_module)}
+        #{inspect(macro_module)}.fun(gen)
+      end
+      """
+
+      %{beam_paths_by_module: beam_paths_by_module} =
+        compile_source!(tmp_dir, source,
+          expected_modules: [macro_module, target_module],
+          rewrite_source?: false
+        )
+
+      {entries, _manifest_entries} =
+        Beams.index([Map.fetch!(beam_paths_by_module, target_module)])
+
+      generated_fun = Formats.mfa(target_module, :gen, 0)
+
+      macro_call_line =
+        source |> String.split("\n") |> Enum.find_index(&String.contains?(&1, ".fun(gen)"))
+
+      macro_call_line = macro_call_line + 1
+      macro_call_text = source |> String.split("\n") |> Enum.at(macro_call_line - 1)
+      {gen_byte, _length} = :binary.match(macro_call_text, "gen)")
+      gen_column = macro_call_text |> binary_part(0, gen_byte) |> String.length() |> Kernel.+(1)
+
+      assert %Entry{range: range} =
+               Enum.find(
+                 entries,
+                 &(&1.subject == generated_fun and &1.type == {:function, :public} and
+                     &1.subtype == :definition)
+               )
+
+      assert range.start.line == macro_call_line
+      assert range.start.character == gen_column
+      assert range.end.line == macro_call_line
+      assert range.end.character == gen_column + String.length("gen")
+      assert range.start.valid?
+      assert range.start.document_line_count == range.start.line
+      assert range.start.context_line != nil
+    end
+
     test "does not run the source indexer for BEAM-backed entries", %{tmp_dir: tmp_dir} do
       patch(Engine.Search.Indexer.Source, :index, fn _path, _source, _extractors ->
         flunk("BEAM indexing must not call the source indexer")
