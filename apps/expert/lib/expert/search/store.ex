@@ -58,7 +58,8 @@ defmodule Expert.Search.Store do
     call_or_default(project, {:fuzzy, subject, constraints}, [])
   end
 
-  @spec all(Project.t(), Entry.constraints()) :: {:ok, [Entry.t()]} | {:error, term()} | []
+  @spec all(Project.t(), [Entry.constraint() | {:paths, [Path.t()]}]) ::
+          {:ok, [Entry.t()]} | {:error, term()} | []
   def all(%Project{} = project, constraints \\ []) do
     call_or_default(project, {:all, constraints}, [])
   end

@@ -45,6 +45,8 @@ defmodule Expert.Search.Store.Backend do
                 Entry.t()
               ]
               | {:error, any()}
+  @callback find_by_paths(Project.t(), [Path.t()], type_query(), subtype_query()) ::
+              [Entry.t()] | {:error, any()}
   @callback siblings(Project.t(), Entry.t()) ::
               [Entry.t()] | :error | {:ok, [Entry.t()]} | {:error, any()}
   @callback parent(Project.t(), Entry.t()) :: {:ok, Entry.t()} | :error | {:error, any()}

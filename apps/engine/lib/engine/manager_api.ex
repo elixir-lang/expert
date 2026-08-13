@@ -57,7 +57,7 @@ defmodule Engine.ManagerApi do
     )
   end
 
-  @spec search_store_all(Project.t(), Entry.constraints()) ::
+  @spec search_store_all(Project.t(), [Entry.constraint() | {:paths, [Path.t()]}]) ::
           {:ok, [Entry.t()]} | {:error, term()} | []
   def search_store_all(%Project{} = project, constraints \\ []) do
     Dispatch.erpc_call(Expert.Search.Store, :all, [project, constraints], @search_timeout)

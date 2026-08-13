@@ -25,6 +25,8 @@ defmodule Expert.Search.Store.StateTest do
     def find_by_prefix(_project, _prefix, _type, _subtype), do: []
     def find_by_ids(_project, [2], :module, :definition), do: [entry(2)]
     def find_by_ids(_project, _ids, _type, _subtype), do: []
+    def find_by_paths(_project, ["/query_backend.ex"], :module, :definition), do: [entry(3)]
+    def find_by_paths(_project, _paths, _type, _subtype), do: []
     def path_to_ids(_project), do: %{}
     def definitions_for_fuzzy(_project), do: []
     def siblings(_project, _entry), do: []
@@ -60,6 +62,7 @@ defmodule Expert.Search.Store.StateTest do
     def find_by_subject(_project, _subject, _type, _subtype), do: []
     def find_by_prefix(_project, _prefix, _type, _subtype), do: []
     def find_by_ids(_project, _ids, _type, _subtype), do: []
+    def find_by_paths(_project, _paths, _type, _subtype), do: []
     def path_to_ids(_project), do: %{}
     def definitions_for_fuzzy(_project), do: []
     def siblings(_project, _entry), do: []
@@ -98,6 +101,9 @@ defmodule Expert.Search.Store.StateTest do
     }
 
     assert {:ok, [%Entry{id: 1}]} = State.all(state, type: :module, subtype: :definition)
+
+    assert {:ok, [%Entry{id: 3}]} =
+             State.all(state, paths: ["/query_backend.ex"], type: :module, subtype: :definition)
 
     assert {:ok, [%Entry{id: 2}]} =
              State.fuzzy(state, "Needle", type: :module, subtype: :definition)

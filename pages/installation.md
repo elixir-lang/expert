@@ -96,6 +96,7 @@ appropriate binary name.
 7. [Helix](#helix)
 8. [Sublime Text](#sublime-text)
 9. [Zed](#zed)
+10. [Termux](#termux)
 
 ### Vanilla Emacs with lsp-mode
 The emacs instructions assume you're using `use-package`, which you
@@ -384,3 +385,20 @@ So, first install the extension and then update your `settings.json` to use Expe
 ```
 
 The Elixir extension will [download the latest Expert release](https://github.com/zed-extensions/elixir/blob/96fd0581d84cfac857a23c1351e2405836de39fd/src/language_servers/expert.rs#L65) and keep it updated. So, you don't need to manually download and update the expert release yourself.
+
+### Termux
+
+If using Termux, you will need to wrap Expert with `termux-chroot`. Expert distributables uses `erlexec`, which expects `/tmp` to be accessible. Termux does not provide access to it, resulting in `error: FileNotFound` being printed when launching Expert.
+
+To workaround this, first install the `proot` package:
+
+```sh
+pkg install proot
+```
+
+Then launch Expert with `termux-chroot`:
+
+```sh
+termux-chroot expert --help
+```
+

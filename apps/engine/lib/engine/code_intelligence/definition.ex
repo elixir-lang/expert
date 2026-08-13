@@ -1,5 +1,7 @@
 defmodule Engine.CodeIntelligence.Definition do
+  alias ElixirSense.Core.Introspection
   alias ElixirSense.Providers.Location, as: ElixirSenseLocation
+  alias Engine.CodeIntelligence.Definition.ArityFallback
   alias Engine.CodeIntelligence.Entity
   alias Engine.ManagerApi
   alias Forge.Ast
@@ -56,17 +58,7 @@ defmodule Engine.CodeIntelligence.Definition do
     definitions =
       mfa
       |> query_search_index(subtype: :definition)
-      |> Stream.flat_map(fn entry ->
-        case entry do
-          %Entry{type: {:function, :delegate}} ->
-            mfa = get_in(entry, [:metadata, :original_mfa])
-            query_search_index(mfa, subtype: :definition) ++ [entry]
-
-          _ ->
-            [entry]
-        end
-      end)
-      |> Stream.uniq_by(& &1.subject)
+      |> expand_definitions()
 
     locations =
       for entry <- definitions,
@@ -74,6 +66,31 @@ defmodule Engine.CodeIntelligence.Definition do
           match?({:ok, _}, result) do
         {:ok, location} = result
         location
+      end
+
+    locations =
+      case locations do
+        [] ->
+          prefix = "#{Formats.module(module)}.#{function}/"
+
+          definitions =
+            prefix
+            |> query_search_index_by_prefix(subtype: :definition)
+            |> expand_definitions()
+            |> Enum.sort_by(&arity_from_subject/1)
+
+          for entry <- definitions,
+              result = to_location(entry),
+              match?({:ok, _}, result) do
+            {:ok, location} = result
+            location
+          end
+          # A function with default arguments is indexed under several arities
+          # that all point at the same definition, so dedupe by source range.
+          |> Enum.uniq_by(&{&1.document.uri, &1.range})
+
+        locations ->
+          locations
       end
 
     maybe_fallback_to_elixir_sense(resolved, locations, analysis, position)
@@ -89,7 +106,14 @@ defmodule Engine.CodeIntelligence.Definition do
         Logger.info("No definition found for #{inspect(resolved)} with Indexer.")
 
         analysis = Engine.CodeIntelligence.Heex.maybe_normalize(analysis, position)
-        elixir_sense_definition(analysis, position)
+
+        case elixir_sense_definition(analysis, position) do
+          {:ok, nil} ->
+            elixir_sense_definitions_for_other_arities(resolved, analysis.document)
+
+          result ->
+            result
+        end
 
       [location] ->
         {:ok, location}
@@ -105,6 +129,35 @@ defmodule Engine.CodeIntelligence.Definition do
     |> ElixirSense.definition(position.line, position.character)
     |> parse_location(analysis.document)
   end
+
+  defp elixir_sense_definitions_for_other_arities(
+         {:call, module, function, requested_arity},
+         document
+       )
+       when is_atom(module) and not is_nil(module) do
+    locations =
+      module
+      |> Introspection.get_exports()
+      |> ArityFallback.other_arities(function, requested_arity)
+      |> Enum.flat_map(fn arity ->
+        module
+        |> ElixirSenseLocation.find_mod_fun_source(function, arity)
+        |> parse_location(document)
+        |> case do
+          {:ok, location} when not is_nil(location) -> [location]
+          _ -> []
+        end
+      end)
+      |> Enum.uniq_by(&{&1.document.uri, &1.range})
+
+    case locations do
+      [] -> {:ok, nil}
+      [location] -> {:ok, location}
+      locations -> {:ok, locations}
+    end
+  end
+
+  defp elixir_sense_definitions_for_other_arities(_, _document), do: {:ok, nil}
 
   defp parse_location(%ElixirSenseLocation{} = location, document) do
     %{file: file, line: line, column: column, type: type} = location
@@ -183,6 +236,44 @@ defmodule Engine.CodeIntelligence.Definition do
 
       _ ->
         []
+    end
+  end
+
+  defp query_search_index_by_prefix(prefix, condition) do
+    case ManagerApi.search_store_prefix(Engine.get_project(), prefix, condition) do
+      {:ok, entries} ->
+        entries
+
+      _ ->
+        []
+    end
+  end
+
+  defp expand_definitions(entries) do
+    entries
+    |> Stream.flat_map(fn entry ->
+      case entry do
+        %Entry{
+          type: {:function, :delegate},
+          metadata: %{original_mfa: mfa}
+        } ->
+          query_search_index(mfa, subtype: :definition) ++ [entry]
+
+        _ ->
+          [entry]
+      end
+    end)
+    |> Enum.uniq_by(& &1.subject)
+  end
+
+  defp arity_from_subject(%Entry{subject: subject}) do
+    subject
+    |> String.split("/")
+    |> List.last()
+    |> Integer.parse()
+    |> case do
+      {arity, _} -> arity
+      :error -> :infinity
     end
   end
 end

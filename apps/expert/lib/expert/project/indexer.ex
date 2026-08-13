@@ -22,6 +22,7 @@ defmodule Expert.Project.Indexer do
       :task_supervisor,
       :create_index,
       :update_index,
+      :trace_batch,
       :initial_compile?,
       pending?: false
     ]
@@ -93,6 +94,8 @@ defmodule Expert.Project.Indexer do
   @impl GenServer
   def handle_info(project_compiled(status: status), %State{} = state)
       when status in [:success, :successful, :error] do
+    trace_batch = if status == :error, do: %{}, else: drain_trace_definitions(state)
+    state = %State{state | trace_batch: trace_batch}
     {:noreply, start_or_queue_index(state)}
   end
 
@@ -100,15 +103,16 @@ defmodule Expert.Project.Indexer do
     Process.demonitor(ref, [:flush])
     log_index_result(result)
 
-    state = %State{state | task: nil}
-    {:noreply, maybe_run_pending(state)}
+    {:noreply, complete_index(state, result)}
   end
 
-  def handle_info({:DOWN, ref, :process, _pid, reason}, %State{task: %Task{ref: ref}} = state) do
+  def handle_info(
+        {:DOWN, ref, :process, _pid, reason},
+        %State{task: %Task{ref: ref}} = state
+      ) do
     Logger.error("Search indexing failed: #{Exception.format_exit(reason)}")
 
-    state = %State{state | task: nil}
-    {:noreply, maybe_run_pending(state)}
+    {:noreply, complete_index(state, {:error, reason})}
   end
 
   def handle_info(_message, %State{} = state), do: {:noreply, state}
@@ -124,20 +128,89 @@ defmodule Expert.Project.Indexer do
     %State{state | task: task, pending?: false}
   end
 
-  defp maybe_run_pending(%State{pending?: true} = state) do
-    state
-    |> Map.put(:pending?, false)
-    |> start_or_queue_index()
+  defp complete_index(%State{pending?: true} = state, _result),
+    do: start_or_queue_index(%State{state | task: nil, pending?: false})
+
+  defp complete_index(%State{} = state, :ok) do
+    state = %State{state | task: nil}
+
+    case apply_trace_definitions(state.project, state.trace_batch) do
+      :ok ->
+        broadcast_index_ready(state)
+
+      {:error, reason} ->
+        Logger.warning("Could not apply compiler trace index supplement: #{inspect(reason)}")
+        broadcast_index_ready(state)
+    end
   end
 
-  defp maybe_run_pending(%State{} = state), do: state
+  defp complete_index(%State{} = state, _result) do
+    %State{state | task: nil, trace_batch: nil}
+  end
 
   defp run_index(%Project{} = project, create_index, update_index) do
-    with :ok <- Search.Store.enable(project),
-         :ok <-
-           persist_index(project, Search.Store.load_status(project), create_index, update_index) do
-      EngineApi.broadcast(project, project_index_ready(project: project))
+    with :ok <- Search.Store.enable(project) do
+      persist_index(project, Search.Store.load_status(project), create_index, update_index)
     end
+  end
+
+  defp broadcast_index_ready(%State{} = state) do
+    EngineApi.broadcast(state.project, project_index_ready(project: state.project))
+    %State{state | trace_batch: nil}
+  end
+
+  defp drain_trace_definitions(%State{project: project}) do
+    case EngineApi.call(project, Engine.Compilation.TraceBuffer, :drain_definitions, []) do
+      {:ok, entries_by_path} when is_map(entries_by_path) ->
+        entries_by_path
+
+      {:error, reason} ->
+        Logger.warning("Could not drain compiler trace index supplement: #{inspect(reason)}")
+        %{}
+    end
+  end
+
+  defp apply_trace_definitions(_project, trace_batch) when map_size(trace_batch) == 0, do: :ok
+
+  defp apply_trace_definitions(%Project{} = project, trace_batch) when is_map(trace_batch) do
+    with {:ok, current_entries} <- Search.Store.all(project, paths: Map.keys(trace_batch)) do
+      trace_entries = missing_trace_entries(current_entries, trace_batch)
+
+      case trace_entries do
+        [] -> :ok
+        [_ | _] -> Search.Store.apply_index_update(project, current_entries ++ trace_entries, [])
+      end
+    end
+  end
+
+  defp missing_trace_entries(current_entries, trace_batch) do
+    current_keys =
+      current_entries
+      |> Enum.filter(&definition?/1)
+      |> MapSet.new(&definition_identity/1)
+
+    trace_entries =
+      trace_batch
+      |> Enum.flat_map(fn {_path, entries} -> entries end)
+      |> Enum.filter(&definition?/1)
+
+    {_keys, missing_entries} =
+      Enum.reduce(trace_entries, {current_keys, []}, fn entry, {keys, entries} ->
+        key = definition_identity(entry)
+
+        if MapSet.member?(keys, key),
+          do: {keys, entries},
+          else: {MapSet.put(keys, key), [entry | entries]}
+      end)
+
+    Enum.reverse(missing_entries)
+  end
+
+  defp definition?(%{subtype: :definition}), do: true
+  defp definition?(_entry), do: false
+
+  defp definition_identity(%{path: path, subject: subject, subtype: :definition, type: type}) do
+    {path, subject, :definition, type}
   end
 
   defp persist_index(%Project{} = project, :empty, create_index, _update_index) do
@@ -181,9 +254,11 @@ defmodule Expert.Project.Indexer do
 
   defp log_index_result(:ok), do: :ok
 
-  defp log_index_result({:error, reason}),
-    do: Logger.warning("Could not refresh index: #{inspect(reason)}")
+  defp log_index_result({:error, reason}) do
+    Logger.warning("Could not refresh index: #{inspect(reason)}")
+  end
 
-  defp log_index_result(other),
-    do: Logger.warning("Unexpected index refresh result: #{inspect(other)}")
+  defp log_index_result(other) do
+    Logger.warning("Unexpected index refresh result: #{inspect(other)}")
+  end
 end

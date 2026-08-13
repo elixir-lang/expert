@@ -191,23 +191,30 @@ defmodule Engine.CodeMod.Format.Resolver do
 
   defp mix_formatter_from_task(%Project{} = project, file_path) do
     root_path = Project.root_path(project)
-    deps_paths = Engine.deps_paths()
+    dot_formatter = Path.join(root_path, ".formatter.exs")
+    deps_formatter_opts = Engine.Mix.deps_formatter_opts()
 
-    task_module =
-      if Features.formatter_has_plugin_loader?() do
-        Mix.Tasks.Format
+    opts = [
+      root: root_path,
+      deps_paths: Engine.Mix.deps_paths(),
+      plugin_loader: fn plugins -> Enum.filter(plugins, &Code.ensure_loaded?/1) end
+    ]
+
+    {task_module, opts} =
+      if deps_formatter_opts == %{} and Features.formatter_has_plugin_loader?() do
+        {Mix.Tasks.Format, opts}
       else
-        Mix.Tasks.Future.Format
+        opts = Keyword.put(opts, :deps_formatter_opts, deps_formatter_opts)
+
+        opts =
+          if File.regular?(dot_formatter),
+            do: Keyword.put(opts, :dot_formatter, dot_formatter),
+            else: opts
+
+        {Mix.Tasks.Future.Format, opts}
       end
 
-    formatter_and_opts =
-      task_module.formatter_for_file(file_path,
-        root: root_path,
-        deps_paths: deps_paths,
-        plugin_loader: fn plugins -> Enum.filter(plugins, &Code.ensure_loaded?/1) end
-      )
-
-    {:ok, formatter_and_opts}
+    {:ok, task_module.formatter_for_file(file_path, opts)}
   rescue
     ex ->
       Logger.error("Cannot find formatter due to: #{inspect(ex)}")

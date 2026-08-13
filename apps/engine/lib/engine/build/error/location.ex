@@ -66,21 +66,21 @@ defmodule Engine.Build.Error.Location do
   def uniq(diagnostics) do
     exacts = Enum.filter(diagnostics, fn diagnostic -> match?(%Range{}, diagnostic.position) end)
 
-    extract_line = fn
-      %Result{position: {line, _column}} -> line
-      %Result{position: line} -> line
+    extract_uri_and_line = fn
+      %Result{uri: uri, position: {line, _column}} -> {uri, line}
+      %Result{uri: uri, position: line} -> {uri, line}
     end
 
     # Note: Sometimes error and warning appear on one line at the same time
-    # So we need to uniq by line and severity,
+    # So we need to uniq by URI, line, and severity,
     # and :error is always more important than :warning
-    extract_line_and_severity = &{extract_line.(&1), &1.severity}
+    extract_uri_line_and_severity = &{extract_uri_and_line.(&1), &1.severity}
 
     filtered =
       diagnostics
       |> Enum.filter(fn diagnostic -> not match?(%Range{}, diagnostic.position) end)
-      |> Enum.sort_by(extract_line_and_severity)
-      |> Enum.uniq_by(extract_line)
+      |> Enum.sort_by(extract_uri_line_and_severity)
+      |> Enum.uniq_by(extract_uri_and_line)
       |> reject_zeroth_line()
 
     exacts ++ filtered

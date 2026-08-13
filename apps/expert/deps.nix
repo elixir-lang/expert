@@ -308,7 +308,7 @@ let
 
       finch =
         let
-          version = "0.20.0";
+          version = "0.23.0";
           drv = buildMix {
             inherit version;
             name = "finch";
@@ -317,7 +317,7 @@ let
             src = fetchHex {
               inherit version;
               pkg = "finch";
-              sha256 = "2658131a74d051aabfcba936093c903b8e89da9a1b63e430bee62045fa9b2ee2";
+              sha256 = "80e58d3f936f57e3fdf404f83a3642897ae6d9fb642934e46da4d8fe761b99d5";
             };
 
             beamDeps = [
@@ -441,7 +441,7 @@ let
 
       mint =
         let
-          version = "1.9.1";
+          version = "1.9.3";
           drv = buildMix {
             inherit version;
             name = "mint";
@@ -450,7 +450,7 @@ let
             src = fetchHex {
               inherit version;
               pkg = "mint";
-              sha256 = "831101bd560b086316fab5f7adb21a4f3455717d8e4bc8368b052e09aa9163e0";
+              sha256 = "5f7c9342480c069dbbc4eeac3490303c9e01870ff01a7f1d29b6107054fc1e74";
             };
 
             beamDeps = [
@@ -534,7 +534,7 @@ let
 
       req =
         let
-          version = "0.5.15";
+          version = "0.7.1";
           drv = buildMix {
             inherit version;
             name = "req";
@@ -543,7 +543,7 @@ let
             src = fetchHex {
               inherit version;
               pkg = "req";
-              sha256 = "a6513a35fad65467893ced9785457e91693352c70b58bbc045b47e5eb2ef0c53";
+              sha256 = "254638b15ceb9a2624d15aff13bf7903ea2e95cd4b9c1aa18da1fb06e1086b50";
             };
 
             beamDeps = [
@@ -612,7 +612,7 @@ let
 
       telemetry =
         let
-          version = "1.3.0";
+          version = "1.4.2";
           drv = buildRebar3 {
             inherit version;
             name = "telemetry";
@@ -620,7 +620,7 @@ let
             src = fetchHex {
               inherit version;
               pkg = "telemetry";
-              sha256 = "7015fc8919dbe63764f4b4b87a95b7c0996bd539e0d499be6ec9d7f3875b79e6";
+              sha256 = "928f6495066506077862c0d1646609eed891a4326bee3126ba54b60af61febb1";
             };
           };
         in
