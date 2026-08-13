@@ -56,6 +56,28 @@ defmodule Engine.Build.ErrorTest do
       assert String.starts_with?(normalized.uri, "file://")
       assert String.ends_with?(normalized.uri, "lib/dummy.ex")
     end
+
+    test "keeps same-line diagnostics from different files" do
+      diagnostics = [
+        %Mix.Task.Compiler.Diagnostic{
+          file: "lib/first.ex",
+          severity: :warning,
+          message: "first",
+          position: 2,
+          compiler_name: "Boundary"
+        },
+        %Mix.Task.Compiler.Diagnostic{
+          file: "lib/second.ex",
+          severity: :warning,
+          message: "second",
+          position: 2,
+          compiler_name: "Boundary"
+        }
+      ]
+
+      assert [%{uri: first_uri}, %{uri: second_uri}] = Build.Error.refine_diagnostics(diagnostics)
+      assert first_uri != second_uri
+    end
   end
 
   describe "diagnostic/3" do

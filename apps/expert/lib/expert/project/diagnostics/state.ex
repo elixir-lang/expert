@@ -34,21 +34,40 @@ defmodule Expert.Project.Diagnostics.State do
     end
   end
 
-  defstruct project: nil, entries_by_uri: %{}
+  defstruct project: nil, entries_by_uri: %{}, file_entries_by_uri: %{}
 
   def new(%Project{} = project) do
     %__MODULE__{project: project}
   end
 
   def get(%__MODULE__{} = state, source_uri) do
-    entry = Map.get(state.entries_by_uri, source_uri, Entry.new(0))
-    Entry.diagnostics(entry)
+    project_diagnostics =
+      state.entries_by_uri
+      |> Map.get(source_uri, Entry.new(0))
+      |> Entry.diagnostics()
+
+    file_diagnostics =
+      state.file_entries_by_uri
+      |> Map.get(source_uri, Entry.new(0))
+      |> Entry.diagnostics()
+
+    project_diagnostics ++ file_diagnostics
+  end
+
+  def diagnostics_by_uri(%__MODULE__{} = state) do
+    uris =
+      state.entries_by_uri
+      |> Map.keys()
+      |> MapSet.new()
+      |> MapSet.union(MapSet.new(Map.keys(state.file_entries_by_uri)))
+
+    Map.new(uris, &{&1, get(state, &1)})
   end
 
   def clear(%__MODULE__{} = state, source_uri) do
-    new_entries = Map.put(state.entries_by_uri, source_uri, Entry.new(0))
+    file_entries = Map.put(state.file_entries_by_uri, source_uri, Entry.new(0))
 
-    %__MODULE__{state | entries_by_uri: new_entries}
+    %__MODULE__{state | file_entries_by_uri: file_entries}
   end
 
   @doc """
@@ -57,31 +76,14 @@ defmodule Expert.Project.Diagnostics.State do
   that exists on the disk is actually an older copy of the file in memory.
   """
   def clear_all_flushed(%__MODULE__{} = state) do
-    cleared =
-      Map.new(state.entries_by_uri, fn {uri, %Entry{} = entry} ->
-        with true <- Document.Store.open?(uri),
-             {:ok, %Document{} = document} <- Document.Store.fetch(uri),
-             true <- keep_diagnostics?(document) do
-          {uri, entry}
-        else
-          _ ->
-            {uri, Entry.new(0)}
-        end
-      end)
+    entries_by_uri = clear_flushed(state.entries_by_uri)
+    file_entries_by_uri = clear_flushed(state.file_entries_by_uri)
 
-    %__MODULE__{state | entries_by_uri: cleared}
+    %__MODULE__{state | entries_by_uri: entries_by_uri, file_entries_by_uri: file_entries_by_uri}
   end
 
   def add(%__MODULE__{} = state, build_number, %Diagnostic.Result{} = diagnostic) do
-    entries_by_uri =
-      Map.update(
-        state.entries_by_uri,
-        diagnostic.uri,
-        Entry.new(build_number, diagnostic),
-        fn entry ->
-          Entry.add(entry, build_number, diagnostic)
-        end
-      )
+    entries_by_uri = add_to_entries(state.entries_by_uri, build_number, diagnostic)
 
     %__MODULE__{state | entries_by_uri: entries_by_uri}
   end
@@ -89,6 +91,36 @@ defmodule Expert.Project.Diagnostics.State do
   def add(%__MODULE__{} = state, _build_number, other) do
     Logger.error("Invalid diagnostic: #{inspect(other)}")
     state
+  end
+
+  def add_file(%__MODULE__{} = state, build_number, %Diagnostic.Result{} = diagnostic) do
+    file_entries_by_uri = add_to_entries(state.file_entries_by_uri, build_number, diagnostic)
+
+    %__MODULE__{state | file_entries_by_uri: file_entries_by_uri}
+  end
+
+  defp add_to_entries(entries_by_uri, build_number, diagnostic) do
+    Map.update(
+      entries_by_uri,
+      diagnostic.uri,
+      Entry.new(build_number, diagnostic),
+      fn entry ->
+        Entry.add(entry, build_number, diagnostic)
+      end
+    )
+  end
+
+  defp clear_flushed(entries_by_uri) do
+    Map.new(entries_by_uri, fn {uri, %Entry{} = entry} ->
+      with true <- Document.Store.open?(uri),
+           {:ok, %Document{} = document} <- Document.Store.fetch(uri),
+           true <- keep_diagnostics?(document) do
+        {uri, entry}
+      else
+        _ ->
+          {uri, Entry.new(0)}
+      end
+    end)
   end
 
   defp keep_diagnostics?(%Document{} = document) do

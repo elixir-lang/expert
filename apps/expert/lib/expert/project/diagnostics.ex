@@ -71,7 +71,7 @@ defmodule Expert.Project.Diagnostics do
 
         diagnostics ->
           Enum.reduce(diagnostics, state, fn diagnostic, state ->
-            State.add(state, build_number, diagnostic)
+            State.add_file(state, build_number, diagnostic)
           end)
       end
 
@@ -94,9 +94,8 @@ defmodule Expert.Project.Diagnostics do
   # Private
 
   defp publish_diagnostics(%State{} = state) do
-    Enum.each(state.entries_by_uri, fn {uri, %State.Entry{} = entry} ->
-      with {:ok, diagnostics} <-
-             entry |> State.Entry.diagnostics() |> Expert.Protocol.Convert.to_lsp() do
+    Enum.each(State.diagnostics_by_uri(state), fn {uri, diagnostics} ->
+      with {:ok, diagnostics} <- Expert.Protocol.Convert.to_lsp(diagnostics) do
         GenLSP.notify(Expert.get_lsp(), %TextDocumentPublishDiagnostics{
           params: %Structures.PublishDiagnosticsParams{uri: uri, diagnostics: diagnostics}
         })
