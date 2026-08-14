@@ -82,6 +82,28 @@ defmodule Engine.CodeMod.Format.CacheTest do
     refute_called(Cache.State.put_dot_formatters(_, _))
   end
 
+  test "refresh retains a shared formatter until every path is closed", ctx do
+    patch_resolver()
+
+    assert {:ok, _, _} = Cache.fetch_formatter(ctx.project, ctx.ex_path)
+    assert {:ok, _, _} = Cache.fetch_formatter(ctx.project, ctx.other_ex_path)
+    assert_called(Resolver.resolve(_, _), 1)
+
+    :ok = ctx.ex_path |> Document.Path.to_uri() |> Document.Store.close()
+    refresh()
+
+    assert {:ok, _, _} = Cache.fetch_formatter(ctx.project, ctx.other_ex_path)
+    assert_called(Resolver.resolve(_, _), 1)
+
+    other_ex_uri = Document.Path.to_uri(ctx.other_ex_path)
+    :ok = Document.Store.close(other_ex_uri)
+    refresh()
+    :ok = Document.Store.open(other_ex_uri, "", 2)
+
+    assert {:ok, _, _} = Cache.fetch_formatter(ctx.project, ctx.other_ex_path)
+    assert_called(Resolver.resolve(_, _), 2)
+  end
+
   test "a changed .formatter.exs clears the cache on refresh", ctx do
     patch_resolver()
     assert {:ok, _, opts} = Cache.fetch_formatter(ctx.project, ctx.ex_path)
