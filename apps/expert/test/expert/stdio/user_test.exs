@@ -3,7 +3,7 @@ defmodule Expert.Stdio.UserTest do
 
   # The device is installed by the emulator at boot, so it can only be exercised by
   # booting a child VM with `-user` and reading its real file descriptors.
-  @protocol "PROTOCOL_BYTES_ON_FD1"
+  @protocol "Content-Length: 2\r\n\r\n{}"
 
   test "protocol bytes are the only thing on stdout" do
     stdout =
@@ -24,10 +24,10 @@ defmodule Expert.Stdio.UserTest do
       Logger.error("ROGUE_logger")
       Process.sleep(100)
 
-      :ok = Expert.Stdio.User.write("#{@protocol}")
+      :ok = Expert.Stdio.User.write(#{inspect(@protocol)})
       """)
 
-    assert String.trim(stdout) == @protocol
+    assert stdout == @protocol
   end
 
   test "ordinary IO is forwarded to stderr" do
@@ -70,15 +70,15 @@ defmodule Expert.Stdio.UserTest do
           2_000 -> Expert.Stdio.User.write("STDIN_TIMEOUT")
         end
         """,
-        stdin: "Content-Length: 2\r\n\r\n{}"
+        stdin: @protocol
       )
 
-    assert stdout == "Content-Length: 2\r\n\r\n{}"
+    assert stdout == @protocol
   end
 
-  # A dead descriptor is unrecoverable, so the VM goes down rather than lingering without a
+  # A dead stdio driver is unrecoverable, so the VM goes down rather than lingering without a
   # transport. It has to stay up long enough to report why, though.
-  test "losing the port shuts the VM down, but reports first" do
+  test "losing the driver shuts the VM down, but reports first" do
     merged =
       run(
         """
@@ -89,7 +89,7 @@ defmodule Expert.Stdio.UserTest do
         stderr: :merge
       )
 
-    assert merged =~ "stdio port terminated (:simulated_failure)"
+    assert merged =~ "stdio driver terminated (:simulated_failure)"
     refute merged =~ "STILL_RUNNING"
   end
 
@@ -127,19 +127,21 @@ defmodule Expert.Stdio.UserTest do
     # through the same way the release does.
     args = ["--erl", erl_flags, path] ++ if(opts[:stdio] == false, do: [], else: ["--stdio"])
 
-    # `elixir` is a batch file on Windows, which `spawn_executable` cannot run directly.
-    {executable, args} =
-      case :os.type() do
-        {:win32, _} -> {System.find_executable("cmd"), ["/c", elixir() | args]}
-        _ -> {elixir(), args}
-      end
-
-    port_opts = [:binary, :exit_status, args: args]
+    port_opts = [:binary, :exit_status]
 
     port_opts =
       if opts[:stderr] == :merge, do: [:stderr_to_stdout | port_opts], else: port_opts
 
-    port = Port.open({:spawn_executable, executable}, port_opts)
+    port =
+      case :os.type() do
+        {:win32, _} ->
+          command = Enum.map_join([elixir() | args], " ", &~s("#{&1}"))
+          Port.open({:spawn, command}, port_opts)
+
+        _ ->
+          Port.open({:spawn_executable, elixir()}, [{:args, args} | port_opts])
+      end
+
     if stdin = opts[:stdin], do: Port.command(port, stdin)
 
     collect(port, "")

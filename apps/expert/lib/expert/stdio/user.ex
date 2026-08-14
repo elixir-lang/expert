@@ -1,11 +1,11 @@
 defmodule Expert.Stdio.User do
   @moduledoc """
-  An alternative to OTP's `user_drv` that allows Expert to isolate `:stdio` to GenLSP's Buffer.
+  A `:user` device that isolates `:stdio` to GenLSP's Buffer.
 
   Installed with the `-user` emulator flag in `vm.args.eex` which makes `user_sup` call `start/0`
-  rather than Erlang's `user_drv`. Ordinary `io_request`s are forwarded verbatim to `:standard_error`,
-  so anything written through `IO`, `:io`, `Logger` or a dependency lands on stderr. Protocol bytes
-  travel over a private message instead, which is what keeps a stray `IO.inspect/2` off the LSP channel.
+  rather than Erlang's `user_drv`. We start `user_drv` after registering this process, so OTP still
+  owns the platform-specific stdin/stdout handling but sends input here. Ordinary `io_request`s are
+  forwarded to `:standard_error`; only protocol writes are sent to `user_drv`.
   """
 
   use GenServer
@@ -34,6 +34,14 @@ defmodule Expert.Stdio.User do
 
   ## Init
 
+  defp user_drv_options do
+    if String.to_integer(System.otp_release()) >= 28 do
+      %{initial_shell: :noshell, input: :cooked}
+    else
+      %{initial_shell: :noshell}
+    end
+  end
+
   @doc """
   Entry point for the `-user` boot flag, invoked by `user_sup` rather than directly.
   """
@@ -51,8 +59,11 @@ defmodule Expert.Stdio.User do
   def init(_args) do
     Process.flag(:trap_exit, true)
     stderr = Process.whereis(:standard_error) || exit(:standard_error_not_started)
+    driver = :user_drv.start(user_drv_options())
+    Process.link(driver)
+    request_input(driver)
 
-    {:ok, State.new(stderr, Port.open({:fd, 0, 1}, [:binary, :stream, :eof]))}
+    {:ok, State.new(stderr, driver)}
   end
 
   ## Callbacks
@@ -136,18 +147,21 @@ defmodule Expert.Stdio.User do
     {:noreply, state}
   end
 
-  def handle_info({port, {:data, bytes}}, %State{port: port, reader: reader} = state)
+  def handle_info({driver, {:data, bytes}}, %State{port: driver, reader: reader} = state)
       when is_pid(reader) do
     send(reader, {:lsp_stdin, bytes})
+    request_input(driver)
 
     {:noreply, state}
   end
 
-  def handle_info({port, {:data, bytes}}, %State{port: port, reader: nil} = state) do
+  def handle_info({driver, {:data, bytes}}, %State{port: driver, reader: nil} = state) do
+    request_input(driver)
+
     {:noreply, %State{state | pending: state.pending <> bytes}}
   end
 
-  def handle_info({port, :eof}, %State{port: port} = state) do
+  def handle_info({driver, :eof}, %State{port: driver} = state) do
     if state.reader, do: send(state.reader, :lsp_stdin_eof)
 
     {:noreply, %State{state | eof?: true}}
@@ -166,8 +180,8 @@ defmodule Expert.Stdio.User do
   end
 
   # Lost stdio -> Initiate an async shutdown and continue this process so logs can write.
-  def handle_info({:EXIT, port, reason}, %State{port: port} = state) do
-    message = "stdio port terminated (#{inspect(reason)}), shutting down\n"
+  def handle_info({:EXIT, driver, reason}, %State{port: driver} = state) do
+    message = "stdio driver terminated (#{inspect(reason)}), shutting down\n"
     send(state.stderr, {:io_request, self(), make_ref(), {:put_chars, :unicode, message}})
 
     System.stop()
@@ -180,13 +194,23 @@ defmodule Expert.Stdio.User do
 
   defp io_reply(from, reply_as, reply), do: send(from, {:io_reply, reply_as, reply})
 
-  defp write_packet(port, packet) do
-    true = Port.command(port, packet)
+  defp request_input(driver) do
+    if String.to_integer(System.otp_release()) >= 28 do
+      send(driver, {self(), :read, 0})
+    end
+  end
 
-    :ok
-  rescue
-    error -> {:error, error}
-  catch
-    kind, reason -> {:error, {kind, reason}}
+  defp write_packet(driver, packet) do
+    reply_as = {self(), make_ref()}
+    send(driver, {self(), {:put_chars_sync, :unicode, IO.iodata_to_binary(packet), reply_as}})
+
+    receive do
+      {:reply, ^reply_as, reply} ->
+        reply
+
+      {:EXIT, ^driver, reason} = exit_message ->
+        send(self(), exit_message)
+        {:error, reason}
+    end
   end
 end
