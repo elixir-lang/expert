@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.1.9](https://github.com/expert-lsp/expert/compare/v0.1.8...v0.1.9) (2026-08-14)
+
+
+### Bug Fixes
+
+* don't discard multiple diagnostics from file and project compilation ([#849](https://github.com/expert-lsp/expert/issues/849)) ([6e768c0](https://github.com/expert-lsp/expert/commit/6e768c001af7cd6397ab05d9796ba5e29c89f733))
+* don't use token_metadata option when compiling ([#851](https://github.com/expert-lsp/expert/issues/851)) ([c29f228](https://github.com/expert-lsp/expert/commit/c29f228cf8e839c19a1bf9d7e22060ba2210b257))
+* incorrect undefined protocol function diagnostic ([#821](https://github.com/expert-lsp/expert/issues/821)) ([dfbce7c](https://github.com/expert-lsp/expert/commit/dfbce7c8da1c2db1d3782493d56840795dd70e0e))
+* properly calculate callback completion line range ([#850](https://github.com/expert-lsp/expert/issues/850)) ([2cffb1b](https://github.com/expert-lsp/expert/commit/2cffb1b7ed0900494cd2223481fb725bbfa3a1a4))
+
 ## [0.1.8](https://github.com/expert-lsp/expert/compare/v0.1.7...v0.1.8) (2026-07-27)
 
 
