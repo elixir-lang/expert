@@ -71,6 +71,17 @@ defmodule Engine.Build.StateTest do
     :ok
   end
 
+  describe "compiler options" do
+    test "does not attach token metadata during project compilation" do
+      compiler_options = Code.compiler_options()
+      on_exit(fn -> Code.compiler_options(compiler_options) end)
+
+      State.set_compiler_options()
+
+      assert Code.get_compiler_option(:parser_options) == [columns: true]
+    end
+  end
+
   describe "throttled document compilation" do
     setup [:with_metadata_project, :with_a_valid_document, :with_patched_compilation]
 

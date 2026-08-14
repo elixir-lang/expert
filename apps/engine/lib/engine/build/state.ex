@@ -231,7 +231,7 @@ defmodule Engine.Build.State do
   end
 
   defp parser_options do
-    [columns: true, token_metadata: true]
+    [columns: true]
   end
 
   defp increment_build_number(%__MODULE__{} = state) do
