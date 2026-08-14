@@ -130,6 +130,16 @@ defmodule Engine.BuildTest do
     end
   end
 
+  describe "compiling transformed block AST" do
+    test "does not add token metadata that breaks generated AST formatting" do
+      {:ok, project} = with_project(:token_metadata_compilation)
+      EngineApi.schedule_compile(project, true)
+
+      assert_receive project_compiled(status: :success), @project_compile_timeout
+      assert_receive project_diagnostics(diagnostics: [])
+    end
+  end
+
   describe "compilng a project with parse errors" do
     setup :with_parse_errors_project
 
