@@ -10,14 +10,16 @@ defmodule Engine.Commands.Rename do
   module names. Without reindexing, subsequent renames won't find the new entries.
   """
 
+  use GenServer
+
+  import Forge.EngineApi.Messages
+
   alias Engine.Commands.Reindex
-  alias Engine.Search.Store
+  alias Engine.ManagerApi
+  alias Forge.Document
   alias Forge.EngineApi.Messages
 
   require Logger
-  import Messages
-
-  use GenServer
 
   defmodule State do
     @moduledoc false
@@ -103,7 +105,8 @@ defmodule Engine.Commands.Rename do
       end)
 
       Enum.each(state.paths_to_delete, fn uri ->
-        Store.clear(uri)
+        project = Engine.get_project()
+        ManagerApi.search_store_clear(project, Document.Path.ensure_path(uri))
         state.on_update_progress.(1, "deleting old index")
       end)
     end

@@ -9,26 +9,28 @@ defmodule Expert.State.RenameProgressTest do
   These tests verify the full rename flow from State → EngineApi → Engine.
   """
 
-  alias Expert.Configuration
-  alias Expert.EngineApi
-  alias Expert.State
-  alias Engine.Commands.Rename
-  alias Engine.Commands.RenameSupervisor
-  alias Forge.Document
+  use ExUnit.Case, async: false
+  use Patch
 
   import Forge.EngineApi.Messages
   import Forge.Test.Fixtures
 
-  use ExUnit.Case, async: false
-  use Patch
+  alias Engine.Commands.Rename
+  alias Engine.Commands.RenameSupervisor
+  alias Expert.Configuration
+  alias Expert.EngineApi
+  alias Expert.Project.Store
+  alias Expert.State
+  alias Forge.Document
 
   setup do
     start_supervised!(Expert.Application.document_store_child_spec())
+    start_supervised!({Store, []})
     start_supervised!(RenameSupervisor)
 
     patch(Engine.Api.Proxy, :start_buffering, :ok)
     patch(Engine.Commands.Reindex, :uri, fn _uri -> :ok end)
-    patch(Engine.Search.Store, :clear, fn _uri -> :ok end)
+    patch(Engine.ManagerApi, :search_store_clear, fn _project, _path -> :ok end)
 
     if pid = Process.whereis(Rename) do
       Process.exit(pid, :kill)
@@ -40,8 +42,8 @@ defmodule Expert.State.RenameProgressTest do
 
   describe "VSCode editor - non-file-rename (edits only)" do
     test "reindex triggers after file_saved (VSCode expects save after edit)" do
-      uri = "file:///test/lib/foo.ex"
       editor = vscode_editor()
+      uri = subject_uri(editor.project, "lib/foo.ex")
       open_document(uri, "defmodule Foo do\nend")
       expect_events_before_reindex(%{uri => file_saved(uri: uri)}, reindex: [uri])
 
@@ -57,8 +59,8 @@ defmodule Expert.State.RenameProgressTest do
     test "rename progress is updated even when file is already closed" do
       # This can happen during batch renames when didClose and didSave
       # arrive nearly simultaneously and didClose is processed first
-      uri = "file:///test/lib/race.ex"
       editor = vscode_editor()
+      uri = subject_uri(editor.project, "lib/race.ex")
       open_document(uri, "defmodule Race do\nend")
       expect_events_before_reindex(%{uri => file_saved(uri: uri)}, reindex: [uri])
 
@@ -73,8 +75,8 @@ defmodule Expert.State.RenameProgressTest do
 
   describe "Neovim editor - non-file-rename (edits only)" do
     test "reindex triggers after file_changed only (Neovim doesn't auto-save)" do
-      uri = "file:///test/lib/foo.ex"
       editor = neovim_editor()
+      uri = subject_uri(editor.project, "lib/foo.ex")
       open_document(uri, "defmodule Foo do\nend")
       expect_events_before_reindex(%{uri => file_changed(uri: uri)}, reindex: [uri])
 
@@ -86,9 +88,9 @@ defmodule Expert.State.RenameProgressTest do
 
   describe "VSCode editor - file rename" do
     test "reindex triggers after receiving file_changed for old + file_saved for new" do
-      old_uri = "file:///test/lib/old_module.ex"
-      new_uri = "file:///test/lib/new_module.ex"
       editor = vscode_editor()
+      old_uri = subject_uri(editor.project, "lib/old_module.ex")
+      new_uri = subject_uri(editor.project, "lib/new_module.ex")
 
       open_document(old_uri, "defmodule OldModule do\nend")
       open_document(new_uri, "defmodule NewModule do\nend")
@@ -109,9 +111,9 @@ defmodule Expert.State.RenameProgressTest do
 
   describe "Neovim editor - file rename" do
     test "reindex triggers after file_saved for new file only" do
-      old_uri = "file:///test/lib/old_neovim.ex"
-      new_uri = "file:///test/lib/new_neovim.ex"
       editor = neovim_editor()
+      old_uri = subject_uri(editor.project, "lib/old_neovim.ex")
+      new_uri = subject_uri(editor.project, "lib/new_neovim.ex")
 
       open_document(new_uri, "defmodule NewNeovim do\nend")
 
@@ -141,8 +143,10 @@ defmodule Expert.State.RenameProgressTest do
 
   defp build_editor(client_name) do
     project = project()
-    config = Configuration.new(project: project, client_name: client_name)
-    state = %State{configuration: config, initialized?: true}
+    project |> List.wrap() |> Store.set_projects()
+    Store.transition(project, :ready)
+    [client_name: client_name] |> Configuration.new() |> Configuration.set()
+    state = %State{initialized?: true}
 
     patch(EngineApi, :broadcast, fn ^project, _msg -> :ok end)
     patch(EngineApi, :compile_document, fn ^project, _doc -> :ok end)
@@ -152,7 +156,13 @@ defmodule Expert.State.RenameProgressTest do
       Rename.update_progress(msg)
     end)
 
-    %{state: state, version: 1}
+    %{state: state, version: 1, project: project}
+  end
+
+  defp subject_uri(project, path) do
+    project
+    |> file_path(path)
+    |> Document.Path.ensure_uri()
   end
 
   defp open_document(uri, content) do

@@ -195,6 +195,7 @@ defmodule Expert.State do
 
           EngineApi.maybe_update_rename_progress(context.project, updated_message)
         end
+
         {:ok, state}
 
       error ->
@@ -268,7 +269,7 @@ defmodule Expert.State do
         # This can happen during batch renames when didClose and didSave
         # arrive nearly simultaneously. Still update rename progress tracking.
         Logger.debug("Save received for already-closed file: #{uri}")
-        EngineApi.maybe_update_rename_progress(project, file_saved(uri: uri))
+        EngineApi.maybe_update_rename_progress(context.project, file_saved(uri: uri))
         {:ok, state}
     end
   end

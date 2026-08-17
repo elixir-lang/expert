@@ -7,11 +7,13 @@ defmodule Engine.CodeMod.Rename.Module do
   - Preparing the rename range
   - Executing the rename across all references
   """
+  import Forge.Document.Line
+
   alias Engine.CodeIntelligence.Entity
   alias Engine.CodeMod.Rename
   alias Engine.CodeMod.Rename.Entry
   alias Engine.CodeMod.Rename.Module
-  alias Engine.Search.Store
+  alias Engine.ManagerApi
   alias Forge.Ast
   alias Forge.Ast.Analysis
   alias Forge.Document
@@ -20,9 +22,6 @@ defmodule Engine.CodeMod.Rename.Module do
   alias Forge.Document.Position
   alias Forge.Document.Range
   alias Forge.Formats
-
-  require Logger
-  import Line
 
   @doc """
   Checks if the position is at a module that can be renamed.
@@ -91,7 +90,10 @@ defmodule Engine.CodeMod.Rename.Module do
   end
 
   defp cursor_at_declaration?(module, rename_range) do
-    case Store.exact(module, type: :module, subtype: :definition) do
+    case ManagerApi.search_store_exact(Engine.get_project(), module,
+           type: :module,
+           subtype: :definition
+         ) do
       {:ok, [definition]} ->
         rename_range == definition.range
 
@@ -126,7 +128,7 @@ defmodule Engine.CodeMod.Rename.Module do
   defp query_for_exacts(module) do
     module_string = Formats.module(module)
 
-    case Store.exact(module_string, type: :module) do
+    case ManagerApi.search_store_exact(Engine.get_project(), module_string, type: :module) do
       {:ok, entries} -> Enum.map(entries, &Entry.new/1)
       {:error, _} -> []
     end
@@ -136,7 +138,7 @@ defmodule Engine.CodeMod.Rename.Module do
     module_string = Formats.module(module)
     prefix = "#{module_string}."
 
-    case Store.prefix(prefix, type: :module) do
+    case ManagerApi.search_store_prefix(Engine.get_project(), prefix, type: :module) do
       {:ok, entries} -> Enum.map(entries, &Entry.new/1)
       {:error, _} -> []
     end

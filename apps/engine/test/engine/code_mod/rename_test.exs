@@ -1,36 +1,36 @@
 defmodule Engine.CodeMod.RenameTest do
-  alias Engine.CodeMod.Rename
-  alias Engine.Search
-  alias Engine.Search.Store.Backends
-  alias Forge.Document
-
   use ExUnit.Case, async: false
   use Patch
 
   import Forge.Test.CodeSigil
   import Forge.Test.CursorSupport
   import Forge.Test.Fixtures
-  import Forge.Test.EventualAssertions
+
+  alias Engine.CodeMod.Rename
+  alias Engine.ManagerApi
+  alias Forge.Document
 
   setup do
     project = project()
 
-    Backends.Ets.destroy_all(project)
     Engine.set_project(project)
+    {:ok, store} = Agent.start_link(fn -> [] end)
 
+    start_supervised!(Engine.ApplicationCache)
     start_supervised!({Document.Store, derive: [analysis: &Forge.Ast.analyze/1]})
     start_supervised!(Engine.Dispatch)
-    start_supervised!(Backends.Ets)
 
-    start_supervised!(
-      {Search.Store, [project, fn _ -> {:ok, []} end, fn _, _ -> {:ok, [], []} end, Backends.Ets]}
-    )
+    patch(ManagerApi, :search_store_replace, fn ^project, entries ->
+      Agent.update(store, fn _ -> entries end)
+      :ok
+    end)
 
-    Search.Store.enable()
-    assert_eventually(Search.Store.loaded?(), 1500)
+    patch(ManagerApi, :search_store_exact, fn ^project, subject, constraints ->
+      {:ok, query_entries(store, subject, constraints, :exact)}
+    end)
 
-    on_exit(fn ->
-      Backends.Ets.destroy_all(project)
+    patch(ManagerApi, :search_store_prefix, fn ^project, subject, constraints ->
+      {:ok, query_entries(store, subject, constraints, :prefix)}
     end)
 
     {:ok, project: project}
@@ -875,7 +875,7 @@ defmodule Engine.CodeMod.RenameTest do
     with {position, text} <- pop_cursor(code),
          {:ok, document} <- open_document(uri, text),
          {:ok, entries} <- Engine.Search.Indexer.Source.index_document(document),
-         :ok <- Search.Store.replace(entries),
+         :ok <- ManagerApi.search_store_replace(project, entries),
          {:ok, _document, analysis} <- Document.Store.fetch(uri, :analysis),
          {:ok, document_changes} <- Rename.rename(analysis, position, new_name, nil) do
       changes = document_changes |> Enum.map(& &1.edits) |> List.flatten()
@@ -887,16 +887,42 @@ defmodule Engine.CodeMod.RenameTest do
   end
 
   defp index(code) do
-    project = project()
+    project = Engine.get_project()
     uri = module_uri(project)
 
     with :ok <- Document.Store.open(uri, code, 1),
          {:ok, document, analysis} <- Document.Store.fetch(uri, :analysis),
          {:ok, entries} <- Engine.Search.Indexer.Quoted.index(analysis) do
-      Search.Store.replace(entries)
+      ManagerApi.search_store_replace(project, entries)
       {:ok, document, analysis}
     end
   end
+
+  defp query_entries(store, subject, constraints, match_type) do
+    type = Keyword.get(constraints, :type, :_)
+    subtype = Keyword.get(constraints, :subtype, :_)
+    subject = format_subject(subject)
+
+    store
+    |> Agent.get(& &1)
+    |> Enum.filter(fn entry ->
+      matches_constraint?(entry.type, type) and matches_constraint?(entry.subtype, subtype) and
+        matches_subject?(format_subject(entry.subject), subject, match_type)
+    end)
+  end
+
+  defp matches_subject?(entry_subject, subject, :exact), do: entry_subject == subject
+
+  defp matches_subject?(entry_subject, subject, :prefix),
+    do: String.starts_with?(entry_subject, subject)
+
+  defp matches_constraint?(_value, :_), do: true
+  defp matches_constraint?(value, value), do: true
+  defp matches_constraint?(_, _), do: false
+
+  defp format_subject(subject) when is_atom(subject), do: Forge.Formats.module(subject)
+  defp format_subject(subject) when is_binary(subject), do: subject
+  defp format_subject(subject), do: to_string(subject)
 
   defp module_uri(project) do
     project

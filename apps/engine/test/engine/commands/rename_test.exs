@@ -1,14 +1,14 @@
 defmodule Engine.Commands.RenameTest do
-  alias Engine.Api.Proxy
-  alias Engine.Commands.Rename
-  alias Engine.Commands.RenameSupervisor
-  alias Engine.Search.Store
+  use ExUnit.Case
+  use Patch
 
   import Forge.EngineApi.Messages
   import Forge.Test.EventualAssertions
 
-  use ExUnit.Case
-  use Patch
+  alias Engine.Api.Proxy
+  alias Engine.Commands.Rename
+  alias Engine.Commands.RenameSupervisor
+  alias Engine.ManagerApi
 
   setup do
     start_supervised!(RenameSupervisor)
@@ -103,7 +103,7 @@ defmodule Engine.Commands.RenameTest do
     on_report_progress: on_report_progress,
     on_complete: on_complete
   } do
-    patch(Store, :clear, :ok)
+    patch(ManagerApi, :search_store_clear, :ok)
     old_uri = "file://old_file.ex"
     new_uri = "file://new_file.ex"
     another_uri = "file://file.ex"

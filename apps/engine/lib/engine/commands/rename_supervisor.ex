@@ -6,9 +6,9 @@ defmodule Engine.Commands.RenameSupervisor do
   and shuts down when the rename is complete.
   """
 
-  alias Engine.Commands.Rename
-
   use DynamicSupervisor
+
+  alias Engine.Commands.Rename
 
   def child_spec(_) do
     %{

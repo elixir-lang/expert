@@ -165,10 +165,6 @@ defmodule Expert.EngineApi do
     call(project, Engine, :workspace_symbols, [query])
   end
 
-  def runtime_versions(%Project{} = project) do
-    call(project, Engine, :runtime_versions, [])
-  end
-
   def prepare_rename(%Project{} = project, %Analysis{} = analysis, %Position{} = position) do
     call(project, Engine, :prepare_rename, [analysis, position])
   end
@@ -198,13 +194,15 @@ defmodule Expert.EngineApi do
   the main document change/save flow.
   """
   def maybe_update_rename_progress(%Project{} = project, message) do
-    try do
-      call(project, Engine, :maybe_update_rename_progress, [message])
-    rescue
-      _ -> {:error, :not_in_rename_progress}
-    catch
-      :exit, _ -> {:error, :not_in_rename_progress}
-    end
+    call(project, Engine, :maybe_update_rename_progress, [message])
+  rescue
+    _ -> {:error, :not_in_rename_progress}
+  catch
+    :exit, _ -> {:error, :not_in_rename_progress}
+  end
+
+  def runtime_versions(%Project{} = project) do
+    call(project, Engine, :runtime_versions, [])
   end
 
   defdelegate stop(project), to: EngineNode

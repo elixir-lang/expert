@@ -24,7 +24,7 @@ defmodule Engine.CodeMod.Rename.Module.Diff do
   @spec diff(String.t(), String.t()) :: {String.t(), String.t()}
   def diff(old_name, new_name) do
     with [{:eq, eq} | _] <- String.myers_difference(old_name, new_name),
-         equal_segment <- trim_last_dot_part(eq),
+         equal_segment = trim_last_dot_part(eq),
          true <- not is_nil(equal_segment) do
       to_be_renamed = replace_leading_eq(old_name, equal_segment)
       replacement = replace_leading_eq(new_name, equal_segment)

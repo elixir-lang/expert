@@ -1,7 +1,7 @@
 defmodule Engine.CodeMod.Rename.Module.DiffTest do
-  alias Engine.CodeMod.Rename.Module.Diff
-
   use ExUnit.Case, async: true
+
+  alias Engine.CodeMod.Rename.Module.Diff
 
   describe "diff/2" do
     test "returns the local module pair if only the local name is changed" do

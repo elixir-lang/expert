@@ -6,6 +6,8 @@ defmodule Engine.CodeMod.Rename do
   in Elixir code. It coordinates between the preparation phase and the actual
   rename execution.
   """
+  import Forge.EngineApi.Messages
+
   alias Engine.CodeMod.Rename
   alias Engine.Commands
   alias Engine.Progress
@@ -13,8 +15,6 @@ defmodule Engine.CodeMod.Rename do
   alias Forge.Document
   alias Forge.Document.Position
   alias Forge.Document.Range
-
-  import Forge.EngineApi.Messages
 
   @doc """
   Prepares a rename operation at the given position.
@@ -49,16 +49,14 @@ defmodule Engine.CodeMod.Rename do
     end
   end
 
+  # Progress tracking is optional - if the infrastructure isn't running
+  # (e.g., in tests), we just skip it silently
   defp set_rename_progress(document_changes_list, client_name) do
-    # Progress tracking is optional - if the infrastructure isn't running
-    # (e.g., in tests), we just skip it silently
-    try do
-      do_set_rename_progress(document_changes_list, client_name)
-    rescue
-      _ -> :ok
-    catch
-      :exit, _ -> :ok
-    end
+    do_set_rename_progress(document_changes_list, client_name)
+  rescue
+    _ -> :ok
+  catch
+    :exit, _ -> :ok
   end
 
   defp do_set_rename_progress(document_changes_list, client_name) do

@@ -69,8 +69,6 @@ defmodule Engine do
 
   defdelegate workspace_symbols(query), to: CodeIntelligence.Symbols, as: :for_workspace
 
-  defdelegate runtime_versions, to: Forge.VM.Versions, as: :current
-
   defdelegate prepare_rename(analysis, position), to: Engine.CodeMod.Rename, as: :prepare
 
   defdelegate rename(analysis, position, new_name, client_name), to: Engine.CodeMod.Rename
@@ -78,6 +76,8 @@ defmodule Engine do
   defdelegate maybe_update_rename_progress(triggered_message),
     to: Engine.Commands.Rename,
     as: :update_progress
+
+  defdelegate runtime_versions, to: Forge.VM.Versions, as: :current
 
   def list_apps do
     for {app, _, _} <- :application.loaded_applications(),

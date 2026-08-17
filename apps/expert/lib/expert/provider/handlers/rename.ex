@@ -5,24 +5,23 @@ defmodule Expert.Provider.Handlers.Rename do
   This handler executes the rename operation and returns the workspace edit
   containing all the text edits and file renames needed.
   """
-  alias Expert.ActiveProjects
+  @behaviour Expert.Provider.Handler
+
   alias Expert.Configuration
+  alias Expert.Document.Context
   alias Expert.EngineApi
   alias Forge.Ast
   alias Forge.Document
   alias Forge.Document.Changes
-  alias Forge.Project
   alias GenLSP.Structures
 
   require Logger
 
-  def handle(%GenLSP.Requests.TextDocumentRename{
-        params: %Structures.RenameParams{} = params
-      }) do
-    document = Forge.Document.Container.context_document(params, nil)
-    projects = ActiveProjects.projects()
-    project = Project.project_for_document(projects, document)
-
+  @impl Expert.Provider.Handler
+  def handle(
+        %GenLSP.Requests.TextDocumentRename{params: %Structures.RenameParams{} = params},
+        %Context{document: document, project: project}
+      ) do
     case Document.Store.fetch(document.uri, :analysis) do
       {:ok, _document, %Ast.Analysis{valid?: true} = analysis} ->
         rename(project, analysis, params.position, params.new_name)
