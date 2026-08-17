@@ -22,11 +22,20 @@ defmodule Engine.Search.Indexer do
     ManifestStore.commit(project, manifest)
   end
 
+  def record_integrations(%Project{} = project) do
+    ManifestStore.record_integrations(project)
+  end
+
   def update_index(%Project{} = project, path_to_ids) when is_map(path_to_ids) do
     with_indexer_context(fn ->
       case ManifestStore.load(project) do
-        {:ok, %Manifest{} = manifest} -> refresh_index(project, manifest, path_to_ids)
-        :missing -> replace_index(project, path_to_ids)
+        {:ok, %Manifest{} = manifest} ->
+          if ManifestStore.integrations_changed?(project, manifest),
+            do: replace_index(project, path_to_ids),
+            else: refresh_index(project, manifest, path_to_ids)
+
+        :missing ->
+          replace_index(project, path_to_ids)
       end
     end)
   end

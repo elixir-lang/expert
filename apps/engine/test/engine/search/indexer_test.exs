@@ -57,6 +57,7 @@ defmodule Engine.Search.IndexerTest do
   defp create_index(project) do
     assert {:ok, entries, manifest} = Indexer.create_index(project)
     assert :ok = Indexer.commit_manifest(project, manifest)
+    assert :ok = ManifestStore.record_integrations(project)
     entries
   end
 
@@ -65,6 +66,7 @@ defmodule Engine.Search.IndexerTest do
              Indexer.update_index(project, path_to_ids)
 
     assert :ok = Indexer.commit_manifest(project, manifest)
+    assert :ok = ManifestStore.record_integrations(project)
     {entries, paths_to_clear}
   end
 
@@ -526,6 +528,25 @@ defmodule Engine.Search.IndexerTest do
 
       assert {:error, :commit_failed} = Indexer.commit_manifest(project, manifest)
       assert {:ok, ^old_manifest} = ManifestStore.load(project)
+    end
+  end
+
+  describe "update_index/2 indexer changes" do
+    @tag :tmp_dir
+    test "replaces an unchanged index when recorded integrations are missing", %{tmp_dir: tmp_dir} do
+      source_file = native_join([tmp_dir, "lib", "source_file.ex"])
+      write_file!(source_file, "defmodule IntegrationStampSource do end")
+      project = tmp_dir |> Forge.Document.Path.to_uri() |> Project.bare()
+
+      assert {:ok, initial_entries, manifest} = Indexer.create_index(project)
+      assert :ok = Indexer.commit_manifest(project, manifest)
+
+      path_to_ids = Map.new(initial_entries, &{&1.path, 1})
+
+      assert {:ok, replacement_entries, _paths_to_clear, _manifest} =
+               Indexer.update_index(project, path_to_ids)
+
+      assert Enum.any?(replacement_entries, &(&1.subject == IntegrationStampSource))
     end
   end
 

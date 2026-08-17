@@ -18,6 +18,15 @@ defmodule Expert.Search.Indexer do
     end
   end
 
+  def record_integrations(%Project{} = project) do
+    EngineApi.call(
+      project,
+      Engine.Search.Indexer,
+      :record_integrations,
+      [project]
+    )
+  end
+
   defp commit_manifest(%Project{} = project, manifest) do
     EngineApi.call(project, Engine.Search.Indexer, :commit_manifest, [project, manifest])
   end

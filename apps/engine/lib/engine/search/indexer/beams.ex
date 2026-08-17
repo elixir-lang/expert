@@ -2,6 +2,7 @@ defmodule Engine.Search.Indexer.Beams do
   import Forge.Document.Line
 
   alias Engine.ApplicationCache
+  alias Engine.Integrations
   alias Engine.Progress
   alias Engine.Search.Indexer.Manifest
   alias Engine.Search.Subject
@@ -26,14 +27,16 @@ defmodule Engine.Search.Indexer.Beams do
     with {:ok, metadata} <- debug_metadata_from_binary(beam) do
       metadata = Map.put(metadata, :file, Forge.Path.native(source_path))
 
-      entries =
+      definitions =
         metadata
         |> entries_from_metadata(
           source_lines(source_path, [metadata |> metadata_position() |> elem(0)])
         )
         |> Enum.filter(&definition?/1)
 
-      {:ok, entries}
+      integrations = Integrations.index_beam(beam, metadata, Forge.Path.native(source_path))
+
+      {:ok, definitions ++ integrations}
     end
   end
 
@@ -105,12 +108,16 @@ defmodule Engine.Search.Indexer.Beams do
     {entries, manifest_entries}
   end
 
-  defp indexed_result?({:indexed, _source_path, _metadata, _manifest_entry}), do: true
+  defp indexed_result?(
+         {:indexed, _source_path, _metadata, _integration_entries, _manifest_entry}
+       ),
+       do: true
+
   defp indexed_result?(_result), do: false
 
   defp manifest_entries_from_results(results) do
     Enum.map(results, fn
-      {:indexed, _source_path, _metadata, manifest_entry} -> manifest_entry
+      {:indexed, _source_path, _metadata, _integration_entries, manifest_entry} -> manifest_entry
       {:skipped, manifest_entry} -> manifest_entry
     end)
   end
@@ -121,7 +128,9 @@ defmodule Engine.Search.Indexer.Beams do
     source_lines_by_path = source_lines_by_path(results)
 
     results
-    |> Enum.group_by(fn {:indexed, source_path, _metadata, _manifest_entry} -> source_path end)
+    |> Enum.group_by(fn {:indexed, source_path, _metadata, _integration_entries, _manifest_entry} ->
+      source_path
+    end)
     |> Enum.flat_map(fn {source_path, results} ->
       entries_from_group(source_path, results, source_lines_by_path)
     end)
@@ -129,8 +138,10 @@ defmodule Engine.Search.Indexer.Beams do
 
   defp entries_from_group(source_path, results, source_lines_by_path) do
     entries =
-      Enum.flat_map(results, fn {:indexed, _source_path, metadata, _manifest_entry} ->
-        entries_from_metadata(metadata, Map.get(source_lines_by_path, source_path, %{}))
+      Enum.flat_map(results, fn {:indexed, _source_path, metadata, integration_entries,
+                                 _manifest_entry} ->
+        entries_from_metadata(metadata, Map.get(source_lines_by_path, source_path, %{})) ++
+          integration_entries
       end)
 
     [Entry.block_structure(source_path, %{root: %{}}) | entries]
@@ -138,12 +149,12 @@ defmodule Engine.Search.Indexer.Beams do
 
   defp metadata_from_beam({beam_path, beam_stat}) do
     case debug_metadata(beam_path) do
-      {:ok, metadata} -> metadata_result_from_beam(beam_path, beam_stat, metadata)
+      {:ok, metadata, binary} -> metadata_result_from_beam(beam_path, beam_stat, metadata, binary)
       :error -> skipped_result_from_beam(beam_path, beam_stat, nil, nil)
     end
   end
 
-  defp metadata_result_from_beam(beam_path, beam_stat, metadata) do
+  defp metadata_result_from_beam(beam_path, beam_stat, metadata, binary) do
     source_path = Map.get(metadata, :file)
     source_stat_result = stat_source(source_path)
 
@@ -151,7 +162,10 @@ defmodule Engine.Search.Indexer.Beams do
       {:ok, manifest_entry} =
         Manifest.Entry.beam(beam_path, source_path, beam_stat, source_stat_result)
 
-      [{:indexed, source_path, metadata, manifest_entry}]
+      integration_entries =
+        Integrations.index_beam(binary, metadata, Forge.Path.native(source_path))
+
+      [{:indexed, source_path, metadata, integration_entries, manifest_entry}]
     else
       skipped_result_from_beam(beam_path, beam_stat, source_path, source_stat_result)
     end
@@ -187,15 +201,12 @@ defmodule Engine.Search.Indexer.Beams do
   # The debug-info chunk data is backend-owned and opaque. The public contract is
   # to ask the backend to decode it into the Elixir debug-info format we consume.
   defp debug_metadata(beam_path) do
-    with {:ok, {module, [debug_info: {:debug_info_v1, backend, data}]}} <-
-           :beam_lib.chunks(String.to_charlist(beam_path), [:debug_info]),
-         {:ok, metadata} when is_map(metadata) <- backend.debug_info(:elixir_v1, module, data, []) do
-      {:ok, metadata}
+    with {:ok, binary} <- File.read(beam_path),
+         {:ok, metadata} <- debug_metadata_from_binary(binary) do
+      {:ok, metadata, binary}
     else
       _ -> :error
     end
-  catch
-    _kind, _reason -> :error
   end
 
   defp debug_metadata_from_binary(beam) do
@@ -660,8 +671,10 @@ defmodule Engine.Search.Indexer.Beams do
   defp source_lines_by_path(results) do
     results
     |> Enum.group_by(
-      fn {:indexed, source_path, _metadata, _manifest_entry} -> source_path end,
-      fn {:indexed, _source_path, metadata, _manifest_entry} ->
+      fn {:indexed, source_path, _metadata, _integration_entries, _manifest_entry} ->
+        source_path
+      end,
+      fn {:indexed, _source_path, metadata, _integration_entries, _manifest_entry} ->
         metadata |> metadata_position() |> elem(0)
       end
     )

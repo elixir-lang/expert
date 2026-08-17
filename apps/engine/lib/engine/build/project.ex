@@ -4,6 +4,7 @@ defmodule Engine.Build.Project do
   alias Engine.Module.Loader
   alias Engine.Plugin
   alias Engine.Progress
+  alias Engine.Search.Indexer.ManifestStore
   alias Forge.Internet
   alias Forge.Project
   alias Mix.Task.Compiler.Diagnostic
@@ -67,7 +68,7 @@ defmodule Engine.Build.Project do
     compile_fun = fn ->
       Mix.Task.clear()
       Progress.report(token, message: "Compiling #{Project.display_name(project)}")
-      result = compile_in_isolation()
+      result = compile_in_isolation(ManifestStore.integrations_changed?(project))
       maybe_load_modules()
       Engine.Mix.ensure_hex_and_rebar()
       Mix.Task.run(:loadpaths)
@@ -106,10 +107,10 @@ defmodule Engine.Build.Project do
     end
   end
 
-  defp compile_in_isolation do
+  defp compile_in_isolation(force?) do
     compile_fun = fn ->
       Engine.Mix.ensure_hex_and_rebar()
-      Mix.Task.run(:compile, mix_compile_opts())
+      Mix.Task.run(:compile, mix_compile_opts(force?))
     end
 
     case Isolation.invoke(compile_fun) do
@@ -155,12 +156,12 @@ defmodule Engine.Build.Project do
     Plugin.Discovery.run()
   end
 
-  defp mix_compile_opts do
+  defp mix_compile_opts(force?) do
     # --no-prune-code-paths keeps mix from deleting the engine's own code
     # paths during the project compile. It only applies to the top-level
     # compile; dependencies each compile in their own project frame with
     # pruning enabled, which is what isolates them from undeclared siblings.
-    ~w(
+    opts = ~w(
         --return-errors
         --ignore-module-conflict
         --all-warnings
@@ -169,5 +170,7 @@ defmodule Engine.Build.Project do
         --no-protocol-consolidation
         --no-prune-code-paths
     )
+
+    if force?, do: ["--force" | opts], else: opts
   end
 end

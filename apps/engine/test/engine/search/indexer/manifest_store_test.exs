@@ -151,14 +151,49 @@ defmodule Engine.Search.Indexer.ManifestStoreTest do
     end
   end
 
-  describe "invalidate/1" do
-    test "removes the committed manifest", %{tmp_dir: tmp_dir} do
+  describe "integrations" do
+    test "are changed until the current module names are recorded", %{tmp_dir: tmp_dir} do
       project = project(tmp_dir)
 
+      assert ManifestStore.integrations_changed?(project)
+
       :ok = ManifestStore.commit(project, manifest(tmp_dir))
+      assert ManifestStore.integrations_changed?(project)
+
+      :ok = ManifestStore.record_integrations(project)
+      refute ManifestStore.integrations_changed?(project)
+    end
+
+    test "are changed when the recorded module names differ", %{tmp_dir: tmp_dir} do
+      project = project(tmp_dir)
+      :ok = ManifestStore.commit(project, manifest(tmp_dir))
+      :ok = ManifestStore.record_integrations(project)
+
+      integrations_path =
+        Path.join(
+          Project.workspace_path(project, ["indexes", "manifest"]),
+          "integrations.etf"
+        )
+
+      File.write!(integrations_path, :erlang.term_to_binary(["Engine.Integrations.Removed"]))
+
+      assert ManifestStore.integrations_changed?(project)
+    end
+  end
+
+  describe "invalidate/1" do
+    test "removes the committed manifest and recorded integrations", %{tmp_dir: tmp_dir} do
+      project = project(tmp_dir)
+      manifest = manifest(tmp_dir)
+
+      :ok = ManifestStore.commit(project, manifest)
+      :ok = ManifestStore.record_integrations(project)
       :ok = ManifestStore.invalidate(project)
 
       assert ManifestStore.load(project) == :missing
+
+      :ok = ManifestStore.commit(project, manifest)
+      assert ManifestStore.integrations_changed?(project)
     end
   end
 
