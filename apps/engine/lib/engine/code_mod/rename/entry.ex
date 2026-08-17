@@ -15,6 +15,7 @@ defmodule Engine.CodeMod.Rename.Entry do
           block_range: Range.t() | nil,
           range: Range.t(),
           edit_range: Range.t(),
+          replacement: String.t() | nil,
           subtype: IndexerEntry.entry_subtype()
         }
 
@@ -25,6 +26,7 @@ defmodule Engine.CodeMod.Rename.Entry do
     :block_range,
     :range,
     :edit_range,
+    :replacement,
     :subtype
   ]
 

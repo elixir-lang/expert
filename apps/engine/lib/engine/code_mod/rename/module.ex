@@ -16,9 +16,10 @@ defmodule Engine.CodeMod.Rename.Module do
   alias Engine.ManagerApi
   alias Forge.Ast
   alias Forge.Ast.Analysis
+  alias Forge.Ast.Analysis.Alias, as: AstAlias
+  alias Forge.Ast.Analysis.Scope
   alias Forge.Document
   alias Forge.Document.Edit
-  alias Forge.Document.Line
   alias Forge.Document.Position
   alias Forge.Document.Range
   alias Forge.Formats
@@ -60,7 +61,9 @@ defmodule Engine.CodeMod.Rename.Module do
   @spec rename(Range.t(), String.t(), atom()) :: [Document.Changes.t()]
   def rename(%Range{} = old_range, new_name, module) do
     {to_be_renamed, replacement} = old_range |> range_text() |> Module.Diff.diff(new_name)
-    results = exacts(module, to_be_renamed) ++ descendants(module, to_be_renamed)
+
+    results =
+      exacts(module, to_be_renamed, replacement, new_name) ++ descendants(module, to_be_renamed)
 
     for {uri, entries} <- Enum.group_by(results, &Document.Path.ensure_uri(&1.path)),
         result = to_document_changes(uri, entries, replacement),
@@ -111,11 +114,10 @@ defmodule Engine.CodeMod.Rename.Module do
     {module, range}
   end
 
-  defp exacts(module, to_be_renamed) do
+  defp exacts(module, to_be_renamed, replacement, new_name) do
     module
     |> query_for_exacts()
-    |> Enum.filter(&entry_matching?(&1, to_be_renamed))
-    |> adjust_range_for_exacts(to_be_renamed)
+    |> adjust_range_for_exacts(module, to_be_renamed, replacement, new_name)
   end
 
   defp descendants(module, to_be_renamed) do
@@ -159,13 +161,35 @@ defmodule Engine.CodeMod.Rename.Module do
     entry.range |> range_text() |> String.contains?(".")
   end
 
-  defp adjust_range_for_exacts(entries, to_be_renamed) do
+  defp adjust_range_for_exacts(entries, module, to_be_renamed, replacement, new_name) do
     old_suffix_length = String.length(to_be_renamed)
+    old_name = Formats.module(module)
+    old_leaf = old_name |> String.split(".") |> List.last()
+    new_leaf = new_name |> String.split(".") |> List.last()
 
-    for %Entry{} = entry <- entries do
-      start_character = entry.edit_range.end.character - old_suffix_length
-      put_in(entry.edit_range.start.character, start_character)
-    end
+    Enum.flat_map(entries, fn %Entry{} = entry ->
+      source = range_text(entry.range)
+
+      cond do
+        source == old_leaf ->
+          entry_replacement = if source == old_name, do: new_name, else: new_leaf
+          [%{entry | replacement: entry_replacement}]
+
+        source == to_be_renamed ->
+          [%{entry | replacement: new_name}]
+
+        String.ends_with?(source, ".#{to_be_renamed}") ->
+          start_character = entry.edit_range.end.character - old_suffix_length
+          entry = put_in(entry.edit_range.start.character, start_character)
+          [%{entry | replacement: replacement}]
+
+        String.contains?(source, ".") ->
+          [%{entry | replacement: new_name}]
+
+        true ->
+          []
+      end
+    end)
   end
 
   defp adjust_range_for_descendants(entries, module, to_be_renamed) do
@@ -236,24 +260,66 @@ defmodule Engine.CodeMod.Rename.Module do
   end
 
   defp to_document_changes(uri, entries, replacement) do
-    with {:ok, document} <- Document.Store.open_temporary(uri) do
+    with {:ok, _document} <- Document.Store.open_temporary(uri),
+         {:ok, document, analysis} <- Document.Store.fetch(uri, :analysis) do
       rename_file = maybe_rename_file(document, entries, replacement)
 
       edits =
-        Enum.map(entries, fn entry ->
+        entries
+        |> Enum.reject(&explicit_alias_reference?(document, analysis, &1))
+        |> Enum.map(fn entry ->
           reference? = entry.subtype == :reference
+          entry_replacement = entry.replacement || replacement
 
-          if reference? and not ancestor_is_alias?(document, entry.edit_range.start) do
+          if is_nil(entry.replacement) and reference? and
+               not ancestor_is_alias?(document, entry.edit_range.start) do
             replacement = replacement |> String.split(".") |> Enum.at(-1)
             Edit.new(replacement, entry.edit_range)
           else
-            Edit.new(replacement, entry.edit_range)
+            Edit.new(entry_replacement, entry.edit_range)
           end
         end)
 
       {:ok, Document.Changes.new(document, edits, rename_file)}
     end
   end
+
+  defp explicit_alias_reference?(document, analysis, %Entry{subtype: :reference} = entry) do
+    source = range_text(entry.range)
+
+    case {alias_target?(document, entry), Analysis.scopes_at(analysis, entry.range.start)} do
+      {true, _scopes} ->
+        false
+
+      {false, [%Scope{} = scope | _]} ->
+        scope
+        |> Scope.alias_map(entry.range.start)
+        |> Enum.any?(fn
+          {as, %AstAlias{explicit_as?: true} = alias} ->
+            alias_name(as) == source and AstAlias.to_module(alias) == entry.subject
+
+          _alias ->
+            false
+        end)
+
+      {false, []} ->
+        false
+    end
+  end
+
+  defp explicit_alias_reference?(_document, _analysis, _entry), do: false
+
+  defp alias_target?(document, entry) do
+    with {:ok, path} <- Ast.path_at(document, entry.range.start),
+         {:alias, _, [target | _options]} <- Enum.find(path, &match?({:alias, _, _}, &1)),
+         {:ok, target_range} <- Ast.Range.fetch(target, document) do
+      Range.contains?(target_range, entry.range.start)
+    else
+      _ -> false
+    end
+  end
+
+  defp alias_name(as), do: Enum.map_join(as, ".", &Atom.to_string/1)
 
   defp ancestor_is_alias?(%Document{} = document, %Position{} = position) do
     document

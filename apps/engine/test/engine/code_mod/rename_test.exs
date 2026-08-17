@@ -220,6 +220,90 @@ defmodule Engine.CodeMod.RenameTest do
   end
 
   describe "rename/4 with references" do
+    test "renames use reference" do
+      {:ok, result} =
+        ~q[
+        defmodule |MyApp.Users do
+        end
+
+        defmodule MyApp.Web do
+          use MyApp.Users
+        end
+        ]
+        |> rename("MyApp.Accounts")
+
+      assert result =~ ~S[use MyApp.Accounts]
+    end
+
+    test "renames local use reference" do
+      {:ok, result} =
+        ~q[
+        defmodule |MyApp.Auth.Session do
+        end
+
+        defmodule MyApp.Web do
+          alias MyApp.Auth.Session
+          use Session
+        end
+        ]
+        |> rename("MyApp.Identity.Token")
+
+      assert result =~ ~S[alias MyApp.Identity.Token]
+      assert result =~ ~S[use Token]
+    end
+
+    test "renames use reference through alias" do
+      {:ok, result} =
+        ~q[
+        defmodule |MyApp.Auth.Session do
+        end
+
+        defmodule MyApp.Web do
+          alias MyApp.Auth, as: Auth
+          alias MyApp.Identity.Token
+          use Auth.Session
+        end
+        ]
+        |> rename("MyApp.Identity.Token")
+
+      assert result =~ ~S[use MyApp.Identity.Token]
+      refute result =~ ~S[use Identity.Token]
+    end
+
+    test "keeps explicit alias in use reference" do
+      {:ok, result} =
+        ~q[
+        defmodule |MyApp.Auth.Session do
+        end
+
+        defmodule MyApp.Web do
+          alias MyApp.Auth.Session, as: Session
+          use Session
+        end
+        ]
+        |> rename("MyApp.Identity.Token")
+
+      assert result =~ ~S[alias MyApp.Identity.Token, as: Session]
+      assert result =~ ~S[use Session]
+    end
+
+    test "keeps explicit alias for single segment module" do
+      {:ok, result} =
+        ~q[
+        defmodule |Users do
+        end
+
+        defmodule MyApp.Web do
+          alias Users, as: Users
+          use Users
+        end
+        ]
+        |> rename("Accounts")
+
+      assert result =~ ~S[alias Accounts, as: Users]
+      assert result =~ ~S[use Users]
+    end
+
     test "does not rename similar module names" do
       {:ok, result} =
         ~q[
@@ -561,6 +645,22 @@ defmodule Engine.CodeMod.RenameTest do
 
       assert result =~ ~S[defmodule Accounts do]
       assert result =~ ~S[alias Accounts]
+    end
+
+    test "renames single segment module to full module name" do
+      {:ok, result} =
+        ~q[
+        defmodule |Users do
+        end
+
+        defmodule MyApp.Web do
+          use Users
+        end
+      ]
+        |> rename("MyApp.Accounts")
+
+      assert result =~ ~S[defmodule MyApp.Accounts do]
+      assert result =~ ~S[use MyApp.Accounts]
     end
 
     test "handles renaming to completely different module path" do
