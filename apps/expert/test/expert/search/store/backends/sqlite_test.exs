@@ -58,7 +58,7 @@ defmodule Expert.Search.Store.Backends.SqliteTest do
              end)
     end
 
-    test "stores full entry blobs outside the entries metadata table", %{
+    test "stores only entry data that is not available in the entries table", %{
       project: project,
       runtime_versions: runtime_versions
     } do
@@ -99,6 +99,45 @@ defmodule Expert.Search.Store.Backends.SqliteTest do
              end)
     end
 
+    test "stores lean entry blobs and reconstructs entries from both tables", %{
+      project: project,
+      runtime_versions: runtime_versions
+    } do
+      database_path = Sqlite.database_path(project, runtime_versions)
+
+      entry = %Entry{
+        application: :sample,
+        id: 1,
+        block_id: :root,
+        block_range: %{start: 1, end: 2},
+        path: "/a/path/that/must/not/be/duplicated.ex",
+        range: %{start: 3, end: 4},
+        subject: "Lean.Module.function/0",
+        subtype: :definition,
+        type: :module,
+        metadata: %{detail: :kept}
+      }
+
+      pid =
+        start_supervised!(%{
+          id: :sqlite,
+          start: {Sqlite, :start_link, [project, [runtime_versions: runtime_versions]]}
+        })
+
+      assert {:ok, :empty} = Sqlite.prepare(pid)
+      assert :ok = Sqlite.replace_all(project, [entry])
+
+      {:ok, conn} = Exqlite.Basic.open(database_path)
+      result = Exqlite.Basic.exec(conn, "SELECT entry FROM entry_blobs")
+      assert {:ok, [[entry_blob]], _columns} = Exqlite.Basic.rows(result)
+      assert :ok = Exqlite.Basic.close(conn)
+
+      assert {nil, :sample, %{start: 1, end: 2}, %{start: 3, end: 4}, %{detail: :kept}} =
+               :erlang.binary_to_term(entry_blob)
+
+      assert [^entry] = Sqlite.find_by_subject(project, "Lean.Module.function/0", :_, :_)
+    end
+
     test "recreates a database with a different schema version", %{
       project: project,
       runtime_versions: runtime_versions
@@ -134,7 +173,7 @@ defmodule Expert.Search.Store.Backends.SqliteTest do
 
       {:ok, conn} = Exqlite.Basic.open(database_path)
       result = Exqlite.Basic.exec(conn, "SELECT version FROM schema")
-      assert {:ok, [[3]], ["version"]} = Exqlite.Basic.rows(result)
+      assert {:ok, [[4]], ["version"]} = Exqlite.Basic.rows(result)
       assert :ok = Exqlite.Basic.close(conn)
     end
   end
