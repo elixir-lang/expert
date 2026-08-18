@@ -47,7 +47,7 @@ defmodule Forge.EngineApi.Messages do
   @type compile_status :: :successful | :error
   @type name_and_arity :: {atom, non_neg_integer}
   @type field_list :: Keyword.t() | [atom]
-  @type diagnostics :: [Mix.Task.Compiler.Diagnostic.t()]
+  @type diagnostics :: [Forge.Diagnostic.t()]
   @type maybe_version :: nil | non_neg_integer()
 
   @type project_compile_requested ::

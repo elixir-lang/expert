@@ -2,8 +2,7 @@ defmodule Forge do
   @moduledoc """
   Common data structures and utilities for the Expert Language Server.
 
-  If you're building a plugin, You're probably going to want to look at the documentation
-  for core data structures like
+  Core data structures include:
 
   `Forge.Project` - The Expert project structure
 

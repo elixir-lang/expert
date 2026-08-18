@@ -21,8 +21,7 @@ defmodule Mix.Tasks.Namespace do
   @no_app_deps [:nimble_parsec]
 
   # These app names and root modules are strings to avoid them being namespaced
-  # by this task. Plugin discovery uses this task, which happens after
-  # namespacing.
+  # by this task.
   @extra_apps %{
     "engine" => "Engine",
     "expert" => "Expert",

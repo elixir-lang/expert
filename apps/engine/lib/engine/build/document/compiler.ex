@@ -2,10 +2,10 @@ defmodule Engine.Build.Document.Compiler do
   @moduledoc """
   A behaviour for document-level compilers
   """
+  alias Forge.Diagnostic
   alias Forge.Document
-  alias Forge.Plugin.V1.Diagnostic
 
-  @type compile_response :: {:ok, [Diagnostic.Result.t()]} | {:error, [Diagnostic.Result.t()]}
+  @type compile_response :: {:ok, [Diagnostic.t()]} | {:error, [Diagnostic.t()]}
 
   @doc """
   Compiles a document

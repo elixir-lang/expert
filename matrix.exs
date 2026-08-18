@@ -29,7 +29,7 @@ engine_matrix =
     ]
 
 other_project_matrix =
-  for project <- ["expert_credo", "forge"], version <- versions do
+  for project <- ["forge"], version <- versions do
     Map.put(version, :project, project)
   end
 

@@ -11,8 +11,8 @@ defmodule Engine.BuildTest do
   alias Expert.EngineApi
   alias Expert.EngineNode
   alias Expert.EngineSupervisor
+  alias Forge.Diagnostic
   alias Forge.Document
-  alias Forge.Plugin.V1.Diagnostic
   alias Forge.Project
 
   @project_compile_timeout :timer.seconds(15)
@@ -126,7 +126,7 @@ defmodule Engine.BuildTest do
       EngineApi.schedule_compile(project, true)
 
       assert_receive project_compiled(status: :error), @project_compile_timeout
-      assert_receive project_diagnostics(diagnostics: [%Diagnostic.Result{}])
+      assert_receive project_diagnostics(diagnostics: [%Diagnostic{}])
     end
   end
 
@@ -149,7 +149,7 @@ defmodule Engine.BuildTest do
       EngineApi.schedule_compile(project, true)
 
       assert_receive project_compiled(status: :error)
-      assert_receive project_diagnostics(diagnostics: [%Diagnostic.Result{} = diagnostic])
+      assert_receive project_diagnostics(diagnostics: [%Diagnostic{} = diagnostic])
 
       assert diagnostic.uri
       assert diagnostic.message =~ "SyntaxError"
@@ -161,7 +161,7 @@ defmodule Engine.BuildTest do
       EngineApi.schedule_compile(project, true)
 
       assert_receive project_compiled(status: :error), @project_compile_timeout
-      assert_receive project_diagnostics(diagnostics: [%Diagnostic.Result{} = diagnostic])
+      assert_receive project_diagnostics(diagnostics: [%Diagnostic{} = diagnostic])
 
       assert diagnostic.uri
       assert diagnostic.position == {4, 24}
@@ -180,7 +180,7 @@ defmodule Engine.BuildTest do
       assert_receive project_compiled(status: :success), @project_compile_timeout
       assert_receive project_diagnostics(diagnostics: diagnostics)
 
-      assert [%Diagnostic.Result{}, %Diagnostic.Result{}] = diagnostics
+      assert [%Diagnostic{}, %Diagnostic{}] = diagnostics
 
       for diagnostic <- diagnostics do
         assert diagnostic.uri
@@ -218,7 +218,7 @@ defmodule Engine.BuildTest do
       assert_receive file_compiled(status: :error)
       assert_receive file_diagnostics(diagnostics: [diagnostic])
 
-      assert %Diagnostic.Result{} = diagnostic
+      assert %Diagnostic{} = diagnostic
       assert diagnostic.uri
       assert diagnostic.severity == :error
       assert diagnostic.message =~ ~S[syntax error before: ',']
@@ -234,7 +234,7 @@ defmodule Engine.BuildTest do
       assert_receive file_compiled(status: :error)
       assert_receive file_diagnostics(diagnostics: [diagnostic])
 
-      assert %Diagnostic.Result{} = diagnostic
+      assert %Diagnostic{} = diagnostic
       assert diagnostic.uri
       assert diagnostic.severity == :error
       assert diagnostic.message =~ ~S[missing terminator: }]
@@ -250,7 +250,7 @@ defmodule Engine.BuildTest do
       assert_receive file_compiled(status: :error)
       assert_receive file_diagnostics(diagnostics: [diagnostic])
 
-      assert %Diagnostic.Result{} = diagnostic
+      assert %Diagnostic{} = diagnostic
       assert diagnostic.uri
       assert diagnostic.severity == :error
       assert diagnostic.message =~ ~S[undefined function doesnt_exist/0]
@@ -272,7 +272,7 @@ defmodule Engine.BuildTest do
       assert_receive file_compiled(status: :error)
       assert_receive file_diagnostics(diagnostics: [diagnostic])
 
-      assert %Diagnostic.Result{} = diagnostic
+      assert %Diagnostic{} = diagnostic
       assert diagnostic.uri
       assert diagnostic.severity == :error
       assert diagnostic.message =~ "no function clause matching"
@@ -307,7 +307,7 @@ defmodule Engine.BuildTest do
       compile_document(project, source)
 
       assert_receive file_compiled(status: :success)
-      assert_receive file_diagnostics(diagnostics: [%Diagnostic.Result{} = diagnostic])
+      assert_receive file_diagnostics(diagnostics: [%Diagnostic{} = diagnostic])
 
       assert diagnostic.uri
       assert diagnostic.severity == :warning
@@ -337,7 +337,7 @@ defmodule Engine.BuildTest do
       ]
       compile_document(project, source)
 
-      assert_receive file_diagnostics(diagnostics: [%Diagnostic.Result{} = diagnostic | _])
+      assert_receive file_diagnostics(diagnostics: [%Diagnostic{} = diagnostic | _])
       assert diagnostic.uri
 
       if Features.with_diagnostics?() do
@@ -370,7 +370,7 @@ defmodule Engine.BuildTest do
       compile_document(project, source)
 
       assert_receive file_compiled(status: :success)
-      assert_receive file_diagnostics(diagnostics: [%Diagnostic.Result{} = diagnostic])
+      assert_receive file_diagnostics(diagnostics: [%Diagnostic{} = diagnostic])
 
       assert diagnostic.uri
       assert diagnostic.severity == :warning

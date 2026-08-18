@@ -23,7 +23,6 @@ jobs:
         project:
           - engine
           - expert
-          - expert_credo
           - forge
     steps:
       - name: Checkout code
@@ -79,7 +78,6 @@ jobs:
         project:
           - engine
           - expert
-          - expert_credo
           - forge
     steps:
       - name: Checkout code

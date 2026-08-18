@@ -12,8 +12,8 @@ defmodule Engine.Build.Document.Compilers.EExTest do
   alias Engine.Build.Document.Compilers
   alias Engine.Dispatch
   alias Engine.ModuleMappings
+  alias Forge.Diagnostic
   alias Forge.Document
-  alias Forge.Plugin.V1.Diagnostic.Result
 
   def with_capture_server(_) do
     start_supervised!(CaptureServer)
@@ -66,7 +66,7 @@ defmodule Engine.Build.Document.Compilers.EExTest do
     setup [:with_capture_server]
 
     test "handles syntax errors" do
-      {:error, [%Result{} = result]} =
+      {:error, [%Diagnostic{} = result]} =
         ~q[
         <%=
         ]t
@@ -90,7 +90,7 @@ defmodule Engine.Build.Document.Compilers.EExTest do
     @feature_condition span_in_diagnostic?: false
     @tag execute_if(@feature_condition)
     test "handles unused variables" do
-      assert {:ok, [%Result{} = result]} =
+      assert {:ok, [%Diagnostic{} = result]} =
                ~q[
                <%= something = 6 %>
                ]
@@ -113,7 +113,7 @@ defmodule Engine.Build.Document.Compilers.EExTest do
                ]
         |> document_with_content()
 
-      assert {:ok, [%Result{} = result]} = compile(document)
+      assert {:ok, [%Diagnostic{} = result]} = compile(document)
 
       assert result.message == ~s[variable "something" is unused]
       assert decorate(document, result.position) == "<%= «something» = 6 %>"
@@ -129,7 +129,7 @@ defmodule Engine.Build.Document.Compilers.EExTest do
         <%= IO.uts("thing") %>
       ])
 
-      assert {:error, [%Result{} = result]} = compile(document)
+      assert {:error, [%Diagnostic{} = result]} = compile(document)
       assert result.message =~ "function IO.uts/1 is undefined or private"
       assert result.position == {1, 8}
       assert result.severity == :error
@@ -144,7 +144,7 @@ defmodule Engine.Build.Document.Compilers.EExTest do
         <%= thing %>
       ])
 
-      assert {:error, [%Result{} = result]} = compile(document)
+      assert {:error, [%Diagnostic{} = result]} = compile(document)
 
       if Features.with_diagnostics?() do
         assert result.message =~ "undefined variable \"thing\""
@@ -165,7 +165,7 @@ defmodule Engine.Build.Document.Compilers.EExTest do
         <%= thing %>
       ])
 
-      assert {:error, [%Result{} = result]} = compile(document)
+      assert {:error, [%Diagnostic{} = result]} = compile(document)
 
       assert result.message == "undefined variable \"thing\""
       assert decorate(document, result.position) == "<%= «thing» %>"

@@ -6,8 +6,8 @@ defmodule Engine.Build.Document.Compilers.Config do
 
   alias Elixir.Features
   alias Engine.Build.Error.Location
+  alias Forge.Diagnostic
   alias Forge.Document
-  alias Forge.Plugin.V1.Diagnostic
 
   @elixir_source "Elixir"
 
@@ -81,7 +81,7 @@ defmodule Engine.Build.Document.Compilers.Config do
   defp to_result(document, error, stack \\ [])
 
   defp to_result(%Document{} = document, %CompileError{} = error, _stack) do
-    Diagnostic.Result.new(
+    Diagnostic.new(
       document.uri,
       error.line,
       Exception.message(error),
@@ -92,7 +92,7 @@ defmodule Engine.Build.Document.Compilers.Config do
 
   defp to_result(%Document{} = document, %error_type{} = error, _stack)
        when error_type in [SyntaxError, TokenMissingError] do
-    Diagnostic.Result.new(
+    Diagnostic.new(
       document.uri,
       {error.line, error.column},
       Exception.message(error),
@@ -106,13 +106,13 @@ defmodule Engine.Build.Document.Compilers.Config do
          %{position: position, message: message, severity: severity},
          _stack
        ) do
-    Diagnostic.Result.new(document.path, position, message, severity, @elixir_source)
+    Diagnostic.new(document.path, position, message, severity, @elixir_source)
   end
 
   defp to_result(%Document{} = document, %{__exception__: true} = exception, stack) do
     message = Exception.message(exception)
     position = Location.stack_to_position(stack)
-    Diagnostic.Result.new(document.path, position, message, :error, @elixir_source)
+    Diagnostic.new(document.path, position, message, :error, @elixir_source)
   end
 
   defp reject_logged_messages(results) do

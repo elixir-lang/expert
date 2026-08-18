@@ -9,8 +9,8 @@ defmodule Expert.Project.DiagnosticsTest do
 
   alias Expert.EngineApi
   alias Expert.Test.DispatchFake
+  alias Forge.Diagnostic
   alias Forge.Document
-  alias Forge.Plugin.V1.Diagnostic
   alias GenLSP.Notifications.TextDocumentPublishDiagnostics
   alias GenLSP.Structures
   alias GenLSP.Structures.PublishDiagnosticsParams
@@ -35,7 +35,7 @@ defmodule Expert.Project.DiagnosticsTest do
     ]
 
     values = Keyword.merge(defaults, opts)
-    struct(Diagnostic.Result, values)
+    struct(Diagnostic, values)
   end
 
   defp open_file(project, contents) do

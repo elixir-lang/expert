@@ -5,8 +5,8 @@ defmodule Engine.Build.Document.Compilers.HEEx do
   @behaviour Engine.Build.Document.Compiler
 
   alias Engine.Build.Document.Compilers
+  alias Forge.Diagnostic
   alias Forge.Document
-  alias Forge.Plugin.V1.Diagnostic.Result
 
   def recognizes?(%Document{language_id: "phoenix-heex"}), do: true
   def recognizes?(%Document{language_id: "heex"}), do: true
@@ -64,7 +64,7 @@ defmodule Engine.Build.Document.Compilers.HEEx do
   defp error_to_result(%Document{} = document, %EEx.SyntaxError{} = error) do
     position = {error.line, error.column}
 
-    Result.new(document.uri, position, error.message, :error, "EEx")
+    Diagnostic.new(document.uri, position, error.message, :error, "EEx")
   end
 
   defp error_to_result(document, %error_struct{} = error)
@@ -74,6 +74,6 @@ defmodule Engine.Build.Document.Compilers.HEEx do
               Phoenix.LiveView.Tokenizer.ParseError
             ] do
     position = {error.line, error.column}
-    Result.new(document.uri, position, error.description, :error, "HEEx")
+    Diagnostic.new(document.uri, position, error.description, :error, "HEEx")
   end
 end

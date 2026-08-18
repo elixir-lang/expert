@@ -1,7 +1,7 @@
 os := if os() == "macos" { "darwin" } else { os() }
 arch := if arch() =~ "(arm|aarch64)" { "arm64" } else if arch() =~ "(x86|x86_64)" { "amd64" } else { "unsupported" }
 local_target := if os =~ "(darwin|linux|windows)" { os + "_" + arch } else { "unsupported" }
-apps := "expert engine forge expert_credo"
+apps := "expert engine forge"
 expert_erl_flags := "-start_epmd false -epmd_module Elixir.Forge.EPMD"
 engine_erl_flags := "-start_epmd false -epmd_module Elixir.Forge.EPMD"
 

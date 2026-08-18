@@ -1,15 +1,15 @@
-defimpl Forge.Protocol.Convertible, for: Forge.Plugin.V1.Diagnostic.Result do
+defimpl Forge.Protocol.Convertible, for: Forge.Diagnostic do
   alias Expert.Protocol.Conversions
+  alias Forge.Diagnostic
   alias Forge.Document
   alias Forge.Document.Position
   alias Forge.Document.Range
   alias Forge.Math
-  alias Forge.Plugin.V1.Diagnostic
   alias Forge.Text
   alias GenLSP.Enumerations.DiagnosticSeverity
   alias GenLSP.Structures
 
-  def to_lsp(%Diagnostic.Result{} = diagnostic) do
+  def to_lsp(%Diagnostic{} = diagnostic) do
     with {:ok, lsp_range} <- lsp_range(diagnostic) do
       proto_diagnostic = %Structures.Diagnostic{
         message: diagnostic.message,
@@ -27,11 +27,11 @@ defimpl Forge.Protocol.Convertible, for: Forge.Plugin.V1.Diagnostic.Result do
   defp map_severity(:information), do: DiagnosticSeverity.information()
   defp map_severity(:hint), do: DiagnosticSeverity.hint()
 
-  def to_native(%Diagnostic.Result{} = diagnostic, _) do
+  def to_native(%Diagnostic{} = diagnostic, _) do
     {:ok, diagnostic}
   end
 
-  defp lsp_range(%Diagnostic.Result{position: %Position{} = position}) do
+  defp lsp_range(%Diagnostic{position: %Position{} = position}) do
     with {:ok, lsp_start_pos} <- Conversions.to_lsp(position) do
       range =
         %Structures.Range{
@@ -43,17 +43,17 @@ defimpl Forge.Protocol.Convertible, for: Forge.Plugin.V1.Diagnostic.Result do
     end
   end
 
-  defp lsp_range(%Diagnostic.Result{position: %Range{} = range}) do
+  defp lsp_range(%Diagnostic{position: %Range{} = range}) do
     Conversions.to_lsp(range)
   end
 
-  defp lsp_range(%Diagnostic.Result{uri: uri} = diagnostic) when is_binary(uri) do
+  defp lsp_range(%Diagnostic{uri: uri} = diagnostic) when is_binary(uri) do
     with {:ok, document} <- Document.Store.open_temporary(uri) do
       position_to_range(document, diagnostic.position)
     end
   end
 
-  defp lsp_range(%Diagnostic.Result{}) do
+  defp lsp_range(%Diagnostic{}) do
     {:error, :no_uri}
   end
 

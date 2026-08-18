@@ -25,7 +25,6 @@ Expert is structured as a [poncho-style project](https://embedded-elixir.com/pos
 - `forge`: Shared project, document, AST, search-entry, namespacing, and node-discovery utilities.
 - `engine`: The project-side application that provides compilation, indexing, search, and code-intelligence APIs inside the project node.
 - `expert`: The manager and language-server application that owns the LSP transport, project supervision, and request dispatch.
-- `expert_credo`: A Credo diagnostics plugin exposed through the Forge plugin API.
 
 By separating Expert into applications, the release and engine builder can place only the required code in each VM. The engine runtime dependency set is intentionally smaller than the manager's because engine code runs beside the project and must be namespaced and filtered out of analysis. Keeping engine dependencies to the minimum needed for project-side work is a design goal of this architecture.
 

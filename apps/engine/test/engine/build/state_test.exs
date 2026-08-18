@@ -6,7 +6,7 @@ defmodule Engine.Build.StateTest do
 
   alias Engine.Build
   alias Engine.Build.State
-  alias Engine.Plugin
+  alias Forge.Diagnostic
   alias Forge.Document
   alias Forge.Project
 
@@ -16,8 +16,6 @@ defmodule Engine.Build.StateTest do
     start_supervised!(Build.CaptureServer)
     start_supervised!(Engine.Compilation.TraceBuffer)
     start_supervised!(Engine.ModuleMappings)
-    start_supervised!(Plugin.Runner.Coordinator)
-    start_supervised!(Plugin.Runner.Supervisor)
     :ok
   end
 
@@ -215,7 +213,7 @@ defmodule Engine.Build.StateTest do
 
       assert_receive {:project_diagnostics, _, _, diagnostics}
 
-      assert Enum.all?(diagnostics, &match?(%Forge.Plugin.V1.Diagnostic.Result{}, &1))
+      assert Enum.all?(diagnostics, &match?(%Diagnostic{}, &1))
     end
   end
 

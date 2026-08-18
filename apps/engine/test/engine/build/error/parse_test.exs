@@ -7,8 +7,8 @@ defmodule Engine.Build.Error.ParseTest do
   alias Engine.Build
   alias Engine.Build.CaptureServer
   alias Engine.Dispatch
+  alias Forge.Diagnostic
   alias Forge.Document
-  alias Forge.Plugin.V1.Diagnostic
 
   setup do
     start_supervised!(Dispatch)
@@ -206,11 +206,11 @@ defmodule Engine.Build.Error.ParseTest do
 
       assert [start_diagnostic, end_diagnostic] = errors
 
-      assert %Diagnostic.Result{} = end_diagnostic
+      assert %Diagnostic{} = end_diagnostic
       assert end_diagnostic.message =~ "missing terminator: end"
       assert end_diagnostic.position == {5, 12}
 
-      assert %Diagnostic.Result{} = start_diagnostic
+      assert %Diagnostic{} = start_diagnostic
       assert start_diagnostic.message == ~S[The `do` here is missing terminator `end`]
       assert start_diagnostic.position == 2
     end
@@ -231,11 +231,11 @@ defmodule Engine.Build.Error.ParseTest do
 
       assert [start_diagnostic, end_diagnostic] = errors
 
-      assert %Diagnostic.Result{} = end_diagnostic
+      assert %Diagnostic{} = end_diagnostic
       assert end_diagnostic.message == "missing terminator: end"
       assert end_diagnostic.position == {5, 12}
 
-      assert %Diagnostic.Result{} = start_diagnostic
+      assert %Diagnostic{} = start_diagnostic
       assert start_diagnostic.message == ~S[The `do` here is missing terminator `end`]
       assert decorate(document_text, start_diagnostic.position) =~ ~S/defmodule Foo «do»/
     end

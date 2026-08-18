@@ -4,9 +4,9 @@ defmodule Forge.Project.Diagnostics.StateTest do
   import Forge.Test.Fixtures
 
   alias Expert.Project.Diagnostics.State
+  alias Forge.Diagnostic
   alias Forge.Document
   alias Forge.Document.Edit
-  alias Forge.Plugin.V1.Diagnostic
   alias Forge.Project
 
   setup do
@@ -51,7 +51,7 @@ defmodule Forge.Project.Diagnostics.StateTest do
     position = Keyword.get(opts, :position, 1)
     message = Keyword.get(opts, :message, "This file is broken")
     severity = Keyword.get(opts, :severity, :error)
-    Diagnostic.Result.new(file_uri, position, message, severity, "Elixir")
+    Diagnostic.new(file_uri, position, message, severity, "Elixir")
   end
 
   describe "add/3" do
@@ -60,7 +60,7 @@ defmodule Forge.Project.Diagnostics.StateTest do
 
       state = State.add(state, 1, diagnostic)
 
-      assert [%Diagnostic.Result{}] = State.get(state, diagnostic.uri)
+      assert [%Diagnostic{}] = State.get(state, diagnostic.uri)
     end
 
     test "allows you to add multiple diagnostics with the same build number", %{state: state} do
@@ -109,7 +109,7 @@ defmodule Forge.Project.Diagnostics.StateTest do
 
     state = State.add(state, 1, diagnostic)
 
-    assert [%Diagnostic.Result{}] = State.get(state, diagnostic.uri)
+    assert [%Diagnostic{}] = State.get(state, diagnostic.uri)
   end
 
   describe "clear_all_flushed/1" do

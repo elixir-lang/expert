@@ -1,8 +1,8 @@
 defmodule Engine.Build.Error do
   alias Engine.Build.Error.Location
   alias Forge.Ast
+  alias Forge.Diagnostic
   alias Forge.Document
-  alias Forge.Plugin.V1.Diagnostic.Result
   alias Mix.Task.Compiler
 
   @elixir_source "Elixir"
@@ -28,7 +28,7 @@ defmodule Engine.Build.Error do
   end
 
   defp normalize(%Compiler.Diagnostic{} = diagnostic) do
-    Result.new(
+    Diagnostic.new(
       diagnostic.file,
       diagnostic.position,
       diagnostic.message,
@@ -37,12 +37,12 @@ defmodule Engine.Build.Error do
     )
   end
 
-  defp normalize(%Result{} = result) do
+  defp normalize(%Diagnostic{} = result) do
     result
   end
 
-  defp format(%Result{} = result) do
-    %Result{result | message: format_message(result.message)}
+  defp format(%Diagnostic{} = result) do
+    %Diagnostic{result | message: format_message(result.message)}
   end
 
   @undefined_function_pattern ~r/ \(expected ([A-Za-z0-9_\.]*) to [^\)]+\)/
@@ -85,7 +85,7 @@ defmodule Engine.Build.Error do
           pos
         end
 
-      Result.new(doc.uri, position, message, severity, @elixir_source)
+      Diagnostic.new(doc.uri, position, message, severity, @elixir_source)
     end
   end
 
@@ -97,7 +97,7 @@ defmodule Engine.Build.Error do
       ) do
     path = compile_error.file || source.path
 
-    Result.new(
+    Diagnostic.new(
       path,
       Location.position(compile_error.line),
       compile_error.description,
@@ -115,7 +115,7 @@ defmodule Engine.Build.Error do
     [{_module, _function, _arity, context} | _] = stack
     message = Exception.message(function_clause)
     position = Location.context_to_position(context)
-    Result.new(source.uri, position, message, :error, @elixir_source)
+    Diagnostic.new(source.uri, position, message, :error, @elixir_source)
   end
 
   def error_to_diagnostic(
@@ -126,7 +126,7 @@ defmodule Engine.Build.Error do
       ) do
     message = Exception.message(error)
     position = Location.position(1)
-    Result.new(source.uri, position, message, :error, @elixir_source)
+    Diagnostic.new(source.uri, position, message, :error, @elixir_source)
   end
 
   def error_to_diagnostic(
@@ -147,7 +147,7 @@ defmodule Engine.Build.Error do
         Location.stack_to_position(stack)
       end
 
-    Result.new(source.uri, position, message, :error, @elixir_source)
+    Diagnostic.new(source.uri, position, message, :error, @elixir_source)
   end
 
   def error_to_diagnostic(
@@ -158,7 +158,7 @@ defmodule Engine.Build.Error do
       ) do
     message = Exception.message(runtime_error)
     position = 1
-    Result.new(source.uri, position, message, :error, @elixir_source)
+    Diagnostic.new(source.uri, position, message, :error, @elixir_source)
   end
 
   def error_to_diagnostic(
@@ -183,7 +183,7 @@ defmodule Engine.Build.Error do
         Location.stack_to_position(stack)
       end
 
-    Result.new(source.uri, position, message, :error, @elixir_source)
+    Diagnostic.new(source.uri, position, message, :error, @elixir_source)
   end
 
   def error_to_diagnostic(%Document{} = source, %module{} = exception, stack, _quoted_ast)
@@ -194,7 +194,7 @@ defmodule Engine.Build.Error do
            ] do
     message = Exception.message(exception)
     position = Location.stack_to_position(stack)
-    Result.new(source.uri, position, message, :error, @elixir_source)
+    Diagnostic.new(source.uri, position, message, :error, @elixir_source)
   end
 
   def message_to_diagnostic(%Document{} = document, message_string) do
@@ -299,7 +299,7 @@ defmodule Engine.Build.Error do
           file
         end
 
-      Result.new(file, line, message, :warning, @elixir_source, mfa)
+      Diagnostic.new(file, line, message, :warning, @elixir_source, mfa)
     else
       _ ->
         nil
