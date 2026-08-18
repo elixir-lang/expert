@@ -42,35 +42,56 @@ defmodule Engine.CodeMod.Rename do
     if Process.whereis(Commands.Rename) do
       {:error, :rename_in_progress}
     else
-      with {:ok, {renamable, entity}, range} <- Rename.Prepare.resolve(analysis, position) do
-        rename_module = Map.fetch!(@rename_mappings, renamable)
-        results = rename_module.rename(range, new_name, entity)
+      token = start_progress()
 
-        with :ok <- set_rename_progress(results) do
-          {:ok, results}
+      result =
+        with {:ok, {renamable, entity}, range} <- Rename.Prepare.resolve(analysis, position) do
+          rename_module = Map.fetch!(@rename_mappings, renamable)
+          {:ok, rename_module.rename(range, new_name, entity)}
         end
+
+      case result do
+        {:ok, []} = result ->
+          complete(token, result)
+
+        {:ok, document_changes} = result ->
+          with :ok <- set_rename_progress(document_changes, token) do
+            result
+          end
+
+        {:error, _reason} = error ->
+          complete(token, error)
       end
     end
   end
 
-  defp set_rename_progress([]), do: :ok
+  defp start_progress do
+    case Progress.begin("Renaming", message: "Calculating edits") do
+      {:ok, token} -> token
+      {:error, _} -> Progress.noop_token()
+    end
+  end
 
   # Progress tracking is optional - if the infrastructure isn't running
   # (e.g., in tests), we just skip it silently
-  defp set_rename_progress(document_changes_list) do
-    case do_set_rename_progress(document_changes_list) do
+  defp set_rename_progress(document_changes_list, token) do
+    on_update_progress = fn _delta, message -> Progress.report(token, message: message) end
+    on_complete = fn -> Progress.complete(token) end
+
+    case do_set_rename_progress(document_changes_list, on_update_progress, on_complete) do
       {:ok, _pid} -> :ok
-      {:error, {:already_started, _pid}} -> {:error, :rename_in_progress}
-      {:error, {:already_buffering, _pid}} -> {:error, :rename_in_progress}
-      _ -> :ok
+      {:error, {:already_started, _pid}} -> complete(token, {:error, :rename_in_progress})
+      {:error, {:already_buffering, _pid}} -> complete(token, {:error, :rename_in_progress})
+      _ -> complete(token, :ok)
     end
-  rescue
-    _ -> :ok
-  catch
-    :exit, _ -> :ok
   end
 
-  defp do_set_rename_progress(document_changes_list) do
+  defp complete(token, result) do
+    Progress.complete(token)
+    result
+  end
+
+  defp do_set_rename_progress(document_changes_list, on_update_progress, on_complete) do
     uri_to_expected_operation = uri_to_expected_operation(document_changes_list)
 
     {paths_to_delete, paths_to_reindex} =
@@ -85,30 +106,13 @@ defmodule Engine.CodeMod.Rename do
 
     paths_to_delete = Enum.reject(paths_to_delete, &is_nil/1)
 
-    {on_update_progress, on_complete} =
-      case Progress.begin("Renaming") do
-        {:ok, token} ->
-          {fn _delta, message -> Progress.report(token, message: message) end,
-           fn -> Progress.complete(token) end}
-
-        {:error, _} ->
-          {fn _delta, _message -> :ok end, fn -> :ok end}
-      end
-
-    case Commands.RenameSupervisor.start_renaming(
-           uri_to_expected_operation,
-           paths_to_reindex,
-           paths_to_delete,
-           on_update_progress,
-           on_complete
-         ) do
-      {:ok, _pid} = result ->
-        result
-
-      {:error, _reason} = error ->
-        on_complete.()
-        error
-    end
+    Commands.RenameSupervisor.start_renaming(
+      uri_to_expected_operation,
+      paths_to_reindex,
+      paths_to_delete,
+      on_update_progress,
+      on_complete
+    )
   end
 
   defp uri_to_expected_operation(document_changes_list) do

@@ -9,6 +9,7 @@ defmodule Engine.CodeMod.RenameTest do
   import Forge.Test.Fixtures
 
   alias Engine.CodeMod.Rename
+  alias Engine.CodeMod.Rename.Prepare
   alias Engine.Commands.RenameSupervisor
   alias Engine.ManagerApi
   alias Forge.Document
@@ -35,6 +36,10 @@ defmodule Engine.CodeMod.RenameTest do
     patch(ManagerApi, :search_store_prefix, fn ^project, subject, constraints ->
       {:ok, query_entries(store, subject, constraints, :prefix)}
     end)
+
+    patch(Engine.Progress, :begin, {:error, :rejected})
+    patch(Engine.Api.Proxy, :start_buffering, :ok)
+    start_supervised!(RenameSupervisor)
 
     {:ok, project: project, store: store}
   end
@@ -132,9 +137,52 @@ defmodule Engine.CodeMod.RenameTest do
     refute_called(RenameSupervisor.start_renaming(_, _, _, _, _))
   end
 
+  test "reports progress before calculating edits" do
+    test = self()
+
+    patch(Engine.Progress, :begin, fn "Renaming", [message: message] ->
+      send(test, {:begin_progress, message})
+      {:ok, :rename}
+    end)
+
+    patch(Engine.Progress, :complete, fn :rename -> send(test, :complete_progress) end)
+
+    patch(Rename.Module, :rename, fn _range, _new_name, _module ->
+      send(test, {:calculating_edits, self()})
+      receive do: (:continue -> [])
+    end)
+
+    task =
+      Task.async(fn ->
+        ~q[defmodule |MyApp.Users do
+        end]
+        |> rename("MyApp.Accounts")
+      end)
+
+    assert_receive {:begin_progress, "Calculating edits"}
+    assert_receive {:calculating_edits, planner}
+    send(planner, :continue)
+
+    assert {:ok, _changes} = Task.await(task)
+    assert_receive :complete_progress
+  end
+
+  test "completes progress when planning fails" do
+    test = self()
+
+    patch(Engine.Progress, :begin, {:ok, :rename})
+    patch(Engine.Progress, :complete, fn :rename -> send(test, :complete_progress) end)
+    patch(Prepare, :resolve, {:error, :planning_failed})
+
+    assert {:error, :planning_failed} =
+             ~q[defmodule |MyApp.Users do
+             end]
+             |> rename("MyApp.Accounts")
+
+    assert_receive :complete_progress
+  end
+
   test "rejects rename while another rename is in progress" do
-    start_supervised!(RenameSupervisor)
-    patch(Engine.Api.Proxy, :start_buffering, :ok)
     uri = "file://file.ex"
 
     {:ok, pid} =
@@ -171,7 +219,6 @@ defmodule Engine.CodeMod.RenameTest do
 
   test "rejects rename while proxy is still buffering" do
     test = self()
-    start_supervised!(RenameSupervisor)
     patch(Engine.Progress, :begin, {:ok, :rename})
     patch(Engine.Progress, :complete, fn :rename -> send(test, :complete_progress) end)
     patch(Engine.Api.Proxy, :start_buffering, {:error, {:already_buffering, self()}})
