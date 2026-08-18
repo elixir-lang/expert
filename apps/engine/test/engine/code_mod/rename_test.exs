@@ -78,6 +78,32 @@ defmodule Engine.CodeMod.RenameTest do
       assert result == "MyApp.Users"
     end
 
+    test "returns Inner instead of MyApp.Test.Inner for a nested module" do
+      {:ok, result, _} =
+        ~q[
+        defmodule MyApp.Test do
+          defmodule |Inner do
+          end
+        end
+      ]
+        |> prepare()
+
+      assert result == "Inner"
+    end
+
+    test "returns a multi-segment relative module name" do
+      {:ok, result, _} =
+        ~q[
+        defmodule MyApp.Users do
+          defmodule Admin.|Query do
+          end
+        end
+      ]
+        |> prepare()
+
+      assert result == "Admin.Query"
+    end
+
     test "returns nil for module reference" do
       assert {:ok, nil} =
                ~q[
@@ -300,7 +326,64 @@ defmodule Engine.CodeMod.RenameTest do
       assert result =~ ~S[defmodule MyApp.Session do]
     end
 
-    test "renames nested module definition" do
+    test "does not qualify a renamed nested module declaration" do
+      {:ok, result} =
+        ~q[
+        defmodule MyApp.Test do
+          defmodule |Inner do
+          end
+        end
+
+        defmodule MyApp.TestTest do
+          alias MyApp.Test.Inner
+        end
+      ]
+        |> rename("InnerRenamed")
+
+      assert result == ~q[
+        defmodule MyApp.Test do
+          defmodule InnerRenamed do
+          end
+        end
+
+        defmodule MyApp.TestTest do
+          alias MyApp.Test.InnerRenamed
+        end
+      ]
+
+      refute result =~ "defmodule MyApp.Test.InnerRenamed"
+    end
+
+    test "does not rename the same nested name under another module" do
+      {:ok, result} =
+        ~q[
+        defmodule MyApp.Test do
+          defmodule |Inner do
+          end
+        end
+
+        defmodule OtherApp.Test do
+          defmodule Inner do
+          end
+        end
+
+        defmodule MyApp.Consumer do
+          alias MyApp.Test.Inner
+        end
+
+        defmodule OtherApp.Consumer do
+          alias OtherApp.Test.Inner
+        end
+      ]
+        |> rename("InnerRenamed")
+
+      assert result =~ ~S[alias MyApp.Test.InnerRenamed]
+      assert result =~ ~S[defmodule OtherApp.Test do]
+      assert result =~ ~S[alias OtherApp.Test.Inner]
+      refute result =~ ~S[alias OtherApp.Test.InnerRenamed]
+    end
+
+    test "preserves every segment requested for a relative declaration" do
       {:ok, result} =
         ~q[
         defmodule MyApp.Users do
@@ -312,18 +395,10 @@ defmodule Engine.CodeMod.RenameTest do
           alias MyApp.Users.Query
         end
       ]
-        |> rename("Filter")
+        |> rename("Admin.Filter")
 
-      assert result == ~q[
-        defmodule MyApp.Users do
-          defmodule Filter do
-          end
-        end
-
-        defmodule MyApp.UsersTest do
-          alias MyApp.Users.Filter
-        end
-      ]
+      assert result =~ ~S[defmodule Admin.Filter do]
+      assert result =~ ~S[alias MyApp.Users.Admin.Filter]
     end
 
     test "renames multi-alias syntax" do

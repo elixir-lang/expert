@@ -10,9 +10,9 @@ defmodule Engine.CodeMod.Rename.Prepare do
   alias Engine.CodeIntelligence.Entity
   alias Engine.CodeMod.Rename
   alias Forge.Ast.Analysis
+  alias Forge.Document
   alias Forge.Document.Position
   alias Forge.Document.Range
-  alias Forge.Formats
 
   require Logger
 
@@ -28,8 +28,8 @@ defmodule Engine.CodeMod.Rename.Prepare do
           {:ok, String.t(), Range.t()} | {:ok, nil} | {:error, term()}
   def prepare(%Analysis{} = analysis, %Position{} = position) do
     case resolve(analysis, position) do
-      {:ok, {:module, module}, range} ->
-        {:ok, Formats.module(module), range}
+      {:ok, {:module, _module}, range} ->
+        {:ok, Document.fragment(analysis.document, range.start, range.end), range}
 
       {:error, {:unsupported_location, _}} ->
         {:ok, nil}

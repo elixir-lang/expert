@@ -172,7 +172,9 @@ defmodule Engine.CodeMod.Rename.Module do
 
       cond do
         source == old_leaf ->
-          entry_replacement = if source == old_name, do: new_name, else: new_leaf
+          entry_replacement =
+            if source == old_name or entry.subtype == :definition, do: new_name, else: new_leaf
+
           [%{entry | replacement: entry_replacement}]
 
         source == to_be_renamed ->
