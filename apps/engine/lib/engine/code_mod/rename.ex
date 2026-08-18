@@ -36,9 +36,15 @@ defmodule Engine.CodeMod.Rename do
   of document changes that should be applied.
 
   """
-  @spec rename(Analysis.t(), Position.t(), String.t(), String.t() | nil) ::
+  @spec rename(Analysis.t(), Position.t(), String.t(), String.t() | nil, boolean()) ::
           {:ok, [Document.Changes.t()]} | {:error, term()}
-  def rename(%Analysis{} = analysis, %Position{} = position, new_name, _client_name) do
+  def rename(
+        %Analysis{} = analysis,
+        %Position{} = position,
+        new_name,
+        _client_name,
+        rename_files? \\ true
+      ) do
     if Process.whereis(Commands.Rename) do
       {:error, :rename_in_progress}
     else
@@ -48,7 +54,7 @@ defmodule Engine.CodeMod.Rename do
         with {:ok, {renamable, entity}, range} <- Rename.Prepare.resolve(analysis, position) do
           rename_module = Map.fetch!(@rename_mappings, renamable)
 
-          case rename_module.rename(analysis, range, new_name, entity) do
+          case rename_module.rename(analysis, range, new_name, entity, rename_files?) do
             {:error, _reason} = error -> error
             document_changes -> {:ok, document_changes}
           end

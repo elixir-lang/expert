@@ -12,6 +12,7 @@ defmodule Engine.CodeMod.RenameTest do
   alias Engine.CodeMod.Rename.Prepare
   alias Engine.Commands.RenameSupervisor
   alias Engine.ManagerApi
+  alias Engine.Search.Indexer.Source
   alias Forge.Document
 
   setup do
@@ -191,7 +192,7 @@ defmodule Engine.CodeMod.RenameTest do
 
     patch(Engine.Progress, :complete, fn :rename -> send(test, :complete_progress) end)
 
-    patch(Rename.Module, :rename, fn _analysis, _range, _new_name, _module ->
+    patch(Rename.Module, :rename, fn _analysis, _range, _new_name, _module, _rename_files? ->
       send(test, {:calculating_edits, self()})
       receive do: (:continue -> [])
     end)
@@ -1062,6 +1063,56 @@ defmodule Engine.CodeMod.RenameTest do
         ]
                |> rename_with_file("MyApp.Ordering", "lib/my_app/index.ex", project)
     end
+
+    test "does not rename files when file operations are disabled", %{project: project} do
+      assert {:ok, {_applied, nil}} =
+               ~q[
+               defmodule |MyApp.Users do
+               end
+               ]
+               |> rename_with_file("MyApp.Accounts", "lib/my_app/users.ex", project, false)
+    end
+  end
+
+  describe "rename/4 document versions" do
+    test "captures the version of an open document" do
+      {position, code} =
+        pop_cursor(~q[
+        defmodule |MyApp.Users do
+        end
+        ])
+
+      {:ok, _document, analysis} = index(code)
+
+      assert {:ok, [%Document.Changes{expected_version: 1}]} =
+               Rename.rename(analysis, position, "MyApp.Accounts", nil)
+    end
+
+    test "omits the version for a reference loaded from disk", %{
+      project: project,
+      store: store
+    } do
+      {position, code} =
+        pop_cursor(~q[
+        defmodule |MyApp.Users do
+        end
+        ])
+
+      {:ok, _document, analysis} = index(code)
+      path = file_path(project, "lib/rename_version_consumer.ex")
+      File.write!(path, "defmodule Consumer do\n  alias MyApp.Users\nend\n")
+      on_exit(fn -> File.rm!(path) end)
+
+      reference_document = Document.new(path, File.read!(path), 1)
+      {:ok, entries} = Source.index_document(reference_document)
+      Agent.update(store, &(&1 ++ entries))
+
+      assert {:ok, changes} = Rename.rename(analysis, position, "MyApp.Accounts", nil)
+      reference_uri = Document.Path.ensure_uri(path)
+
+      assert %Document.Changes{expected_version: nil} =
+               Enum.find(changes, &(&1.document.uri == reference_uri))
+    end
   end
 
   describe "rename/4 standard file convention" do
@@ -1308,15 +1359,16 @@ defmodule Engine.CodeMod.RenameTest do
     end
   end
 
-  defp rename_with_file(code, new_name, path, project) do
+  defp rename_with_file(code, new_name, path, project, rename_files? \\ true) do
     uri = subject_uri(project, path)
 
     with {position, text} <- pop_cursor(code),
          {:ok, document} <- open_document(uri, text),
-         {:ok, entries} <- Engine.Search.Indexer.Source.index_document(document),
+         {:ok, entries} <- Source.index_document(document),
          :ok <- ManagerApi.search_store_replace(project, entries),
          {:ok, _document, analysis} <- Document.Store.fetch(uri, :analysis),
-         {:ok, document_changes} <- Rename.rename(analysis, position, new_name, nil) do
+         {:ok, document_changes} <-
+           Rename.rename(analysis, position, new_name, nil, rename_files?) do
       changes = document_changes |> Enum.map(& &1.edits) |> List.flatten()
       applied = apply_edits(document, changes)
       rename_file = document_changes |> Enum.map(& &1.rename_file) |> List.first()

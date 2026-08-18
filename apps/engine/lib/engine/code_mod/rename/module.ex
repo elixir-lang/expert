@@ -60,9 +60,15 @@ defmodule Engine.CodeMod.Rename.Module do
   @doc """
   Executes the rename operation, returning a list of document changes.
   """
-  @spec rename(Analysis.t(), Range.t(), String.t(), atom()) ::
+  @spec rename(Analysis.t(), Range.t(), String.t(), atom(), boolean()) ::
           [Document.Changes.t()] | {:error, term()}
-  def rename(%Analysis{} = analysis, %Range{} = old_range, new_name, module) do
+  def rename(
+        %Analysis{} = analysis,
+        %Range{} = old_range,
+        new_name,
+        module,
+        rename_files? \\ true
+      ) do
     {to_be_renamed, replacement} = old_range |> range_text() |> Module.Diff.diff(new_name)
 
     with {:ok, declaration} <- declaration_entry(analysis, old_range, module),
@@ -71,7 +77,7 @@ defmodule Engine.CodeMod.Rename.Module do
       (exacts ++ descendants)
       |> Enum.group_by(&Document.Path.ensure_uri(&1.path))
       |> Enum.reduce_while([], fn {uri, entries}, changes ->
-        case to_document_changes(uri, entries, replacement) do
+        case to_document_changes(uri, entries, replacement, rename_files?) do
           {:ok, document_changes} -> {:cont, [document_changes | changes]}
           {:error, {:file_already_exists, _path}} = error -> {:halt, error}
           {:error, _reason} -> {:cont, changes}
@@ -189,7 +195,9 @@ defmodule Engine.CodeMod.Rename.Module do
   defp to_entries({:error, _reason} = error), do: error
   defp to_entries([]), do: {:error, :search_store_unavailable}
 
-  defp maybe_rename_file(document, entries, replacement) do
+  defp maybe_rename_file(_document, _entries, _replacement, false), do: {:ok, nil}
+
+  defp maybe_rename_file(document, entries, replacement, true) do
     case Enum.find(entries, &(&1.subtype == :definition)) do
       nil ->
         {:ok, nil}
@@ -310,10 +318,12 @@ defmodule Engine.CodeMod.Rename.Module do
     |> put_in([:end, :character], end_character)
   end
 
-  defp to_document_changes(uri, entries, replacement) do
+  defp to_document_changes(uri, entries, replacement, rename_files?) do
     with {:ok, _document} <- Document.Store.open_temporary(uri),
-         {:ok, document, analysis} <- Document.Store.fetch(uri, :analysis),
-         {:ok, rename_file} <- maybe_rename_file(document, entries, replacement) do
+         {:ok, document, analysis, origin} <-
+           Document.Store.fetch_with_origin(uri, :analysis),
+         {:ok, rename_file} <-
+           maybe_rename_file(document, entries, replacement, rename_files?) do
       edits =
         entries
         |> Enum.reject(&explicit_alias_reference?(document, analysis, &1))
@@ -330,7 +340,8 @@ defmodule Engine.CodeMod.Rename.Module do
           end
         end)
 
-      {:ok, Document.Changes.new(document, edits, rename_file)}
+      expected_version = if origin == :open, do: document.version
+      {:ok, Document.Changes.new(document, edits, rename_file, expected_version)}
     end
   end
 

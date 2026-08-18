@@ -33,23 +33,18 @@ defmodule Expert.Provider.Handlers.Rename do
 
   defp rename(project, analysis, position, new_name) do
     %Configuration{client_name: client_name} = Configuration.get()
+    document_changes? = Configuration.client_support(:document_changes)
 
-    case EngineApi.rename(project, analysis, position, new_name, client_name) do
+    rename_files? =
+      document_changes? and
+        "rename" in List.wrap(Configuration.client_support(:resource_operations))
+
+    case EngineApi.rename(project, analysis, position, new_name, client_name, rename_files?) do
       {:ok, []} ->
         {:ok, nil}
 
       {:ok, results} ->
-        document_changes =
-          Enum.flat_map(results, fn
-            %Changes{rename_file: %Changes.RenameFile{}} = changes ->
-              [to_text_document_edit(changes), to_rename_file(changes.rename_file)]
-
-            %Changes{} = changes ->
-              [to_text_document_edit(changes)]
-          end)
-
-        workspace_edit = %Structures.WorkspaceEdit{document_changes: document_changes}
-        {:ok, workspace_edit}
+        {:ok, to_workspace_edit(results, document_changes?)}
 
       {:error, {:unsupported_entity, entity}} ->
         Logger.info("Cannot rename entity: #{inspect(entity)}")
@@ -60,39 +55,36 @@ defmodule Expert.Provider.Handlers.Rename do
     end
   end
 
+  defp to_workspace_edit(results, true) do
+    document_changes =
+      Enum.flat_map(results, fn
+        %Changes{rename_file: %Changes.RenameFile{}} = changes ->
+          [to_text_document_edit(changes), to_rename_file(changes.rename_file)]
+
+        %Changes{} = changes ->
+          [to_text_document_edit(changes)]
+      end)
+
+    %Structures.WorkspaceEdit{document_changes: document_changes}
+  end
+
+  defp to_workspace_edit(results, false) do
+    changes = Map.new(results, &{&1.document.uri, List.wrap(&1.edits)})
+    %Structures.WorkspaceEdit{changes: changes}
+  end
+
   defp to_text_document_edit(%Changes{} = changes) do
-    %Changes{document: document, edits: edits} = changes
+    %Changes{document: document, edits: edits, expected_version: expected_version} = changes
 
     text_document =
       %Structures.OptionalVersionedTextDocumentIdentifier{
         uri: document.uri,
-        version: document.version
+        version: expected_version
       }
 
     %Structures.TextDocumentEdit{
-      edits: Enum.map(edits, &to_text_edit/1),
+      edits: edits,
       text_document: text_document
-    }
-  end
-
-  defp to_text_edit(%Document.Edit{} = edit) do
-    %Structures.TextEdit{
-      new_text: edit.text,
-      range: to_lsp_range(edit.range)
-    }
-  end
-
-  defp to_lsp_range(%Document.Range{} = range) do
-    %Structures.Range{
-      start: to_lsp_position(range.start),
-      end: to_lsp_position(range.end)
-    }
-  end
-
-  defp to_lsp_position(%Document.Position{} = position) do
-    %Structures.Position{
-      line: position.line - 1,
-      character: position.character - 1
     }
   end
 

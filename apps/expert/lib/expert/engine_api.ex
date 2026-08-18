@@ -174,13 +174,15 @@ defmodule Expert.EngineApi do
         %Analysis{} = analysis,
         %Position{} = position,
         new_name,
-        client_name
+        client_name,
+        rename_files?
       ) do
     call(project, Engine, :rename, [
       analysis,
       position,
       new_name,
-      client_name
+      client_name,
+      rename_files?
     ])
   end
 

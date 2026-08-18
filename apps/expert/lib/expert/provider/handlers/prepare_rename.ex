@@ -35,7 +35,7 @@ defmodule Expert.Provider.Handlers.PrepareRename do
         # PrepareRenameResult is a type alias in GenLSP, return as map
         result = %{
           placeholder: placeholder,
-          range: to_lsp_range(range)
+          range: range
         }
 
         {:ok, result}
@@ -49,19 +49,5 @@ defmodule Expert.Provider.Handlers.PrepareRename do
       {:error, error} ->
         {:error, :request_failed, inspect(error)}
     end
-  end
-
-  defp to_lsp_range(%Forge.Document.Range{} = range) do
-    %Structures.Range{
-      start: to_lsp_position(range.start),
-      end: to_lsp_position(range.end)
-    }
-  end
-
-  defp to_lsp_position(%Forge.Document.Position{} = position) do
-    %Structures.Position{
-      line: position.line - 1,
-      character: position.character - 1
-    }
   end
 end
