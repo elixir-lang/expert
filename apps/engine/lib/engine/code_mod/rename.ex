@@ -47,7 +47,11 @@ defmodule Engine.CodeMod.Rename do
       result =
         with {:ok, {renamable, entity}, range} <- Rename.Prepare.resolve(analysis, position) do
           rename_module = Map.fetch!(@rename_mappings, renamable)
-          {:ok, rename_module.rename(range, new_name, entity)}
+
+          case rename_module.rename(range, new_name, entity) do
+            {:error, _reason} = error -> error
+            document_changes -> {:ok, document_changes}
+          end
         end
 
       case result do

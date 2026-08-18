@@ -101,7 +101,7 @@ defmodule Expert.Provider.Handlers.Rename do
       kind: "rename",
       new_uri: rename_file.new_uri,
       old_uri: rename_file.old_uri,
-      options: %Structures.RenameFileOptions{overwrite: true}
+      options: %Structures.RenameFileOptions{overwrite: false}
     }
   end
 end

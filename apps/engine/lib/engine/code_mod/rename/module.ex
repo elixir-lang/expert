@@ -58,18 +58,26 @@ defmodule Engine.CodeMod.Rename.Module do
   @doc """
   Executes the rename operation, returning a list of document changes.
   """
-  @spec rename(Range.t(), String.t(), atom()) :: [Document.Changes.t()]
+  @spec rename(Range.t(), String.t(), atom()) ::
+          [Document.Changes.t()] | {:error, term()}
   def rename(%Range{} = old_range, new_name, module) do
     {to_be_renamed, replacement} = old_range |> range_text() |> Module.Diff.diff(new_name)
 
     results =
       exacts(module, to_be_renamed, replacement, new_name) ++ descendants(module, to_be_renamed)
 
-    for {uri, entries} <- Enum.group_by(results, &Document.Path.ensure_uri(&1.path)),
-        result = to_document_changes(uri, entries, replacement),
-        match?({:ok, _}, result) do
-      {:ok, document_changes} = result
-      document_changes
+    results
+    |> Enum.group_by(&Document.Path.ensure_uri(&1.path))
+    |> Enum.reduce_while([], fn {uri, entries}, changes ->
+      case to_document_changes(uri, entries, replacement) do
+        {:ok, document_changes} -> {:cont, [document_changes | changes]}
+        {:error, {:file_already_exists, _path}} = error -> {:halt, error}
+        {:error, _reason} -> {:cont, changes}
+      end
+    end)
+    |> case do
+      {:error, _reason} = error -> error
+      changes -> Enum.reverse(changes)
     end
   end
 
@@ -147,10 +155,16 @@ defmodule Engine.CodeMod.Rename.Module do
   end
 
   defp maybe_rename_file(document, entries, replacement) do
-    entries
-    |> Enum.map(&Rename.File.maybe_rename(document, &1, replacement))
-    # every group should have only one `rename_file`
-    |> Enum.find(&(not is_nil(&1)))
+    case Enum.find(entries, &(&1.subtype == :definition)) do
+      nil ->
+        {:ok, nil}
+
+      entry ->
+        case Rename.File.maybe_rename(document, entry, replacement) do
+          {:error, _reason} = error -> error
+          rename_file -> {:ok, rename_file}
+        end
+    end
   end
 
   defp entry_matching?(entry, to_be_renamed) do
@@ -263,9 +277,8 @@ defmodule Engine.CodeMod.Rename.Module do
 
   defp to_document_changes(uri, entries, replacement) do
     with {:ok, _document} <- Document.Store.open_temporary(uri),
-         {:ok, document, analysis} <- Document.Store.fetch(uri, :analysis) do
-      rename_file = maybe_rename_file(document, entries, replacement)
-
+         {:ok, document, analysis} <- Document.Store.fetch(uri, :analysis),
+         {:ok, rename_file} <- maybe_rename_file(document, entries, replacement) do
       edits =
         entries
         |> Enum.reject(&explicit_alias_reference?(document, analysis, &1))

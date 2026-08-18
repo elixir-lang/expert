@@ -922,13 +922,24 @@ defmodule Engine.CodeMod.RenameTest do
     end
   end
 
-  describe "rename/4 file renaming" do
-    setup do
-      patch(Engine.CodeMod.Rename.File, :function_exists?, false)
-      :ok
+  describe "rename/4 file rename eligibility" do
+    test "checks file rename eligibility once per document" do
+      patch(Rename.File, :maybe_rename, nil)
+
+      assert {:ok, _result} =
+               ~q[
+               defmodule |MyApp.Users do
+                 def current, do: MyApp.Users
+               end
+               ]
+               |> rename("MyApp.Accounts")
+
+      assert_called_once(
+        Rename.File.maybe_rename(_, %Engine.CodeMod.Rename.Entry{subtype: :definition}, _)
+      )
     end
 
-    test "does not rename file with parent module", %{project: project} do
+    test "does not rename a nested module's file", %{project: project} do
       {:ok, {_applied, nil}} =
         ~q[
         defmodule MyApp.Server do
@@ -939,7 +950,7 @@ defmodule Engine.CodeMod.RenameTest do
         |> rename_with_file("Config", "lib/my_app/server.ex", project)
     end
 
-    test "does not rename file with sibling modules", %{project: project} do
+    test "does not rename a file with multiple top-level modules", %{project: project} do
       assert {:ok, {_applied, nil}} =
                ~q[
         defmodule |MyApp.Users do
@@ -951,16 +962,20 @@ defmodule Engine.CodeMod.RenameTest do
                |> rename_with_file("Members", "lib/my_app/users.ex", project)
     end
 
-    test "does not rename file for non-conventional path", %{project: project} do
+    test "does not rename a file when its path matches neither convention", %{project: project} do
       assert {:ok, {_applied, nil}} =
                ~q[
-        defmodule |MyApp.MixProject do
+        defmodule |MyApp.Orders do
         end
         ]
-               |> rename_with_file("MyApp.Renamed", "mix.exs", project)
+               |> rename_with_file("MyApp.Ordering", "lib/my_app/index.ex", project)
     end
+  end
 
-    test "renames lib file", %{project: project} do
+  describe "rename/4 standard file convention" do
+    test "renames a file when its path matches the standard lib convention", %{
+      project: project
+    } do
       {:ok, {_applied, rename_file}} =
         ~q[
         defmodule |MyApp.Users do
@@ -971,7 +986,36 @@ defmodule Engine.CodeMod.RenameTest do
       assert rename_file.new_uri == subject_uri(project, "lib/my_app/accounts.ex")
     end
 
-    test "does not rename file when only case changes", %{project: project} do
+    test "derives the destination from the new module using the matched standard convention", %{
+      project: project
+    } do
+      {:ok, {_applied, rename_file}} =
+        ~q[
+        defmodule |MyApp.Users do
+        end
+      ]
+        |> rename_with_file("Billing.Accounts", "lib/my_app/users.ex", project)
+
+      assert rename_file.new_uri == subject_uri(project, "lib/billing/accounts.ex")
+    end
+
+    test "rejects an existing destination file", %{project: project} do
+      destination = file_path(project, "lib/accounts.ex")
+      refute File.exists?(destination)
+      File.write!(destination, "defmodule Accounts do\nend\n")
+      on_exit(fn -> File.rm!(destination) end)
+
+      assert {:error, {:file_already_exists, ^destination}} =
+               ~q[
+               defmodule |Users do
+               end
+               ]
+               |> rename_with_file("Accounts", "lib/users.ex", project)
+    end
+
+    test "does not emit a file rename when the conventional destination is unchanged", %{
+      project: project
+    } do
       assert {:ok, {_applied, nil}} =
                ~q[
         defmodule |MyApp.Users do
@@ -980,7 +1024,9 @@ defmodule Engine.CodeMod.RenameTest do
                |> rename_with_file("MyApp.USERS", "lib/my_app/users.ex", project)
     end
 
-    test "renames umbrella app file", %{project: project} do
+    test "renames a file when its path matches the standard umbrella convention", %{
+      project: project
+    } do
       {:ok, {_applied, rename_file}} =
         ~q[
         defmodule |MyApp.Users do
@@ -991,7 +1037,9 @@ defmodule Engine.CodeMod.RenameTest do
       assert rename_file.new_uri == subject_uri(project, "apps/my_app/lib/my_app/accounts.ex")
     end
 
-    test "renames umbrella app nested file", %{project: project} do
+    test "derives the conventional destination inside the same umbrella application", %{
+      project: project
+    } do
       {:ok, {_applied, rename_file}} =
         ~q[
         defmodule |Engine.CodeMod do
@@ -1007,7 +1055,9 @@ defmodule Engine.CodeMod.RenameTest do
                subject_uri(project, "apps/engine/lib/engine/refactor.ex")
     end
 
-    test "renames test file", %{project: project} do
+    test "renames a file when its path matches the standard test convention", %{
+      project: project
+    } do
       {:ok, {_applied, rename_file}} =
         ~q[
         defmodule |MyApp.UsersTest do
@@ -1017,12 +1067,12 @@ defmodule Engine.CodeMod.RenameTest do
 
       assert rename_file.new_uri == subject_uri(project, "test/my_app/accounts_test.exs")
     end
+  end
 
-    test "preserves components folder for phoenix component", %{project: project} do
-      patch(Engine.CodeMod.Rename.File, :phoenix_component_module?, fn MyAppWeb.IconComponent ->
-        true
-      end)
-
+  describe "rename/4 Phoenix file convention" do
+    test "renames a file when its path matches the Phoenix components convention", %{
+      project: project
+    } do
       {:ok, {_applied, rename_file}} =
         ~q[
         defmodule MyAppWeb.|IconComponent do
@@ -1038,13 +1088,9 @@ defmodule Engine.CodeMod.RenameTest do
                subject_uri(project, "lib/my_app_web/components/badge_component.ex")
     end
 
-    test "preserves components folder for nested component", %{project: project} do
-      patch(
-        Engine.CodeMod.Rename.File,
-        :phoenix_component_module?,
-        fn MyAppWeb.Admin.IconComponent -> true end
-      )
-
+    test "preserves the Phoenix components convention for a nested module", %{
+      project: project
+    } do
       {:ok, {_applied, rename_file}} =
         ~q[
         defmodule MyAppWeb.Admin.|IconComponent do
@@ -1060,15 +1106,7 @@ defmodule Engine.CodeMod.RenameTest do
                subject_uri(project, "lib/my_app_web/components/admin/badge_component.ex")
     end
 
-    test "preserves components folder when Components in module name", %{project: project} do
-      patch(
-        Engine.CodeMod.Rename.File,
-        :phoenix_component_module?,
-        fn MyAppWeb.Components.Icons ->
-          true
-        end
-      )
-
+    test "does not duplicate a Phoenix folder present in the module name", %{project: project} do
       {:ok, {_applied, rename_file}} =
         ~q[
         defmodule MyAppWeb.Components.|Icons do
@@ -1084,13 +1122,9 @@ defmodule Engine.CodeMod.RenameTest do
                subject_uri(project, "lib/my_app_web/components/badges.ex")
     end
 
-    test "preserves controllers folder", %{project: project} do
-      patch(
-        Engine.CodeMod.Rename.File,
-        :phoenix_controller_module?,
-        fn MyAppWeb.UserController -> true end
-      )
-
+    test "renames a file when its path matches the Phoenix controllers convention", %{
+      project: project
+    } do
       {:ok, {_applied, rename_file}} =
         ~q[
         defmodule MyAppWeb.|UserController do
@@ -1106,13 +1140,27 @@ defmodule Engine.CodeMod.RenameTest do
                subject_uri(project, "lib/my_app_web/controllers/account_controller.ex")
     end
 
-    test "preserves controllers folder for JSON module", %{project: project} do
-      patch(
-        Engine.CodeMod.Rename.File,
-        :phoenix_controller_module?,
-        fn MyAppWeb.UserController.JSON -> true end
-      )
+    test "derives the destination from the new module using the matched Phoenix convention", %{
+      project: project
+    } do
+      {:ok, {_applied, rename_file}} =
+        ~q[
+        defmodule MyAppWeb.Admin.|UserController do
+        end
+      ]
+        |> rename_with_file(
+          "BillingWeb.AccountController",
+          "lib/my_app_web/controllers/admin/user_controller.ex",
+          project
+        )
 
+      assert rename_file.new_uri ==
+               subject_uri(project, "lib/billing_web/controllers/account_controller.ex")
+    end
+
+    test "preserves the Phoenix controllers convention for a nested module", %{
+      project: project
+    } do
       {:ok, {_applied, rename_file}} =
         ~q[
         defmodule MyAppWeb.UserController.|JSON do
@@ -1128,11 +1176,9 @@ defmodule Engine.CodeMod.RenameTest do
                subject_uri(project, "lib/my_app_web/controllers/user_controller/api.ex")
     end
 
-    test "preserves live folder", %{project: project} do
-      patch(Engine.CodeMod.Rename.File, :phoenix_liveview_module?, fn MyAppWeb.UserLive ->
-        true
-      end)
-
+    test "renames a file when its path matches the Phoenix live convention", %{
+      project: project
+    } do
       {:ok, {_applied, rename_file}} =
         ~q[
         defmodule MyAppWeb.|UserLive do
