@@ -6,6 +6,7 @@ defmodule Engine.Commands.RenameTest do
   import Forge.Test.EventualAssertions
 
   alias Engine.Api.Proxy
+  alias Engine.Commands.Reindex
   alias Engine.Commands.Rename
   alias Engine.Commands.RenameSupervisor
   alias Engine.ManagerApi
@@ -22,6 +23,7 @@ defmodule Engine.Commands.RenameTest do
     on_complete = fn -> complete_progress(pid) end
 
     patch(Proxy, :start_buffering, :ok)
+    patch(Reindex, :uri, :ok)
     %{on_report_progress: on_report_progress, on_complete: on_complete}
   end
 
@@ -140,6 +142,48 @@ defmodule Engine.Commands.RenameTest do
   test "it should return :error when updating progress if no rename is in progress" do
     assert {:error, :not_in_rename_progress} =
              Rename.update_progress(file_changed(uri: "file://file.ex"))
+  end
+
+  test "it should complete and shutdown when notifications time out", %{
+    on_report_progress: on_report_progress,
+    on_complete: on_complete
+  } do
+    uri = "file://file.ex"
+
+    {:ok, pid} =
+      RenameSupervisor.start_renaming(
+        %{uri => file_saved(uri: uri)},
+        [uri],
+        [],
+        on_report_progress,
+        on_complete
+      )
+
+    send(pid, :timeout)
+
+    assert_receive :complete_progress
+    refute_eventually Process.whereis(Rename)
+    refute_called(Reindex.uri(_))
+  end
+
+  test "it should accept file_changed when file_saved is expected", %{
+    on_report_progress: on_report_progress,
+    on_complete: on_complete
+  } do
+    uri = "file://file.ex"
+
+    {:ok, _pid} =
+      RenameSupervisor.start_renaming(
+        %{uri => file_saved(uri: uri)},
+        [],
+        [],
+        on_report_progress,
+        on_complete
+      )
+
+    Rename.update_progress(file_changed(uri: uri))
+
+    assert_receive :complete_progress
   end
 
   defp update_progress(pid, delta, message) do

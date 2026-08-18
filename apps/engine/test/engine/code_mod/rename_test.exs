@@ -2,11 +2,14 @@ defmodule Engine.CodeMod.RenameTest do
   use ExUnit.Case, async: false
   use Patch
 
+  import Forge.EngineApi.Messages
   import Forge.Test.CodeSigil
   import Forge.Test.CursorSupport
+  import Forge.Test.EventualAssertions
   import Forge.Test.Fixtures
 
   alias Engine.CodeMod.Rename
+  alias Engine.Commands.RenameSupervisor
   alias Engine.ManagerApi
   alias Forge.Document
 
@@ -33,7 +36,7 @@ defmodule Engine.CodeMod.RenameTest do
       {:ok, query_entries(store, subject, constraints, :prefix)}
     end)
 
-    {:ok, project: project}
+    {:ok, project: project, store: store}
   end
 
   describe "prepare/2" do
@@ -106,6 +109,82 @@ defmodule Engine.CodeMod.RenameTest do
       ]
                |> prepare()
     end
+  end
+
+  test "does not track rename without document changes", %{project: project, store: store} do
+    patch(ManagerApi, :search_store_exact, fn ^project, subject, constraints ->
+      if Keyword.get(constraints, :subtype) == :definition do
+        {:ok, query_entries(store, subject, constraints, :exact)}
+      else
+        {:ok, []}
+      end
+    end)
+
+    patch(ManagerApi, :search_store_prefix, fn _project, _subject, _constraints -> {:ok, []} end)
+
+    assert {:ok, _result} =
+             ~q[
+             defmodule |MyApp.Users do
+             end
+             ]
+             |> rename("MyApp.Accounts")
+
+    refute_called(RenameSupervisor.start_renaming(_, _, _, _, _))
+  end
+
+  test "rejects rename while another rename is in progress" do
+    start_supervised!(RenameSupervisor)
+    patch(Engine.Api.Proxy, :start_buffering, :ok)
+    uri = "file://file.ex"
+
+    {:ok, pid} =
+      RenameSupervisor.start_renaming(
+        %{uri => file_saved(uri: uri)},
+        [],
+        [],
+        fn _delta, _message -> :ok end,
+        fn -> :ok end
+      )
+
+    assert {:error, :rename_in_progress} =
+             ~q[
+             defmodule |MyApp.Users do
+             end
+             ]
+             |> rename("MyApp.Accounts")
+
+    send(pid, :timeout)
+    refute_eventually Process.whereis(Engine.Commands.Rename)
+  end
+
+  test "rejects rename when progress tracking starts concurrently" do
+    patch(Engine.Progress, :begin, {:error, :unsupported})
+    patch(RenameSupervisor, :start_renaming, {:error, {:already_started, self()}})
+
+    assert {:error, :rename_in_progress} =
+             ~q[
+             defmodule |MyApp.Users do
+             end
+             ]
+             |> rename("MyApp.Accounts")
+  end
+
+  test "rejects rename while proxy is still buffering" do
+    test = self()
+    start_supervised!(RenameSupervisor)
+    patch(Engine.Progress, :begin, {:ok, :rename})
+    patch(Engine.Progress, :complete, fn :rename -> send(test, :complete_progress) end)
+    patch(Engine.Api.Proxy, :start_buffering, {:error, {:already_buffering, self()}})
+
+    assert {:error, :rename_in_progress} =
+             ~q[
+             defmodule |MyApp.Users do
+             end
+             ]
+             |> rename("MyApp.Accounts")
+
+    assert_receive :complete_progress
+    refute_receive :complete_progress
   end
 
   describe "rename/4 basic" do

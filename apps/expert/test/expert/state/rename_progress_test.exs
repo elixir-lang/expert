@@ -41,16 +41,13 @@ defmodule Expert.State.RenameProgressTest do
   end
 
   describe "VSCode editor - non-file-rename (edits only)" do
-    test "reindex triggers after file_saved (VSCode expects save after edit)" do
+    test "reindex triggers after file_changed" do
       editor = vscode_editor()
       uri = subject_uri(editor.project, "lib/foo.ex")
       open_document(uri, "defmodule Foo do\nend")
       expect_events_before_reindex(%{uri => file_saved(uri: uri)}, reindex: [uri])
 
       simulate_did_change(editor, uri)
-      refute_reindex_triggered()
-
-      simulate_did_save(editor, uri)
       assert_reindex_triggered(reindex: [uri], delete: [])
     end
   end
@@ -96,7 +93,7 @@ defmodule Expert.State.RenameProgressTest do
       open_document(new_uri, "defmodule NewModule do\nend")
 
       expect_events_before_reindex(
-        %{old_uri => file_changed(uri: old_uri), new_uri => file_saved(uri: new_uri)},
+        %{new_uri => file_saved(uri: new_uri)},
         reindex: [new_uri],
         delete: [old_uri]
       )

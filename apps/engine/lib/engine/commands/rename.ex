@@ -21,6 +21,8 @@ defmodule Engine.Commands.Rename do
 
   require Logger
 
+  @timeout :timer.seconds(30)
+
   defmodule State do
     @moduledoc false
 
@@ -59,19 +61,18 @@ defmodule Engine.Commands.Rename do
     end
 
     def update_progress(%__MODULE__{} = state, file_changed(uri: uri)) do
-      update_progress(state, uri, file_changed(uri: uri))
+      consume_operation(state, uri)
     end
 
     def update_progress(%__MODULE__{} = state, file_saved(uri: uri)) do
-      update_progress(state, uri, file_saved(uri: uri))
+      consume_operation(state, uri)
     end
 
-    defp update_progress(%__MODULE__{} = state, uri, message) do
+    defp consume_operation(%__MODULE__{} = state, uri) do
       new_uri_with_expected_operation =
         maybe_pop_expected_operation(
           state.uri_to_expected_operation,
           uri,
-          message,
           state.on_update_progress
         )
 
@@ -87,9 +88,9 @@ defmodule Engine.Commands.Rename do
       state.uri_to_expected_operation != %{}
     end
 
-    defp maybe_pop_expected_operation(uri_to_operation, uri, message, on_update_progress) do
+    defp maybe_pop_expected_operation(uri_to_operation, uri, on_update_progress) do
       case uri_to_operation do
-        %{^uri => ^message} ->
+        %{^uri => _expected_message} ->
           on_update_progress.(1, "")
           Map.delete(uri_to_operation, uri)
 
@@ -167,7 +168,14 @@ defmodule Engine.Commands.Rename do
 
   @impl true
   def init(state) do
-    {:ok, state, {:continue, :start_buffering}}
+    case Engine.Api.Proxy.start_buffering() do
+      :ok ->
+        Process.send_after(self(), :timeout, @timeout)
+        {:ok, state}
+
+      {:error, reason} ->
+        {:stop, reason}
+    end
   end
 
   @doc """
@@ -190,12 +198,6 @@ defmodule Engine.Commands.Rename do
   end
 
   @impl true
-  def handle_continue(:start_buffering, state) do
-    Engine.Api.Proxy.start_buffering()
-    {:noreply, state}
-  end
-
-  @impl true
   def handle_call(:in_progress?, _from, state) do
     {:reply, State.in_progress?(state), state}
   end
@@ -210,5 +212,15 @@ defmodule Engine.Commands.Rename do
       Logger.info("Rename process completed.")
       {:stop, :normal, new_state}
     end
+  end
+
+  @impl true
+  def handle_info(:timeout, state) do
+    Logger.warning(
+      "Rename tracking timed out with #{map_size(state.uri_to_expected_operation)} pending operations"
+    )
+
+    state.on_complete.()
+    {:stop, :normal, state}
   end
 end
