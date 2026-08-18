@@ -104,6 +104,32 @@ defmodule Engine.CodeMod.RenameTest do
       assert result == "Admin.Query"
     end
 
+    test "prepares an Ecto repo declaration from source while the index is loading" do
+      patch(ManagerApi, :search_store_exact, {:error, :loading})
+
+      assert {:ok, "MyApp.Repo", _range} =
+               ~q[
+               defmodule MyApp.|Repo do
+                 use Ecto.Repo,
+                   otp_app: :my_app,
+                   adapter: Ecto.Adapters.Postgres
+               end
+               ]
+               |> prepare()
+    end
+
+    test "prepares a protocol declaration from source while the index is loading" do
+      patch(ManagerApi, :search_store_exact, {:error, :loading})
+
+      assert {:ok, "MyApp.Protocol", _range} =
+               ~q[
+               defprotocol MyApp.|Protocol do
+                 def run(value)
+               end
+               ]
+               |> prepare()
+    end
+
     test "returns nil for module reference" do
       assert {:ok, nil} =
                ~q[
@@ -142,16 +168,8 @@ defmodule Engine.CodeMod.RenameTest do
     end
   end
 
-  test "does not track rename without document changes", %{project: project, store: store} do
-    patch(ManagerApi, :search_store_exact, fn ^project, subject, constraints ->
-      if Keyword.get(constraints, :subtype) == :definition do
-        {:ok, query_entries(store, subject, constraints, :exact)}
-      else
-        {:ok, []}
-      end
-    end)
-
-    patch(ManagerApi, :search_store_prefix, fn _project, _subject, _constraints -> {:ok, []} end)
+  test "does not track rename without document changes" do
+    patch(Rename.Module, :rename, [])
 
     assert {:ok, _result} =
              ~q[
@@ -173,7 +191,7 @@ defmodule Engine.CodeMod.RenameTest do
 
     patch(Engine.Progress, :complete, fn :rename -> send(test, :complete_progress) end)
 
-    patch(Rename.Module, :rename, fn _range, _new_name, _module ->
+    patch(Rename.Module, :rename, fn _analysis, _range, _new_name, _module ->
       send(test, {:calculating_edits, self()})
       receive do: (:continue -> [])
     end)
@@ -260,7 +278,81 @@ defmodule Engine.CodeMod.RenameTest do
     refute_receive :complete_progress
   end
 
+  test "returns an error when exact references are unavailable" do
+    patch(ManagerApi, :search_store_exact, {:error, :loading})
+
+    assert {:error, :loading} =
+             ~q[
+             defmodule |MyApp.Users do
+             end
+             ]
+             |> rename("MyApp.Accounts")
+  end
+
+  test "returns an error when descendant references are unavailable" do
+    patch(ManagerApi, :search_store_prefix, {:error, :loading})
+
+    assert {:error, :loading} =
+             ~q[
+             defmodule |MyApp.Users do
+             end
+             ]
+             |> rename("MyApp.Accounts")
+  end
+
+  test "returns an error when exact reference search is unavailable" do
+    patch(ManagerApi, :search_store_exact, [])
+
+    assert {:error, :search_store_unavailable} =
+             ~q[
+             defmodule |MyApp.Users do
+             end
+             ]
+             |> rename("MyApp.Accounts")
+  end
+
+  test "returns an error when descendant reference search is unavailable" do
+    patch(ManagerApi, :search_store_prefix, [])
+
+    assert {:error, :search_store_unavailable} =
+             ~q[
+             defmodule |MyApp.Users do
+             end
+             ]
+             |> rename("MyApp.Accounts")
+  end
+
   describe "rename/4 basic" do
+    test "renames an Ecto repo declaration when the index has no definition" do
+      patch(ManagerApi, :search_store_exact, {:ok, []})
+
+      assert {:ok, result} =
+               ~q[
+               defmodule MyApp.|Repo do
+                 use Ecto.Repo,
+                   otp_app: :my_app,
+                   adapter: Ecto.Adapters.Postgres
+               end
+               ]
+               |> rename("MyApp.DataRepo")
+
+      assert result =~ ~S[defmodule MyApp.DataRepo do]
+    end
+
+    test "renames a protocol declaration when the index has no definition" do
+      patch(ManagerApi, :search_store_exact, {:ok, []})
+
+      assert {:ok, result} =
+               ~q[
+               defprotocol MyApp.|Protocol do
+                 def run(value)
+               end
+               ]
+               |> rename("MyApp.Runnable")
+
+      assert result =~ ~S[defprotocol MyApp.Runnable do]
+    end
+
     test "renames at definition" do
       {:ok, result} =
         ~q[

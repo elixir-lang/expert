@@ -6,17 +6,17 @@ defmodule Engine.CodeMod.Rename.Entry do
   and we also need some other fields used exclusively for renaming, such as `edit_range`.
   """
   alias Forge.Document.Range
-  alias Forge.Search.Indexer.Entry, as: IndexerEntry
+  alias Forge.Search.Indexer.Entry
 
   @type t :: %__MODULE__{
-          id: IndexerEntry.entry_id(),
+          id: Entry.entry_id(),
           path: Forge.path(),
-          subject: IndexerEntry.subject(),
+          subject: Entry.subject(),
           block_range: Range.t() | nil,
           range: Range.t(),
           edit_range: Range.t(),
           replacement: String.t() | nil,
-          subtype: IndexerEntry.entry_subtype()
+          subtype: Entry.entry_subtype()
         }
 
   defstruct [
@@ -31,10 +31,10 @@ defmodule Engine.CodeMod.Rename.Entry do
   ]
 
   @doc """
-  Creates a new Entry from an IndexerEntry.
+  Creates a new entry from a `Forge.Search.Indexer.Entry`.
   """
-  @spec new(IndexerEntry.t()) :: t()
-  def new(%IndexerEntry{} = indexer_entry) do
+  @spec new(Entry.t()) :: t()
+  def new(%Entry{} = indexer_entry) do
     %__MODULE__{
       id: indexer_entry.id,
       path: indexer_entry.path,

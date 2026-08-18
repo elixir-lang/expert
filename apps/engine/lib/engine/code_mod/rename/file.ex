@@ -41,7 +41,6 @@ defmodule Engine.CodeMod.Rename.File do
   alias Forge.Document
   alias Forge.Formats
   alias Forge.Project
-  alias Forge.Search.Indexer.Entry, as: IndexerEntry
 
   @conventions [
     {:phoenix, "components"},
@@ -68,7 +67,8 @@ defmodule Engine.CodeMod.Rename.File do
   defp root_module?(%Entry{} = entry, document) do
     with {:ok, entries} <-
            Indexer.Source.index_document(document, [Indexer.Extractors.Module]),
-         [%IndexerEntry{} = root_module] <- Enum.filter(entries, &(&1.block_id == :root)) do
+         [%Forge.Search.Indexer.Entry{} = root_module] <-
+           Enum.filter(entries, &(&1.block_id == :root)) do
       root_module.subject == entry.subject and root_module.block_range == entry.block_range
     else
       _ -> false

@@ -16,13 +16,15 @@ defmodule Engine.CodeMod.Rename.Module do
   alias Engine.ManagerApi
   alias Forge.Ast
   alias Forge.Ast.Analysis
-  alias Forge.Ast.Analysis.Alias, as: AstAlias
+  alias Forge.Ast.Analysis.Alias
   alias Forge.Ast.Analysis.Scope
   alias Forge.Document
   alias Forge.Document.Edit
   alias Forge.Document.Position
   alias Forge.Document.Range
   alias Forge.Formats
+
+  @module_defining_forms [:defmodule, :defprotocol]
 
   @doc """
   Checks if the position is at a module that can be renamed.
@@ -47,7 +49,7 @@ defmodule Engine.CodeMod.Rename.Module do
     with {:ok, {:module, _module}, _range} <- resolve(analysis, position) do
       {module, range} = surround_the_whole_module(analysis, position)
 
-      if cursor_at_declaration?(module, range) do
+      if cursor_at_declaration?(analysis, position, range) do
         {:ok, {:module, module}, range}
       else
         {:error, {:unsupported_location, :module}}
@@ -58,26 +60,27 @@ defmodule Engine.CodeMod.Rename.Module do
   @doc """
   Executes the rename operation, returning a list of document changes.
   """
-  @spec rename(Range.t(), String.t(), atom()) ::
+  @spec rename(Analysis.t(), Range.t(), String.t(), atom()) ::
           [Document.Changes.t()] | {:error, term()}
-  def rename(%Range{} = old_range, new_name, module) do
+  def rename(%Analysis{} = analysis, %Range{} = old_range, new_name, module) do
     {to_be_renamed, replacement} = old_range |> range_text() |> Module.Diff.diff(new_name)
 
-    results =
-      exacts(module, to_be_renamed, replacement, new_name) ++ descendants(module, to_be_renamed)
-
-    results
-    |> Enum.group_by(&Document.Path.ensure_uri(&1.path))
-    |> Enum.reduce_while([], fn {uri, entries}, changes ->
-      case to_document_changes(uri, entries, replacement) do
-        {:ok, document_changes} -> {:cont, [document_changes | changes]}
-        {:error, {:file_already_exists, _path}} = error -> {:halt, error}
-        {:error, _reason} -> {:cont, changes}
+    with {:ok, declaration} <- declaration_entry(analysis, old_range, module),
+         {:ok, exacts} <- exacts(declaration, module, to_be_renamed, replacement, new_name),
+         {:ok, descendants} <- descendants(module, to_be_renamed) do
+      (exacts ++ descendants)
+      |> Enum.group_by(&Document.Path.ensure_uri(&1.path))
+      |> Enum.reduce_while([], fn {uri, entries}, changes ->
+        case to_document_changes(uri, entries, replacement) do
+          {:ok, document_changes} -> {:cont, [document_changes | changes]}
+          {:error, {:file_already_exists, _path}} = error -> {:halt, error}
+          {:error, _reason} -> {:cont, changes}
+        end
+      end)
+      |> case do
+        {:error, _reason} = error -> error
+        changes -> Enum.reverse(changes)
       end
-    end)
-    |> case do
-      {:error, _reason} = error -> error
-      changes -> Enum.reverse(changes)
     end
   end
 
@@ -100,17 +103,39 @@ defmodule Engine.CodeMod.Rename.Module do
     end
   end
 
-  defp cursor_at_declaration?(module, rename_range) do
-    case ManagerApi.search_store_exact(Engine.get_project(), module,
-           type: :module,
-           subtype: :definition
-         ) do
-      {:ok, [definition]} ->
-        rename_range == definition.range
-
-      _ ->
-        false
+  defp cursor_at_declaration?(analysis, position, rename_range) do
+    with {:ok, path} <- Ast.path_at(analysis, position),
+         {_, _, [name | _]} <- module_declaration(path),
+         {:ok, declaration_range} <- Forge.Ast.Range.fetch(name, analysis.document) do
+      rename_range == declaration_range
+    else
+      _ -> false
     end
+  end
+
+  defp declaration_entry(analysis, range, module) do
+    with {:ok, path} <- Ast.path_at(analysis, range.start),
+         declaration when not is_nil(declaration) <- module_declaration(path),
+         {:ok, block_range} <- Forge.Ast.Range.fetch(declaration, analysis.document) do
+      {:ok,
+       %Entry{
+         path: analysis.document.path,
+         subject: module,
+         block_range: block_range,
+         range: range,
+         edit_range: range,
+         subtype: :definition
+       }}
+    else
+      _ -> {:error, :not_a_module_declaration}
+    end
+  end
+
+  defp module_declaration(path) do
+    Enum.find(
+      path,
+      &match?({form, _, [_ | _]} when form in @module_defining_forms, &1)
+    )
   end
 
   defp surround_the_whole_module(analysis, position) do
@@ -122,37 +147,47 @@ defmodule Engine.CodeMod.Rename.Module do
     {module, range}
   end
 
-  defp exacts(module, to_be_renamed, replacement, new_name) do
-    module
-    |> query_for_exacts()
-    |> adjust_range_for_exacts(module, to_be_renamed, replacement, new_name)
+  defp exacts(declaration, module, to_be_renamed, replacement, new_name) do
+    with {:ok, entries} <- query_for_exacts(module) do
+      exacts =
+        [declaration | entries]
+        |> adjust_range_for_exacts(module, to_be_renamed, replacement, new_name)
+
+      {:ok, exacts}
+    end
   end
 
   defp descendants(module, to_be_renamed) do
-    module
-    |> query_for_descendants()
-    |> Enum.filter(&(entry_matching?(&1, to_be_renamed) and has_dots_in_range?(&1)))
-    |> adjust_range_for_descendants(module, to_be_renamed)
+    with {:ok, entries} <- query_for_descendants(module) do
+      descendants =
+        entries
+        |> Enum.filter(&(entry_matching?(&1, to_be_renamed) and has_dots_in_range?(&1)))
+        |> adjust_range_for_descendants(module, to_be_renamed)
+
+      {:ok, descendants}
+    end
   end
 
   defp query_for_exacts(module) do
     module_string = Formats.module(module)
 
-    case ManagerApi.search_store_exact(Engine.get_project(), module_string, type: :module) do
-      {:ok, entries} -> Enum.map(entries, &Entry.new/1)
-      {:error, _} -> []
-    end
+    Engine.get_project()
+    |> ManagerApi.search_store_exact(module_string, type: :module, subtype: :reference)
+    |> to_entries()
   end
 
   defp query_for_descendants(module) do
     module_string = Formats.module(module)
     prefix = "#{module_string}."
 
-    case ManagerApi.search_store_prefix(Engine.get_project(), prefix, type: :module) do
-      {:ok, entries} -> Enum.map(entries, &Entry.new/1)
-      {:error, _} -> []
-    end
+    Engine.get_project()
+    |> ManagerApi.search_store_prefix(prefix, type: :module)
+    |> to_entries()
   end
+
+  defp to_entries({:ok, entries}), do: {:ok, Enum.map(entries, &Entry.new/1)}
+  defp to_entries({:error, _reason} = error), do: error
+  defp to_entries([]), do: {:error, :search_store_unavailable}
 
   defp maybe_rename_file(document, entries, replacement) do
     case Enum.find(entries, &(&1.subtype == :definition)) do
@@ -310,8 +345,9 @@ defmodule Engine.CodeMod.Rename.Module do
         scope
         |> Scope.alias_map(entry.range.start)
         |> Enum.any?(fn
-          {as, %AstAlias{explicit_as?: true} = alias} ->
-            alias_name(as) == source and AstAlias.to_module(alias) == entry.subject
+          {as, %Alias{explicit_as?: true} = alias} ->
+            alias_name(as) == source and
+              Alias.to_module(alias) == entry.subject
 
           _alias ->
             false
