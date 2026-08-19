@@ -29,3 +29,15 @@ defmodule MyDefinition do
     nil
   end
 end
+
+defmodule MyDefinition.AccessBehaviour do
+  defmacro __using__(_opts) do
+    quote do
+      def allowed?(_user, _capability), do: true
+    end
+  end
+end
+
+defmodule MyDefinition.Capability do
+  use MyDefinition.AccessBehaviour
+end

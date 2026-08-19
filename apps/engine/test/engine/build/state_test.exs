@@ -92,6 +92,12 @@ defmodule Engine.Build.StateTest do
 
       assert Code.get_compiler_option(:parser_options) == [columns: true]
     end
+
+    test "forces Mix to recompile during a forced project build" do
+      assert "--force" in State.mix_compile_opts(true)
+      refute "--force" in State.mix_compile_opts(false)
+      assert "--no-prune-code-paths" in State.mix_compile_opts(true)
+    end
   end
 
   describe "throttled document compilation" do

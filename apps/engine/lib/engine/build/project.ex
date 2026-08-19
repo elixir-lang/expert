@@ -66,7 +66,7 @@ defmodule Engine.Build.Project do
     compile_fun = fn ->
       Mix.Task.clear()
       Progress.report(token, message: "Compiling #{Project.display_name(project)}")
-      result = compile_in_isolation()
+      result = compile_in_isolation(initial?)
       maybe_load_modules()
       Engine.Mix.ensure_hex_and_rebar()
       Mix.Task.run(:loadpaths)
@@ -105,10 +105,10 @@ defmodule Engine.Build.Project do
     end
   end
 
-  defp compile_in_isolation do
+  defp compile_in_isolation(initial?) do
     compile_fun = fn ->
       Engine.Mix.ensure_hex_and_rebar()
-      Mix.Task.run(:compile, mix_compile_opts())
+      Mix.Task.run(:compile, Build.State.mix_compile_opts(initial?))
     end
 
     case Isolation.invoke(compile_fun) do
@@ -149,21 +149,5 @@ defmodule Engine.Build.Project do
       Progress.report(token, message: "mix deps.compile")
       Mix.Task.run("deps.safe_compile", ~w(--skip-umbrella-children))
     end
-  end
-
-  defp mix_compile_opts do
-    # --no-prune-code-paths keeps mix from deleting the engine's own code
-    # paths during the project compile. It only applies to the top-level
-    # compile; dependencies each compile in their own project frame with
-    # pruning enabled, which is what isolates them from undeclared siblings.
-    ~w(
-        --return-errors
-        --ignore-module-conflict
-        --all-warnings
-        --docs
-        --debug-info
-        --no-protocol-consolidation
-        --no-prune-code-paths
-    )
   end
 end

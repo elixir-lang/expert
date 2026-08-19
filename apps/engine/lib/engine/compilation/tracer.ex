@@ -7,7 +7,7 @@ defmodule Engine.Compilation.Tracer do
   alias Engine.Progress
 
   def trace({:on_module, module_binary, _filename}, %Macro.Env{} = env) do
-    maybe_record_module(env.file, module_binary)
+    maybe_record_module(env.file, module_binary, env.module)
     message = extract_module_updated(env.module, module_binary, env.file)
     maybe_report_progress(env.file)
     Engine.broadcast(message)
@@ -51,12 +51,22 @@ defmodule Engine.Compilation.Tracer do
     end
   end
 
-  defp maybe_record_module(file, module_binary)
-       when is_binary(file) and is_binary(module_binary) do
-    TraceBuffer.record_module(file, module_binary)
+  defp maybe_record_module(file, module_binary, module)
+       when is_binary(file) and is_binary(module_binary) and is_atom(module) do
+    definitions =
+      module
+      |> Module.definitions_in()
+      |> Enum.flat_map(fn definition ->
+        case Module.get_definition(module, definition, skip_clauses: true) do
+          {:v1, kind, metadata, []} -> [{definition, kind, metadata}]
+          _ -> []
+        end
+      end)
+
+    TraceBuffer.record_module(file, module_binary, module, definitions)
   end
 
-  defp maybe_record_module(_file, _module_binary), do: :ok
+  defp maybe_record_module(_file, _module_binary, _module), do: :ok
 
   defp progress_message(file) do
     relative_path_elements =

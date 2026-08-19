@@ -174,14 +174,21 @@ defmodule Expert.Project.Indexer do
 
   defp apply_trace_definitions(%Project{} = project, trace_batch) when is_map(trace_batch) do
     with {:ok, current_entries} <- Search.Store.all(project, paths: Map.keys(trace_batch)) do
+      current_entries = Enum.reject(current_entries, &use_definition?/1)
       trace_entries = missing_trace_entries(current_entries, trace_batch)
 
-      case trace_entries do
-        [] -> :ok
-        [_ | _] -> Search.Store.apply_index_update(project, current_entries ++ trace_entries, [])
-      end
+      Search.Store.apply_index_update(
+        project,
+        current_entries ++ trace_entries,
+        Map.keys(trace_batch)
+      )
     end
   end
+
+  defp use_definition?(%{subtype: :definition, metadata: %{via: :use}}),
+    do: true
+
+  defp use_definition?(_entry), do: false
 
   defp missing_trace_entries(current_entries, trace_batch) do
     current_keys =

@@ -252,10 +252,11 @@ defmodule Engine.Build.State do
         --docs
         --debug-info
         --no-protocol-consolidation
+        --no-prune-code-paths
     )
 
     if initial? do
-      ["--force " | opts]
+      ["--force" | opts]
     else
       opts
     end
