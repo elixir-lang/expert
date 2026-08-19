@@ -262,6 +262,37 @@ defmodule Engine.CodeMod.RenameTest do
              |> rename("MyApp.Accounts")
   end
 
+  for invalid_name <- ["", "Elixir", "my_app.Users", "MyApp..Users", "MyApp.Users;System.halt()"] do
+    test "rejects invalid module name #{inspect(invalid_name)}" do
+      assert {:error, {:invalid_module_name, unquote(invalid_name)}} =
+               ~q[defmodule |MyApp.Users do
+               end]
+               |> rename(unquote(invalid_name))
+    end
+  end
+
+  test "rejects an existing destination module" do
+    assert {:error, {:module_already_exists, "MyApp.Accounts"}} =
+             ~q[
+             defmodule |MyApp.Users do
+             end
+             defmodule MyApp.Accounts do
+             end
+             ]
+             |> rename("MyApp.Accounts")
+  end
+
+  test "rejects an existing destination descendant" do
+    assert {:error, {:module_already_exists, "MyApp.Accounts.Query"}} =
+             ~q[
+             defmodule |MyApp.Users do
+             end
+             defmodule MyApp.Accounts.Query do
+             end
+             ]
+             |> rename("MyApp.Accounts")
+  end
+
   test "rejects rename while proxy is still buffering" do
     test = self()
     patch(Engine.Progress, :begin, {:ok, :rename})

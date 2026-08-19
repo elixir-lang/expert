@@ -306,7 +306,7 @@ defmodule Engine.CodeMod.Rename.Module do
   end
 
   defp matches(range_text, to_be_renamed) do
-    Regex.scan(~r/#{to_be_renamed}/, range_text, return: :index)
+    Regex.scan(~r/#{Regex.escape(to_be_renamed)}/, range_text, return: :index)
   end
 
   defp adjust_range_characters(%Range{} = range, {start, length} = _matched_old_suffix) do

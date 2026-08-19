@@ -23,5 +23,9 @@ defmodule Engine.CodeMod.Rename.Module.DiffTest do
     test "returns the entire module pair if the change starts from the first module" do
       assert Diff.diff("Foo.Bar", "Foa.Bar") == {"Foo.Bar", "Foa.Bar"}
     end
+
+    test "treats regular expression metacharacters as text" do
+      assert Diff.diff("Foo[Bar.Baz", "Foo[Bar.Qux") == {"Baz", "Qux"}
+    end
   end
 end

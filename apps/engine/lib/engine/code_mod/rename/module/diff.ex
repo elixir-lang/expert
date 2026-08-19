@@ -45,6 +45,6 @@ defmodule Engine.CodeMod.Rename.Module.Diff do
   end
 
   defp replace_leading_eq(module, eq) do
-    module |> String.replace(~r"^#{eq}", "") |> String.trim_leading(".")
+    module |> String.replace_prefix(eq, "") |> String.trim_leading(".")
   end
 end

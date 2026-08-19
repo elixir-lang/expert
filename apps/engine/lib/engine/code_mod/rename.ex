@@ -10,11 +10,15 @@ defmodule Engine.CodeMod.Rename do
 
   alias Engine.CodeMod.Rename
   alias Engine.Commands
+  alias Engine.ManagerApi
   alias Engine.Progress
   alias Forge.Ast.Analysis
   alias Forge.Document
   alias Forge.Document.Position
   alias Forge.Document.Range
+  alias Forge.Formats
+
+  @module_name ~r/\A[A-Z][A-Za-z0-9_]*(?:\.[A-Z][A-Za-z0-9_]*)*\z/
 
   @doc """
   Prepares a rename operation at the given position.
@@ -51,7 +55,9 @@ defmodule Engine.CodeMod.Rename do
       token = start_progress()
 
       result =
-        with {:ok, {renamable, entity}, range} <- Rename.Prepare.resolve(analysis, position) do
+        with :ok <- validate_module_name(new_name),
+             {:ok, {renamable, entity}, range} <- Rename.Prepare.resolve(analysis, position),
+             :ok <- ensure_destination_available(analysis, entity, range, new_name) do
           rename_module = Map.fetch!(@rename_mappings, renamable)
 
           case rename_module.rename(analysis, range, new_name, entity, rename_files?) do
@@ -73,6 +79,47 @@ defmodule Engine.CodeMod.Rename do
           complete(token, error)
       end
     end
+  end
+
+  defp validate_module_name("Elixir"), do: {:error, {:invalid_module_name, "Elixir"}}
+
+  defp validate_module_name(name) when is_binary(name) do
+    if Regex.match?(@module_name, name), do: :ok, else: {:error, {:invalid_module_name, name}}
+  end
+
+  defp validate_module_name(name), do: {:error, {:invalid_module_name, name}}
+
+  defp ensure_destination_available(analysis, module, range, new_name) do
+    old_name = Document.fragment(analysis.document, range.start, range.end)
+    {old_suffix, new_suffix} = Rename.Module.Diff.diff(old_name, new_name)
+    target_name = module |> Formats.module() |> String.replace_suffix(old_suffix, new_suffix)
+
+    if target_name == Formats.module(module) do
+      :ok
+    else
+      check_destination(target_name)
+    end
+  end
+
+  defp check_destination(target_name) do
+    case ManagerApi.search_store_prefix(Engine.get_project(), target_name,
+           type: :module,
+           subtype: :definition
+         ) do
+      {:ok, definitions} -> check_definitions(definitions, target_name)
+      {:error, _reason} = error -> error
+      [] -> {:error, :search_store_unavailable}
+    end
+  end
+
+  defp check_definitions(definitions, target_name) do
+    Enum.find_value(definitions, :ok, fn definition ->
+      name = Formats.module(definition.subject)
+
+      if name == target_name or String.starts_with?(name, target_name <> ".") do
+        {:error, {:module_already_exists, name}}
+      end
+    end)
   end
 
   defp start_progress do
