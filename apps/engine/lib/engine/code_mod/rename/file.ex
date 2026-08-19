@@ -84,7 +84,10 @@ defmodule Engine.CodeMod.Rename.File do
          {:ok, convention} <- fetch_convention(entry, relative_path, prefix, extname),
          {:ok, new_name} <- fetch_new_name(document, entry, new_suffix) do
       suffix = conventional_suffix(new_name, convention)
-      new_path = Path.join([root_path, prefix, "#{suffix}#{extname}"])
+
+      new_path =
+        [root_path, prefix, "#{suffix}#{extname}"] |> Path.join() |> Forge.Path.normalize()
+
       new_uri = Document.Path.ensure_uri(new_path)
 
       cond do
