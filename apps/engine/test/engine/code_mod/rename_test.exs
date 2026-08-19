@@ -1144,6 +1144,57 @@ defmodule Engine.CodeMod.RenameTest do
       assert %Document.Changes{expected_version: nil} =
                Enum.find(changes, &(&1.document.uri == reference_uri))
     end
+
+    test "uses current entries and skips missing indexed files", %{
+      project: project
+    } do
+      {position, users_source} =
+        pop_cursor(~q[
+        defmodule MyApp.|Users do
+        end
+        ])
+
+      users_uri = subject_uri(project, "lib/users.ex")
+      consumer_uri = subject_uri(project, "lib/consumer.ex")
+      consumer_source = "defmodule Consumer do\n  alias MyApp.Users\nend\n"
+
+      :ok = Document.Store.open(users_uri, users_source, 1)
+      {:ok, users, users_analysis} = Document.Store.fetch(users_uri, :analysis)
+      {:ok, users_entries} = Source.index_document(users)
+
+      :ok = Document.Store.open(consumer_uri, consumer_source, 1)
+      {:ok, consumer} = Document.Store.fetch(consumer_uri)
+      {:ok, consumer_entries} = Source.index_document(consumer)
+
+      missing_path = file_path(project, "lib/missing_consumer.ex")
+      missing_document = Document.new(missing_path, consumer_source, 1)
+      {:ok, missing_entries} = Source.index_document(missing_document)
+
+      :ok =
+        ManagerApi.search_store_replace(
+          project,
+          users_entries ++ consumer_entries ++ missing_entries
+        )
+
+      shifted_source =
+        "# unsaved shift\ndefmodule Consumer do\n  alias MyApp.Users.Report\nend\n"
+
+      :ok =
+        Document.Store.update(consumer_uri, fn document ->
+          Document.apply_content_changes(document, 2, [Document.Edit.new(shifted_source)])
+        end)
+
+      assert {:ok, changes} =
+               Rename.rename(users_analysis, position, "MyApp.Accounts", nil, false)
+
+      assert %Document.Changes{document: document, edits: edits, expected_version: 2} =
+               Enum.find(changes, &(&1.document.uri == consumer_uri))
+
+      assert {:ok, updated} = Document.apply_content_changes(document, 3, edits)
+
+      assert Document.to_string(updated) ==
+               "# unsaved shift\ndefmodule Consumer do\n  alias MyApp.Accounts.Report\nend\n"
+    end
   end
 
   describe "rename/4 standard file convention" do

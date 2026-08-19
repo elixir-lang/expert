@@ -14,6 +14,7 @@ defmodule Engine.CodeMod.Rename.Module do
   alias Engine.CodeMod.Rename.Entry
   alias Engine.CodeMod.Rename.Module
   alias Engine.ManagerApi
+  alias Engine.Search.Indexer.Quoted
   alias Forge.Ast
   alias Forge.Ast.Analysis
   alias Forge.Ast.Analysis.Alias
@@ -72,9 +73,9 @@ defmodule Engine.CodeMod.Rename.Module do
     {to_be_renamed, replacement} = old_range |> range_text() |> Module.Diff.diff(new_name)
 
     with {:ok, declaration} <- declaration_entry(analysis, old_range, module),
-         {:ok, exacts} <- exacts(declaration, module, to_be_renamed, replacement, new_name),
-         {:ok, descendants} <- descendants(module, to_be_renamed) do
-      (exacts ++ descendants)
+         {:ok, entries} <-
+           references(declaration, module, to_be_renamed, replacement, new_name) do
+      entries
       |> Enum.group_by(&Document.Path.ensure_uri(&1.path))
       |> Enum.reduce_while([], fn {uri, entries}, changes ->
         case to_document_changes(uri, entries, replacement, rename_files?) do
@@ -153,24 +154,36 @@ defmodule Engine.CodeMod.Rename.Module do
     {module, range}
   end
 
-  defp exacts(declaration, module, to_be_renamed, replacement, new_name) do
-    with {:ok, entries} <- query_for_exacts(module) do
+  defp references(declaration, module, to_be_renamed, replacement, new_name) do
+    module_string = Formats.module(module)
+    prefix = "#{module_string}."
+
+    with {:ok, exact_entries} <- query_for_exacts(module),
+         {:ok, descendant_entries} <- query_for_descendants(module) do
+      entries =
+        refresh_entries(exact_entries ++ descendant_entries, fn entry ->
+          entry.type == :module and
+            (Formats.module(entry.subject) == module_string or
+               String.starts_with?(Formats.module(entry.subject), prefix))
+        end)
+
       exacts =
-        [declaration | entries]
+        entries
+        |> Enum.filter(
+          &(&1.subtype == :reference and Formats.module(&1.subject) == module_string)
+        )
+        |> then(&[declaration | &1])
         |> adjust_range_for_exacts(module, to_be_renamed, replacement, new_name)
 
-      {:ok, exacts}
-    end
-  end
-
-  defp descendants(module, to_be_renamed) do
-    with {:ok, entries} <- query_for_descendants(module) do
       descendants =
         entries
-        |> Enum.filter(&(entry_matching?(&1, to_be_renamed) and has_dots_in_range?(&1)))
+        |> Enum.filter(
+          &(String.starts_with?(Formats.module(&1.subject), prefix) and
+              entry_matching?(&1, to_be_renamed) and has_dots_in_range?(&1))
+        )
         |> adjust_range_for_descendants(module, to_be_renamed)
 
-      {:ok, descendants}
+      {:ok, exacts ++ descendants}
     end
   end
 
@@ -194,6 +207,36 @@ defmodule Engine.CodeMod.Rename.Module do
   defp to_entries({:ok, entries}), do: {:ok, Enum.map(entries, &Entry.new/1)}
   defp to_entries({:error, _reason} = error), do: error
   defp to_entries([]), do: {:error, :search_store_unavailable}
+
+  defp refresh_entries(entries, predicate) do
+    entries
+    |> Enum.group_by(& &1.path)
+    |> Enum.flat_map(fn {path, _entries} ->
+      case refresh_path(path, predicate) do
+        {:ok, current} -> current
+        {:error, _reason} -> []
+      end
+    end)
+  end
+
+  defp refresh_path(path, predicate) do
+    uri = Document.Path.ensure_uri(path)
+
+    with {:ok, _document} <- Document.Store.open_temporary(uri),
+         {:ok, _document, %Analysis{valid?: true} = analysis} <-
+           Document.Store.fetch(uri, :analysis),
+         {:ok, current_entries} <- Quoted.index_with_cleanup(analysis) do
+      current_entries =
+        current_entries
+        |> Enum.filter(predicate)
+        |> Enum.map(&Entry.new/1)
+
+      {:ok, current_entries}
+    else
+      {:ok, _document, %Analysis{valid?: false}} -> {:error, {:invalid_document, path}}
+      {:error, _reason} = error -> error
+    end
+  end
 
   defp maybe_rename_file(_document, _entries, _replacement, false), do: {:ok, nil}
 
