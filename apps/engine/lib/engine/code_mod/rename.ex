@@ -92,34 +92,52 @@ defmodule Engine.CodeMod.Rename do
   defp ensure_destination_available(analysis, module, range, new_name) do
     old_name = Document.fragment(analysis.document, range.start, range.end)
     {old_suffix, new_suffix} = Rename.Module.Diff.diff(old_name, new_name)
-    target_name = module |> Formats.module() |> String.replace_suffix(old_suffix, new_suffix)
+    source_name = Formats.module(module)
+    target_name = String.replace_suffix(source_name, old_suffix, new_suffix)
 
-    if target_name == Formats.module(module) do
+    if source_name == target_name do
       :ok
     else
-      check_destination(target_name)
+      check_destination(source_name, target_name)
     end
   end
 
-  defp check_destination(target_name) do
-    case ManagerApi.search_store_prefix(Engine.get_project(), target_name,
-           type: :module,
-           subtype: :definition
-         ) do
-      {:ok, definitions} -> check_definitions(definitions, target_name)
-      {:error, _reason} = error -> error
-      [] -> {:error, :search_store_unavailable}
-    end
-  end
+  defp check_destination(source_name, target_name) do
+    project = Engine.get_project()
+    options = [type: :module, subtype: :definition]
 
-  defp check_definitions(definitions, target_name) do
-    Enum.find_value(definitions, :ok, fn definition ->
-      name = Formats.module(definition.subject)
+    with {:ok, source_definitions} <-
+           ManagerApi.search_store_prefix(project, source_name, options),
+         {:ok, destination_definitions} <-
+           ManagerApi.search_store_prefix(project, target_name, options) do
+      moving_names =
+        for definition <- source_definitions,
+            name = Formats.module(definition.subject),
+            name == source_name or String.starts_with?(name, source_name <> "."),
+            into: MapSet.new(),
+            do: name
 
-      if name == target_name or String.starts_with?(name, target_name <> ".") do
-        {:error, {:module_already_exists, name}}
+      produced_names =
+        MapSet.new(moving_names, &String.replace_prefix(&1, source_name, target_name))
+
+      collision =
+        Enum.reduce(destination_definitions, nil, fn definition, collision ->
+          name = Formats.module(definition.subject)
+
+          if MapSet.member?(produced_names, name) and not MapSet.member?(moving_names, name),
+            do: min(name, collision || name),
+            else: collision
+        end)
+
+      if collision do
+        {:error, {:module_already_exists, collision}}
+      else
+        :ok
       end
-    end)
+    else
+      [] -> {:error, :search_store_unavailable}
+      {:error, _reason} = error -> error
+    end
   end
 
   defp start_progress do

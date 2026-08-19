@@ -10,6 +10,7 @@ defmodule Engine.CodeMod.Rename.Module do
   import Forge.Document.Line
 
   alias Engine.CodeIntelligence.Entity
+  alias Engine.CodeMod.Aliases
   alias Engine.CodeMod.Rename
   alias Engine.CodeMod.Rename.Entry
   alias Engine.CodeMod.Rename.Module
@@ -17,7 +18,6 @@ defmodule Engine.CodeMod.Rename.Module do
   alias Engine.Search.Indexer.Quoted
   alias Forge.Ast
   alias Forge.Ast.Analysis
-  alias Forge.Ast.Analysis.Alias
   alias Forge.Ast.Analysis.Scope
   alias Forge.Document
   alias Forge.Document.Edit
@@ -71,6 +71,8 @@ defmodule Engine.CodeMod.Rename.Module do
         rename_files? \\ true
       ) do
     {to_be_renamed, replacement} = old_range |> range_text() |> Module.Diff.diff(new_name)
+    old_name = Formats.module(module)
+    target_name = String.replace_suffix(old_name, to_be_renamed, replacement)
 
     with {:ok, declaration} <- declaration_entry(analysis, old_range, module),
          {:ok, entries} <-
@@ -78,7 +80,14 @@ defmodule Engine.CodeMod.Rename.Module do
       entries
       |> Enum.group_by(&Document.Path.ensure_uri(&1.path))
       |> Enum.reduce_while([], fn {uri, entries}, changes ->
-        case to_document_changes(uri, entries, replacement, rename_files?) do
+        case to_document_changes(
+               uri,
+               entries,
+               replacement,
+               old_name,
+               target_name,
+               rename_files?
+             ) do
           {:ok, document_changes} -> {:cont, [document_changes | changes]}
           {:error, {:file_already_exists, _path}} = error -> {:halt, error}
           {:error, _reason} -> {:cont, changes}
@@ -361,32 +370,65 @@ defmodule Engine.CodeMod.Rename.Module do
     |> put_in([:end, :character], end_character)
   end
 
-  defp to_document_changes(uri, entries, replacement, rename_files?) do
+  defp to_document_changes(uri, entries, replacement, old_name, target_name, rename_files?) do
     with {:ok, _document} <- Document.Store.open_temporary(uri),
          {:ok, document, analysis, origin} <-
            Document.Store.fetch_with_origin(uri, :analysis),
          {:ok, rename_file} <-
            maybe_rename_file(document, entries, replacement, rename_files?) do
+      entries = Enum.reject(entries, &explicit_alias_reference?(document, analysis, &1))
+
+      {grouped_edits, entries} =
+        grouped_alias_edits(analysis, entries, old_name, target_name)
+
       edits =
         entries
-        |> Enum.reject(&explicit_alias_reference?(document, analysis, &1))
-        |> Enum.map(fn entry ->
-          reference? = entry.subtype == :reference
-          entry_replacement = entry.replacement || replacement
-
-          if is_nil(entry.replacement) and reference? and
-               not ancestor_is_alias?(document, entry.edit_range.start) do
-            replacement = replacement |> String.split(".") |> Enum.at(-1)
-            Edit.new(replacement, entry.edit_range)
-          else
-            Edit.new(entry_replacement, entry.edit_range)
-          end
-        end)
+        |> Enum.map(&edit_for_entry(document, &1, replacement))
+        |> Enum.concat(grouped_edits)
+        |> Enum.sort_by(&{&1.range.start.line, &1.range.start.character}, :desc)
 
       expected_version = if origin == :open, do: document.version
       {:ok, Document.Changes.new(document, edits, rename_file, expected_version)}
     end
   end
+
+  defp edit_for_entry(document, entry, replacement) do
+    reference? = entry.subtype == :reference
+    entry_replacement = entry.replacement || replacement
+
+    if is_nil(entry.replacement) and reference? and
+         not ancestor_is_alias?(document, entry.edit_range.start) do
+      replacement = replacement |> String.split(".") |> List.last()
+      Edit.new(replacement, entry.edit_range)
+    else
+      Edit.new(entry_replacement, entry.edit_range)
+    end
+  end
+
+  defp grouped_alias_edits(%Analysis{} = analysis, entries, old_name, target_name) do
+    {aliases, entries} =
+      Enum.reduce(entries, {%{}, []}, fn entry, {aliases, entries} ->
+        case grouped_alias_edit(analysis, entry, old_name, target_name) do
+          {:ok, alias_ast, edit} ->
+            {Map.put(aliases, alias_ast, edit), entries}
+
+          :error ->
+            {aliases, [entry | entries]}
+        end
+      end)
+
+    {Map.values(aliases), Enum.reverse(entries)}
+  end
+
+  defp grouped_alias_edit(
+         analysis,
+         %Entry{subtype: :reference} = entry,
+         old_name,
+         target_name
+       ),
+       do: Aliases.rename_grouped(analysis, entry.range.start, old_name, target_name)
+
+  defp grouped_alias_edit(_analysis, _entry, _old_name, _target_name), do: :error
 
   defp explicit_alias_reference?(document, analysis, %Entry{subtype: :reference} = entry) do
     source = range_text(entry.range)
@@ -399,9 +441,9 @@ defmodule Engine.CodeMod.Rename.Module do
         scope
         |> Scope.alias_map(entry.range.start)
         |> Enum.any?(fn
-          {as, %Alias{explicit_as?: true} = alias} ->
+          {as, %Analysis.Alias{explicit_as?: true} = alias} ->
             alias_name(as) == source and
-              Alias.to_module(alias) == entry.subject
+              Analysis.Alias.to_module(alias) == entry.subject
 
           _alias ->
             false

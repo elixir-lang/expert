@@ -287,10 +287,29 @@ defmodule Engine.CodeMod.RenameTest do
              ~q[
              defmodule |MyApp.Users do
              end
+             defmodule MyApp.Users.Query do
+             end
              defmodule MyApp.Accounts.Query do
              end
              ]
              |> rename("MyApp.Accounts")
+  end
+
+  test "allows an existing destination namespace" do
+    assert {:ok, result} =
+             ~q[
+             defmodule |Parent2 do
+             end
+             defmodule Parent.ChildA do
+             end
+             defmodule Parent.ChildB do
+             end
+             ]
+             |> rename("Parent")
+
+    assert result =~ "defmodule Parent do"
+    assert result =~ "defmodule Parent.ChildA do"
+    assert result =~ "defmodule Parent.ChildB do"
   end
 
   test "rejects rename while proxy is still buffering" do
@@ -541,6 +560,78 @@ defmodule Engine.CodeMod.RenameTest do
         |> rename("MyApp.Members")
 
       assert result =~ ~S[  Users, Members,]
+    end
+
+    test "renames the shared prefix in multi-alias syntax" do
+      {:ok, result} =
+        ~q[
+        defmodule Parent.|Child do
+        end
+
+        defmodule Parent do
+          alias Parent.{Child}
+        end
+        ]
+        |> rename("Parent2.Child")
+
+      assert result =~ ~S[alias Parent2.{Child}]
+    end
+
+    test "preserves grouped-alias siblings when a member changes namespace" do
+      {:ok, result} =
+        ~q[
+        defmodule Parent.|Child do
+        end
+
+        defmodule Consumer do
+          alias Parent.{
+            # keep this comment
+            Child, Other
+          }, warn: false
+        end
+        ]
+        |> rename("Parent2.Child")
+
+      assert result =~ "# keep this comment"
+      assert result =~ "alias Parent2.Child, warn: false\n  alias Parent.Other, warn: false"
+      assert match?({:ok, _, _}, Forge.Ast.from(result))
+    end
+
+    test "renames multiple affected grouped-alias members" do
+      {:ok, result} =
+        ~q[
+        defmodule Parent.|Child do
+        end
+
+        defmodule Parent.Child.Sub do
+        end
+
+        defmodule Consumer do
+          alias Parent.{Other, Child, Child.Sub,}
+        end
+        ]
+        |> rename("Parent2.RenamedChild")
+
+      assert result =~
+               "alias Parent.Other\n  alias Parent2.RenamedChild\n  alias Parent2.RenamedChild.Sub"
+
+      assert match?({:ok, _, _}, Forge.Ast.from(result))
+    end
+
+    test "keeps split grouped aliases inside their enclosing expression" do
+      {:ok, result} =
+        ~q[
+        defmodule Parent.|Child do
+        end
+
+        defmodule Consumer do
+          if enabled?(), do: alias Parent.{Child, Other}
+        end
+        ]
+        |> rename("Parent2.Child")
+
+      assert result =~ "if enabled?(), do: (alias Parent2.Child; alias Parent.Other)"
+      assert match?({:ok, _, _}, Forge.Ast.from(result))
     end
   end
 
