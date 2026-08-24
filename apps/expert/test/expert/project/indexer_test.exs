@@ -304,6 +304,53 @@ defmodule Expert.Project.IndexerTest do
              Store.exact(project, ProjectIndexer.TraceOnly, [])
   end
 
+  test "compiler trace definitions replace stale use definitions", %{
+    project: project,
+    task_supervisor: task_supervisor
+  } do
+    path = "/use_definition.ex"
+
+    stale_entry =
+      [id: 1, subject: ProjectIndexer.Injected, path: path]
+      |> definition()
+      |> Entry.put_metadata(%{via: :use, original_mfa: "OldProvider.injected/0"})
+
+    compiler_entry =
+      [id: 2, subject: ProjectIndexer.Injected, path: path]
+      |> definition()
+      |> Entry.put_metadata(%{via: :use, original_mfa: "ActualProvider.injected/0"})
+
+    impossible_entry =
+      [id: 3, subject: ProjectIndexer.DisabledInjection, path: path]
+      |> definition()
+      |> Entry.put_metadata(%{via: :use, original_mfa: "Provider.disabled/0"})
+
+    patch(EngineApi, :call, fn ^project, Engine.Compilation.TraceBuffer, :drain_definitions, [] ->
+      {:ok, %{path => [compiler_entry]}}
+    end)
+
+    start_supervised!(
+      {Indexer,
+       [
+         project,
+         task_supervisor: task_supervisor,
+         create_index: fn ^project ->
+           {:ok, [stale_entry, impossible_entry], fn -> :ok end}
+         end,
+         update_index: fn ^project, _path_to_ids -> {:ok, [], [], fn -> :ok end} end
+       ]}
+    )
+
+    EngineApi.broadcast(project, project_compiled(project: project, status: :success))
+
+    assert_receive project_index_ready(project: ^project)
+
+    assert {:ok, [%Entry{metadata: %{original_mfa: "ActualProvider.injected/0"}}]} =
+             Store.exact(project, ProjectIndexer.Injected, [])
+
+    assert {:ok, []} = Store.exact(project, ProjectIndexer.DisabledInjection, [])
+  end
+
   defp definition(opts) do
     opts = Keyword.validate!(opts, [:id, :subject, path: "/file.ex"])
 

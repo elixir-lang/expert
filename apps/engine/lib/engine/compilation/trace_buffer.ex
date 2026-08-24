@@ -22,6 +22,19 @@ defmodule Engine.Compilation.TraceBuffer do
 
   def record_module(_path, _binary), do: :ok
 
+  def record_module(path, binary, module, definitions)
+      when is_binary(path) and is_binary(binary) and is_atom(module) and is_list(definitions) do
+    true =
+      :ets.insert(
+        @table,
+        {Forge.Path.native(path), binary, module, definitions}
+      )
+
+    :ok
+  end
+
+  def record_module(_path, _binary, _module, _definitions), do: :ok
+
   @impl GenServer
   def init(%__MODULE__{} = state) do
     _ = :ets.new(@table, [:named_table, :public, :duplicate_bag, write_concurrency: true])
@@ -59,6 +72,13 @@ defmodule Engine.Compilation.TraceBuffer do
 
   defp definitions_from_event({path, binary}) do
     case Beams.extract_definitions_from_binary(binary, path) do
+      {:ok, entries} -> entries
+      :error -> []
+    end
+  end
+
+  defp definitions_from_event({path, binary, module, definitions}) do
+    case Beams.extract_definitions_from_binary(binary, path, module, definitions) do
       {:ok, entries} -> entries
       :error -> []
     end
