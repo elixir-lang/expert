@@ -2,6 +2,7 @@ defmodule Engine.Search.Indexer.Beams do
   import Forge.Document.Line
 
   alias Engine.ApplicationCache
+  alias Engine.Modules
   alias Engine.Progress
   alias Engine.Search.Indexer.Manifest
   alias Engine.Search.Subject
@@ -9,6 +10,7 @@ defmodule Engine.Search.Indexer.Beams do
   alias Forge.Document.Range
   alias Forge.Search.Indexer.Entry
   alias Forge.Search.Indexer.Source.Block
+  alias Future.Code.Typespec
 
   @beam_index_concurrency 16
   @beam_index_chunk_bytes 128 * 1024
@@ -28,9 +30,7 @@ defmodule Engine.Search.Indexer.Beams do
 
       entries =
         metadata
-        |> entries_from_metadata(
-          source_lines(source_path, [metadata |> metadata_position() |> elem(0)])
-        )
+        |> entries_from_metadata(source_lines(source_path, metadata_lines(metadata)))
         |> Enum.filter(&definition?/1)
 
       {:ok, entries}
@@ -204,22 +204,18 @@ defmodule Engine.Search.Indexer.Beams do
   # The debug-info chunk data is backend-owned and opaque. The public contract is
   # to ask the backend to decode it into the Elixir debug-info format we consume.
   defp debug_metadata(beam_path) do
-    with {:ok, {module, [debug_info: {:debug_info_v1, backend, data}]}} <-
-           :beam_lib.chunks(String.to_charlist(beam_path), [:debug_info]),
-         {:ok, metadata} when is_map(metadata) <- backend.debug_info(:elixir_v1, module, data, []) do
-      {:ok, metadata}
-    else
+    case File.read(beam_path) do
+      {:ok, beam} -> debug_metadata_from_binary(beam)
       _ -> :error
     end
-  catch
-    _kind, _reason -> :error
   end
 
   defp debug_metadata_from_binary(beam) do
     with {:ok, {module, [debug_info: {:debug_info_v1, backend, data}]}} <-
            :beam_lib.chunks(beam, [:debug_info]),
          {:ok, metadata} when is_map(metadata) <- backend.debug_info(:elixir_v1, module, data, []) do
-      {:ok, metadata}
+      callbacks = callbacks_from_debug_info(data)
+      {:ok, Map.put(metadata, :callback_metadata, callback_metadata(beam, callbacks))}
     else
       _ -> :error
     end
@@ -229,9 +225,136 @@ defmodule Engine.Search.Indexer.Beams do
 
   defp entries_from_metadata(metadata, source_lines) do
     context = entry_context(metadata)
+    public_entries = public_definition_entries(metadata, context)
 
     module_entries(metadata, context, module_range(metadata, source_lines)) ++
-      public_definition_entries(metadata, context)
+      public_entries ++
+      callback_definition_entries(metadata, context, public_entries, source_lines)
+  end
+
+  defp callbacks_from_debug_info({:elixir_v1, _map, specs}) do
+    for {:attribute, _anno, :callback, value} <- specs, do: value
+  end
+
+  defp callbacks_from_debug_info(_data), do: []
+
+  defp callback_doc_entries(entries) do
+    Enum.flat_map(entries, fn
+      {{kind, name, arity}, _anno, _signature, _doc, _metadata}
+      when kind in [:callback, :macrocallback] and is_atom(name) and is_integer(arity) ->
+        [{kind, name, arity}]
+
+      _entry ->
+        []
+    end)
+  end
+
+  defp callback_metadata(_beam, []), do: []
+
+  defp callback_metadata(beam, callbacks) do
+    # Elixir 1.17's docs chunk does not include :source_annos for callbacks. The
+    # typespec chunk still carries their source line, so join the two chunks:
+    # docs identify callback vs macrocallback and typespecs provide the location.
+    case Modules.fetch_docs(beam) do
+      {:ok, {:docs_v1, _anno, _language, _format, _module_doc, _metadata, entries}} ->
+        positions = callback_positions(callbacks)
+
+        Enum.flat_map(callback_doc_entries(entries), fn {kind, name, arity} ->
+          case Map.get(positions, {kind, Atom.to_string(name), arity}) do
+            {line, column} -> [{kind, name, arity, line, column}]
+            nil -> []
+          end
+        end)
+
+      _ ->
+        []
+    end
+  end
+
+  defp callback_positions(callbacks) do
+    Enum.reduce(callbacks, %{}, &put_callback_positions/2)
+  end
+
+  defp put_callback_positions({{name, arity}, definitions}, positions) do
+    Enum.reduce(definitions, positions, fn definition, positions ->
+      quoted = Typespec.spec_to_quoted(name, definition)
+
+      case typespec_position(quoted) do
+        nil -> positions
+        position -> Map.put_new(positions, callback_identity(name, arity), position)
+      end
+    end)
+  end
+
+  defp callback_identity(name, arity) when is_atom(name) and is_integer(arity) do
+    case Atom.to_string(name) do
+      "MACRO-" <> name when arity > 0 -> {:macrocallback, name, arity - 1}
+      name -> {:callback, name, arity}
+    end
+  end
+
+  defp typespec_position({:"::", metadata, _children}) do
+    case {Keyword.get(metadata, :line), Keyword.get(metadata, :column)} do
+      {line, column}
+      when is_integer(line) and line > 0 and is_integer(column) and column > 0 ->
+        {line, column}
+
+      _ ->
+        nil
+    end
+  end
+
+  defp typespec_position(_quoted), do: nil
+
+  defp callback_definition_entries(metadata, context, public_entries, source_lines) do
+    public_identities = MapSet.new(public_entries, &{&1.subject, &1.type})
+
+    metadata
+    |> Map.get(:callback_metadata, [])
+    |> Enum.flat_map(fn {kind, name, arity, line, column} ->
+      type = public_entry_type(kind)
+      subject = Subject.mfa(context.module, name, arity)
+
+      if MapSet.member?(public_identities, {subject, type}) do
+        []
+      else
+        [
+          Entry.definition(
+            context.source_path,
+            context.root_block,
+            subject,
+            type,
+            callback_definition_range(source_lines, line, column, name),
+            context.app
+          )
+        ]
+      end
+    end)
+  end
+
+  defp callback_definition_range(source_lines, line, fallback_column, name) do
+    # Typespec columns before Elixir 1.18 can point at the return type instead of
+    # the callback name. Prefer the name's span in the actual source line.
+    with line_text when is_binary(line_text) <- Map.get(source_lines, line),
+         {:ok, column, length} <- callback_name_span(line_text, name) do
+      range(line, column, length)
+    else
+      _ -> definition_range([line: line, column: fallback_column], name)
+    end
+  end
+
+  defp callback_name_span(line_text, name) do
+    with {:ok, search_start} <- keyword_search_start(line_text, ["@callback", "@macrocallback"]),
+         {byte_index, byte_length} <-
+           :binary.match(line_text, Atom.to_string(name),
+             scope: {search_start, byte_size(line_text) - search_start}
+           ),
+         {:ok, {column, length}} <-
+           byte_span_to_column_span(line_text, byte_index, byte_length) do
+      {:ok, column, length}
+    else
+      _ -> :error
+    end
   end
 
   defp entry_context(metadata) do
@@ -433,7 +556,7 @@ defmodule Engine.Search.Indexer.Beams do
          metadata,
          protocol_callback?
        ) do
-    type = if definition == :def, do: {:function, :public}, else: {:macro, :public}
+    type = public_entry_type(definition)
 
     entry =
       Entry.definition(
@@ -481,7 +604,7 @@ defmodule Engine.Search.Indexer.Beams do
     with macro_context when is_atom(macro_context) and not is_nil(macro_context) <-
            Keyword.get(metadata, :context),
          true <- macro_context != context.module do
-      type = if definition == :def, do: {:function, :public}, else: {:macro, :public}
+      type = public_entry_type(definition)
 
       entry =
         Entry.definition(
@@ -640,6 +763,9 @@ defmodule Engine.Search.Indexer.Beams do
     end
   end
 
+  defp public_entry_type(kind) when kind in [:def, :callback], do: {:function, :public}
+  defp public_entry_type(_kind), do: {:macro, :public}
+
   defp definition_range(metadata, name) do
     line = Keyword.get(metadata, :line, 1)
     column = Keyword.get(metadata, :column, 1)
@@ -703,15 +829,15 @@ defmodule Engine.Search.Indexer.Beams do
   end
 
   defp module_definition_name_span(line_text, module_name) do
-    with {:ok, search_start_byte} <- module_name_search_start(line_text),
+    with {:ok, search_start_byte} <- keyword_search_start(line_text, ["defmodule", "defprotocol"]),
          {:ok, start_byte, length} <-
            module_name_match(line_text, search_start_byte, module_name) do
       byte_span_to_column_span(line_text, start_byte, length)
     end
   end
 
-  defp module_name_search_start(line_text) do
-    ["defmodule", "defprotocol"]
+  defp keyword_search_start(line_text, keywords) do
+    keywords
     |> Enum.flat_map(&:binary.matches(line_text, &1))
     |> Enum.min_by(&elem(&1, 0), fn -> nil end)
     |> case do
@@ -783,11 +909,18 @@ defmodule Engine.Search.Indexer.Beams do
     results
     |> Enum.group_by(
       fn {:indexed, source_path, _metadata, _manifest_entry} -> source_path end,
-      fn {:indexed, _source_path, metadata, _manifest_entry} ->
-        metadata |> metadata_position() |> elem(0)
-      end
+      fn {:indexed, _source_path, metadata, _manifest_entry} -> metadata end
     )
-    |> Map.new(fn {source_path, lines} -> {source_path, source_lines(source_path, lines)} end)
+    |> Map.new(fn {source_path, metadatas} ->
+      lines = Enum.flat_map(metadatas, &metadata_lines/1)
+      {source_path, source_lines(source_path, lines)}
+    end)
+  end
+
+  defp metadata_lines(metadata) do
+    module_line = metadata |> metadata_position() |> elem(0)
+    callback_lines = Enum.map(Map.get(metadata, :callback_metadata, []), &elem(&1, 3))
+    [module_line | callback_lines]
   end
 
   defp source_lines(source_path, lines) do

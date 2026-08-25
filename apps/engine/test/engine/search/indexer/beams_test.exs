@@ -93,6 +93,62 @@ defmodule Engine.Search.Indexer.BeamsTest do
       refute Enum.any?(entries, &(&1.subject == private_fun and &1.subtype == :definition))
     end
 
+    test "indexes behaviour callbacks from beam docs metadata", %{tmp_dir: tmp_dir} do
+      module = unique_module("BehaviourCallbacks")
+
+      source = """
+      defmodule #{inspect(module)} do
+        @callback exists?(queryable :: term(), opts :: keyword()) :: boolean()
+        @macrocallback build(term()) :: Macro.t()
+      end
+      """
+
+      %{entries: entries} =
+        index_source!(tmp_dir, source,
+          expected_modules: [module],
+          docs?: true,
+          rewrite_source?: false
+        )
+
+      for {name, arity, type, expected} <- [
+            {:exists?, 2, {:function, :public}, "exists?"},
+            {:build, 1, {:macro, :public}, "build"}
+          ] do
+        subject = Formats.mfa(module, name, arity)
+
+        assert [%Entry{type: ^type, range: range}] =
+                 Enum.filter(entries, &(&1.subject == subject and &1.subtype == :definition))
+
+        assert extract(source, range) == expected
+      end
+    end
+
+    test "prefers concrete definitions over same-name callback metadata", %{tmp_dir: tmp_dir} do
+      module = unique_module("ImplementedCallback")
+
+      source = """
+      defmodule #{inspect(module)} do
+        @callback run(term()) :: term()
+        def run(value), do: value
+      end
+      """
+
+      %{entries: entries} =
+        index_source!(tmp_dir, source,
+          expected_modules: [module],
+          docs?: true,
+          rewrite_source?: false
+        )
+
+      subject = Formats.mfa(module, :run, 1)
+
+      assert [%Entry{range: range}] =
+               Enum.filter(entries, &(&1.subject == subject and &1.subtype == :definition))
+
+      assert extract(source, range) == "run"
+      assert range.start.line == 3
+    end
+
     test "indexes definitions from module binaries", %{
       tmp_dir: tmp_dir
     } do
@@ -594,7 +650,10 @@ defmodule Engine.Search.Indexer.BeamsTest do
 
     compiled_modules =
       try do
-        Code.compiler_options(debug_info: Keyword.get(opts, :debug_info?, true))
+        Code.compiler_options(
+          debug_info: Keyword.get(opts, :debug_info?, true),
+          docs: Keyword.get(opts, :docs?, Map.fetch!(compiler_options, :docs))
+        )
 
         assert {:ok, compiled_modules, %{compile_warnings: [], runtime_warnings: []}} =
                  Kernel.ParallelCompiler.compile_to_path([source_path], ebin_path,
