@@ -129,26 +129,70 @@ defmodule Engine.Build.Project do
   end
 
   defp prepare_for_project_build(token) do
+    fetch_dependencies? = prepare_build_tools(token)
+    prepare_dev_dependencies(token, fetch_dependencies?)
+    prepare_dependencies(token, fetch_dependencies?: fetch_dependencies?)
+  end
+
+  defp prepare_build_tools(token) do
     if Internet.connected_to_internet?() do
       Progress.report(token, message: "mix local.hex")
       Mix.Task.run("local.hex", ~w(--force --if-missing))
 
       Progress.report(token, message: "mix local.rebar")
       Mix.Task.run("local.rebar", ~w(--force --if-missing))
-
-      Progress.report(token, message: "mix deps.get")
-      Mix.Task.run("deps.get")
+      true
     else
       Logger.warning("Could not connect to hex.pm, dependencies will not be fetched")
+      false
+    end
+  end
+
+  defp prepare_dev_dependencies(token, fetch_dependencies?) do
+    previous_env = Mix.env()
+
+    try do
+      Mix.env(:dev)
+      clear_mix_state()
+
+      prepare_dependencies(token,
+        fetch_dependencies?: fetch_dependencies?,
+        compile_dependencies?: true
+      )
+    after
+      Mix.env(previous_env)
+      clear_mix_state()
+    end
+  end
+
+  defp prepare_dependencies(token, opts \\ []) do
+    if opts[:fetch_dependencies?] do
+      Progress.report(token, message: "mix deps.get")
+      Mix.Task.run("deps.get")
     end
 
     Progress.report(token, message: "mix loadconfig")
     Mix.Task.run(:loadconfig)
 
-    if not Elixir.Features.compile_keeps_current_directory?() do
-      Progress.report(token, message: "mix deps.compile")
-      Mix.Task.run("deps.safe_compile", ~w(--skip-umbrella-children))
+    if opts[:compile_dependencies?] or not Elixir.Features.compile_keeps_current_directory?() do
+      task = dependency_compile_task()
+      Progress.report(token, message: "mix #{task}")
+      Mix.Task.run(task, ~w(--skip-umbrella-children))
     end
+  end
+
+  defp dependency_compile_task do
+    if Elixir.Features.compile_keeps_current_directory?() do
+      "deps.compile"
+    else
+      "deps.safe_compile"
+    end
+  end
+
+  defp clear_mix_state do
+    Mix.Task.clear()
+    Mix.Dep.clear_cached()
+    Mix.Project.clear_deps_cache()
   end
 
   defp mix_compile_opts do
