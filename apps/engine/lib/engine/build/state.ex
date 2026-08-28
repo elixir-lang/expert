@@ -14,6 +14,7 @@ defmodule Engine.Build.State do
             build_number: 0,
             uri_to_document: %{},
             project_compile: :none,
+            initial_compile?: true,
             last_deps_fetch_result: nil
 
   def new(%Project{} = project) do
@@ -32,7 +33,7 @@ defmodule Engine.Build.State do
     # compiled because they might have unsaved changes, and we want that state
     # to be the latest state of the project.
     new_state =
-      Enum.reduce(new_state.uri_to_document, state, fn {_uri, document}, state ->
+      Enum.reduce(new_state.uri_to_document, new_state, fn {_uri, document}, state ->
         compile_file(state, document)
       end)
 
@@ -118,7 +119,7 @@ defmodule Engine.Build.State do
   defp normalize_fetch_deps_result({:ok, :ok}), do: :ok
   defp normalize_fetch_deps_result(result), do: result
 
-  defp compile_project(%__MODULE__{} = state, initial?) do
+  defp compile_project(%__MODULE__{} = state, force?) do
     state = increment_build_number(state)
     project = state.project
 
@@ -128,7 +129,10 @@ defmodule Engine.Build.State do
 
       Engine.broadcast(compile_requested_message)
       Engine.Compilation.TraceBuffer.discard()
-      {elapsed_us, result} = :timer.tc(fn -> Build.Project.compile(project, initial?) end)
+
+      {elapsed_us, result} =
+        :timer.tc(fn -> Build.Project.compile(project, state.initial_compile?, force?) end)
+
       elapsed_ms = to_ms(elapsed_us)
 
       {compile_message, diagnostics} =
@@ -171,7 +175,7 @@ defmodule Engine.Build.State do
       Engine.broadcast(diagnostics_message)
     end)
 
-    state
+    %__MODULE__{state | initial_compile?: false}
   end
 
   def compile_file(%__MODULE__{} = state, %Document{} = document) do
@@ -244,7 +248,7 @@ defmodule Engine.Build.State do
     :ok
   end
 
-  def mix_compile_opts(initial?) do
+  def mix_compile_opts(force?) do
     opts = ~w(
         --return-errors
         --ignore-module-conflict
@@ -255,7 +259,7 @@ defmodule Engine.Build.State do
         --no-prune-code-paths
     )
 
-    if initial? do
+    if force? do
       ["--force" | opts]
     else
       opts

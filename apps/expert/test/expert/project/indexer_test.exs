@@ -9,6 +9,7 @@ defmodule Expert.Project.IndexerTest do
 
   alias Expert.EngineApi
   alias Expert.Project.Indexer
+  alias Expert.Project.Node, as: ProjectNode
   alias Expert.Search.Store
   alias Expert.Search.Store.Backends.Sqlite
   alias Expert.Test.DispatchFake
@@ -36,6 +37,46 @@ defmodule Expert.Project.IndexerTest do
     on_exit(fn -> Sqlite.destroy_all(project) end)
 
     {:ok, project: project, task_supervisor: task_supervisor}
+  end
+
+  describe "initial project compile" do
+    test "forces compilation when the persisted index is empty", %{
+      project: project,
+      task_supervisor: task_supervisor
+    } do
+      test_pid = self()
+
+      patch(Store, :load_status, fn ^project -> :empty end)
+
+      patch(ProjectNode, :trigger_build, fn ^project, force? ->
+        send(test_pid, {:trigger_build, force?})
+      end)
+
+      start_supervised!(
+        {Indexer, [project, task_supervisor: task_supervisor, initial_compile?: true]}
+      )
+
+      assert_receive {:trigger_build, true}
+    end
+
+    test "uses a normal compilation when a persisted index exists", %{
+      project: project,
+      task_supervisor: task_supervisor
+    } do
+      test_pid = self()
+
+      patch(Store, :load_status, fn ^project -> :stale end)
+
+      patch(ProjectNode, :trigger_build, fn ^project, force? ->
+        send(test_pid, {:trigger_build, force?})
+      end)
+
+      start_supervised!(
+        {Indexer, [project, task_supervisor: task_supervisor, initial_compile?: true]}
+      )
+
+      assert_receive {:trigger_build, false}
+    end
   end
 
   test "creates the initial index after a successful project compile", %{

@@ -9,7 +9,7 @@ defmodule Engine.Build.Project do
 
   require Logger
 
-  def compile(%Project{kind: :mix} = project, initial?) do
+  def compile(%Project{kind: :mix} = project, initial?, force?) do
     Engine.Mix.in_project(fn _ ->
       Logger.info("Building #{Project.display_name(project)}")
 
@@ -17,7 +17,7 @@ defmodule Engine.Build.Project do
         Build.set_progress_token(token)
 
         try do
-          {:done, do_compile(project, initial?, token)}
+          {:done, do_compile(project, initial?, force?, token)}
         after
           Build.clear_progress_token()
         end
@@ -25,7 +25,7 @@ defmodule Engine.Build.Project do
     end)
   end
 
-  def compile(%Project{}, _initial?) do
+  def compile(%Project{}, _initial?, _force?) do
     :ok
   end
 
@@ -54,7 +54,7 @@ defmodule Engine.Build.Project do
     :ok
   end
 
-  defp do_compile(project, initial?, token) do
+  defp do_compile(project, initial?, force?, token) do
     Mix.Task.clear()
 
     if initial? do
@@ -66,7 +66,7 @@ defmodule Engine.Build.Project do
     compile_fun = fn ->
       Mix.Task.clear()
       Progress.report(token, message: "Compiling #{Project.display_name(project)}")
-      result = compile_in_isolation(initial?)
+      result = compile_in_isolation(force?)
       maybe_load_modules()
       Engine.Mix.ensure_hex_and_rebar()
       Mix.Task.run(:loadpaths)
@@ -105,10 +105,10 @@ defmodule Engine.Build.Project do
     end
   end
 
-  defp compile_in_isolation(initial?) do
+  defp compile_in_isolation(force?) do
     compile_fun = fn ->
       Engine.Mix.ensure_hex_and_rebar()
-      Mix.Task.run(:compile, Build.State.mix_compile_opts(initial?))
+      Mix.Task.run(:compile, Build.State.mix_compile_opts(force?))
     end
 
     case Isolation.invoke(compile_fun) do

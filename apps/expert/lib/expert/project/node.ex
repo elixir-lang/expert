@@ -41,10 +41,10 @@ defmodule Expert.Project.Node do
     |> GenServer.call(:node_name)
   end
 
-  def trigger_build(%Project{} = project) do
+  def trigger_build(%Project{} = project, force? \\ true) do
     project
     |> name()
-    |> GenServer.cast(:trigger_build)
+    |> GenServer.cast({:trigger_build, force?})
   end
 
   @impl GenServer
@@ -77,8 +77,8 @@ defmodule Expert.Project.Node do
   end
 
   @impl GenServer
-  def handle_cast(:trigger_build, %State{} = state) do
-    EngineApi.schedule_compile(state.project, true)
+  def handle_cast({:trigger_build, force?}, %State{} = state) do
+    EngineApi.schedule_compile(state.project, force?)
     {:noreply, state}
   end
 
