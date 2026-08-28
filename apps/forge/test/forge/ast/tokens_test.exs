@@ -215,5 +215,25 @@ defmodule Forge.Ast.TokensTest do
                 ], {1, 1}}
              ]
     end
+
+    test "handles interpolations starting with bitstring literal" do
+      text = ~S'"foo#{<<letter>>}"|'
+
+      {position, document} = pop_cursor(text, as: :document)
+      tokens = Tokens.prefix_stream(document, position)
+
+      assert Enum.to_list(tokens) == [
+               {:interpolated_string,
+                [
+                  {:literal, "foo", {{1, 1}, {1, 4}}},
+                  {:interpolation,
+                   [
+                     {:"<<", {1, 7, nil}},
+                     {:identifier, {1, 9, ~c"letter"}, :letter},
+                     {:">>", {1, 15, nil}}
+                   ], {{1, 7}, {1, 17}}}
+                ], {1, 1}}
+             ]
+    end
   end
 end
