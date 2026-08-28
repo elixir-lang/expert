@@ -168,7 +168,7 @@ defmodule Forge.Ast.Tokens do
   end
 
   defp get_start_pos([{token, {start_line, start_column, _}} | _])
-       when token in [:"(", :"[", :"{", :%, :%{}] do
+       when token in [:"(", :"[", :"{", :"<<", :%, :%{}] do
     {start_line, start_column}
   end
 
