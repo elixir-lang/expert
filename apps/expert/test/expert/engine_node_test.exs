@@ -28,6 +28,26 @@ defmodule Expert.EngineNodeTest do
     assert_eventually(Process.whereis(EngineNode.name(project)) == nil, :timer.seconds(5))
   end
 
+  test "replies to a pending stopper when the monitored process dies", %{project: project} do
+    reply_ref = make_ref()
+
+    state = %{
+      EngineNode.State.new(project)
+      | status: :stopping,
+        stopped_by: {self(), reply_ref}
+    }
+
+    patch(EngineNode.State, :on_monitored_dead, fn _state -> state end)
+
+    assert {:stop, :shutdown, ^state} =
+             EngineNode.handle_info(
+               {:DOWN, make_ref(), :process, self(), :shutdown},
+               state
+             )
+
+    assert_receive {^reply_ref, :ok}
+  end
+
   test "it should be stopped atomically when the startup process is dead", %{project: project} do
     test_pid = self()
 
