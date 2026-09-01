@@ -112,7 +112,7 @@ defmodule Engine.Build.State do
   def last_deps_fetch_result(%__MODULE__{last_deps_fetch_result: result}), do: result
 
   def edit_window_millis do
-    Application.get_env(:engine, :edit_window_millis, 1000)
+    Application.get_env(:engine, :edit_window_millis, 100)
   end
 
   defp normalize_fetch_deps_result({:ok, :ok}), do: :ok
