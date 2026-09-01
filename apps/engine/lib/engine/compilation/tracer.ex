@@ -53,17 +53,7 @@ defmodule Engine.Compilation.Tracer do
 
   defp maybe_record_module(file, module_binary, module)
        when is_binary(file) and is_binary(module_binary) and is_atom(module) do
-    definitions =
-      module
-      |> Module.definitions_in()
-      |> Enum.flat_map(fn definition ->
-        case Module.get_definition(module, definition, skip_clauses: true) do
-          {:v1, kind, metadata, []} -> [{definition, kind, metadata}]
-          _ -> []
-        end
-      end)
-
-    TraceBuffer.record_module(file, module_binary, module, definitions)
+    TraceBuffer.record_module(file, module_binary, module)
   end
 
   defp maybe_record_module(_file, _module_binary, _module), do: :ok

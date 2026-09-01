@@ -22,18 +22,12 @@ defmodule Engine.Compilation.TraceBuffer do
 
   def record_module(_path, _binary), do: :ok
 
-  def record_module(path, binary, module, definitions)
-      when is_binary(path) and is_binary(binary) and is_atom(module) and is_list(definitions) do
-    true =
-      :ets.insert(
-        @table,
-        {Forge.Path.native(path), binary, module, definitions}
-      )
-
-    :ok
+  def record_module(path, binary, module)
+      when is_binary(path) and is_binary(binary) and is_atom(module) do
+    GenServer.cast(__MODULE__, {:record_module, path, binary, module})
   end
 
-  def record_module(_path, _binary, _module, _definitions), do: :ok
+  def record_module(_path, _binary, _module), do: :ok
 
   @impl GenServer
   def init(%__MODULE__{} = state) do
@@ -51,6 +45,27 @@ defmodule Engine.Compilation.TraceBuffer do
     definitions = definitions_by_path(live_events())
     clear_live()
     {:reply, {:ok, definitions}, state}
+  end
+
+  @impl GenServer
+  def handle_cast({:record_module, path, binary, module}, state) do
+    definitions =
+      module
+      |> Module.definitions_in()
+      |> Enum.flat_map(fn definition ->
+        case Module.get_definition(module, definition, skip_clauses: true) do
+          {:v1, kind, metadata, []} -> [{definition, kind, metadata}]
+          _ -> []
+        end
+      end)
+
+    true =
+      :ets.insert(
+        @table,
+        {Forge.Path.native(path), binary, module, definitions}
+      )
+
+    {:noreply, state}
   end
 
   defp call(message, timeout \\ 5_000), do: GenServer.call(__MODULE__, message, timeout)
