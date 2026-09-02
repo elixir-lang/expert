@@ -140,7 +140,9 @@ defmodule Expert.Project.DiagnosticsTest do
         project,
         project_diagnostics(
           build_number: 1,
-          diagnostics: [diagnostic(document.uri, message: "boundary warning")]
+          diagnostics: [
+            diagnostic(document.uri, message: "boundary warning", source: "Boundary")
+          ]
         )
       )
 
@@ -153,6 +155,39 @@ defmodule Expert.Project.DiagnosticsTest do
                         params: %PublishDiagnosticsParams{
                           diagnostics: [%Structures.Diagnostic{message: "boundary warning"}]
                         }
+                      }}
+    end
+
+    test "it clears stale project compiler diagnostics when a file compiles cleanly", %{
+      project: project
+    } do
+      document = open_file(project, "defmodule Dummy")
+
+      EngineApi.broadcast(
+        project,
+        project_diagnostics(
+          build_number: 1,
+          diagnostics: [
+            diagnostic(document.uri,
+              message: "undefined function missing/0",
+              source: "Elixir"
+            )
+          ]
+        )
+      )
+
+      assert_receive {:transport, %TextDocumentPublishDiagnostics{}}
+
+      {:ok, document} =
+        Document.Store.get_and_update(document.uri, fn document ->
+          {:ok, Document.mark_dirty(document)}
+        end)
+
+      EngineApi.broadcast(project, file_diagnostics(build_number: 2, uri: document.uri))
+
+      assert_receive {:transport,
+                      %TextDocumentPublishDiagnostics{
+                        params: %PublishDiagnosticsParams{diagnostics: []}
                       }}
     end
   end
