@@ -18,6 +18,11 @@ defmodule Engine.Build.Isolation do
         Process.demonitor(ref, [:flush])
         {:ok, result}
 
+      {:DOWN, ^ref, :process, ^pid, {reason, stacktrace}} when is_list(stacktrace) ->
+        # normalize the error into an exception struct so callers can handle it.
+
+        {:error, {Exception.normalize(:error, reason, stacktrace), stacktrace}}
+
       {:DOWN, ^ref, :process, ^pid, reason} ->
         {:error, reason}
     end

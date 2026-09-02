@@ -99,6 +99,11 @@ defmodule Expert.Project.Diagnostics.State do
     %__MODULE__{state | file_entries_by_uri: file_entries_by_uri}
   end
 
+  def add_file(%__MODULE__{} = state, _build_number, unknown) do
+    Logger.error("Tried to add #{inspect(unknown)} as a diagnostic.")
+    state
+  end
+
   defp add_to_entries(entries_by_uri, build_number, diagnostic) do
     Map.update(
       entries_by_uri,
