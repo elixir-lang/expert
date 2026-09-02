@@ -66,6 +66,10 @@ defmodule Engine.Compilation.TraceBuffer do
       )
 
     {:noreply, state}
+  rescue
+    _ ->
+      record_module(path, binary)
+      {:noreply, state}
   end
 
   defp call(message, timeout \\ 5_000), do: GenServer.call(__MODULE__, message, timeout)
