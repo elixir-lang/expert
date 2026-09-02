@@ -512,6 +512,22 @@ defmodule Engine.Build.ErrorTest do
       assert decorate(document_text, diagnostic.position) =~ "«defmodule Foo do\n»"
     end
 
+    test "handles Kernel.TypespecError" do
+      document_text = ~S[defmodule Foo do
+        @spec bar() :: undefined_type()
+        def bar, do: :ok
+      end
+      ]
+
+      diagnostic =
+        document_text
+        |> compile()
+        |> diagnostic()
+
+      assert diagnostic.message =~ ~s[type undefined_type/0 undefined]
+      assert decorate(document_text, diagnostic.position) =~ "«@spec bar() :: undefined_type()\n»"
+    end
+
     test "handles ExUnit.DuplicateTestError" do
       document_text = ~s[
         defmodule FooTest do

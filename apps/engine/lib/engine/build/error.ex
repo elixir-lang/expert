@@ -197,6 +197,33 @@ defmodule Engine.Build.Error do
     Diagnostic.new(source.uri, position, message, :error, @elixir_source)
   end
 
+  def error_to_diagnostic(
+        %Document{} = source,
+        %Kernel.TypespecError{} = typespec_error,
+        _stack,
+        _quoted_ast
+      ) do
+    path = typespec_error.file || source.path
+    position = Location.position(typespec_error.line || 1)
+    message = Exception.message(typespec_error)
+
+    Diagnostic.new(path, position, message, :error, @elixir_source)
+  end
+
+  def error_to_diagnostic(%Document{} = source, unhandled, stack, _quoted_ast) do
+    # Fallback for everything not captured above
+    message =
+      if is_exception(unhandled) do
+        Exception.message(unhandled)
+      else
+        inspect(unhandled)
+      end
+
+    position = Location.stack_to_position(stack) || 1
+
+    Diagnostic.new(source.uri, position, message, :error, @elixir_source)
+  end
+
   def message_to_diagnostic(%Document{} = document, message_string) do
     message_string
     |> extract_individual_messages()
