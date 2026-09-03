@@ -339,6 +339,7 @@ defmodule Expert.EngineNode do
   @impl true
   def handle_info({:DOWN, _ref, :process, _object, _reason}, %State{} = state) do
     state = State.on_monitored_dead(state)
+    State.maybe_reply_to_stopper(state)
     {:stop, :shutdown, state}
   end
 

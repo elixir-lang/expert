@@ -1,6 +1,7 @@
 defmodule Expert.Project.NodeTest do
   use ExUnit.Case
   use Forge.Test.EventualAssertions
+  use Patch
 
   import Forge.EngineApi.Messages
   import Forge.Test.Fixtures
@@ -27,6 +28,18 @@ defmodule Expert.Project.NodeTest do
 
   test "the project should be compiled when the node starts" do
     assert_receive project_compiled(), :timer.seconds(15)
+  end
+
+  test "trigger_build forwards the requested compile mode", %{project: project} do
+    test_pid = self()
+
+    patch(EngineApi, :schedule_compile, fn ^project, force? ->
+      send(test_pid, {:schedule_compile, force?})
+    end)
+
+    EngineNode.trigger_build(project, false)
+
+    assert_receive {:schedule_compile, false}
   end
 
   test "remote control is started when the node starts", %{project: project} do

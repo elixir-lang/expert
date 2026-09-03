@@ -85,7 +85,8 @@ defmodule Expert.Project.Indexer do
 
   @impl GenServer
   def handle_continue(:maybe_initial_compile, %State{initial_compile?: true} = state) do
-    Node.trigger_build(state.project)
+    force? = Search.Store.load_status(state.project) not in [:stale, :ready]
+    Node.trigger_build(state.project, force?)
     {:noreply, state}
   end
 

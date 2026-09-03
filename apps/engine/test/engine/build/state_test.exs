@@ -107,7 +107,7 @@ defmodule Engine.Build.StateTest do
       State.on_file_compile(state, document)
 
       refute_called(Build.Document.compile(document))
-      refute_called(Build.Project.compile(_, _))
+      refute_called(Build.Project.compile(_, _, _))
     end
 
     test "it compiles files when on_timeout is called", %{state: state, document: document} do
@@ -116,7 +116,7 @@ defmodule Engine.Build.StateTest do
       |> State.on_timeout()
 
       assert_called(Build.Document.compile(document))
-      refute_called(Build.Project.compile(_, _))
+      refute_called(Build.Project.compile(_, _, _))
     end
   end
 
@@ -125,12 +125,12 @@ defmodule Engine.Build.StateTest do
 
     test "doesn't compile immediately if forced", %{state: state} do
       State.on_project_compile(state, true)
-      refute_called(Build.Project.compile(_, _))
+      refute_called(Build.Project.compile(_, _, _))
     end
 
     test "doesn't compile immediately", %{state: state} do
       State.on_project_compile(state, false)
-      refute_called(Build.Project.compile(_, _))
+      refute_called(Build.Project.compile(_, _, _))
     end
 
     test "compiles if force is true after on_timeout is called", %{state: state} do
@@ -138,7 +138,7 @@ defmodule Engine.Build.StateTest do
       |> State.on_project_compile(true)
       |> State.on_timeout()
 
-      assert_called(Build.Project.compile(_, true))
+      assert_called(Build.Project.compile(_, true, true))
     end
 
     test "compiles after on_timeout is called", %{state: state} do
@@ -146,7 +146,21 @@ defmodule Engine.Build.StateTest do
       |> State.on_project_compile(false)
       |> State.on_timeout()
 
-      assert_called(Build.Project.compile(_, false))
+      assert_called(Build.Project.compile(_, true, false))
+    end
+
+    test "prepares the project only during the first compile", %{state: state} do
+      state =
+        state
+        |> State.on_project_compile(false)
+        |> State.on_timeout()
+
+      state
+      |> State.on_project_compile(true)
+      |> State.on_timeout()
+
+      assert_called(Build.Project.compile(_, true, false), 1)
+      assert_called(Build.Project.compile(_, false, true), 1)
     end
   end
 
@@ -162,7 +176,7 @@ defmodule Engine.Build.StateTest do
       |> State.on_file_compile(document)
 
       refute_called(Build.Document.compile(_))
-      refute_called(Build.Project.compile(_, _))
+      refute_called(Build.Project.compile(_, _, _))
     end
 
     test "compiles when on_timeout is called if both documents and projects are added", %{
@@ -175,7 +189,7 @@ defmodule Engine.Build.StateTest do
       |> State.on_timeout()
 
       assert_called(Build.Document.compile(_))
-      assert_called(Build.Project.compile(_, _))
+      assert_called(Build.Project.compile(_, _, _))
     end
   end
 
@@ -196,7 +210,7 @@ defmodule Engine.Build.StateTest do
     test "project compilation returns :ok without calling Mix", %{state: state} do
       patch(Engine.Mix, :in_project, fn _project, _fun -> {:error, :should_not_be_called} end)
 
-      assert Engine.Build.Project.compile(state.project, true) == :ok
+      assert Engine.Build.Project.compile(state.project, true, false) == :ok
 
       refute_called(Engine.Mix.in_project(_, _))
     end
