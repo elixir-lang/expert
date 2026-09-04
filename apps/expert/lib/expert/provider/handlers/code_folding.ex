@@ -40,6 +40,9 @@ defmodule Expert.Provider.Handlers.CodeFolding do
   defp block_ranges(ast) do
     {_, ranges} =
       Macro.prewalk(ast, [], fn
+        {:fn, meta, _clauses} = node, acc when is_list(meta) ->
+          {node, collect_anonymous_function(meta, acc)}
+
         {_form, meta, _args} = node, acc when is_list(meta) ->
           {node, collect_block(meta, acc)}
 
@@ -63,6 +66,17 @@ defmodule Expert.Provider.Handlers.CodeFolding do
     end
   end
 
+  defp collect_anonymous_function(meta, acc) do
+    opening_line = Keyword.get(meta, :line)
+    closing_line = meta_line(meta, :closing)
+
+    if is_integer(opening_line) and is_integer(closing_line) do
+      [{opening_line, closing_line} | acc]
+    else
+      acc
+    end
+  end
+
   defp meta_line(meta, key) do
     case Keyword.get(meta, key) do
       keyword when is_list(keyword) -> Keyword.get(keyword, :line)
@@ -70,9 +84,9 @@ defmodule Expert.Provider.Handlers.CodeFolding do
     end
   end
 
-  defp to_block_folding_range({do_line, end_line}) do
-    start_line = do_line - 1
-    last_line = end_line - 2
+  defp to_block_folding_range({opening_line, closing_line}) do
+    start_line = opening_line - 1
+    last_line = closing_line - 2
 
     if last_line > start_line do
       %Structures.FoldingRange{start_line: start_line, end_line: last_line}

@@ -102,6 +102,48 @@ defmodule Expert.Provider.Handlers.CodeFoldingTest do
     end
   end
 
+  describe "anonymous functions" do
+    test "folds a multi-line anonymous function" do
+      source = """
+      callback = fn value ->
+        value + 1
+      end
+      """
+
+      assert fold(source) == [range(0, 1)]
+    end
+
+    test "folds nested anonymous functions" do
+      source = """
+      outer = fn value ->
+        inner = fn ->
+          value
+        end
+        inner.()
+      end
+      """
+
+      assert fold(source) == [range(0, 4), range(1, 2)]
+    end
+
+    test "folds a multi-clause anonymous function" do
+      source = """
+      formatter = fn
+        :ok ->
+          "ok"
+        :error ->
+          "error"
+      end
+      """
+
+      assert fold(source) == [range(0, 4)]
+    end
+
+    test "does not fold a single-line anonymous function" do
+      assert fold("callback = fn value -> value end\n") == []
+    end
+  end
+
   describe "heredocs" do
     test "folds a multi-line @moduledoc heredoc" do
       source = """
