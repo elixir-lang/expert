@@ -45,7 +45,7 @@ defmodule Forge.MixProject do
       {:gen_lsp, "~> 0.11.3"},
       {:logger_backends, "~> 1.0"},
       {:sourceror, "~> 1.12.2"},
-      {:spitfire, "~> 0.3.5"},
+      {:spitfire, "~> 0.4.1"},
       {:stream_data, "~> 1.1", only: [:test], runtime: false},
       {:patch, "~> 0.15", only: [:test], optional: true, runtime: false},
       {:quokka, "~> 2.12", only: [:dev, :test], runtime: false}
