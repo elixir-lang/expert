@@ -11,7 +11,7 @@ defmodule Engine.Search.Indexer.Source do
 
   def index_document(%Document{} = document, extractors \\ nil) do
     document
-    |> Ast.analyze()
+    |> Ast.analyze(expand_uses: true)
     |> Indexer.Quoted.index(extractors)
   end
 end
