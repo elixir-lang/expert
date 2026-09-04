@@ -64,6 +64,8 @@ defmodule Expert.Project.Diagnostics do
         file_diagnostics(uri: uri, build_number: build_number, diagnostics: diagnostics),
         %State{} = state
       ) do
+    state = State.clear_stale_project_diagnostics(state, uri)
+
     state =
       case diagnostics do
         [] ->

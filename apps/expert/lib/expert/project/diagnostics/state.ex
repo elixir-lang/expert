@@ -70,6 +70,19 @@ defmodule Expert.Project.Diagnostics.State do
     %__MODULE__{state | file_entries_by_uri: file_entries}
   end
 
+  def clear_stale_project_diagnostics(%__MODULE__{} = state, source_uri) do
+    case Document.Store.fetch(source_uri) do
+      {:ok, %Document{dirty?: true}} ->
+        entries_by_uri =
+          Map.put(state.entries_by_uri, source_uri, Entry.new(0))
+
+        %__MODULE__{state | entries_by_uri: entries_by_uri}
+
+      _ ->
+        state
+    end
+  end
+
   @doc """
   Only clear diagnostics if they've been synced to disk
   It's possible that the diagnostic presented by typing is still correct, and the file
