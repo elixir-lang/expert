@@ -255,7 +255,7 @@ defmodule Expert.Port do
   defp path_env_at_directory(directory, shell) do
     env = [
       {"SHELL_SESSIONS_DISABLE", "1"},
-      {"PATH", System.get_env("PATH", @default_unix_path)}
+      {"PATH", filter_release_root_from_path()}
     ]
 
     args = path_fetch_cmd_args(shell, directory)
