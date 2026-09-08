@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.1.10](https://github.com/expert-lsp/expert/compare/v0.1.9...v0.1.10) (2026-09-08)
+
+
+### Bug Fixes
+
+* don't reverse text document params ([#884](https://github.com/expert-lsp/expert/issues/884)) ([#888](https://github.com/expert-lsp/expert/issues/888)) ([439baba](https://github.com/expert-lsp/expert/commit/439babaf8079dc4becf9284dba117bce349d6e68))
+* **expert:** remove release root entries from subprocess PATH ([#887](https://github.com/expert-lsp/expert/issues/887)) ([76c397e](https://github.com/expert-lsp/expert/commit/76c397e90a373080a219282f55889a857022027f))
+* **forge:** handle bitstrings in interpolation ([#867](https://github.com/expert-lsp/expert/issues/867)) ([2857497](https://github.com/expert-lsp/expert/commit/28574972dcd9bda48c333bc4f624ab551cdd1b5c))
+* relax Hex connectivity timeout ([#859](https://github.com/expert-lsp/expert/issues/859)) ([26e76f5](https://github.com/expert-lsp/expert/commit/26e76f5355a57e0ebfb539fdae3bb6081a2f791c))
+* use host resolution to check internet ([#885](https://github.com/expert-lsp/expert/issues/885)) ([cda725c](https://github.com/expert-lsp/expert/commit/cda725ce427c736e8dd0c1dd21116da6ddad2f2d))
+
 ## [0.1.9](https://github.com/expert-lsp/expert/compare/v0.1.8...v0.1.9) (2026-08-14)
 
 
