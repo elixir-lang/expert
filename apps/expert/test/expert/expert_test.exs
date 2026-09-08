@@ -861,6 +861,76 @@ defmodule ExpertTest do
   end
 
   describe "text document changes" do
+    test "applies batched incremental changes against the preceding change", %{
+      client: client,
+      project_root: project_root,
+      main_project: main_project
+    } do
+      test_pid = self()
+
+      change = fn line, character, text ->
+        position = %{line: line, character: character}
+        %{text: text, range: %{start: position, end: position}}
+      end
+
+      patch(Expert.EngineApi, :broadcast, fn _project, _message -> :ok end)
+
+      patch(Expert.EngineApi, :compile_document, fn _project, document ->
+        send(test_pid, {:compiled_document, Document.to_string(document)})
+        :ok
+      end)
+
+      assert :ok =
+               request(
+                 client,
+                 initialize_request(project_root, id: 1, projects: [main_project])
+               )
+
+      assert_result(1, _)
+      assert Expert.Project.Store.transition(main_project, :ready)
+
+      file_uri =
+        Document.Path.to_uri(Path.join([project_root, "main", "lib", "sequential_changes.ex"]))
+
+      assert :ok =
+               notify(client, %{
+                 method: "textDocument/didOpen",
+                 jsonrpc: "2.0",
+                 params: %{
+                   textDocument: %{
+                     uri: file_uri,
+                     languageId: "elixir",
+                     version: 1,
+                     text: "defmodule Repro do"
+                   }
+                 }
+               })
+
+      assert_eventually(match?({:ok, _document}, Document.Store.fetch(file_uri)))
+
+      assert :ok =
+               notify(client, %{
+                 method: "textDocument/didChange",
+                 jsonrpc: "2.0",
+                 params: %{
+                   textDocument: %{uri: file_uri, version: 2},
+                   contentChanges: [
+                     change.(0, 18, "\n"),
+                     change.(1, 0, "d"),
+                     change.(1, 1, "e"),
+                     change.(1, 2, "f")
+                   ]
+                 }
+               })
+
+      expected = "defmodule Repro do\ndef"
+
+      assert_receive {:compiled_document, compiled_document}
+      assert compiled_document == expected
+      assert {:ok, document} = Document.Store.fetch(file_uri)
+      assert Document.to_string(document) == expected
+    end
+
     test "compileOnType controls document compilation without suppressing change broadcasts", %{
       client: client,
       project_root: project_root,
